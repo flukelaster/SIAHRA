@@ -1,7 +1,7 @@
 <!--
 กติกา PR ของ SIAHRA (บังคับด้วย ruleset + workflow `PR rules`):
 - main รับได้เฉพาะ PR ที่ Lint / TypeScript / Build / PR screenshot ผ่าน
-- แก้ UI (apps/web/src/components, scene, index.css, public/…) → ต้องมีภาพหน้าจอในคำอธิบายนี้
+- แก้ UI (apps/web/src/components, scene, index.css, public/*) → ต้องมีภาพหน้าจอในคำอธิบายนี้
   ลากไฟล์ PNG มาวางที่นี่ หรือจาก CLI: scripts/pr-media.sh "$(git branch --show-current)" shot.png
   แล้ววาง Markdown ที่มันพิมพ์ออกมา  (ไม่มีอะไรเปลี่ยนตาที่มองเห็น → ติดป้าย `no-screenshot`)
 -->

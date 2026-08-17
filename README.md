@@ -181,7 +181,7 @@ Build ───────┘
 - **TypeScript** — `tsc -b` (apps/web), `tsc --noEmit` (apps/api, apps/etl); the same commands as the pre-push checklist in [`AGENTS.md`](AGENTS.md)
 - **Build** — production web build, then `wrangler deploy --dry-run` to bundle the Worker against it, plus a guard on the Workers static-asset limits (≤ 20,000 files, ≤ 25 MiB each)
 
-**`pr-rules.yml`** enforces the conventions a branch ruleset can't express: a PR that touches UI files (`apps/web/src/{components,scene}`, `index.css`, `public/**` …) must embed a screenshot in its description, or carry the `no-screenshot` label. `pr-image-cleanup.yml` / `pr-cache-cleanup.yml` tidy up screenshot releases and npm caches when a PR closes; `dependabot.yml` batches minor/patch bumps weekly and opens majors one-by-one.
+**`pr-rules.yml`** enforces the conventions a branch ruleset can't express: a PR that touches UI files (`apps/web/src/{components,scene}`, `index.css`, `public/*` …) must embed a screenshot in its description, or carry the `no-screenshot` label. `pr-image-cleanup.yml` / `pr-cache-cleanup.yml` tidy up screenshot releases and npm caches when a PR closes; `dependabot.yml` batches minor/patch bumps weekly and opens majors one-by-one.
 
 **Rules on `main`** ([`.github/rulesets/main.json`](.github/rulesets/main.json), applied with `scripts/apply-branch-rules.sh`): no direct pushes, no force-push or deletion, every change via a pull request with `Lint`, `TypeScript`, `Build` and `PR screenshot` green.
 

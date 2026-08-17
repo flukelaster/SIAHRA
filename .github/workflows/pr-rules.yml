@@ -41,8 +41,10 @@ jobs:
               - 'apps/web/src/branding.ts'
               - 'apps/web/src/components/**'
               - 'apps/web/src/scene/**'
-              - 'apps/web/public/**'
-              - '!apps/web/public/aoi/**'
+              # Top-level assets only (favicon.svg, icons.svg …). NOT `public/**` minus
+              # `aoi/**`: paths-filter's default quantifier treats a `!` pattern as
+              # "matches anything outside aoi", which flags every file in the PR.
+              - 'apps/web/public/*'
       - name: Check the PR body for an image
         env:
           UI_CHANGED: ${{ steps.ui.outputs.ui }}
