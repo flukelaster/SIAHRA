@@ -34,10 +34,6 @@
     "ALLOWED_ORIGINS": ""
   },
 
-  "kv_namespaces": [
-    { "binding": "CONFIG", "id": "local-dev-config-placeholder" }
-  ],
-
   "r2_buckets": [
     { "binding": "HAZARD_BUCKET", "bucket_name": "siahra-geodata" }
   ],

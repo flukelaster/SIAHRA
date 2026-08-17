@@ -71,7 +71,7 @@ prefix `/aoi/` มีทั้ง manifest/overview ที่เป็น static
 
 ## 3. wrangler.jsonc / secrets
 ทั้งหมดนี้อยู่ที่ `apps/api/wrangler.jsonc` — `apps/web/wrangler.jsonc` ไม่มี secret และไม่มี binding
-- `kv_namespaces.CONFIG` มี id placeholder — ลบออกหรือสร้างจริงด้วย `npx wrangler kv namespace create CONFIG`
+- ไม่มี KV binding แล้ว: `CONFIG` เคยมี id เป็น placeholder และไม่มีโค้ดไหนอ่านมันเลย จึงถอดออก (ถ้าวันหน้าต้องเก็บ config ที่เปลี่ยนช้า ๆ ค่อย `npx wrangler kv namespace create CONFIG` แล้วใส่ id จริงกลับมา)
 - ตั้งค่า `TMD_UID`, `TMD_UKEY` (ลงทะเบียนที่ data.tmd.go.th) ผ่าน `npx wrangler secret put TMD_UKEY` แล้วลบ default ออกจาก `vars`
 - `ALLOWED_ORIGINS`: ว่าง = same-origin เท่านั้น — ไม่ต้องตั้ง เพราะ route ของสอง Worker อยู่บน host
   เดียวกัน (`siahra-radar.co`) ตามหัวข้อ 0.1 ; ถ้าวันหน้าย้าย SPA ไปคนละ host ต้องใส่ origin ของ SPA ที่นี่
