@@ -3,14 +3,21 @@
   "name": "siahra-web",
   "compatibility_date": "2026-08-16",
 
-  // Assets-only Worker: no `main`, so there is no Worker code to run and every
-  // request is answered straight from the uploaded bundle. Deploying the SPA
-  // therefore never touches `siahra-api` (Durable Objects, cron, R2) and vice
-  // versa — that split is the whole point of having two configs.
+  // Almost everything here is a static asset; `worker/index.ts` exists only to
+  // read the R2 tile pyramid (see the file's header). Deploying this Worker
+  // still never touches `siahra-api` (Durable Objects, cron) and vice versa —
+  // that split is the whole point of having two configs.
+  "main": "worker/index.ts",
+
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
     "not_found_handling": "single-page-application"
   },
+
+  "r2_buckets": [
+    { "binding": "HAZARD_BUCKET", "bucket_name": "siahra-geodata" }
+  ],
 
   // A Custom Domain, not a route: this Worker *is* the site's origin, and a
   // Custom Domain points every path of the hostname here and creates the proxied
@@ -33,13 +40,13 @@
   // rejected with 403, so don't publish one.
   "workers_dev": false,
 
+  // Deliberately NO `run_worker_first`: verified in `wrangler dev` that
+  // `not_found_handling: "single-page-application"` only answers *navigation*
+  // requests (wrangler logs `Sec-Fetch-Mode: navigate` when it applies). A
+  // `fetch()` for a tile that is not in the asset bundle falls through to the
+  // Worker instead, which is what we want — and it means the tracked static
+  // files under /aoi/ keep being served by the asset layer without paying a
+  // Worker invocation. Re-check this if the SPA fallback ever swallows a tile
+  // request (symptom: tile URLs answering `200 text/html`).
   "observability": { "enabled": true }
-
-  // Still to come (docs/deploy.md §2): the R2 tile route for
-  // /aoi/{code}/(terrain|buildings|features|landcover)/{z}/{x}_{y}.bin. It
-  // belongs to *this* Worker, not the API: `/aoi/` also holds manifests and
-  // overviews that ship as static assets here, and a Cloudflare route cannot
-  // split one prefix by file extension. Adding it means giving this config a
-  // small `main` plus the HAZARD_BUCKET binding; assets keep being served first
-  // for everything the Worker does not handle.
 }

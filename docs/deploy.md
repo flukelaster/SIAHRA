@@ -61,18 +61,22 @@ rclone sync apps/etl/data/tiles r2:siahra-geodata/aoi --transfers 32 --checksum 
 ```
 key ที่ได้จะเป็น `aoi/{code}/terrain/{z}/{x}_{y}.bin` ตรงกับ URL `/aoi/{code}/terrain/...` ที่ client เรียก
 
-## 2. Worker route สำหรับ tile (งานที่ยังต้องเขียน — อยู่ที่ **siahra-web** ไม่ใช่ api)
+## 2. Worker route สำหรับ tile (เขียนแล้ว — อยู่ที่ **siahra-web** ไม่ใช่ api)
 prefix `/aoi/` มีทั้ง manifest/overview ที่เป็น static asset (`apps/web/public/aoi/**`) และ tile `.bin`
 ก้อนใหญ่ใน R2 และ route ของ Cloudflare **แยกตามนามสกุลไฟล์ไม่ได้** → ทั้ง prefix ต้องอยู่ใน Worker
 เดียวกัน และตัวที่ถือ static asset อยู่แล้วคือ `siahra-web` (พลอยได้: งาน DO/cron ไม่ต้องมาเสิร์ฟ tile)
 
-- เพิ่ม `main` ให้ `apps/web/wrangler.jsonc` (ตอนนี้เป็น assets-only) + binding
-  `r2_buckets: [{ "binding": "HAZARD_BUCKET", "bucket_name": "siahra-geodata" }]`
-- ใน Worker ตัวนั้น: match `^/aoi/(\d{2})/(terrain|buildings|features|landcover)/(\d+)/(\d+)_(\d+)\.bin$`
-  → `env.HAZARD_BUCKET.get("aoi/...")` + `Cache-Control: public, max-age=31536000, immutable` +
-  `Content-Type: application/octet-stream`; ใช้ Cache API (`caches.default`) กัน R2 reads
-- path อื่นทั้งหมด (รวม manifest/overview) ให้คืนจาก static assets ตามเดิม — ค่า default ของ Workers
-  static assets คือลอง asset ก่อน จึงไม่ต้องตั้ง `run_worker_first` เว้นแต่จะให้ Worker ชนะก่อน
+`apps/web/worker/index.ts` จับ `^/aoi/(\d{2})/(terrain|buildings|features|landcover)/(\d+)/(\d+)_(\d+)\.bin$`
+→ `env.HAZARD_BUCKET.get("aoi/...")` + `Cache-Control: public, max-age=31536000, immutable` +
+`Content-Type: application/octet-stream` และแคชด้วย Cache API (`caches.default`) กัน R2 reads ;
+path อื่นส่งต่อ `env.ASSETS.fetch(request)` ; tile ที่ไม่มีใน R2 ตอบ **404** (ห้ามปล่อยให้ตกไป SPA
+fallback — loader จะได้ HTML มาแทน binary แล้วพังเงียบ ๆ ซึ่งเป็นอาการที่เจอบน prod ตอนแรก)
+
+**ไม่ต้องตั้ง `run_worker_first`** — ทดสอบใน `wrangler dev` แล้วว่า `not_found_handling:
+"single-page-application"` ตอบเฉพาะ request ที่เป็น *navigation* (wrangler log ว่า
+`Sec-Fetch-Mode: navigate`) ส่วน `fetch()` ของ tile ที่ไม่ใช่ asset ตกมาถึง Worker เอง จึงได้ทั้ง
+สองอย่าง: SPA route ลึก ๆ ยังคืน `index.html` และ manifest ยังมาจาก asset layer โดยไม่กิน Worker
+invocation (ถ้าเจอ tile ตอบ `200 text/html` แปลว่ากติกานี้เปลี่ยน ให้กลับมาใส่ `run_worker_first`)
 
 ## 3. wrangler.jsonc / secrets
 ทั้งหมดนี้อยู่ที่ `apps/api/wrangler.jsonc` — `apps/web/wrangler.jsonc` ไม่มี secret และไม่มี binding
