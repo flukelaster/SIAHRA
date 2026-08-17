@@ -43,6 +43,8 @@ COMMON=(
   --header-upload "Content-Type: application/octet-stream"
   --stats 60s
   --stats-one-line
+  # stats ปกติออกที่ระดับ INFO ซึ่งถูกกลืนตอนรันแบบ non-tty (log level ปริยาย = NOTICE)
+  --stats-log-level NOTICE
 )
 # แถบ progress เฉพาะตอนรันในเทอร์มินัลจริง — รัน background แล้ว log จะบวมเป็นสิบ MB
 [ -t 1 ] && COMMON+=(--progress)
