@@ -1,7 +1,9 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { BottomBar } from "./components/layout/BottomBar";
-import type { MapApi, MapLayers } from "./components/layout/Map3DCanvas";
+import type { MapApi, MapInfo, MapLayers } from "./components/layout/Map3DCanvas";
 import { MapViewport } from "./components/layout/MapViewport";
+import { ExaggerationControl } from "./components/layout/ExaggerationControl";
+import { SourceStatusBar } from "./components/layout/SourceStatusBar";
 import { RightPanel } from "./components/layout/RightPanel";
 import { Sidebar } from "./components/layout/Sidebar";
 import { TopBar, type SearchPlace } from "./components/layout/TopBar";
@@ -35,9 +37,10 @@ const GUTTER = 12;
 const TOPBAR_H = 60;
 const LEFT_W = 272;
 const RIGHT_W = 352;
-const BOTTOM_H = 96;
-/** Extra vertical room the timeline takes above the bottom row. */
-const TIMELINE_H = 76;
+/** Initial guess for the bottom dock height; the dock reports its real size once mounted. */
+const BOTTOM_DOCK_H = 276;
+/** Compact mode: status row + timeline stacked above the sheet. */
+const COMPACT_DOCK_H = 120;
 
 const DEFAULT_LAYERS: MapLayers = {
   imagery: true,
@@ -68,6 +71,8 @@ export default function App() {
   const [atIso, setAtIso] = useState<string | null>(INITIAL.atIso);
   const [exaggeration, setExaggeration] = useState(INITIAL.exaggeration ?? 1);
   const [pose, setPose] = useState<CameraPose | null>(INITIAL.pose);
+  const [mapInfo, setMapInfo] = useState<MapInfo | null>(null);
+  const [dockHeight, setDockHeight] = useState(BOTTOM_DOCK_H);
   const [quality, setQuality] = useState<QualityMode>("auto");
   const [qualityLevel, setQualityLevel] = useState<QualityLevel>("high");
   const handleQualityLevel = useCallback((level: QualityLevel) => setQualityLevel(level), []);
@@ -180,15 +185,15 @@ export default function App() {
             left: 8,
             right: 8,
             top: dockTop,
-            bottom: (sheetOpen ? sheetHeight : 44) + 8 + TIMELINE_H,
+            bottom: (sheetOpen ? sheetHeight : 44) + 12 + COMPACT_DOCK_H,
           }
         : {
             left: GUTTER + LEFT_W + GUTTER,
             right: GUTTER + RIGHT_W + GUTTER,
             top: dockTop,
-            bottom: BOTTOM_H + TIMELINE_H,
+            bottom: GUTTER + dockHeight,
           },
-    [dockTop, compact, sheetOpen, sheetHeight],
+    [dockTop, compact, sheetOpen, sheetHeight, dockHeight],
   );
 
   return (
@@ -205,13 +210,12 @@ export default function App() {
         layers={layers}
         safeArea={safeArea}
         observationsStale={observationsStale}
-        apiHealth={apiHealth}
         initialPose={initialPoseRef.current}
         exaggeration={exaggeration}
-        onExaggerationChange={setExaggeration}
         quality={quality}
         onQualityLevel={handleQualityLevel}
         compact={compact}
+        onInfo={setMapInfo}
         onApi={handleApi}
         onPoseChange={handlePose}
       />
@@ -230,9 +234,17 @@ export default function App() {
       {compact ? (
         <>
           <div
-            className="absolute z-10"
+            className="absolute z-10 flex flex-col gap-2 @container"
             style={{ left: 8, right: 8, bottom: (sheetOpen ? sheetHeight : 44) + 12 }}
           >
+            <div className="flex items-center gap-2">
+              <div className="min-w-0">
+                <SourceStatusBar state={apiHealth} compact />
+              </div>
+              <div className="ml-auto shrink-0">
+                <ExaggerationControl value={exaggeration} onChange={setExaggeration} />
+              </div>
+            </div>
             <TimelineBar atIso={atIso} onChange={setAtIso} />
           </div>
           <MobileSheet
@@ -316,20 +328,19 @@ export default function App() {
             top={dockTop}
           />
 
-          <div
-            className="absolute z-10"
-            style={{ left: safeArea.left, right: safeArea.right, bottom: BOTTOM_H + 8 }}
-          >
-            <div className="mx-auto max-w-2xl">
-              <TimelineBar atIso={atIso} onChange={setAtIso} />
-            </div>
-          </div>
-
           <BottomBar
             summary={observations.data?.summary ?? null}
             loading={observations.loading}
+            apiHealth={apiHealth}
+            mapInfo={mapInfo}
+            exaggeration={exaggeration}
+            onExaggerationChange={setExaggeration}
+            atIso={atIso}
+            onAtIsoChange={setAtIso}
             left={safeArea.left}
             right={safeArea.right}
+            bottom={GUTTER}
+            onHeight={setDockHeight}
           />
         </>
       )}
