@@ -1,6 +1,7 @@
-import { Camera, Check, Link2, Search, ShieldAlert } from "lucide-react";
+import { Camera, Check, Link2, Search } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { BRAND } from "../../branding";
+import { BrandMark } from "./BrandMark";
 import type { Province } from "../../data/types";
 
 /** Something the search box can jump to besides a province. */
@@ -67,12 +68,10 @@ export function TopBar({
       style={{ height }}
     >
       <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--color-accent)]/20 text-[var(--color-accent)] shadow-[0_0_18px_rgba(59,130,246,0.35)]">
-          <ShieldAlert size={20} aria-hidden="true" />
-        </div>
+        <BrandMark size={36} className="shrink-0" />
         <div className={`leading-tight ${compact ? "hidden" : ""}`}>
           <h1
-            className="text-[16px] font-semibold tracking-wide text-[var(--color-fg)]"
+            className="text-[16px] font-bold tracking-[0.14em] text-[var(--color-fg)]"
             title={BRAND.expansion}
           >
             {BRAND.name}
