@@ -449,10 +449,25 @@ export class ObservationCacheDO extends DurableObject<Env> {
     );
   }
 
+  /**
+   * Rewriting every station on every poll is what blew the DO rows_written
+   * quota (a full delete+insert of ~5,500 stations every 5 min). Most
+   * stations haven't published a new reading since the last poll, so only
+   * rows whose observedAt actually changed are written; the rest are
+   * skipped entirely (not deleted — a station missing from one fetch keeps
+   * its last known reading instead of vanishing from the map, and will read
+   * as stale via fetchedAt once it truly stops reporting).
+   */
   private replaceRainfall(rows: RainfallObservation[]): void {
-    this.ctx.storage.sql.exec("DELETE FROM rainfall");
-    for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
-      const chunk = rows.slice(i, i + INSERT_CHUNK);
+    const existing = new Map(
+      this.ctx.storage.sql
+        .exec<{ station_id: number; observed_at: string | null }>("SELECT station_id, observed_at FROM rainfall")
+        .toArray()
+        .map((r) => [r.station_id, r.observed_at]),
+    );
+    const changed = rows.filter((row) => existing.get(row.station.id) !== row.observedAt);
+    for (let i = 0; i < changed.length; i += INSERT_CHUNK) {
+      const chunk = changed.slice(i, i + INSERT_CHUNK);
       const placeholders = chunk.map(() => "(?, ?, ?, ?, ?)").join(",");
       const binds: SqlStorageValue[] = [];
       for (const row of chunk) {
@@ -472,9 +487,15 @@ export class ObservationCacheDO extends DurableObject<Env> {
   }
 
   private replaceWaterLevel(rows: WaterLevelObservation[]): void {
-    this.ctx.storage.sql.exec("DELETE FROM waterlevel");
-    for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
-      const chunk = rows.slice(i, i + INSERT_CHUNK);
+    const existing = new Map(
+      this.ctx.storage.sql
+        .exec<{ station_id: number; observed_at: string | null }>("SELECT station_id, observed_at FROM waterlevel")
+        .toArray()
+        .map((r) => [r.station_id, r.observed_at]),
+    );
+    const changed = rows.filter((row) => existing.get(row.station.id) !== row.observedAt);
+    for (let i = 0; i < changed.length; i += INSERT_CHUNK) {
+      const chunk = changed.slice(i, i + INSERT_CHUNK);
       const placeholders = chunk.map(() => "(?, ?, ?, ?, ?)").join(",");
       const binds: SqlStorageValue[] = [];
       for (const row of chunk) {
@@ -513,10 +534,20 @@ export class ObservationCacheDO extends DurableObject<Env> {
 
   private async pullHistory(stationId: number, nowMs: number, priority = 5): Promise<void> {
     const points = await this.upstream.run(() => fetchWaterLevelHistory(stationId, HISTORY_HOURS, nowMs), priority);
+    // Re-inserting the full 72 h window every 10 min was the other big
+    // rows_written source. Past readings don't change, so only points past
+    // the last stored timestamp are written (minus a small buffer in case
+    // the most recent stored point was still provisional upstream).
+    const lastTs =
+      this.ctx.storage.sql
+        .exec<{ t: number | null }>("SELECT MAX(ts_ms) AS t FROM waterlevel_history WHERE station_id = ?", stationId)
+        .toArray()[0]?.t ?? null;
+    const cutoffMs = lastTs === null ? -Infinity : lastTs - 20 * 60 * 1000;
+    const fresh = points.filter((p) => Date.parse(p.t) > cutoffMs);
     // 4 bound params per row; 24 rows = 96, under SQLite's 100-parameter cap.
     const HISTORY_CHUNK = 24;
-    for (let i = 0; i < points.length; i += HISTORY_CHUNK) {
-      const chunk = points.slice(i, i + HISTORY_CHUNK);
+    for (let i = 0; i < fresh.length; i += HISTORY_CHUNK) {
+      const chunk = fresh.slice(i, i + HISTORY_CHUNK);
       const placeholders = chunk.map(() => "(?, ?, ?, ?)").join(",");
       const binds: SqlStorageValue[] = [];
       for (const p of chunk) binds.push(stationId, Date.parse(p.t), p.value, p.discharge);
