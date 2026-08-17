@@ -1,4 +1,9 @@
-# SIAHRA — คู่มือ deploy ขึ้น Cloudflare (เตรียมไว้; ยังไม่ได้ deploy)
+# SIAHRA — คู่มือ deploy ขึ้น Cloudflare
+
+**deploy ครั้งแรกแล้ว 2026-08-17** ที่ account `Flukelaster` / zone `siahra-radar.co`: `siahra-web`
+(Custom Domain, 709 asset) + `siahra-api` (route `/api/*`, DO migrations v1–v4, cron ทุกนาที) และ
+R2 bucket `siahra-geodata` ตรวจแล้วว่า `/api/v1/health` คืน JSON, `/` กับ deep link คืน HTML ของ SPA,
+`/aoi/{code}/manifest.json` คืน static asset — เอกสารนี้ใช้เป็นขั้นตอนสำหรับ deploy รอบถัดไป
 
 ## 0. สิ่งที่ต้องมี
 - Cloudflare account ที่เปิด **Workers Paid** ($5/เดือน — จำเป็นเพราะใช้ Durable Objects)
@@ -106,6 +111,12 @@ Worker มี token-bucket ต่อ IP อยู่แล้ว (`apps/api/src/
 เพิ่ม Cache Rule: `http.request.uri.path matches "^/aoi/.*\.bin$"` → Cache eligible, Edge TTL 1 ปี
 
 ## 6. หลัง deploy ตรวจ
+> เครื่องที่ใช้ deploy อยู่หลัง TLS-inspecting filter (FortiGate) — `curl` ธรรมดาจะฟ้อง
+> `unable to get local issuer certificate` กับ **ทุก** โฮสต์ และ GET body จะถูกแทนด้วยหน้า
+> `403 Web Filter Violation` ของตัว filter เอง ใช้ `curl -sk -I` (HEAD) ตรวจ status/content-type
+> แทน แล้วเช็ค cert จริงจากเครือข่ายอื่น ; ดูผู้ออกใบด้วย
+> `echo | openssl s_client -connect siahra-radar.co:443 -servername siahra-radar.co | openssl x509 -noout -issuer`
+
 - `curl https://siahra-radar.co/api/v1/health` → ทุก source `ok` ภายใน 5 นาที (alarm ของ DO เริ่มเอง)
   ตอบ 200 = route `/api/*` ชี้ไป siahra-api ถูกแล้ว; ถ้าได้ HTML ของ SPA แทน = route ไม่ทำงาน
 - `curl -I https://siahra-radar.co/` → HTML จาก siahra-web (deploy คนละครั้งกับ api ได้)
