@@ -23,10 +23,10 @@
 <br/>
 
 <p align="center">
-  <img src="docs/images/hero-chiangmai.png" alt="SIAHRA 3D map of Chiang Mai at a low oblique angle, showing extruded buildings, terrain relief and the Ping River" width="100%" />
+  <img src="docs/images/hero-chiangmai.png" alt="SIAHRA 3D map of Chiang Mai province showing real terrain relief across the mountain valley, road networks, a live earthquake marker and the full data-layer legend" width="100%" />
 </p>
 
-<p align="center"><sub>Chiang Mai in the live 3D viewport — real terrain relief, extruded buildings and the Ping River, rendered from an oblique camera angle with 2× vertical exaggeration.</sub></p>
+<p align="center"><sub>Chiang Mai province in the live 3D viewport — real terrain relief, road networks, a live earthquake marker and the full data-layer legend.</sub></p>
 
 <br/>
 
