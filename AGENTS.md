@@ -9,19 +9,20 @@
 - ค่าย้อนหลัง (timeline) ไม่มี `situationLevel` ของ ThaiWater → สีคิดจากระยะต่ำกว่าตลิ่งและบอกไว้ชัด
 
 ## โครงสร้าง
-- `apps/web` — React 19 + Vite + Tailwind 4 + three r185 (raw scene graph ไม่ใช้ R3F): `src/scene/*` (TerrainTiles LOD, BuildingTiles, FeatureTiles, VegetationTiles, RadarOverlay, floodMask, terrainMaterial shader), `src/components/layout/Map3DCanvas.tsx` เป็นตัวประกอบทุกชั้น, workers ใน `src/workers/*`
-- `apps/api` — Cloudflare Worker: `src/router.ts` (ตาราง route + rate limit + same-origin guard), DOs ใน `src/durable-objects/*` (ObservationCacheDO = ThaiWater + history + dams + archive, FloodExtentDO, RadarDO, EarthquakeFeedDO), ingestion ใน `src/ingestion/*`, คลังถาวรใน `src/archive.ts`
+- `apps/web` — **deploy unit ที่ 1** (Worker `siahra-web`, `wrangler.jsonc` เป็น assets-only ไม่มี `main`): React 19 + Vite + Tailwind 4 + three r185 (raw scene graph ไม่ใช้ R3F): `src/scene/*` (TerrainTiles LOD, BuildingTiles, FeatureTiles, VegetationTiles, RadarOverlay, floodMask, terrainMaterial shader), `src/components/layout/Map3DCanvas.tsx` เป็นตัวประกอบทุกชั้น, workers ใน `src/workers/*`
+- `apps/api` — **deploy unit ที่ 2** (Worker `siahra-api`, ไม่มี `assets` block แล้ว): `src/router.ts` (ตาราง route + rate limit + same-origin guard), DOs ใน `src/durable-objects/*` (ObservationCacheDO = ThaiWater + history + dams + archive, FloodExtentDO, RadarDO, EarthquakeFeedDO), ingestion ใน `src/ingestion/*`, คลังถาวรใน `src/archive.ts`
 - `apps/etl` — gdal/osmium pipelines: `build:all`, `build:tiles`, `build:building-tiles`, `build:feature-tiles`, `build:landcover-tiles` → ผลลัพธ์เล็ก (manifest/overview) ใน `apps/web/public/aoi/{code}` (tracked) และ tile ใหญ่ใน `apps/etl/data/tiles` (gitignored, ~5.6 GB, เสิร์ฟใน dev ด้วย middleware ใน `apps/web/vite.config.ts`, prod = R2)
 - `packages/shared-types` — สัญญาข้อมูลระหว่าง api/web/etl (แก้ที่นี่ก่อนเสมอ)
+- สอง Worker อยู่บน host เดียว (`siahra-radar.co`): web ถือ Custom Domain (ทุก path), api ผูก route `/api/*` ซึ่งรัน**ก่อน** origin จึงกิน `/api/*` ไปก่อน — ยัง same-origin (relative `fetch("/api/v1/...")`, WS ใช้ `location.host`, `ALLOWED_ORIGINS` ว่าง) — **deploy แยกกัน**: `npm run deploy:web` / `npm run deploy:api` (ดู `docs/deploy.md` §0.1)
 
 ## รัน
-- `npm run dev` (root) = vite :5173 + wrangler :8787 (ใน worktree ใช้พอร์ตจาก `.env.worktree`) — **wrangler ต้องมี `apps/web/dist`** (สร้างด้วย `npm run build -w apps/web`) ไม่งั้นไม่ขึ้น
+- `npm run dev` (root) = vite :5173 + wrangler :8787 (ใน worktree ใช้พอร์ตจาก `.env.worktree`) — vite เสิร์ฟ SPA และ proxy `/api` ไป wrangler; **ไม่ต้องมี `apps/web/dist`** อีกแล้ว (build เฉพาะเวลาจะ deploy web หรือเช็คขนาด asset bundle: `npm run build -w apps/web`)
 - ตรวจ: `npx tsc -b` ใน apps/web, `npx tsc --noEmit` ใน apps/api และ apps/etl, `npx oxlint src` ใน apps/web
 - ดูภาพจริง: `playwright-cli -s=<session> open http://localhost:5173` แล้ว `screenshot` (wheel zoom ไม่ทำงาน headless — ใช้ปุ่มซูม/ลาก) ; มี `window.__siahraHandles` ใน dev สำหรับสั่งกล้อง
 - cron ไม่ยิงใน wrangler dev — DO ทุกตัวตั้ง alarm เอง; ยิงมือได้ที่ `GET /__scheduled?cron=*+*+*+*+*`
 
 ## Orca worktree
-`orca.yaml` → `.orca/setup.sh` → `scripts/setup-worktree.sh` (symlink dataset, copy state, จองพอร์ต, npm ci, build web) ; Quick Command รัน `.orca/run.sh`; archive hook หยุด dev server ของ worktree นั้นเท่านั้น
+`orca.yaml` → `.orca/setup.sh` → `scripts/setup-worktree.sh` (symlink dataset, copy state, จองพอร์ต, npm ci — ไม่ build web แล้ว) ; Quick Command รัน `.orca/run.sh`; archive hook หยุด dev server ของ worktree นั้นเท่านั้น
 
 ## Git workflow (บังคับด้วย ruleset บน GitHub — `.github/rulesets/main.json`)
 - **ห้าม push ตรงเข้า `main`** ไม่ว่าเล็กหรือด่วนแค่ไหน — แตก branch → เปิด PR เสมอ แม้ผู้ใช้จะพูดว่า "push" ก็ตาม (เว้นแต่สั่ง override ชัด ๆ ในตอนนั้น); ruleset ไม่มี bypass จึง push ตรงจะถูกปฏิเสธอยู่ดี

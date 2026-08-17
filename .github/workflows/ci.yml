@@ -72,12 +72,20 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      # apps/web/dist is also the Worker's `assets.directory`, so build web
-      # first — `wrangler deploy --dry-run` refuses to run without it.
+      # Two independent deploy units, both validated here in one always-running
+      # job. Do NOT split this into per-app jobs behind `paths:` filters: the
+      # ruleset requires a check literally named `Build`, and a filtered job that
+      # doesn't run leaves a PR waiting on it forever.
+      #
+      # apps/web/dist is siahra-web's `assets.directory`, so build web before its
+      # dry-run. The API config no longer references dist at all.
       - name: Build apps/web
         run: npm run build -w apps/web
-      - name: Bundle the Worker (wrangler deploy --dry-run)
-        run: npx wrangler deploy --dry-run --outdir=/tmp/siahra-worker
+      - name: Bundle siahra-web (wrangler deploy --dry-run)
+        run: npx wrangler deploy --dry-run --outdir=/tmp/siahra-web
+        working-directory: apps/web
+      - name: Bundle siahra-api (wrangler deploy --dry-run)
+        run: npx wrangler deploy --dry-run --outdir=/tmp/siahra-api
         working-directory: apps/api
       - name: Asset-bundle limits (Workers static assets)
         # Cloudflare rejects deploys with > 20,000 files or any file > 25 MiB.

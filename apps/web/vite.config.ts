@@ -26,7 +26,8 @@ const PORTS = worktreePorts();
  * Serves the terrain + building tile pyramids (apps/etl/data/tiles,
  * GBs / ~100k files) at /aoi/{code}/terrain/... in dev without putting them
  * in public/ (which would be copied into dist and the Worker asset bundle).
- * Production is expected to serve the same prefix from R2.
+ * Production is expected to serve the same prefix from R2 through the
+ * siahra-web Worker (see apps/web/wrangler.jsonc).
  */
 function terrainTiles(): Plugin {
   return {
@@ -50,9 +51,10 @@ function terrainTiles(): Plugin {
   };
 }
 
-// In production a single Worker serves both the SPA and /api/* (see
-// apps/api/wrangler.jsonc run_worker_first). In dev they are two processes,
-// so proxy /api to the local `wrangler dev` instance.
+// In production the SPA and the API are two separately deployed Workers that
+// share one origin through zone routes (`/api/*` → siahra-api, `/*` →
+// siahra-web). Dev mirrors that single-origin view with two processes, so proxy
+// /api to the local `wrangler dev` instance.
 export default defineConfig({
   plugins: [react(), tailwindcss(), terrainTiles()],
   server: {
