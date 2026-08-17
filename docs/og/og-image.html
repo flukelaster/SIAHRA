@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<title>SIAHRA — OG image (1280×640)</title>
+<!--
+  Source for the repository social-preview / Open Graph image.
+  Render: node docs/og/render.mjs  → docs/images/og-image.png (1280×640 @2x)
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0b1220; --bg-2: #0f172a; --panel: #131c2e; --border: #263148; --border-strong: #3a4864;
+    --fg: #e7ecf5; --fg-muted: #94a3b8; --fg-subtle: #64748b;
+    --accent: #3b82f6; --accent-2: #7dd3fc; --orange: #fb923c;
+    --risk-low: #38bdf8; --risk-med: #eab308; --risk-high: #f97316; --ok: #22c55e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1280px; height: 640px; overflow: hidden; background: var(--bg); }
+  body { font-family: "Sarabun", system-ui, sans-serif; color: var(--fg); -webkit-font-smoothing: antialiased; position: relative; }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+
+  /* ---- backdrop: terrain photo bleeding in from the right ---- */
+  .terrain {
+    position: absolute; inset: 0; left: 600px;
+    background: url("terrain-chiangmai.jpg") center / cover no-repeat;
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 190px, #000 100%);
+            mask-image: linear-gradient(90deg, transparent 0, #000 190px, #000 100%);
+    filter: saturate(1.05) contrast(1.04);
+  }
+  .terrain::after {
+    content: ""; position: absolute; inset: 0;
+    background:
+      linear-gradient(180deg, rgba(11,18,32,.55) 0, rgba(11,18,32,0) 30%, rgba(11,18,32,0) 70%, rgba(11,18,32,.75) 100%),
+      radial-gradient(60% 60% at 70% 45%, rgba(11,18,32,0) 0, rgba(11,18,32,.35) 100%);
+  }
+  /* subtle grid + glow on the dark side */
+  .grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(148,163,184,.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148,163,184,.07) 1px, transparent 1px);
+    background-size: 40px 40px;
+    -webkit-mask-image: linear-gradient(90deg, #000 0, #000 45%, transparent 62%);
+            mask-image: linear-gradient(90deg, #000 0, #000 45%, transparent 62%);
+  }
+  .glow { position: absolute; width: 700px; height: 700px; left: -220px; top: -260px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(59,130,246,.28) 0, rgba(59,130,246,0) 60%); }
+  .frame { position: absolute; inset: 0; border: 1px solid rgba(58,72,100,.6); pointer-events: none; }
+
+  /* ---- content ---- */
+  .content { position: absolute; left: 64px; top: 0; bottom: 0; width: 640px; display: flex; flex-direction: column; justify-content: center; }
+  .brand { display: flex; align-items: center; gap: 18px; margin-bottom: 26px; }
+  .brand svg { width: 68px; height: 68px; filter: drop-shadow(0 8px 24px rgba(29,78,216,.45)); }
+  .word { font-size: 64px; font-weight: 700; letter-spacing: .12em; line-height: 1; }
+  .word b { color: var(--accent-2); font-weight: 700; }
+  .expansion { font-size: 24px; font-weight: 500; line-height: 1.32; color: var(--fg); max-width: 600px; }
+  .expansion span { color: var(--fg-muted); font-weight: 400; }
+  .th { margin-top: 10px; font-size: 20px; color: var(--fg-muted); line-height: 1.5; }
+
+  .chips { display: flex; flex-wrap: nowrap; gap: 8px; margin-top: 30px; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border-radius: 999px;
+    background: rgba(19,28,46,.85); border: 1px solid var(--border-strong); font-size: 14px; font-weight: 500; color: var(--fg); backdrop-filter: blur(6px); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 0 3px rgba(255,255,255,.06); }
+
+  .footer { position: absolute; left: 64px; right: 64px; bottom: 34px; display: flex; align-items: center; justify-content: space-between; }
+  .sources { font-size: 14px; color: var(--fg-muted); display: flex; align-items: center; gap: 10px; }
+  .sources .live { display: inline-flex; align-items: center; gap: 6px; color: var(--ok); font-weight: 600; letter-spacing: .04em; font-size: 12px; }
+  .sources .live i { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 10px var(--ok); }
+  .stack { font-size: 13px; color: var(--fg-subtle); }
+  .stack b { color: var(--fg-muted); font-weight: 500; }
+
+  /* small floating "reading" cards over the terrain, echoing the app UI */
+  .card { position: absolute; background: rgba(15,23,42,.88); border: 1px solid var(--border-strong); border-radius: 12px; padding: 10px 14px; backdrop-filter: blur(8px); box-shadow: 0 12px 32px rgba(0,0,0,.45); }
+  .card .k { font-size: 12px; color: var(--fg-muted); }
+  .card .v { font-size: 22px; font-weight: 600; margin-top: 2px; display: flex; align-items: baseline; gap: 6px; }
+  .card .v small { font-size: 12px; font-weight: 500; color: var(--fg-muted); }
+  .card.quake { border-color: rgba(251,146,60,.6); }
+  .card.quake .v { color: var(--orange); }
+  .marker { position: absolute; width: 18px; height: 18px; border-radius: 50%; background: var(--orange); box-shadow: 0 0 0 6px rgba(251,146,60,.28), 0 0 0 14px rgba(251,146,60,.12); }
+</style>
+</head>
+<body>
+  <div class="terrain"></div>
+  <div class="grid"></div>
+  <div class="glow"></div>
+
+  <!-- overlays on the terrain -->
+  <div class="marker" style="left:1040px; top:300px"></div>
+  <div class="card quake" style="left:940px; top:200px">
+    <div class="k">แผ่นดินไหว · USGS / EMSC / TMD</div>
+    <div class="v">M2.3 <small>ตรวจพบ · ยังไม่ตรวจสอบ</small></div>
+  </div>
+  <div class="card" style="left:800px; top:440px">
+    <div class="k">ระดับน้ำ · ThaiWater (สสน.)</div>
+    <div class="v mono" style="color:#7dd3fc">65 <small>สถานี · ตรวจวัดจริง ไม่ใช่พยากรณ์</small></div>
+  </div>
+  <div class="card" style="left:1090px; top:500px">
+    <div class="k">ฝนสูงสุด 24 ชม.</div>
+    <div class="v mono">32 <small>มม.</small></div>
+  </div>
+
+  <div class="content">
+    <div class="brand">
+      <svg viewBox="0 0 64 64" role="img" aria-label="SIAHRA">
+        <defs><clipPath id="disc"><circle cx="32" cy="32" r="30"/></clipPath></defs>
+        <circle cx="32" cy="32" r="30" fill="#1d4ed8"/>
+        <g clip-path="url(#disc)" fill="none" stroke-width="5" stroke-linecap="round">
+          <path d="M-2 30 C10 16 22 16 32 26 C42 36 54 36 66 24" stroke="#ffffff"/>
+          <path d="M-2 46 C10 32 22 32 32 42 C42 52 54 52 66 40" stroke="#7dd3fc"/>
+        </g>
+        <circle cx="14" cy="19" r="6.5" fill="#1d4ed8"/>
+        <circle cx="14" cy="19" r="4.5" fill="#fb923c"/>
+      </svg>
+      <div class="word">SIAHRA</div>
+    </div>
+    <div class="expansion"><b>S</b>patial <b>I</b>ntelligence <b>A</b>tlas<br/>for <b>H</b>azard &amp; <b>R</b>esilience <b>A</b>nalytics</div>
+    <div class="th">แผนที่ 3 มิติรายจังหวัดของไทย ซ้อนข้อมูลภัยพิบัติที่ตรวจวัดจริง<br/>น้ำท่วม · ระดับน้ำ · ฝน/เรดาร์ · เขื่อน · แผ่นดินไหว</div>
+    <div class="chips">
+      <span class="chip"><i class="dot" style="background:var(--risk-low)"></i>Flood extent</span>
+      <span class="chip"><i class="dot" style="background:var(--accent)"></i>River gauges</span>
+      <span class="chip"><i class="dot" style="background:var(--risk-med)"></i>Radar &amp; rainfall</span>
+      <span class="chip"><i class="dot" style="background:var(--ok)"></i>Dams</span>
+      <span class="chip"><i class="dot" style="background:var(--risk-high)"></i>Earthquakes</span>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="sources"><span class="live"><i></i>LIVE</span> ThaiWater (สสน.) · TMD · GISTDA · USGS / EMSC · Copernicus DEM · OpenStreetMap</div>
+    <div class="stack mono"><b>Three.js</b> · React · Cloudflare Workers</div>
+  </div>
+  <div class="frame"></div>
+</body>
+</html>
