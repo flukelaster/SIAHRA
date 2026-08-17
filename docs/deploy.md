@@ -56,12 +56,25 @@ npx wrangler r2 bucket create siahra-geodata
 ```
 อัปโหลด tile (~5.6 GB, ~190k ไฟล์) จาก `apps/etl/data/tiles/{code}/(terrain|buildings|features|landcover)/...`
 แนะนำ rclone (เร็วกว่า wrangler มาก):
+ห่อไว้ใน `scripts/upload-tiles.sh` แล้ว (ตั้ง remote ผ่าน env ไม่ต้อง `rclone config` คีย์จึงไม่ตกค้าง):
 ```bash
-rclone config      # remote ชนิด s3, provider Cloudflare, endpoint https://<ACCOUNT_ID>.r2.cloudflarestorage.com
-rclone sync apps/etl/data/tiles r2:siahra-geodata/aoi --transfers 32 --checksum \
-  --header-upload "Cache-Control: public, max-age=31536000, immutable"
+brew install rclone
+# สร้าง R2 API token (Object Read & Write) ที่ Dashboard → R2 → Manage API Tokens
+cat > scripts/.env.r2 <<'EOF'   # gitignored
+CLOUDFLARE_ACCOUNT_ID=...
+R2_ACCESS_KEY_ID=...
+R2_SECRET_ACCESS_KEY=...
+EOF
+scripts/upload-tiles.sh --smoke   # อัปไฟล์เดียวแล้ว HEAD ดูบน prod ก่อนลงทุน 5.6 GB
+scripts/upload-tiles.sh           # sync ทั้งหมด (~1–3 ชม.; ข้ามของที่มีแล้ว, resume ได้)
+scripts/upload-tiles.sh 11 12     # หรือทีละจังหวัด
+scripts/verify-tiles.sh           # ตรวจ 77 จังหวัด × 4 ชนิด × (z ตื้นสุด+ลึกสุด)
 ```
 key ที่ได้จะเป็น `aoi/{code}/terrain/{z}/{x}_{y}.bin` ตรงกับ URL `/aoi/{code}/terrain/...` ที่ client เรียก
+
+**คอขวดคือจำนวนไฟล์ ไม่ใช่ขนาด** — 302,689 ไฟล์ / 5.6 GB ; อยู่ในโควตาฟรีทั้งคู่ (< 10 GB storage,
+< 1M Class A writes/เดือน) ; เครื่องที่อยู่หลัง FortiGate อาจอัปไม่ผ่าน (ดู §6) — ถ้า `--smoke` ล้ม
+ให้รันจากเครือข่ายอื่น หรือส่ง CA ขององค์กรเข้าไปด้วย `--ca-cert`
 
 ## 2. Worker route สำหรับ tile (เขียนแล้ว — อยู่ที่ **siahra-web** ไม่ใช่ api)
 prefix `/aoi/` มีทั้ง manifest/overview ที่เป็น static asset (`apps/web/public/aoi/**`) และ tile `.bin`
