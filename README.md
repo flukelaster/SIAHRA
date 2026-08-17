@@ -23,10 +23,10 @@
 <br/>
 
 <p align="center">
-  <img src="docs/images/hero-bangkok.png" alt="SIAHRA 3D map of Bangkok showing real-time flood extents, monitoring stations and layer controls" width="100%" />
+  <img src="docs/images/hero-chiangmai.png" alt="SIAHRA 3D map of Chiang Mai at a low oblique angle, showing extruded buildings, terrain relief and the Ping River" width="100%" />
 </p>
 
-<p align="center"><sub>Bangkok in the live 3D viewport — satellite imagery, GISTDA flood extent, ThaiWater station levels and a 72-hour timeline scrubber.</sub></p>
+<p align="center"><sub>Chiang Mai in the live 3D viewport — real terrain relief, extruded buildings and the Ping River, rendered from an oblique camera angle with 2× vertical exaggeration.</sub></p>
 
 <br/>
 
