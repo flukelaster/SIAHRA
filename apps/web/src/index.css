@@ -87,21 +87,21 @@ body {
 
 /* Floating glass panels over the map. */
 .glass {
-  background: rgba(10, 16, 30, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(9, 14, 27, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.11);
   box-shadow:
-    0 12px 40px rgba(0, 0, 0, 0.45),
+    0 12px 40px rgba(0, 0, 0, 0.55),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
 }
 
 .glass-soft {
-  background: rgba(10, 16, 30, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  background: rgba(9, 14, 27, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
 }
 
 /* CSS2D labels anchored to scene points. */
@@ -112,7 +112,7 @@ body {
   gap: 1px;
   padding: 3px 8px 4px;
   border-radius: 8px;
-  background: rgba(8, 12, 22, 0.78);
+  background: rgba(8, 12, 22, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.14);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(6px);
@@ -130,7 +130,7 @@ body {
   width: 8px;
   height: 8px;
   transform: translateX(-50%) rotate(45deg);
-  background: rgba(8, 12, 22, 0.78);
+  background: rgba(8, 12, 22, 0.92);
   border-right: 1px solid rgba(255, 255, 255, 0.14);
   border-bottom: 1px solid rgba(255, 255, 255, 0.14);
 }
