@@ -11,7 +11,9 @@
     "dev:api": "npm run dev -w apps/api",
     "dev:web": "npm run dev -w apps/web",
     "build:web": "npm run build -w apps/web",
-    "build:aoi": "npm run build:all -w apps/etl"
+    "build:aoi": "npm run build:all -w apps/etl",
+    "deploy:web": "npm run build -w apps/web && npm run deploy -w apps/web",
+    "deploy:api": "npm run deploy -w apps/api"
   },
   "devDependencies": {
     "concurrently": "^10.0.5"

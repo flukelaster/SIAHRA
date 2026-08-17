@@ -5,12 +5,24 @@
   "compatibility_date": "2026-08-16",
   "compatibility_flags": ["nodejs_compat"],
 
-  "assets": {
-    "directory": "../web/dist",
-    "binding": "ASSETS",
-    "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*", "/__scheduled"]
-  },
+  // API only — the SPA lives in its own Worker (apps/web/wrangler.jsonc), so
+  // this config has no `assets` block. Two consequences worth knowing:
+  //   - deploying the API never re-uploads the ~310 MB asset bundle, and
+  //     shipping a UI change never restarts the Durable Objects
+  //   - `wrangler dev` here no longer needs `apps/web/dist` to exist
+  //
+  // siahra-web owns the whole hostname as a Custom Domain (= the origin); a
+  // Worker on a route runs *before* that origin, so this narrower pattern
+  // intercepts /api/* and everything else falls through to the SPA. One public
+  // origin, no CORS. `/__scheduled` is a `wrangler dev` affordance only; in
+  // production the cron trigger below fires the scheduled handler.
+  "routes": [
+    { "pattern": "siahra-radar.co/api/*", "zone_name": "siahra-radar.co" }
+  ],
+
+  // No *.workers.dev host: the SPA calls this API same-origin through the zone
+  // route, and a second reachable hostname would only bypass that assumption.
+  "workers_dev": false,
 
   "vars": {
     "EQ_DEFAULT_BBOX": "{\"minLat\":-2,\"maxLat\":29,\"minLon\":90,\"maxLon\":108}",

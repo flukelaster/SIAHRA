@@ -15,8 +15,11 @@
 #      wrangler state (Durable Object SQLite + local R2: caches + archive)
 #   3. allocates a web + api dev port pair for this worktree -> .env.worktree
 #   4. npm ci (falls back to npm install if the branch changed package.json)
-#   5. builds apps/web/dist once — wrangler dev refuses to start without the
-#      assets directory (this is what killed the API when dist was deleted)
+#
+# It no longer builds apps/web/dist: the SPA is its own Worker now
+# (apps/web/wrangler.jsonc), so the API's `wrangler dev` has no assets directory
+# to miss. Dev serves the SPA from vite. Build dist when you deploy the web
+# Worker or want to check the asset bundle: `npm run build -w apps/web`.
 
 set -euo pipefail
 
@@ -93,12 +96,6 @@ else
   echo "▸ npm ci ไม่ผ่าน (ดู error ด้านบน) — falling back to npm install"
   npm install
   echo "✓ npm install complete — commit package-lock.json ที่อัปเดตด้วยถ้า dep เปลี่ยนจริง"
-fi
-
-# 5) web dist for wrangler's assets directory
-if [ ! -d "$WT_DIR/apps/web/dist" ]; then
-  echo "Building apps/web once (wrangler dev needs apps/web/dist to exist)..."
-  npm run build -w apps/web
 fi
 
 echo ""

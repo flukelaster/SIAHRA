@@ -1,0 +1,45 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "siahra-web",
+  "compatibility_date": "2026-08-16",
+
+  // Assets-only Worker: no `main`, so there is no Worker code to run and every
+  // request is answered straight from the uploaded bundle. Deploying the SPA
+  // therefore never touches `siahra-api` (Durable Objects, cron, R2) and vice
+  // versa — that split is the whole point of having two configs.
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  },
+
+  // A Custom Domain, not a route: this Worker *is* the site's origin, and a
+  // Custom Domain points every path of the hostname here and creates the proxied
+  // DNS record itself. (A plain route would need a hand-made proxied record —
+  // Cloudflare's docs specifically steer away from the placeholder `AAAA 100::`
+  // that implies.)
+  //
+  // siahra-api then layers on top with the narrower route `siahra-radar.co/api/*`:
+  // Workers on routes run *before* the Custom Domain Worker, so /api/* is
+  // answered there and never reaches this one, while everything else lands here.
+  // One public origin is the point — it keeps the relative `fetch("/api/v1/...")`
+  // calls and the `location.host` WebSocket URL in apps/web working unchanged,
+  // and lets ALLOWED_ORIGINS stay empty.
+  "routes": [
+    { "pattern": "siahra-radar.co", "custom_domain": true }
+  ],
+
+  // The same-origin guard in apps/api assumes a single public host. A
+  // *.workers.dev copy of the SPA would call the API cross-origin and be
+  // rejected with 403, so don't publish one.
+  "workers_dev": false,
+
+  "observability": { "enabled": true }
+
+  // Still to come (docs/deploy.md §2): the R2 tile route for
+  // /aoi/{code}/(terrain|buildings|features|landcover)/{z}/{x}_{y}.bin. It
+  // belongs to *this* Worker, not the API: `/aoi/` also holds manifests and
+  // overviews that ship as static assets here, and a Cloudflare route cannot
+  // split one prefix by file extension. Adding it means giving this config a
+  // small `main` plus the HAZARD_BUCKET binding; assets keep being served first
+  // for everything the Worker does not handle.
+}

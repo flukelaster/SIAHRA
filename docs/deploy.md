@@ -2,8 +2,37 @@
 
 ## 0. สิ่งที่ต้องมี
 - Cloudflare account ที่เปิด **Workers Paid** ($5/เดือน — จำเป็นเพราะใช้ Durable Objects)
+- โดเมน `siahra-radar.co` เป็น zone ใน account เดียวกัน (route ของทั้งสอง Worker ผูกกับ zone นี้)
 - `npx wrangler login` ในเครื่องที่จะ deploy
 - Node 20+, gdal/osmium (เฉพาะถ้าจะสร้าง tile ใหม่)
+
+## 0.1 สอง Worker แยก deploy กัน
+| Worker | config | เนื้อหา | ผูกกับโดเมนแบบ |
+|---|---|---|---|
+| `siahra-web` | `apps/web/wrangler.jsonc` | SPA ที่ build แล้ว (static assets ล้วน ไม่มี `main`) | **Custom Domain** `siahra-radar.co` (ทุก path) |
+| `siahra-api` | `apps/api/wrangler.jsonc` | Worker + Durable Objects + cron + R2 | **Route** `siahra-radar.co/api/*` |
+
+ทำไมไม่ใช้ route ทั้งคู่: route ต้องมี DNS record ที่ **proxied (เมฆส้ม)** ของ hostname นั้นอยู่ก่อน
+และเว็บนี้ไม่มี origin server จริง — เอกสาร Cloudflare บอกตรง ๆ ว่ากรณีนี้ให้ใช้ Custom Domain แทนการ
+ปั้ม `AAAA → 100::` หลอก ๆ ; Custom Domain สร้าง DNS record ที่ proxied ให้เองตอน deploy
+
+แล้ว `/api/*` ไปถึง api ได้ยังไง: Custom Domain ทำให้ siahra-web เป็น **origin**, และ Worker
+ที่ผูกด้วย *route* จะรัน **ก่อน** origin เสมอ → request ที่เข้าแพตเทิร์น `/api/*` ถูก siahra-api ตอบจบ
+ไม่เคยไปถึง siahra-web ส่วน path อื่นตกไปที่ SPA ตามปกติ
+
+ผลคือเบราว์เซอร์เห็น **origin เดียว** เหมือนเดิม: โค้ดใน `apps/web` ยังเรียก `fetch("/api/v1/...")`
+แบบ relative และ WebSocket ยังใช้ `location.host` ได้โดยไม่ต้องแก้ และ `ALLOWED_ORIGINS`
+ยังปล่อยว่าง (same-origin เท่านั้น) ได้ตามเดิม
+
+deploy แยกกันได้จริง — แก้ UI แล้ว deploy web ไม่แตะ Durable Objects, แก้ API แล้ว deploy api
+ไม่ต้องอัปโหลด asset bundle ~310 MB ซ้ำ:
+```bash
+npm run deploy:web    # build apps/web แล้ว wrangler deploy ใน apps/web
+npm run deploy:api    # wrangler deploy ใน apps/api (ไม่ต้องมี dist)
+```
+ทั้งสองตัวตั้ง `"workers_dev": false` — มีแต่ host เดียวคือ `siahra-radar.co` เพราะ same-origin guard
+ใน `apps/api/src/rateLimit.ts` คิดบนสมมติฐานนั้น (ถ้าอยากให้ `www` ใช้ได้ด้วย ให้ redirect www → apex
+ที่ระดับ DNS/Redirect Rules ไม่ใช่เพิ่ม route ให้ Worker)
 
 ## 1. R2 สำหรับ tile และคลังถาวร
 ```bash
@@ -18,21 +47,42 @@ rclone sync apps/etl/data/tiles r2:siahra-geodata/aoi --transfers 32 --checksum 
 ```
 key ที่ได้จะเป็น `aoi/{code}/terrain/{z}/{x}_{y}.bin` ตรงกับ URL `/aoi/{code}/terrain/...` ที่ client เรียก
 
-## 2. Worker route สำหรับ tile (งานที่ยังต้องเขียน)
-- เพิ่ม route ใน `apps/api/src/index.ts`: `^/aoi/(\d{2})/(terrain|buildings|features|landcover)/(\d+)/(\d+)_(\d+)\.bin$` → `env.HAZARD_BUCKET.get("aoi/...")` + `Cache-Control: public, max-age=31536000, immutable` + `Content-Type: application/octet-stream`; ใช้ Cache API (`caches.default`) กัน R2 reads
-- เพิ่ม `/aoi/*` ใน `assets.run_worker_first` ของ `apps/api/wrangler.jsonc` (ตอนนี้มีแค่ `/api/*`, `/__scheduled`) — manifest/overview ยังมาจาก static assets ตามเดิม (`apps/web/public/aoi/**`)
+## 2. Worker route สำหรับ tile (งานที่ยังต้องเขียน — อยู่ที่ **siahra-web** ไม่ใช่ api)
+prefix `/aoi/` มีทั้ง manifest/overview ที่เป็น static asset (`apps/web/public/aoi/**`) และ tile `.bin`
+ก้อนใหญ่ใน R2 และ route ของ Cloudflare **แยกตามนามสกุลไฟล์ไม่ได้** → ทั้ง prefix ต้องอยู่ใน Worker
+เดียวกัน และตัวที่ถือ static asset อยู่แล้วคือ `siahra-web` (พลอยได้: งาน DO/cron ไม่ต้องมาเสิร์ฟ tile)
+
+- เพิ่ม `main` ให้ `apps/web/wrangler.jsonc` (ตอนนี้เป็น assets-only) + binding
+  `r2_buckets: [{ "binding": "HAZARD_BUCKET", "bucket_name": "siahra-geodata" }]`
+- ใน Worker ตัวนั้น: match `^/aoi/(\d{2})/(terrain|buildings|features|landcover)/(\d+)/(\d+)_(\d+)\.bin$`
+  → `env.HAZARD_BUCKET.get("aoi/...")` + `Cache-Control: public, max-age=31536000, immutable` +
+  `Content-Type: application/octet-stream`; ใช้ Cache API (`caches.default`) กัน R2 reads
+- path อื่นทั้งหมด (รวม manifest/overview) ให้คืนจาก static assets ตามเดิม — ค่า default ของ Workers
+  static assets คือลอง asset ก่อน จึงไม่ต้องตั้ง `run_worker_first` เว้นแต่จะให้ Worker ชนะก่อน
 
 ## 3. wrangler.jsonc / secrets
+ทั้งหมดนี้อยู่ที่ `apps/api/wrangler.jsonc` — `apps/web/wrangler.jsonc` ไม่มี secret และไม่มี binding
 - `kv_namespaces.CONFIG` มี id placeholder — ลบออกหรือสร้างจริงด้วย `npx wrangler kv namespace create CONFIG`
 - ตั้งค่า `TMD_UID`, `TMD_UKEY` (ลงทะเบียนที่ data.tmd.go.th) ผ่าน `npx wrangler secret put TMD_UKEY` แล้วลบ default ออกจาก `vars`
-- `ALLOWED_ORIGINS`: ว่าง = same-origin เท่านั้น (Worker เดียวเสิร์ฟทั้ง SPA และ API จึงไม่ต้องตั้ง)
+- `ALLOWED_ORIGINS`: ว่าง = same-origin เท่านั้น — ไม่ต้องตั้ง เพราะ route ของสอง Worker อยู่บน host
+  เดียวกัน (`siahra-radar.co`) ตามหัวข้อ 0.1 ; ถ้าวันหน้าย้าย SPA ไปคนละ host ต้องใส่ origin ของ SPA ที่นี่
+  **และ** เติม CORS header ใน `apps/api/src/router.ts` ด้วย ไม่ใช่ตั้งค่านี้ตัวเดียว
 - migrations v1–v4 (DO SQLite) มีครบ, cron `* * * * *` มีแล้ว
+- โดเมน: `wrangler deploy` สร้าง/อัปเดต Custom Domain + route ให้เองจาก `routes` ในแต่ละ config
+  แต่ zone `siahra-radar.co` ต้องอยู่ใน account เดียวกันก่อน — deploy **web ก่อน api** ในครั้งแรก
+  เพราะ Custom Domain ของ web เป็นตัวสร้าง DNS record ที่ proxied ให้ apex (route ของ api ต้องมี
+  record นั้นก่อนจะทำงาน)
+- ถ้าวันหน้าอยากให้ apex ชี้ origin อื่น (ไม่ใช่ Worker) ค่อยเปลี่ยน web จาก Custom Domain เป็น route
+  `siahra-radar.co/*` — ตอนนั้นสองอันจะเป็น route ทั้งคู่และตัวที่ชนะคือแพตเทิร์นที่เจาะจงกว่า (`/api/*`)
+  ไม่ใช่ลำดับใน config
 
-## 4. Build + deploy
+## 4. Build + deploy (สองคำสั่งอิสระ)
 ```bash
-npm run build -w apps/web          # -> apps/web/dist (~310 MB, < 20,000 ไฟล์, ไฟล์ใหญ่สุด < 25 MiB)
-cd apps/api && npx wrangler deploy
+npm run deploy:web    # build -> apps/web/dist (~310 MB, < 20,000 ไฟล์, ไฟล์ใหญ่สุด < 25 MiB) แล้ว deploy siahra-web
+npm run deploy:api    # deploy siahra-api เท่านั้น — ไม่แตะ asset bundle, ไม่ต้องมี dist ในเครื่อง
 ```
+ครั้งแรกต้องรันทั้งคู่ (คนละ Worker คนละ route) หลังจากนั้นรันเฉพาะฝั่งที่แก้
+CI (`.github/workflows/ci.yml` job `Build`) รัน `wrangler deploy --dry-run` ทั้งสอง config ทุก PR
 
 ## 5. WAF / Rate limiting rules (Security → WAF → Rate limiting rules; แผน Free ก็ใช้ได้)
 Worker มี token-bucket ต่อ IP อยู่แล้ว (`apps/api/src/rateLimit.ts`) แต่กติกาที่ edge กันได้ก่อนถึง Worker และไม่กิน request quota:
@@ -47,7 +97,9 @@ Worker มี token-bucket ต่อ IP อยู่แล้ว (`apps/api/src/
 เพิ่ม Cache Rule: `http.request.uri.path matches "^/aoi/.*\.bin$"` → Cache eligible, Edge TTL 1 ปี
 
 ## 6. หลัง deploy ตรวจ
-- `curl https://<host>/api/v1/health` → ทุก source `ok` ภายใน 5 นาที (alarm ของ DO เริ่มเอง)
+- `curl https://siahra-radar.co/api/v1/health` → ทุก source `ok` ภายใน 5 นาที (alarm ของ DO เริ่มเอง)
+  ตอบ 200 = route `/api/*` ชี้ไป siahra-api ถูกแล้ว; ถ้าได้ HTML ของ SPA แทน = route ไม่ทำงาน
+- `curl -I https://siahra-radar.co/` → HTML จาก siahra-web (deploy คนละครั้งกับ api ได้)
 - เปิดเว็บ → tile โหลดจาก `/aoi/...` (Network tab: `cf-cache-status: HIT` ในรอบสอง)
 - ดู R2: `archive/snapshots/<day>/<HH>.json.gz` เกิดทุกชั่วโมง, `archive/waterlevel/<day>/<province>.json.gz` เกิดตอนตี 0:20 (เวลาไทย)
 
