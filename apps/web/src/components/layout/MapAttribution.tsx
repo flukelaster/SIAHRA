@@ -22,7 +22,7 @@ export function MapAttribution({ info, exaggeration }: { info: MapInfo | null; e
     if (info.imagery) parts.push(`ภาพดาวเทียม © ${info.imagery.attribution}`);
   }
   return (
-    <div className="flex flex-col gap-0.5 rounded-lg bg-black/35 px-2.5 py-1 text-[10px] leading-snug text-white/55 backdrop-blur-sm">
+    <div className="flex flex-col gap-0.5 rounded-lg bg-black/70 px-2.5 py-1 text-[10px] leading-snug text-white/55 backdrop-blur-sm">
       {parts.length > 0 ? <p>{parts.join(" · ")}</p> : null}
       <p className="text-white/45">
         © {BRAND.copyrightYear} {BRAND.name} · {DATA_ATTRIBUTION_TH}

@@ -836,7 +836,7 @@ export function Map3DCanvas({
       {state.status === "loading" ||
       imageryProgress !== null ||
       (tileStats !== null && tileStats.visible === 0 && tileStats.loading + tileStats.pending > 0) ? (
-        <div className="pointer-events-none absolute top-24 left-1/2 flex -translate-x-1/2 items-center gap-3 rounded-full border border-white/10 bg-black/45 px-4 py-2 shadow-lg backdrop-blur-md">
+        <div className="pointer-events-none absolute top-24 left-1/2 flex -translate-x-1/2 items-center gap-3 rounded-full border border-white/10 bg-black/80 px-4 py-2 shadow-lg backdrop-blur-md">
           <div
             className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-[var(--color-accent)]"
             aria-hidden="true"
@@ -877,7 +877,7 @@ export function Map3DCanvas({
 
       {state.status === "error" ? (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <p className="max-w-sm rounded-xl border border-red-400/30 bg-black/50 px-4 py-3 text-center text-sm text-red-300 backdrop-blur-md">
+          <p className="max-w-sm rounded-xl border border-red-400/30 bg-black/80 px-4 py-3 text-center text-sm text-red-300 backdrop-blur-md">
             {state.message}
           </p>
         </div>
