@@ -1,10 +1,26 @@
-import { createReadStream, existsSync, statSync } from "node:fs";
+import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
-const TILES_ROOT = path.resolve(__dirname, "../etl/data/tiles");
+const TILES_ROOT = path.resolve(import.meta.dirname, "../etl/data/tiles");
+
+/**
+ * Per-worktree dev ports written by scripts/setup-worktree.sh — parsed (never
+ * sourced). Root checkout keeps 5173 (web) / 8787 (api).
+ */
+function worktreePorts(): { web?: number; api?: number } {
+  try {
+    const env = readFileSync(path.resolve(import.meta.dirname, "../../.env.worktree"), "utf8");
+    const web = env.match(/^SIAHRA_WEB_DEV_PORT=(\d+)$/m);
+    const api = env.match(/^SIAHRA_API_DEV_PORT=(\d+)$/m);
+    return { web: web ? Number(web[1]) : undefined, api: api ? Number(api[1]) : undefined };
+  } catch {
+    return {};
+  }
+}
+const PORTS = worktreePorts();
 
 /**
  * Serves the terrain + building tile pyramids (apps/etl/data/tiles,
@@ -40,9 +56,11 @@ function terrainTiles(): Plugin {
 export default defineConfig({
   plugins: [react(), tailwindcss(), terrainTiles()],
   server: {
+    port: PORTS.web,
+    strictPort: PORTS.web !== undefined,
     proxy: {
       "/api": {
-        target: "http://127.0.0.1:8787",
+        target: `http://127.0.0.1:${PORTS.api ?? 8787}`,
         changeOrigin: true,
         ws: true,
       },

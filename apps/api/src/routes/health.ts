@@ -1,4 +1,5 @@
 import type { HealthResponse, SourceStatus } from "@siahra/shared-types";
+import { rejectedLastHour } from "../rateLimit.js";
 import { json } from "../router.js";
 import type { AppEnv } from "../types.js";
 
@@ -37,6 +38,7 @@ export async function handleHealth(_request: Request, env: AppEnv): Promise<Resp
     ok: sources.every((s) => s.health === "ok" || s.health === "stale"),
     serverTime: new Date().toISOString(),
     sources,
+    api: { rateLimited429LastHour: rejectedLastHour() },
   };
   return json(body, { cacheControl: "public, max-age=15" });
 }

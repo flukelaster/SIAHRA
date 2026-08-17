@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import { useState } from "react";
 import type { PickResult } from "../../scene/picking";
 import { useStationHistory } from "../../hooks/useStationHistory";
 import { Sparkline } from "../hazard/Sparkline";
@@ -19,9 +20,16 @@ function Row({ k, v }: { k: string; v: string }) {
   );
 }
 
+const HISTORY_RANGES = [
+  { hours: 72, label: "72 ชม." },
+  { hours: 168, label: "7 วัน" },
+  { hours: 720, label: "30 วัน" },
+];
+
 function WaterLevelBody({ pick }: { pick: Extract<PickResult, { kind: "waterlevel" }> }) {
   const { obs } = pick;
-  const history = useStationHistory(obs.station.id, true);
+  const [hours, setHours] = useState(72);
+  const history = useStationHistory(obs.station.id, true, hours);
   return (
     <>
       <p className="text-sm font-semibold text-white">{obs.station.nameTh ?? `สถานี ${obs.station.id}`}</p>
@@ -43,7 +51,23 @@ function WaterLevelBody({ pick }: { pick: Extract<PickResult, { kind: "waterleve
         ) : history.data ? (
           <>
             <Sparkline points={history.data.points} bankMsl={history.data.datum === "msl" ? obs.minBankMsl : null} />
-            <p className="text-[10px] text-[var(--color-fg-subtle)]">72 ชม. ล่าสุด · ค่าตรวจวัดจริง</p>
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] text-[var(--color-fg-subtle)]">
+                ค่าตรวจวัดจริง{history.data.fromArchive ? " · บางส่วนจากคลังถาวร" : ""}
+              </p>
+              <span className="flex rounded bg-white/5 p-0.5">
+                {HISTORY_RANGES.map((r) => (
+                  <button
+                    key={r.hours}
+                    type="button"
+                    onClick={() => setHours(r.hours)}
+                    className={`cursor-pointer rounded px-1.5 text-[10px] ${hours === r.hours ? "bg-[var(--color-accent)] text-white" : "text-[var(--color-fg-muted)]"}`}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </span>
+            </div>
           </>
         ) : (
           <p className="text-[11px] text-[var(--color-fg-subtle)]">ไม่มีข้อมูลย้อนหลัง</p>

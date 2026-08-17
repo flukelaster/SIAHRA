@@ -1,0 +1,13 @@
+# Files to copy from the main working tree when setting up a worktree.
+# Gitignored but useful for local development.
+#
+# Claude Code copies these automatically via EnterWorktree / --worktree.
+# Orca runs scripts/setup-worktree.sh (see orca.yaml) which copies the same
+# set and additionally symlinks the multi-GB datasets under apps/etl/data.
+
+# Local API secrets (registered TMD key etc.), if you keep one.
+apps/api/.dev.vars
+
+# Local Durable Object SQLite + local R2 (observation caches, radar frames,
+# long-term archive). Optional: without it the DOs refill within a minute.
+apps/api/.wrangler/state

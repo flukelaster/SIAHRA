@@ -61,7 +61,22 @@ export function useObservations(provinceCode: string | null, atIso: string | nul
         const res = await fetch(`/api/v1/observations${qs}`, { signal: controller.signal });
         if (GATEWAY_STATUSES.has(res.status)) throw new ApiUnavailableError(res.status);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = (await res.json()) as ObservationsResponse;
+        let data = (await res.json()) as ObservationsResponse;
+        // Beyond the hot window rainfall has no 10-minute series; fill it from
+        // the hourly nationwide snapshot archive so the map still shows rain.
+        if (atIso && Date.now() - Date.parse(atIso) > 7 * 24 * 3600000 && data.rainfall.length === 0) {
+          try {
+            const q = new URLSearchParams({ at: atIso });
+            if (provinceCode) q.set("province", provinceCode);
+            const snapRes = await fetch(`/api/v1/archive/snapshot?${q.toString()}`, { signal: controller.signal });
+            if (snapRes.ok) {
+              const snap = (await snapRes.json()) as ObservationsResponse;
+              data = { ...data, rainfall: snap.rainfall };
+            }
+          } catch {
+            /* archive rainfall is best-effort */
+          }
+        }
         if (cancelled) return;
         setState({ data, loading: false, error: null });
       } catch (err) {

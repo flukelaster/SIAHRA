@@ -17,6 +17,20 @@ import {
   fetchWaterLevel,
   fetchWaterLevelHistory,
 } from "../ingestion/thaiwater.js";
+import { UpstreamQueue } from "../upstream/limiter.js";
+import {
+  addDays,
+  bangkokDay,
+  bangkokHour,
+  dayStartMs,
+  getJson,
+  getJsonGz,
+  keys as archiveKeys,
+  putJson,
+  putJsonGz,
+  type ArchiveDayIndex,
+  type WaterlevelDayFile,
+} from "../archive.js";
 
 /**
  * Upstream responses are 2-4 MB covering ~5,500 stations nationwide, so they
@@ -31,9 +45,14 @@ const RETRY_MIN_MS = 60 * 1000;
 const RETRY_MAX_MS = 10 * 60 * 1000;
 /** Station history is re-pulled at most this often, kept this long. */
 const HISTORY_TTL_MS = 10 * 60 * 1000;
-const HISTORY_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+const HISTORY_RETENTION_MS = 8 * 24 * 60 * 60 * 1000;
+/** Hot window served from SQLite; older requests go to the R2 archive. */
+const HOT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+const MAX_HISTORY_HOURS = 30 * 24;
+const ARCHIVE_CACHE_TTL_MS = 60 * 60 * 1000;
 const HISTORY_HOURS = 72;
-const HISTORY_CONCURRENCY = 4;
+/** Stations warmed eagerly per province view; the rest load on demand. */
+const WARM_MAX_STATIONS = 24;
 /** Snapshot lookups accept a reading this far before the requested time. */
 const SNAPSHOT_TOLERANCE_MS = 3 * 60 * 60 * 1000;
 const DAMS_TTL_MS = 30 * 60 * 1000;
@@ -54,6 +73,18 @@ interface MetaRow extends Record<string, SqlStorageValue> {
 }
 
 export class ObservationCacheDO extends DurableObject<Env> {
+  /**
+   * Every ThaiWater call goes through this queue: 3 at a time, ≥250 ms apart,
+   * ≤120 starts/min, and a 5-minute pause after 3 consecutive 429/5xx.
+   */
+  private readonly upstream = new UpstreamQueue({
+    concurrency: 3,
+    minGapMs: 250,
+    perMinute: 120,
+    tripAfter: 3,
+    pauseMs: 5 * 60 * 1000,
+  });
+
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     ctx.blockConcurrencyWhile(async () => {
@@ -97,6 +128,17 @@ export class ObservationCacheDO extends DurableObject<Env> {
           payload TEXT NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_dams_province ON dams(province_code);
+        CREATE TABLE IF NOT EXISTS hourly_levels (
+          station_id INTEGER NOT NULL,
+          ts_ms INTEGER NOT NULL,
+          value_msl REAL,
+          PRIMARY KEY (station_id, ts_ms)
+        );
+        CREATE TABLE IF NOT EXISTS archive_cache (
+          key TEXT PRIMARY KEY,
+          body TEXT NOT NULL,
+          fetched_ms INTEGER NOT NULL
+        );
       `);
     });
   }
@@ -149,6 +191,9 @@ export class ObservationCacheDO extends DurableObject<Env> {
     const nowMs = Date.now();
     if (!this.isFresh(nowMs)) await this.refreshOnce(nowMs);
     await this.armAlarm();
+    this.ctx.waitUntil(this.archiveTick().catch((err: unknown) => {
+      this.writeMeta("archiveError", String(err).slice(0, 200));
+    }));
   }
 
   private async armAlarm(): Promise<void> {
@@ -166,6 +211,197 @@ export class ObservationCacheDO extends DurableObject<Env> {
     await this.refreshOnce(Date.now());
     // The alarm just fired, so getAlarm() is null and armAlarm() sets the next one.
     await this.armAlarm();
+    // Archive work never blocks the refresh cadence.
+    this.ctx.waitUntil(this.archiveTick().catch((err: unknown) => {
+      this.writeMeta("archiveError", String(err).slice(0, 200));
+      console.error(JSON.stringify({ level: "error", message: "archive tick failed", error: String(err) }));
+    }));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Archive: hourly nationwide snapshot + daily per-province water-level files.
+  // ---------------------------------------------------------------------------
+
+  private async archiveTick(): Promise<void> {
+    const nowMs = Date.now();
+    if (!this.readMeta("fetchedAt")) return;
+    const day = bangkokDay(nowMs);
+    const hour = bangkokHour(nowMs);
+    const hourKey = `${day}/${hour}`;
+    if (this.readMeta("lastSnapshotKey") !== hourKey) {
+      await this.writeHourlySnapshot(nowMs, day, hour);
+      this.writeMeta("lastSnapshotKey", hourKey);
+    }
+    const lastArchived = this.readMeta("lastArchivedDay");
+    const yesterday = addDays(day, -1);
+    if (lastArchived !== yesterday && nowMs - dayStartMs(day) > 20 * 60 * 1000) {
+      await this.archiveDay(yesterday);
+      this.writeMeta("lastArchivedDay", yesterday);
+    }
+    this.writeMeta("archiveError", null);
+  }
+
+  private async writeHourlySnapshot(nowMs: number, day: string, hour: string): Promise<void> {
+    const snapshot = await this.getObservations(null);
+    await putJsonGz(this.env.HAZARD_BUCKET, archiveKeys.snapshot(day, hour), snapshot);
+    // Also keep hourly MSL levels for every station in SQLite so the daily
+    // file has at least hourly coverage for stations nobody warmed.
+    const rows = snapshot.waterlevel;
+    for (let i = 0; i < rows.length; i += 30) {
+      const chunk = rows.slice(i, i + 30);
+      const placeholders = chunk.map(() => "(?, ?, ?)").join(",");
+      const binds: SqlStorageValue[] = [];
+      for (const w of chunk) {
+        binds.push(w.station.id, w.observedAt ? Date.parse(w.observedAt) : nowMs, w.waterlevelMsl);
+      }
+      this.ctx.storage.sql.exec(
+        `INSERT OR REPLACE INTO hourly_levels (station_id, ts_ms, value_msl) VALUES ${placeholders}`,
+        ...binds,
+      );
+    }
+    this.ctx.storage.sql.exec("DELETE FROM hourly_levels WHERE ts_ms < ?", nowMs - HISTORY_RETENTION_MS);
+    // Index bookkeeping.
+    const idx = (await getJson<ArchiveDayIndex>(this.env.HAZARD_BUCKET, archiveKeys.index(day))) ?? {
+      day,
+      waterlevelProvinces: [],
+      snapshotHours: [],
+      dams: false,
+      generatedAt: new Date(nowMs).toISOString(),
+    };
+    if (!idx.snapshotHours.includes(hour)) idx.snapshotHours.push(hour);
+    idx.generatedAt = new Date(nowMs).toISOString();
+    await putJson(this.env.HAZARD_BUCKET, archiveKeys.index(day), idx);
+  }
+
+  /** Writes archive/waterlevel/{day}/{province}.json.gz for every province + the day's dams. */
+  private async archiveDay(day: string): Promise<void> {
+    const start = dayStartMs(day);
+    const end = start + 86400000;
+    const stations = this.ctx.storage.sql
+      .exec<{ station_id: number; province_code: string | null }>("SELECT station_id, province_code FROM waterlevel")
+      .toArray();
+    const byProvince = new Map<string, number[]>();
+    for (const s of stations) {
+      const p = s.province_code ?? "00";
+      const arr = byProvince.get(p) ?? [];
+      arr.push(s.station_id);
+      byProvince.set(p, arr);
+    }
+    const written: string[] = [];
+    for (const [province, ids] of byProvince) {
+      const file: WaterlevelDayFile = { day, provinceCode: province, generatedAt: new Date().toISOString(), stations: [] };
+      for (const id of ids) {
+        const fine = this.ctx.storage.sql
+          .exec<{ ts_ms: number; value: number | null; discharge: number | null }>(
+            "SELECT ts_ms, value, discharge FROM waterlevel_history WHERE station_id = ? AND ts_ms >= ? AND ts_ms < ? ORDER BY ts_ms",
+            id,
+            start,
+            end,
+          )
+          .toArray();
+        const datum =
+          this.ctx.storage.sql.exec<{ datum: string }>("SELECT datum FROM history_meta WHERE station_id = ?", id).toArray()[0]
+            ?.datum ?? "unknown";
+        let points: [number, number | null, number | null][];
+        let d: "msl" | "local" | "unknown" = datum as "msl" | "local" | "unknown";
+        if (fine.length > 0) {
+          points = fine.map((r) => [r.ts_ms, r.value, r.discharge]);
+        } else {
+          const hourly = this.ctx.storage.sql
+            .exec<{ ts_ms: number; value_msl: number | null }>(
+              "SELECT ts_ms, value_msl FROM hourly_levels WHERE station_id = ? AND ts_ms >= ? AND ts_ms < ? ORDER BY ts_ms",
+              id,
+              start,
+              end,
+            )
+            .toArray();
+          if (hourly.length === 0) continue;
+          points = hourly.map((r) => [r.ts_ms, r.value_msl, null]);
+          d = "msl";
+        }
+        file.stations.push({ stationId: id, datum: d, points });
+      }
+      if (file.stations.length === 0) continue;
+      await putJsonGz(this.env.HAZARD_BUCKET, archiveKeys.waterlevelDay(day, province), file);
+      written.push(province);
+    }
+    // Dams: whatever we hold that was observed on that day.
+    const dams = this.ctx.storage.sql.exec<StationRow>("SELECT payload FROM dams").toArray().map((r) => JSON.parse(r.payload) as DamObservation);
+    const dayDams = dams.filter((d) => d.observedAt && bangkokDay(Date.parse(d.observedAt)) === day);
+    if (dayDams.length) await putJsonGz(this.env.HAZARD_BUCKET, archiveKeys.dams(day), { day, dams: dayDams });
+    const idx = (await getJson<ArchiveDayIndex>(this.env.HAZARD_BUCKET, archiveKeys.index(day))) ?? {
+      day,
+      waterlevelProvinces: [],
+      snapshotHours: [],
+      dams: false,
+      generatedAt: new Date().toISOString(),
+    };
+    idx.waterlevelProvinces = written;
+    idx.dams = dayDams.length > 0;
+    idx.generatedAt = new Date().toISOString();
+    await putJson(this.env.HAZARD_BUCKET, archiveKeys.index(day), idx);
+    console.log(JSON.stringify({ level: "info", message: "archived day", day, provinces: written.length, dams: dayDams.length }));
+  }
+
+  /** Province-day archive file with a 1 h SQLite cache (null when absent). */
+  private async archivedDay(day: string, province: string): Promise<WaterlevelDayFile | null> {
+    const key = archiveKeys.waterlevelDay(day, province);
+    const cached = this.ctx.storage.sql
+      .exec<{ body: string; fetched_ms: number }>("SELECT body, fetched_ms FROM archive_cache WHERE key = ?", key)
+      .toArray()[0];
+    if (cached && Date.now() - cached.fetched_ms < ARCHIVE_CACHE_TTL_MS) {
+      return cached.body === "" ? null : (JSON.parse(cached.body) as WaterlevelDayFile);
+    }
+    const file = await getJsonGz<WaterlevelDayFile>(this.env.HAZARD_BUCKET, key);
+    this.ctx.storage.sql.exec(
+      "INSERT OR REPLACE INTO archive_cache (key, body, fetched_ms) VALUES (?, ?, ?)",
+      key,
+      file ? JSON.stringify(file) : "",
+      Date.now(),
+    );
+    this.ctx.storage.sql.exec("DELETE FROM archive_cache WHERE fetched_ms < ?", Date.now() - 6 * ARCHIVE_CACHE_TTL_MS);
+    return file;
+  }
+
+  /** Days (Bangkok) covering [fromMs, toMs], oldest first, capped to the archive horizon. */
+  private daysBetween(fromMs: number, toMs: number): string[] {
+    const out: string[] = [];
+    let d = bangkokDay(fromMs);
+    const last = bangkokDay(toMs);
+    for (let i = 0; i < 40 && d <= last; i++) {
+      out.push(d);
+      d = addDays(d, 1);
+    }
+    return out;
+  }
+
+  /** Backs GET /api/v1/archive/days. */
+  async archiveDays(limit = 60): Promise<ArchiveDayIndex[]> {
+    const list = await this.env.HAZARD_BUCKET.list({ prefix: "archive/index/", limit: 1000 });
+    const keysSorted = list.objects.map((o) => o.key).sort().slice(-limit);
+    const out: ArchiveDayIndex[] = [];
+    for (const k of keysSorted) {
+      const idx = await getJson<ArchiveDayIndex>(this.env.HAZARD_BUCKET, k);
+      if (idx) out.push(idx);
+    }
+    return out;
+  }
+
+  /** Nearest hourly nationwide snapshot at/before `atMs` (within 2 h), optionally filtered. */
+  async archivedSnapshot(atMs: number, province: string | null): Promise<ObservationsResponse | null> {
+    for (let back = 0; back < 3; back++) {
+      const t = atMs - back * 3600000;
+      const snap = await getJsonGz<ObservationsResponse>(
+        this.env.HAZARD_BUCKET,
+        archiveKeys.snapshot(bangkokDay(t), bangkokHour(t)),
+      );
+      if (!snap) continue;
+      if (!province) return snap;
+      const rainfall = snap.rainfall.filter((r) => r.station.provinceCode === province);
+      const waterlevel = snap.waterlevel.filter((w) => w.station.provinceCode === province);
+      return { ...snap, rainfall, waterlevel, summary: { ...snap.summary, provinceCode: province, rainfallStationCount: rainfall.length, waterlevelStationCount: waterlevel.length } };
+    }
+    return null;
   }
 
   private async refresh(nowMs: number): Promise<void> {
@@ -173,13 +409,13 @@ export class ObservationCacheDO extends DurableObject<Env> {
     // Partial failure must not wipe the good half of the cache, so each feed
     // is only rewritten when its own fetch succeeded.
     const [rainfall, waterlevel] = await Promise.all([
-      fetchRainfall().catch((err: unknown) => {
+      this.upstream.run(() => fetchRainfall(), 0).catch((err: unknown) => {
         console.error(
           JSON.stringify({ level: "error", message: "thaiwater rain fetch failed", error: String(err) }),
         );
         return null;
       }),
-      fetchWaterLevel().catch((err: unknown) => {
+      this.upstream.run(() => fetchWaterLevel(), 0).catch((err: unknown) => {
         console.error(
           JSON.stringify({ level: "error", message: "thaiwater waterlevel fetch failed", error: String(err) }),
         );
@@ -275,8 +511,8 @@ export class ObservationCacheDO extends DurableObject<Env> {
     return dMsl <= dLocal ? "msl" : "local";
   }
 
-  private async pullHistory(stationId: number, nowMs: number): Promise<void> {
-    const points = await fetchWaterLevelHistory(stationId, HISTORY_HOURS, nowMs);
+  private async pullHistory(stationId: number, nowMs: number, priority = 5): Promise<void> {
+    const points = await this.upstream.run(() => fetchWaterLevelHistory(stationId, HISTORY_HOURS, nowMs), priority);
     // 4 bound params per row; 24 rows = 96, under SQLite's 100-parameter cap.
     const HISTORY_CHUNK = 24;
     for (let i = 0; i < points.length; i += HISTORY_CHUNK) {
@@ -307,51 +543,80 @@ export class ObservationCacheDO extends DurableObject<Env> {
 
   private warming = new Set<string>();
 
-  /** Pull 72 h history for every water-level station of a province (throttled). */
+  /**
+   * Warm 72 h history for a province being viewed — but politely: stations at
+   * warning level first, at most WARM_MAX_STATIONS per view, everything else
+   * on demand (getHistory) or from the hourly snapshot archive.
+   */
   async warmProvinceHistory(province: string): Promise<void> {
     if (this.warming.has(province)) return;
     this.warming.add(province);
     try {
       const nowMs = Date.now();
-      const ids = this.ctx.storage.sql
-        .exec<{ station_id: number }>("SELECT station_id FROM waterlevel WHERE province_code = ?", province)
+      const rows = this.ctx.storage.sql
+        .exec<{ station_id: number; situation_level: number | null }>(
+          "SELECT station_id, situation_level FROM waterlevel WHERE province_code = ? ORDER BY situation_level DESC",
+          province,
+        )
         .toArray()
-        .map((r) => r.station_id)
-        .filter((id) => !this.historyFresh(id, nowMs));
-      let next = 0;
-      const worker = async () => {
-        while (next < ids.length) {
-          const id = ids[next++];
-          try {
-            await this.pullHistory(id, nowMs);
-          } catch (err) {
-            console.error(JSON.stringify({ level: "warn", message: "history pull failed", stationId: id, error: String(err) }));
-          }
-        }
-      };
-      await Promise.all(Array.from({ length: Math.min(HISTORY_CONCURRENCY, ids.length) }, worker));
+        .filter((r) => !this.historyFresh(r.station_id, nowMs))
+        .slice(0, WARM_MAX_STATIONS);
+      await Promise.all(
+        rows.map((r) =>
+          this.pullHistory(r.station_id, nowMs, (r.situation_level ?? 0) >= 4 ? 2 : 6).catch((err: unknown) => {
+            console.error(JSON.stringify({ level: "warn", message: "history pull failed", stationId: r.station_id, error: String(err) }));
+          }),
+        ),
+      );
     } finally {
       this.warming.delete(province);
     }
   }
 
-  /** Backs GET /api/v1/stations/{id}/history. */
+  /** Backs GET /api/v1/stations/{id}/history (≤ 30 days; >7 days read from the R2 archive). */
   async getHistory(stationId: number, hours: number): Promise<WaterLevelHistoryResponse> {
     const nowMs = Date.now();
+    hours = Math.min(MAX_HISTORY_HOURS, hours);
     if (!this.historyFresh(stationId, nowMs)) {
-      await this.pullHistory(stationId, nowMs);
+      // User-driven: highest priority in the queue.
+      await this.pullHistory(stationId, nowMs, 1);
     }
     const meta = this.ctx.storage.sql
       .exec<{ fetched_ms: number; datum: string }>("SELECT fetched_ms, datum FROM history_meta WHERE station_id = ?", stationId)
       .toArray()[0];
-    const points = this.ctx.storage.sql
+    const fromMs = nowMs - hours * 60 * 60 * 1000;
+    const hot = this.ctx.storage.sql
       .exec<{ ts_ms: number; value: number | null; discharge: number | null }>(
         "SELECT ts_ms, value, discharge FROM waterlevel_history WHERE station_id = ? AND ts_ms >= ? ORDER BY ts_ms ASC",
         stationId,
-        nowMs - hours * 60 * 60 * 1000,
+        Math.max(fromMs, nowMs - HOT_WINDOW_MS),
       )
       .toArray()
       .map((r) => ({ t: new Date(r.ts_ms).toISOString(), value: r.value, discharge: r.discharge }));
+    let archived: WaterLevelHistoryPoint[] = [];
+    let fromArchive = false;
+    if (fromMs < nowMs - HOT_WINDOW_MS) {
+      const province =
+        this.ctx.storage.sql
+          .exec<{ province_code: string | null }>("SELECT province_code FROM waterlevel WHERE station_id = ?", stationId)
+          .toArray()[0]?.province_code ?? null;
+      if (province) {
+        const days = this.daysBetween(fromMs, nowMs - HOT_WINDOW_MS);
+        const files = await Promise.all(days.map((d) => this.archivedDay(d, province)));
+        for (const f of files) {
+          const st = f?.stations.find((x) => x.stationId === stationId);
+          if (!st) continue;
+          fromArchive = true;
+          for (const [t, v, q] of st.points) {
+            if (t >= fromMs && t < nowMs - HOT_WINDOW_MS) archived.push({ t: new Date(t).toISOString(), value: v, discharge: q });
+          }
+        }
+      }
+    }
+    // De-duplicate on the boundary and keep chronological order.
+    const seen = new Set(hot.map((p) => p.t));
+    archived = archived.filter((p) => !seen.has(p.t));
+    const points = [...archived, ...hot].sort((a, b) => (a.t < b.t ? -1 : 1));
     return {
       layer: {
         id: "thaiwater-waterlevel-history",
@@ -366,6 +631,7 @@ export class ObservationCacheDO extends DurableObject<Env> {
       datum: (meta?.datum as "msl" | "local" | "unknown") ?? "unknown",
       hours,
       fetchedAt: meta ? new Date(meta.fetched_ms).toISOString() : null,
+      fromArchive,
       points,
     };
   }
@@ -376,7 +642,7 @@ export class ObservationCacheDO extends DurableObject<Env> {
     if (!this.damsInflight) {
       this.damsInflight = (async () => {
         try {
-          const dams = await fetchDams(nowMs);
+          const dams = await this.upstream.run(() => fetchDams(nowMs), 3);
           this.ctx.storage.sql.exec("DELETE FROM dams");
           for (const d of dams) {
             this.ctx.storage.sql.exec(
@@ -449,7 +715,7 @@ export class ObservationCacheDO extends DurableObject<Env> {
         : "unknown"
       : age > STALE_AFTER_MS
         ? "stale"
-        : lastError
+        : lastError || this.upstream.pausedUntilMs
           ? "degraded"
           : "ok";
     return {
@@ -464,6 +730,14 @@ export class ObservationCacheDO extends DurableObject<Env> {
         rainfallStations: rainCount,
         waterlevelStations: waterCount,
         consecutiveFailures: Number(this.readMeta("consecutiveFailures") ?? "0"),
+        upstreamQueue: this.upstream.length,
+        upstreamInflight: this.upstream.inflight,
+        upstreamStartsLastMinute: this.upstream.startsLastMinute(),
+        upstreamStartsLastHour: this.upstream.startsLastHour(),
+        upstreamPausedUntil: this.upstream.pausedUntilMs ? new Date(this.upstream.pausedUntilMs).toISOString() : null,
+        archiveLastDay: this.readMeta("lastArchivedDay"),
+        snapshotLastHour: this.readMeta("lastSnapshotKey"),
+        archiveError: this.readMeta("archiveError"),
       },
       staleAfterSeconds: STALE_AFTER_MS / 1000,
     };
@@ -510,7 +784,42 @@ export class ObservationCacheDO extends DurableObject<Env> {
       .toArray()
       .map((r) => JSON.parse(r.payload) as WaterLevelObservation);
 
-    if (historical) {
+    if (historical && atMs < nowMs - HOT_WINDOW_MS) {
+      // Beyond the hot window: read the province-day archive file(s).
+      rainfall.length = 0;
+      const day = bangkokDay(atMs);
+      const files = province
+        ? [await this.archivedDay(day, province), atMs - dayStartMs(day) < SNAPSHOT_TOLERANCE_MS ? await this.archivedDay(addDays(day, -1), province) : null]
+        : [];
+      const latest = new Map<number, { t: number; v: number | null; datum: string }>();
+      for (const f of files) {
+        if (!f) continue;
+        for (const st of f.stations) {
+          for (const [t, v] of st.points) {
+            if (t <= atMs && t >= atMs - SNAPSHOT_TOLERANCE_MS) {
+              const cur = latest.get(st.stationId);
+              if (!cur || t > cur.t) latest.set(st.stationId, { t, v, datum: st.datum });
+            }
+          }
+        }
+      }
+      waterlevel = waterlevel.flatMap((w) => {
+        const p = latest.get(w.station.id);
+        if (!p || p.v === null) return [];
+        const msl = p.datum === "msl" ? p.v : null;
+        return [
+          {
+            ...w,
+            waterlevelMsl: msl,
+            waterlevelLocalM: p.datum === "local" ? p.v : null,
+            freeboardM: msl !== null && w.minBankMsl !== null ? Math.round((w.minBankMsl - msl) * 1000) / 1000 : null,
+            situationLevel: null,
+            storagePercent: null,
+            observedAt: new Date(p.t).toISOString(),
+          },
+        ];
+      });
+    } else if (historical) {
       rainfall.length = 0;
       waterlevel = waterlevel.flatMap((w) => {
         const point = this.ctx.storage.sql

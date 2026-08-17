@@ -1,0 +1,14 @@
+# orca.yaml — worktree hooks for SIAHRA.
+#
+# Orca injects $ORCA_WORKTREE_PATH (this worktree), $ORCA_ROOT_PATH (root
+# checkout) and $ORCA_WORKSPACE_NAME. Only `setup` and `archive` hooks exist —
+# start the dev servers via a Quick Command (Terminal Command): bash .orca/run.sh
+#
+# SECURITY: invoke the wrapper from $ORCA_ROOT_PATH (the TRUSTED root checkout),
+# not $ORCA_WORKTREE_PATH — the worktree's own scripts are branch-controlled.
+# Fail closed if Orca did not inject ORCA_ROOT_PATH.
+scripts:
+  setup: |
+    bash "${ORCA_ROOT_PATH:?ORCA_ROOT_PATH not set by Orca}/.orca/setup.sh"
+  archive: |
+    bash "${ORCA_ROOT_PATH:?ORCA_ROOT_PATH not set by Orca}/.orca/teardown.sh"

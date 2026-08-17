@@ -4,10 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev --port 8787 --test-scheduled",
+    "dev": "node scripts/dev-api.mjs",
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
-    "types": "wrangler types"
+    "types": "wrangler types",
+    "dev:raw": "wrangler dev --port 8787 --test-scheduled"
   },
   "dependencies": {
     "@siahra/shared-types": "*"

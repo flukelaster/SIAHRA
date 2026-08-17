@@ -15,7 +15,10 @@ export function Sparkline({
   width?: number;
   height?: number;
 }) {
-  const valid = points.filter((p) => p.value !== null) as (WaterLevelHistoryPoint & { value: number })[];
+  // Long series (30 days at 10 min = 4,320 pts) are thinned for the tiny chart.
+  const allValid = points.filter((p) => p.value !== null) as (WaterLevelHistoryPoint & { value: number })[];
+  const stride = Math.max(1, Math.ceil(allValid.length / 600));
+  const valid = stride === 1 ? allValid : allValid.filter((_, i) => i % stride === 0 || i === allValid.length - 1);
   if (valid.length < 2) {
     return <p className="text-[11px] text-[var(--color-fg-subtle)]">ไม่มีข้อมูลย้อนหลังเพียงพอ</p>;
   }

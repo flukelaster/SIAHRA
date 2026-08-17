@@ -94,7 +94,18 @@ export interface WaterLevelHistoryResponse {
   datum: "msl" | "local" | "unknown";
   hours: number;
   fetchedAt: string | null;
+  /** True when part of the series came from the long-term R2 archive (>7 days). */
+  fromArchive?: boolean;
   points: WaterLevelHistoryPoint[];
+}
+
+/** One archived Bangkok day (GET /api/v1/archive/days). */
+export interface ArchiveDaySummary {
+  day: string;
+  waterlevelProvinces: string[];
+  snapshotHours: string[];
+  dams: boolean;
+  generatedAt: string;
 }
 
 /** Reservoir storage as published by ThaiWater (RID/EGAT feeds). */

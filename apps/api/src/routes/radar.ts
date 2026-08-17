@@ -4,7 +4,7 @@ import type { AppEnv } from "../types.js";
 /** GET /api/v1/radar/frames?hours=3 */
 export async function handleRadarFrames(request: Request, env: AppEnv): Promise<Response> {
   const raw = Number(new URL(request.url).searchParams.get("hours") ?? "3");
-  const hours = Number.isFinite(raw) ? Math.min(24, Math.max(1, raw)) : 3;
+  const hours = Number.isFinite(raw) ? Math.min(720, Math.max(1, raw)) : 3;
   try {
     const data = await env.RADAR.getByName("tmd").getFrames(hours);
     return json(data, { cacheControl: "public, max-age=60" });

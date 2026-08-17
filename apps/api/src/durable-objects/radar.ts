@@ -11,7 +11,7 @@ const REFRESH_MS = 5 * 60 * 1000;
 const RETRY_MS = 60 * 1000;
 const STALE_AFTER_MS = 90 * 60 * 1000;
 /** Frames older than this are dropped from R2 and the index. */
-const RETENTION_MS = 24 * 60 * 60 * 1000;
+const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const R2_PREFIX = "radar/tmd-composite/";
 
 interface FrameRow extends Record<string, SqlStorageValue> {

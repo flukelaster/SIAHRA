@@ -6,7 +6,7 @@ export async function handleStationHistory(id: string, request: Request, env: Ap
   const stationId = Number(id);
   if (!Number.isInteger(stationId) || stationId <= 0) return json({ error: "Invalid station id" }, { status: 400 });
   const rawHours = Number(new URL(request.url).searchParams.get("hours") ?? "72");
-  const hours = Number.isFinite(rawHours) ? Math.min(168, Math.max(1, Math.round(rawHours))) : 72;
+  const hours = Number.isFinite(rawHours) ? Math.min(720, Math.max(1, Math.round(rawHours))) : 72;
   const stub = env.OBSERVATION_CACHE.getByName("thaiwater");
   try {
     const data = await stub.getHistory(stationId, hours);

@@ -27,4 +27,6 @@ export interface HealthResponse {
   ok: boolean;
   serverTime: string;
   sources: SourceStatus[];
+  /** Our own API's protective counters (per isolate). */
+  api?: { rateLimited429LastHour: number };
 }

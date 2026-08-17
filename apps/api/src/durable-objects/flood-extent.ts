@@ -8,6 +8,7 @@ import type {
   SourceStatus,
 } from "@siahra/shared-types";
 import { fetchGistdaFloodExtent } from "../ingestion/gistda.js";
+import { keys as archiveKeys, putJsonGz } from "../archive.js";
 
 /** GISTDA re-interprets scenes irregularly; half-hourly polling is plenty. */
 const REFRESH_MS = 30 * 60 * 1000;
@@ -136,6 +137,24 @@ export class FloodExtentDO extends DurableObject<Env> {
       );
     }
     this.ctx.storage.sql.exec("DELETE FROM flood_features WHERE last_seen_ms < ?", nowMs - HISTORY_MS);
+    // Archive the scene when its feature set changed (id set hash).
+    const sceneHash = await (async () => {
+      const ids = features.map((f) => f.id).sort().join("|");
+      const buf = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(ids));
+      return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join("");
+    })();
+    if (this.readMeta("sceneHash") !== sceneHash) {
+      this.ctx.waitUntil(
+        putJsonGz(this.env.HAZARD_BUCKET, archiveKeys.flood(new Date(nowMs).toISOString()), {
+          retrievedAt: new Date(nowMs).toISOString(),
+          featureCount: features.length,
+          features: features.map((f) => ({ type: "Feature", id: f.id, properties: f.props, geometry: f.geometry })),
+        }).catch((err: unknown) =>
+          console.error(JSON.stringify({ level: "warn", message: "flood archive failed", error: String(err) })),
+        ),
+      );
+      this.writeMeta("sceneHash", sceneHash);
+    }
     this.writeMeta("retrievedAt", new Date(nowMs).toISOString());
     this.writeMeta("lastError", null);
     this.writeMeta("featureCount", String(features.length));

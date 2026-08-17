@@ -17,7 +17,9 @@
     // TMD open-data API credentials — these defaults are TMD's published
     // public pair; override in .dev.vars / dashboard with a registered key.
     "TMD_UID": "api",
-    "TMD_UKEY": "api12345"
+    "TMD_UKEY": "api12345",
+    // Comma-separated extra origins allowed to call /api/*; empty = same-origin only.
+    "ALLOWED_ORIGINS": ""
   },
 
   "kv_namespaces": [
