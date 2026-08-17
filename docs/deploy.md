@@ -39,7 +39,9 @@ R2 bucket `siahra-geodata` ตรวจแล้วว่า `/api/v1/health` �
 ยังปล่อยว่าง (same-origin เท่านั้น) ได้ตามเดิม
 
 deploy แยกกันได้จริง — แก้ UI แล้ว deploy web ไม่แตะ Durable Objects, แก้ API แล้ว deploy api
-ไม่ต้องอัปโหลด asset bundle ~310 MB ซ้ำ:
+ไม่ต้องอัปโหลด asset bundle ~310 MB ซ้ำ **และตอนนี้ `.github/workflows/deploy.yml` ทำให้อัตโนมัติแล้ว**
+— merge เข้า `main` แล้ว job จะ diff ไฟล์ที่เปลี่ยนกับ `HEAD^` แล้วสั่ง deploy เฉพาะ Worker ที่แตะ
+(ต้องตั้ง repo secret `CLOUDFLARE_API_TOKEN` และ `CLOUDFLARE_ACCOUNT_ID` ก่อนถึงจะรันผ่าน) รันมือได้เหมือนเดิมถ้าต้องการ:
 ```bash
 npm run deploy:web    # build apps/web แล้ว wrangler deploy ใน apps/web
 npm run deploy:api    # wrangler deploy ใน apps/api (ไม่ต้องมี dist)
