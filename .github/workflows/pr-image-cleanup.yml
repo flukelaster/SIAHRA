@@ -1,0 +1,39 @@
+name: PR image cleanup
+
+# Screenshots embedded in PR bodies are hosted as `--prerelease` release assets
+# tagged `primg-<branch>` (see scripts/pr-media.sh). Delete that release + tag when
+# the PR closes so the Releases page stays clean. No-ops for PRs without screenshots.
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+
+jobs:
+  delete-image-release:
+    name: Delete the PR's screenshot prerelease
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Delete primg-<branch> release + tag (if any)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Mirror the tag derivation in scripts/pr-media.sh: slashes → dashes.
+          # HEAD_REF is passed via env (not inline workflow-expression interpolation)
+          # to avoid script injection.
+          TAG="primg-${HEAD_REF//\//-}"
+
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            gh release delete "$TAG" --repo "$REPO" --cleanup-tag --yes
+            echo "Deleted release + tag '$TAG'."
+          else
+            echo "No screenshot release '$TAG' — nothing to delete."
+          fi

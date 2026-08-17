@@ -1,0 +1,91 @@
+name: CI
+
+# One workflow, on every push to `main` and every pull request.
+#
+#   Lint ───────┐
+#   TypeScript ─┼─ independent, always run → the three required status checks
+#   Build ──────┘  (see .github/rulesets/main.json)
+#
+# There is no test matrix yet — SIAHRA has no unit tests. When tests land, add a
+# `Test` job here and (only if it always runs) to the ruleset's required checks;
+# a path-filtered job must NOT be a required check, or PRs that don't touch it
+# wait forever.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: oxlint apps/web
+        run: npx oxlint src
+        working-directory: apps/web
+
+  typecheck:
+    name: TypeScript
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # Same three commands AGENTS.md tells a contributor to run before pushing.
+      - name: tsc -b apps/web
+        run: npx tsc -b
+        working-directory: apps/web
+      - name: tsc --noEmit apps/api
+        run: npx tsc --noEmit
+        working-directory: apps/api
+      - name: tsc --noEmit apps/etl
+        run: npx tsc --noEmit
+        working-directory: apps/etl
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # apps/web/dist is also the Worker's `assets.directory`, so build web
+      # first — `wrangler deploy --dry-run` refuses to run without it.
+      - name: Build apps/web
+        run: npm run build -w apps/web
+      - name: Bundle the Worker (wrangler deploy --dry-run)
+        run: npx wrangler deploy --dry-run --outdir=/tmp/siahra-worker
+        working-directory: apps/api
+      - name: Asset-bundle limits (Workers static assets)
+        # Cloudflare rejects deploys with > 20,000 files or any file > 25 MiB.
+        # Fail here rather than at deploy time.
+        run: |
+          set -euo pipefail
+          count=$(find apps/web/dist -type f | wc -l | tr -d ' ')
+          big=$(find apps/web/dist -type f -size +25M | head -5)
+          echo "dist files: $count"
+          [ "$count" -le 20000 ] || { echo "::error::apps/web/dist has $count files (> 20,000 Workers asset limit)"; exit 1; }
+          if [ -n "$big" ]; then echo "::error::files > 25 MiB in apps/web/dist:"; echo "$big"; exit 1; fi
