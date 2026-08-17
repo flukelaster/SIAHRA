@@ -61,6 +61,12 @@ export interface SceneHandles {
   setShadows: (enabled: boolean) => void;
   /** Smoothed frame time in ms. */
   frameTimeMs: () => number;
+  /**
+   * True while the camera is moving (drag, zoom, damping, flyTo). Frames run
+   * at the full rate then and at a lower idle rate otherwise, so per-frame work
+   * that only matters when the view changes can be throttled on the same signal.
+   */
+  isCameraActive: () => boolean;
   /** Called every frame with elapsed seconds. Returns an unsubscribe. */
   addTicker: (fn: (timeS: number) => void) => () => void;
   /** Called with drawing-buffer size on resize (and once immediately). */
@@ -109,6 +115,10 @@ export function setupScene(container: HTMLDivElement): SceneHandles {
   renderer.setClearColor(BG, 0);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
+  // The shadow map is re-rendered only when the fit actually changes (see
+  // fitShadowCamera) — otherwise a still camera would redraw the whole
+  // province into a 2048² depth buffer on every single frame.
+  renderer.shadowMap.autoUpdate = false;
   renderer.toneMapping = THREE.NeutralToneMapping;
   renderer.toneMappingExposure = 1.22;
   renderer.domElement.style.position = "absolute";
@@ -177,10 +187,22 @@ export function setupScene(container: HTMLDivElement): SceneHandles {
   };
   sky.renderOrder = -10;
   scene.add(sky);
+
+  // Shadow-map refit state (see fitShadowCamera). Declared here because
+  // syncSky, which runs during setup, invalidates the baked map.
+  const shadowCamPos = new THREE.Vector3(Infinity, Infinity, Infinity);
+  const shadowTarget = new THREE.Vector3(Infinity, Infinity, Infinity);
+  let shadowFitAt = 0;
+  /** Set when something other than the camera invalidates the shadow map. */
+  let shadowDirty = true;
+  const SHADOW_HEARTBEAT_MS = 500;
+
   const syncSky = () => {
     const dir = new THREE.Vector3().subVectors(sun.position, sun.target.position).normalize();
     skyU.sunPosition.value.copy(dir);
     sky.scale.setScalar(camera.far * 0.85);
+    // Every caller has just moved the sun, so the baked shadow map is stale.
+    shadowDirty = true;
   };
   syncSky();
 
@@ -198,7 +220,11 @@ export function setupScene(container: HTMLDivElement): SceneHandles {
     // Camera south of the target (+z) looking north => heading 0.
     return ((Math.atan2(dx, dz) * 180) / Math.PI + 360) % 360;
   };
+  // Anything that moves the camera (drag, zoom, damping, flyTo) marks the view
+  // "active" so the frame budget switches from the idle rate to the full rate.
+  let lastInteractionAt = performance.now();
   controls.addEventListener("change", () => {
+    lastInteractionAt = performance.now();
     const h = headingDeg();
     cameraFns.forEach((fn) => fn(h));
   });
@@ -277,6 +303,7 @@ export function setupScene(container: HTMLDivElement): SceneHandles {
     const groundY = world.scale.y > 0 ? controls.target.y / world.scale.y : controls.target.y;
     exaggeration = factor;
     world.scale.y = factor;
+    shadowDirty = true; // geometry moved vertically, camera may not have
     const dy = groundY * factor - controls.target.y;
     controls.target.y += dy;
     camera.position.y += dy;
@@ -396,6 +423,7 @@ export function setupScene(container: HTMLDivElement): SceneHandles {
     if (renderer.shadowMap.enabled === enabled) return;
     renderer.shadowMap.enabled = enabled;
     sun.castShadow = enabled;
+    shadowDirty = true;
     scene.traverse((o) => {
       const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
       if (!m) return;
@@ -406,15 +434,30 @@ export function setupScene(container: HTMLDivElement): SceneHandles {
   };
   let frameEma = 16;
   let lastFrameAt = performance.now();
+  let wasActive = false;
 
   /**
-   * Shadow "cascade-lite": every frame the single shadow camera is refitted
-   * around the orbit target with an extent tied to the viewing distance, so
-   * shadows are sharp when zoomed in and still cover the province from afar.
+   * Shadow "cascade-lite": the single shadow camera is refitted around the
+   * orbit target with an extent tied to the viewing distance, so shadows are
+   * sharp when zoomed in and still cover the province from afar.
+   *
+   * The refit (and the shadow-map redraw it implies) happens only when the
+   * camera actually moved, plus a slow heartbeat so tiles that stream in later
+   * still get baked. A still camera therefore costs no second draw pass.
    */
-  const fitShadowCamera = () => {
+  const fitShadowCamera = (now: number) => {
     if (!renderer.shadowMap.enabled) return;
     const dist = camera.position.distanceTo(controls.target);
+    const eps = Math.max(0.5, dist * 5e-4);
+    const moved =
+      shadowCamPos.distanceToSquared(camera.position) > eps * eps ||
+      shadowTarget.distanceToSquared(controls.target) > eps * eps;
+    if (!moved && !shadowDirty && now - shadowFitAt < SHADOW_HEARTBEAT_MS) return;
+    shadowCamPos.copy(camera.position);
+    shadowTarget.copy(controls.target);
+    shadowFitAt = now;
+    shadowDirty = false;
+    renderer.shadowMap.needsUpdate = true;
     const extent = THREE.MathUtils.clamp(dist * 1.6, 1500, frameRadius * 1.3);
     const dir = new THREE.Vector3().subVectors(sun.position, sun.target.position).normalize();
     sun.target.position.copy(controls.target);
@@ -434,12 +477,33 @@ export function setupScene(container: HTMLDivElement): SceneHandles {
 
   const startMs = performance.now();
   let frameId = 0;
+  /**
+   * Frame budget. rAF fires at the display refresh — 120 Hz on a ProMotion
+   * MacBook — which doubles GPU work for no visible gain on a map. Frames are
+   * throttled to ACTIVE_FPS while the camera moves and IDLE_FPS once it
+   * settles; the rAF callback still runs (it is cheap) but the draw is skipped.
+   */
+  const ACTIVE_FPS = 60;
+  const IDLE_FPS = 30;
+  /** How long after the last camera change the view still counts as active. */
+  const ACTIVE_TAIL_MS = 400;
+  /** Slack so a 120 Hz cadence lands on every 2nd/4th frame, not every 3rd/5th. */
+  const BUDGET_SLACK_MS = 2;
+  let lastDrawAt = 0;
+
   const animate = () => {
     frameId = requestAnimationFrame(animate);
     const now = performance.now();
-    frameEma = frameEma * 0.9 + (now - lastFrameAt) * 0.1;
+    const active = fly !== null || now - lastInteractionAt < ACTIVE_TAIL_MS;
+    const budget = 1000 / (active ? ACTIVE_FPS : IDLE_FPS) - BUDGET_SLACK_MS;
+    if (now - lastDrawAt < budget) return;
+    lastDrawAt = now;
+    // Only interactive frames feed the quality heuristic: an idle frame is
+    // slow by design (we asked for 30 Hz) and must not trigger a downgrade.
+    if (active && wasActive) frameEma = frameEma * 0.9 + Math.min(now - lastFrameAt, 100) * 0.1;
+    wasActive = active;
     lastFrameAt = now;
-    fitShadowCamera();
+    fitShadowCamera(now);
     const t = (now - startMs) / 1000;
     if (fly) {
       const k = Math.min(1, (performance.now() - fly.start) / fly.duration);
@@ -501,6 +565,7 @@ export function setupScene(container: HTMLDivElement): SceneHandles {
     setPixelRatio,
     setShadows,
     frameTimeMs: () => frameEma,
+    isCameraActive: () => fly !== null || performance.now() - lastInteractionAt < ACTIVE_TAIL_MS,
     addTicker: (fn) => {
       tickers.add(fn);
       return () => tickers.delete(fn);
