@@ -175,3 +175,65 @@ body {
   white-space: nowrap;
   pointer-events: none;
 }
+
+/* Timeline scrubber: slim track with a filled progress portion. */
+.range-slider {
+  --range-progress: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 16px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.range-slider:focus-visible {
+  outline: none;
+}
+.range-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--color-accent) 0%,
+    var(--color-accent) var(--range-progress),
+    rgba(255, 255, 255, 0.14) var(--range-progress),
+    rgba(255, 255, 255, 0.14) 100%
+  );
+}
+.range-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: 999px;
+  background: #fff;
+  border: 2px solid var(--color-accent);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+  transition: transform 120ms ease;
+}
+.range-slider:hover::-webkit-slider-thumb,
+.range-slider:focus-visible::-webkit-slider-thumb {
+  transform: scale(1.15);
+}
+.range-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.4);
+}
+.range-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+}
+.range-slider::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--color-accent);
+}
+.range-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #fff;
+  border: 2px solid var(--color-accent);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+}

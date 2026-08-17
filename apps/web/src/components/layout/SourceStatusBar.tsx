@@ -26,7 +26,7 @@ function ageLabel(iso: string | null): string {
 export function SourceStatusBar({ state, compact = false }: { state: ApiHealthState; compact?: boolean }) {
   if (state.apiDown) {
     return (
-      <div className="glass-soft flex items-center gap-2 rounded-xl px-3 py-1.5 text-[11px]">
+      <div className="glass-soft flex min-h-8 items-center gap-2 rounded-xl px-3 py-1 text-[11px]">
         <span className="h-2 w-2 animate-pulse rounded-full bg-[var(--color-danger)]" aria-hidden="true" />
         <span className="text-[var(--color-danger)]">เชื่อมต่อ API ไม่ได้</span>
         <span className="text-[var(--color-fg-subtle)]">— แผนที่ยังใช้ได้ แต่ไม่มีข้อมูลตรวจวัดสด</span>
@@ -38,7 +38,7 @@ export function SourceStatusBar({ state, compact = false }: { state: ApiHealthSt
   if (compact) {
     // Dots only; the label lives in the tooltip.
     return (
-      <div className="glass-soft flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-[11px]">
+      <div className="glass-soft flex h-8 items-center gap-2 rounded-xl px-3 text-[11px]">
         {sources.map((s) => (
           <span key={s.id} className={`h-2.5 w-2.5 rounded-full ${HEALTH_META[s.health].dot}`} title={`${s.labelTh}: ${HEALTH_META[s.health].label} · ${ageLabel(s.fetchedAt)}`} />
         ))}
@@ -47,12 +47,16 @@ export function SourceStatusBar({ state, compact = false }: { state: ApiHealthSt
     );
   }
   return (
-    <div className="glass-soft flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl px-3 py-1.5 text-[11px]">
+    <div className="glass-soft flex min-h-8 min-w-0 flex-wrap items-center gap-x-3.5 gap-y-1 rounded-xl px-3 py-1 text-[11px]">
       {sources.map((s) => {
         const meta = HEALTH_META[s.health];
         return (
-          <span key={s.id} className="flex items-center gap-1.5" title={s.lastError ?? undefined}>
-            <span className={`h-2 w-2 rounded-full ${meta.dot}`} aria-hidden="true" />
+          <span
+            key={s.id}
+            className="flex items-center gap-1.5 whitespace-nowrap"
+            title={s.lastError ?? `${s.labelTh}: ${meta.label} · ${ageLabel(s.fetchedAt)}`}
+          >
+            <span className={`h-2 w-2 shrink-0 rounded-full ${meta.dot}`} aria-hidden="true" />
             <span className="text-[var(--color-fg)]">{s.labelTh}</span>
             <span className={s.health === "ok" ? "text-[var(--color-fg-subtle)]" : "text-[var(--color-risk-medium)]"}>
               {s.health === "ok" ? `อัปเดต ${ageLabel(s.fetchedAt)}` : meta.label}

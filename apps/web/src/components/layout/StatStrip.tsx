@@ -15,7 +15,7 @@ function Tile({
   emphasis?: boolean;
 }) {
   return (
-    <div className="glass flex min-w-[9.5rem] items-center gap-3 rounded-2xl px-3.5 py-2.5">
+    <div className="glass flex min-w-0 items-center gap-3 rounded-2xl px-3.5 py-2.5">
       <div
         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
           emphasis
@@ -25,10 +25,12 @@ function Tile({
       >
         {icon}
       </div>
-      <div className="leading-tight">
-        <p className="text-[11px] whitespace-nowrap text-[var(--color-fg-subtle)]">{label}</p>
+      <div className="min-w-0 leading-tight">
+        <p className="truncate text-[11px] text-[var(--color-fg-subtle)]" title={label}>
+          {label}
+        </p>
         <p
-          className={`text-lg font-bold tabular-nums ${
+          className={`truncate text-lg font-bold tabular-nums ${
             emphasis ? "text-[var(--color-risk-high)]" : "text-[var(--color-fg)]"
           }`}
         >
@@ -40,6 +42,9 @@ function Tile({
   );
 }
 
+/** Two columns when the dock is narrow, four when there is room. */
+const GRID = "grid grid-cols-2 gap-2 @xl:grid-cols-4";
+
 /** Bottom stat tiles: latest observed values for the selected province. */
 export function StatStrip({
   summary,
@@ -50,10 +55,10 @@ export function StatStrip({
 }) {
   if (loading && !summary) {
     return (
-      <div className="flex items-center gap-2">
+      <div className={GRID}>
         {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="glass flex min-w-[9.5rem] items-center gap-3 rounded-2xl px-3.5 py-2.5">
-            <div className="h-9 w-9 animate-pulse rounded-xl bg-white/8" />
+          <div key={i} className="glass flex min-w-0 items-center gap-3 rounded-2xl px-3.5 py-2.5">
+            <div className="h-9 w-9 shrink-0 animate-pulse rounded-xl bg-white/8" />
             <div className="flex flex-col gap-1.5">
               <div className="h-2.5 w-20 animate-pulse rounded bg-white/8" />
               <div className="h-4 w-12 animate-pulse rounded bg-white/8" />
@@ -66,7 +71,7 @@ export function StatStrip({
 
   if (!summary) {
     return (
-      <div className="glass-soft rounded-2xl px-3.5 py-2.5 text-xs text-[var(--color-fg-subtle)]">
+      <div className="glass-soft rounded-2xl px-3.5 py-2.5 text-center text-xs text-[var(--color-fg-subtle)]">
         ไม่มีข้อมูลตรวจวัด
       </div>
     );
@@ -76,7 +81,7 @@ export function StatStrip({
     n === null ? "—" : n.toLocaleString("th-TH", { maximumFractionDigits: digits });
 
   return (
-    <div className="flex items-center gap-2">
+    <div className={GRID}>
       <Tile
         icon={<CloudRain size={17} aria-hidden="true" />}
         label="สถานีวัดน้ำฝน"

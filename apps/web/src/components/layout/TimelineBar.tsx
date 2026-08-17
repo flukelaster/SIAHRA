@@ -1,14 +1,20 @@
 import { Pause, Play, RotateCcw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Segmented } from "../ui/Segmented";
 
-/** Selectable playback windows: hours and slider step in minutes. */
-const RANGES: { hours: number; stepMin: number; label: string }[] = [
-  { hours: 72, stepMin: 30, label: "72 ชม." },
-  { hours: 7 * 24, stepMin: 60, label: "7 วัน" },
-  { hours: 30 * 24, stepMin: 180, label: "30 วัน" },
+/** Selectable playback windows: hours, slider step in minutes, tick marks (hours ago). */
+const RANGES: { hours: number; stepMin: number; label: string; ticks: number[] }[] = [
+  { hours: 72, stepMin: 30, label: "72 ชม.", ticks: [72, 48, 24, 0] },
+  { hours: 7 * 24, stepMin: 60, label: "7 วัน", ticks: [168, 120, 72, 24, 0] },
+  { hours: 30 * 24, stepMin: 180, label: "30 วัน", ticks: [720, 480, 240, 0] },
 ];
 /** Beyond this the backend reads from the long-term archive (R2). */
 const HOT_HOURS = 7 * 24;
+
+function tickLabel(h: number): string {
+  if (h === 0) return "ตอนนี้";
+  return h >= 48 ? `-${h / 24} วัน` : `-${h} ชม.`;
+}
 
 /**
  * Scrub the map back through *observed* water levels (ThaiWater 10-minute
@@ -25,8 +31,9 @@ export function TimelineBar({
 }) {
   const [playing, setPlaying] = useState(false);
   const [rangeIdx, setRangeIdx] = useState(0);
-  const RANGE_HOURS = RANGES[rangeIdx].hours;
-  const STEP_MIN = RANGES[rangeIdx].stepMin;
+  const range = RANGES[rangeIdx];
+  const RANGE_HOURS = range.hours;
+  const STEP_MIN = range.stepMin;
   const steps = (RANGE_HOURS * 60) / STEP_MIN;
   const ageHours = atIso ? (Date.now() - Date.parse(atIso)) / 3600000 : 0;
   const fromArchive = ageHours > HOT_HOURS;
@@ -60,14 +67,15 @@ export function TimelineBar({
   }, [playing, clamped]);
 
   const label = useMemo(() => {
-    if (!atIso) return "ปัจจุบัน (ค่าล่าสุด)";
+    if (!atIso) return "ปัจจุบัน · ค่าล่าสุด";
     return new Date(atIso).toLocaleString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + " น.";
   }, [atIso]);
 
-  const ticks = rangeIdx === 0 ? [72, 48, 24, 0] : rangeIdx === 1 ? [168, 120, 72, 24, 0] : [720, 480, 240, 0];
+  const live = atIso === null;
+  const progress = (clamped / steps) * 100;
 
   return (
-    <div className="glass flex items-center gap-3 rounded-2xl px-3 py-2">
+    <div className="glass flex items-center gap-3 rounded-2xl py-2 pr-4 pl-2.5">
       <div className="flex shrink-0 items-center gap-1">
         <button
           type="button"
@@ -75,10 +83,11 @@ export function TimelineBar({
             if (clamped >= steps) setStep(0);
             setPlaying((p) => !p);
           }}
-          className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-[var(--color-accent)] text-white hover:bg-blue-500"
+          className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-[var(--color-accent)] text-white shadow-[0_2px_10px_rgba(59,130,246,0.45)] transition-colors hover:bg-blue-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]"
           aria-label={playing ? "หยุด" : "เล่นย้อนหลัง"}
+          title={playing ? "หยุด" : "เล่นย้อนหลัง"}
         >
-          {playing ? <Pause size={14} /> : <Play size={14} className="translate-x-px" />}
+          {playing ? <Pause size={15} /> : <Play size={15} className="translate-x-px" />}
         </button>
         <button
           type="button"
@@ -86,47 +95,53 @@ export function TimelineBar({
             setPlaying(false);
             onChange(null);
           }}
-          className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-[var(--color-fg-muted)] hover:bg-white/8 hover:text-white"
+          disabled={live}
+          className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-[var(--color-fg-muted)] transition-colors hover:bg-white/8 hover:text-white disabled:cursor-default disabled:opacity-35 disabled:hover:bg-transparent"
           aria-label="กลับสู่ปัจจุบัน"
           title="กลับสู่ปัจจุบัน"
         >
-          <RotateCcw size={14} />
+          <RotateCcw size={15} />
         </button>
       </div>
+
       <div className="min-w-0 flex-1">
-        <div className="flex items-baseline justify-between text-[11px]">
-          <span className="flex items-center gap-2 font-medium text-[var(--color-fg)]">
-            ระดับน้ำย้อนหลัง
-            <span className="flex rounded-md bg-white/5 p-0.5">
-              {RANGES.map((r, i) => (
-                <button
-                  key={r.hours}
-                  type="button"
-                  onClick={() => {
-                    setPlaying(false);
-                    setRangeIdx(i);
-                    onChange(null);
-                  }}
-                  aria-pressed={rangeIdx === i}
-                  className={`cursor-pointer rounded px-1.5 py-0.5 text-[10px] ${
-                    rangeIdx === i ? "bg-[var(--color-accent)] text-white" : "text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
-                  }`}
-                >
-                  {r.label}
-                </button>
-              ))}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="shrink-0 text-xs font-semibold text-[var(--color-fg)]">ระดับน้ำย้อนหลัง</span>
+            <Segmented
+              label="ช่วงเวลาย้อนหลัง"
+              value={rangeIdx}
+              onChange={(i) => {
+                setPlaying(false);
+                setRangeIdx(i);
+                onChange(null);
+              }}
+              options={RANGES.map((r, i) => ({ value: i, label: r.label }))}
+            />
+            <span className="hidden truncate text-[11px] text-[var(--color-fg-subtle)] @2xl:inline">
+              ค่าตรวจวัดจริง · ไม่ใช่พยากรณ์
             </span>
-            <span className="text-[var(--color-fg-subtle)]">· ค่าตรวจวัดจริง ไม่ใช่พยากรณ์</span>
             {fromArchive ? (
-              <span className="rounded bg-[var(--color-risk-medium)]/15 px-1.5 text-[10px] text-[var(--color-risk-medium)]">
-                จากคลังถาวร (รายชั่วโมง)
+              <span className="shrink-0 rounded-md bg-[var(--color-risk-medium)]/15 px-1.5 py-0.5 text-[10px] leading-none whitespace-nowrap text-[var(--color-risk-medium)]">
+                จากคลังถาวร · รายชั่วโมง
               </span>
             ) : null}
-          </span>
-          <span className={`tabular-nums ${atIso ? "text-[var(--color-risk-medium)]" : "text-[var(--color-success)]"}`}>
+          </div>
+          <span
+            className={`ml-auto flex shrink-0 items-center gap-1.5 text-[11px] tabular-nums ${
+              live ? "text-[var(--color-success)]" : "text-[var(--color-risk-medium)]"
+            }`}
+          >
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${
+                live ? "bg-[var(--color-success)] shadow-[0_0_6px_rgba(34,197,94,0.9)]" : "bg-[var(--color-risk-medium)]"
+              }`}
+              aria-hidden="true"
+            />
             {label}
           </span>
         </div>
+
         <input
           type="range"
           min={0}
@@ -138,12 +153,29 @@ export function TimelineBar({
             setStep(Number(e.target.value));
           }}
           aria-label="เลื่อนเวลา"
-          className="mt-1 w-full accent-[var(--color-accent)]"
+          aria-valuetext={label}
+          className="range-slider mt-2 w-full"
+          style={{ "--range-progress": `${progress}%` } as React.CSSProperties}
         />
-        <div className="flex justify-between text-[10px] text-[var(--color-fg-subtle)]">
-          {ticks.map((h) => (
-            <span key={h}>{h === 0 ? "ตอนนี้" : h >= 48 ? `-${h / 24} วัน` : `-${h} ชม.`}</span>
-          ))}
+
+        {/* Ticks sit at their true position along the track, not evenly spaced. */}
+        <div className="relative mt-0.5 h-3.5 text-[10px] leading-none text-[var(--color-fg-subtle)]">
+          {range.ticks.map((h, i) => {
+            const pct = (1 - h / RANGE_HOURS) * 100;
+            const last = i === range.ticks.length - 1;
+            return (
+              <span
+                key={h}
+                className="absolute top-0 whitespace-nowrap tabular-nums"
+                style={{
+                  left: `${pct}%`,
+                  transform: i === 0 ? "none" : last ? "translateX(-100%)" : "translateX(-50%)",
+                }}
+              >
+                {tickLabel(h)}
+              </span>
+            );
+          })}
         </div>
       </div>
     </div>

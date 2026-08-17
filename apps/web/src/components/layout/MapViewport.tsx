@@ -8,12 +8,10 @@ import type {
   ObservationsResponse,
   RadarFramesResponse,
 } from "@siahra/shared-types";
-import type { ApiHealthState } from "../../hooks/useApiHealth";
 import type { CameraPose, MapTool, SafeArea, SceneHandles } from "../../scene/setupScene";
 import { IconButton } from "../ui/Panel";
 import { Map3DCanvas, type MapApi, type MapInfo, type MapLayers } from "./Map3DCanvas";
 import type { QualityLevel, QualityMode } from "../../scene/quality";
-import { SourceStatusBar } from "./SourceStatusBar";
 
 const ZOOM_FACTOR = 0.75;
 
@@ -22,7 +20,6 @@ function handlesHeading(h: SceneHandles): number {
   const dz = h.camera.position.z - h.controls.target.z;
   return ((Math.atan2(dx, dz) * 180) / Math.PI + 360) % 360;
 }
-const EXAGGERATION_STEPS = [1, 2, 4, 8];
 
 export function MapViewport({
   aoiId,
@@ -36,10 +33,8 @@ export function MapViewport({
   layers,
   safeArea,
   observationsStale = false,
-  apiHealth,
   initialPose,
   exaggeration,
-  onExaggerationChange,
   quality,
   onQualityLevel,
   compact = false,
@@ -49,7 +44,6 @@ export function MapViewport({
 }: {
   compact?: boolean;
   exaggeration: number;
-  onExaggerationChange: (f: number) => void;
   quality: QualityMode;
   onQualityLevel?: (level: QualityLevel, mode: QualityMode) => void;
   aoiId: string;
@@ -67,11 +61,9 @@ export function MapViewport({
   layers: MapLayers;
   safeArea: SafeArea;
   observationsStale?: boolean;
-  apiHealth?: ApiHealthState;
   onInfo?: (info: MapInfo | null) => void;
 }) {
   const [tool, setTool] = useState<MapTool>("select");
-  const setExaggeration = onExaggerationChange;
   const [heading, setHeading] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
   const [info, setInfo] = useState<MapInfo | null>(null);
@@ -215,50 +207,6 @@ export function MapViewport({
         </div>
       </div>
 
-      {/* Attribution + vertical scale — always visible so an exaggerated
-          view is never mistaken for real elevation. */}
-      <div
-        className="pointer-events-none absolute flex max-w-[min(60vw,720px)] flex-col gap-1.5"
-        style={{ bottom: safeArea.bottom + 6, left: leftEdge }}
-      >
-        {apiHealth ? (
-          <div className="pointer-events-auto self-start">
-            <SourceStatusBar state={apiHealth} compact={compact} />
-          </div>
-        ) : null}
-        <div className="pointer-events-auto glass-soft flex items-center gap-1 self-start rounded-xl p-1">
-          <span className="px-1.5 text-[11px] text-[var(--color-fg-subtle)]">ขยายแนวดิ่ง</span>
-          {EXAGGERATION_STEPS.map((f) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => setExaggeration(f)}
-              aria-pressed={exaggeration === f}
-              className={`cursor-pointer rounded-md px-2 py-1 text-[11px] tabular-nums transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] ${
-                exaggeration === f
-                  ? "bg-[var(--color-accent)] text-white"
-                  : "text-[var(--color-fg-muted)] hover:bg-white/8 hover:text-[var(--color-fg)]"
-              }`}
-            >
-              {f}×
-            </button>
-          ))}
-        </div>
-        {info && !compact ? (
-          <p className="rounded-lg bg-black/35 px-2.5 py-1 text-[10.5px] leading-snug text-white/65 backdrop-blur-sm">
-            ภูมิประเทศ Copernicus GLO-30 ({info.demType}) ·{" "}
-            {info.nativeCellSizeM
-              ? `${info.nativeCellSizeM} ม./เซลล์ (LOD ตามระยะกล้อง)`
-              : `${info.cellSizeM} ม./เซลล์`}
-            {info.imagery ? ` · ภาพดาวเทียม © ${info.imagery.attribution}` : ""}
-            {" · "}อาคาร OSM {info.buildingCount.toLocaleString("th-TH")} หลัง
-            {info.coverage === "urban-core" ? " (เฉพาะเขตเมือง)" : ""}
-            {info.stationCount > 0 ? ` · สถานีตรวจวัด ${info.stationCount.toLocaleString("th-TH")} สถานี` : ""}
-            {" · "}มาตราส่วนแนวดิ่ง{" "}
-            {exaggeration === 1 ? "1:1 (จริง)" : `${exaggeration}:1 (ขยายแนวดิ่ง)`}
-          </p>
-        ) : null}
-      </div>
     </div>
   );
 }
