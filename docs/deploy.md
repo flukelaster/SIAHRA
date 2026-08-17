@@ -20,6 +20,15 @@
 ที่ผูกด้วย *route* จะรัน **ก่อน** origin เสมอ → request ที่เข้าแพตเทิร์น `/api/*` ถูก siahra-api ตอบจบ
 ไม่เคยไปถึง siahra-web ส่วน path อื่นตกไปที่ SPA ตามปกติ
 
+รูปนี้เป็นเคสที่เอกสาร Cloudflare ยกตัวอย่างตรง ๆ (route + Custom Domain บน hostname เดียวกัน):
+> "A Custom Domain for `api.example.com` points to your `api-worker` Worker. A route added to
+> `api.example.com/auth` points to your `auth-worker` Worker. A request to `api.example.com/auth`
+> will trigger your `auth-worker` Worker."
+> — [Custom Domains](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/)
+
+ถ้าวันหน้าจะให้ api เรียก web เอง (`fetch(request)`) ก็ทำได้เพราะ Custom Domain ถูกมองเป็น origin —
+ข้อจำกัด "route เรียก route ในโซนเดียวกันไม่ได้ถ้าไม่มี service binding" ไม่มีผลกับ Custom Domain
+
 ผลคือเบราว์เซอร์เห็น **origin เดียว** เหมือนเดิม: โค้ดใน `apps/web` ยังเรียก `fetch("/api/v1/...")`
 แบบ relative และ WebSocket ยังใช้ `location.host` ได้โดยไม่ต้องแก้ และ `ALLOWED_ORIGINS`
 ยังปล่อยว่าง (same-origin เท่านั้น) ได้ตามเดิม
