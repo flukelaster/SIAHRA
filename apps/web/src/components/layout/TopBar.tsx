@@ -68,10 +68,10 @@ export function TopBar({
       style={{ height }}
     >
       <div className="flex items-center gap-3">
-        <BrandMark size={42} className="shrink-0 drop-shadow-[0_0_14px_rgba(59,130,246,0.45)]" />
+        <BrandMark size={36} className="shrink-0" />
         <div className={`leading-tight ${compact ? "hidden" : ""}`}>
           <h1
-            className="text-[16px] font-semibold tracking-wide text-[var(--color-fg)]"
+            className="text-[16px] font-bold tracking-[0.14em] text-[var(--color-fg)]"
             title={BRAND.expansion}
           >
             {BRAND.name}
