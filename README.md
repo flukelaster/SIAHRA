@@ -28,6 +28,19 @@
 
 <p align="center"><sub>Chiang Mai province in the live 3D viewport — real terrain relief, road networks, a live earthquake marker and the full data-layer legend.</sub></p>
 
+<table align="center">
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/images/mobile-map.png" alt="SIAHRA on a phone-sized viewport (390×844): Chiang Mai province with earthquake markers, weather radar overlay, zoom/compass controls, the vertical-exaggeration switch, the 72-hour water-level timeline and the bottom tab bar" width="300" />
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/images/mobile-layers.png" alt="SIAHRA mobile bottom sheet opened on the data-layers tab: satellite imagery, TMD radar, GISTDA flood extent, low-lying terrain, alert radii, gauge stations, OSM water and roads — each with its data-honesty subtitle" width="300" />
+    </td>
+  </tr>
+</table>
+
+<p align="center"><sub>The same province on a phone-sized viewport (390 × 844) — the desktop panels collapse into a bottom tab bar and a swipe-up sheet, so the map keeps the whole screen; the timeline, exaggeration switch and source-health dots stay reachable with one thumb.</sub></p>
+
 <br/>
 
 ## Table of contents
@@ -187,6 +200,8 @@ Build ───────┘
 
 > [!WARNING]
 > Only jobs that *always* run may be required checks. A path-filtered job that never triggers leaves the PR waiting forever.
+
+**Social preview / Open Graph image:** [`docs/images/og-image.png`](docs/images/og-image.png) (1280 × 640) is rendered from [`docs/og/og-image.html`](docs/og/og-image.html) with `node docs/og/render.mjs` — edit the HTML, re-render, and upload the PNG in *Settings → General → Social preview*.
 
 **Contributing:** branch, open a PR, and — for anything that touches the UI — put a screenshot in the description (drag-and-drop, or `scripts/pr-media.sh "$(git branch --show-current)" shot.png` from the CLI and paste the Markdown it prints). Delete the branch once merged. [`AGENTS.md`](AGENTS.md) has the full working agreement, including the data-honesty rules every layer must follow.
 

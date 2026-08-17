@@ -12,9 +12,12 @@ on:
   pull_request:
     types: [opened, edited, synchronize, reopened, labeled, unlabeled]
 
+# No `cancel-in-progress`: `opened` + `labeled` (e.g. `gh pr create --label`)
+# arrive a second apart, and a cancelled run shows up as a red "failing" check
+# even though the surviving run passes. The job takes ~10 s, so let both finish.
 concurrency:
   group: pr-rules-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
