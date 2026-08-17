@@ -1,0 +1,90 @@
+name: PR rules
+
+# Repository conventions that a branch ruleset cannot express by itself
+# (the ruleset in .github/rulesets/main.json requires this job to pass).
+#
+# Screenshot rule: if a PR touches UI code, its description must embed at least
+# one image (drag-and-drop in the GitHub UI, or `scripts/pr-media.sh` from the
+# CLI). Add the `no-screenshot` label to opt out for a change that is UI-adjacent
+# but has no visible effect (pure refactor, comments, types).
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, labeled, unlabeled]
+
+concurrency:
+  group: pr-rules-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  screenshot:
+    name: PR screenshot
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      # Pinned to a commit, not the mutable `v4` tag: the only third-party
+      # action in the repo. Bump deliberately.
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: ui
+        with:
+          filters: |
+            ui:
+              - 'apps/web/index.html'
+              - 'apps/web/src/App.tsx'
+              - 'apps/web/src/main.tsx'
+              - 'apps/web/src/index.css'
+              - 'apps/web/src/branding.ts'
+              - 'apps/web/src/components/**'
+              - 'apps/web/src/scene/**'
+              # Top-level assets only (favicon.svg, icons.svg …). NOT `public/**` minus
+              # `aoi/**`: paths-filter's default quantifier treats a `!` pattern as
+              # "matches anything outside aoi", which flags every file in the PR.
+              - 'apps/web/public/*'
+      - name: Check the PR body for an image
+        env:
+          UI_CHANGED: ${{ steps.ui.outputs.ui }}
+          # Passed via env, never interpolated into the script: the body and
+          # labels are attacker-controlled on a public repo.
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "$UI_CHANGED" != "true" ]; then
+            echo "No UI paths changed — screenshot not required." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          case ",$PR_LABELS," in
+            *,no-screenshot,*)
+              echo "UI paths changed but PR is labelled \`no-screenshot\` — skipping." | tee -a "$GITHUB_STEP_SUMMARY"
+              exit 0 ;;
+          esac
+
+          # Markdown image, HTML <img>, a GitHub drag-and-drop attachment URL, or a
+          # scripts/pr-media.sh release asset. Any one of them counts.
+          if printf '%s' "$PR_BODY" | grep -Eqi \
+              '!\[[^]]*\]\([^)]+\)|<img[[:space:]]|github\.com/user-attachments/assets/|/releases/download/primg-'; then
+            echo "UI paths changed and the PR body embeds a screenshot ✅" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          {
+            echo "## ❌ Screenshot required"
+            echo
+            echo "This PR changes UI files under \`apps/web\` but its description has no image."
+            echo
+            echo "- Capture the affected view (e.g. \`playwright-cli\` against the dev server)"
+            echo "- Drag the PNG into the PR description, **or** from the CLI:"
+            echo '  `scripts/pr-media.sh "$(git branch --show-current)" shot.png` and paste the Markdown it prints'
+            echo "- Editing the description re-runs this check"
+            echo "- No visible change? Add the \`no-screenshot\` label."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::error::UI files changed but the PR description contains no screenshot (add one, or the 'no-screenshot' label)."
+          exit 1

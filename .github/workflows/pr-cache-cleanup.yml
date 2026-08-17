@@ -1,0 +1,65 @@
+name: PR cache cleanup
+
+# Every CI job runs `actions/setup-node` with `cache: npm`, which writes a
+# ~150 MB npm cache scoped to the ref it ran on. For a pull request that ref is
+# `refs/pull/<n>/merge`, and once the PR closes nothing can ever restore from
+# it again — GitHub only leaves it to age out of the 7-day unused window, and
+# it counts against the repo's 10 GB cache quota the whole time.
+#
+# So delete a PR's caches the moment it closes. Runs for merged and abandoned
+# PRs alike: both leave the same dead entries behind.
+#
+# This does not touch `refs/heads/main`. That cache is the one every future
+# run — including open PRs, which fall back to the base branch — actually
+# restores from, so deleting it would slow down all of CI rather than just the
+# branch that ended.
+
+on:
+  pull_request:
+    types: [closed]
+
+# Least privilege: deleting a cache needs `actions: write` and nothing else.
+# Declared explicitly so the job does not inherit the repository's default
+# token scopes.
+permissions:
+  actions: write
+
+jobs:
+  delete-pr-caches:
+    name: Delete the PR's npm caches
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Delete caches scoped to refs/pull/<n>/merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          # Passed via env rather than interpolated into the script body, the
+          # same way pr-image-cleanup.yml handles its head ref.
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REF="refs/pull/${PR_NUMBER}/merge"
+
+          # --limit is well above the handful a single PR can accumulate; the
+          # default of 30 would silently leave the rest behind.
+          IDS=$(gh cache list --ref "$REF" --limit 100 --json id --jq '.[].id')
+
+          if [ -z "$IDS" ]; then
+            echo "No caches for $REF — nothing to delete."
+            exit 0
+          fi
+
+          echo "Deleting $(printf '%s\n' "$IDS" | wc -l | tr -d ' ') cache(s) for $REF:"
+          while IFS= read -r id; do
+            [ -n "$id" ] || continue
+            # A cache can be evicted between the list and the delete, so one
+            # failure must not abort the rest of the cleanup.
+            if gh cache delete "$id" >/dev/null 2>&1; then
+              echo "  deleted $id"
+            else
+              echo "  skipped $id (already gone)"
+            fi
+          done <<< "$IDS"

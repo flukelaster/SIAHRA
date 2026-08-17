@@ -1,0 +1,33 @@
+version: 2
+updates:
+  # npm workspaces: Dependabot reads the root package-lock.json, so a single
+  # entry at "/" covers apps/* and packages/* too.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    groups:
+      # All non-breaking npm updates batched into ONE PR — safe to test + merge together.
+      npm-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+      # Majors are deliberately NOT grouped: one breaking package (e.g. a three.js
+      # or Vite major) would take the whole batch red and block the trivial ones
+      # with it. Ungrouped = one PR per package — review carefully, never
+      # auto-merge. three.js majors in particular need a visual check of the 3D
+      # scene (shader/terrainMaterial, tile LOD), not just green tsc.
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+      actions-major:
+        patterns: ["*"]
+        update-types: ["major"]

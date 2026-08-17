@@ -39,6 +39,7 @@
 - [Monorepo layout](#monorepo-layout)
 - [Getting started](#getting-started)
 - [API](#api)
+- [CI & contributing](#ci--contributing)
 - [Data sources & attribution](#data-sources--attribution)
 - [Project status](#project-status)
 - [Disclaimer](#disclaimer)
@@ -165,6 +166,29 @@ The Worker exposes a versioned JSON API under `/api/v1`:
 | `GET /api/v1/dams` | Reservoir storage levels |
 | `GET /api/v1/radar/frames` · `/radar/frame/:ts.png` | Weather radar composite frames |
 | `GET /api/v1/stations/:id/history` | Historical readings for one gauge station |
+
+## CI & contributing
+
+**`ci.yml`** runs on every push to `main` and every pull request:
+
+```
+Lint ────────┐
+TypeScript ──┼─ independent, always run → required status checks on main
+Build ───────┘
+```
+
+- **Lint** — `oxlint` over `apps/web/src`
+- **TypeScript** — `tsc -b` (apps/web), `tsc --noEmit` (apps/api, apps/etl); the same commands as the pre-push checklist in [`AGENTS.md`](AGENTS.md)
+- **Build** — production web build, then `wrangler deploy --dry-run` to bundle the Worker against it, plus a guard on the Workers static-asset limits (≤ 20,000 files, ≤ 25 MiB each)
+
+**`pr-rules.yml`** enforces the conventions a branch ruleset can't express: a PR that touches UI files (`apps/web/src/{components,scene}`, `index.css`, `public/*` …) must embed a screenshot in its description, or carry the `no-screenshot` label. `pr-image-cleanup.yml` / `pr-cache-cleanup.yml` tidy up screenshot releases and npm caches when a PR closes; `dependabot.yml` batches minor/patch bumps weekly and opens majors one-by-one.
+
+**Rules on `main`** ([`.github/rulesets/main.json`](.github/rulesets/main.json), applied with `scripts/apply-branch-rules.sh`): no direct pushes, no force-push or deletion, every change via a pull request with `Lint`, `TypeScript`, `Build` and `PR screenshot` green.
+
+> [!WARNING]
+> Only jobs that *always* run may be required checks. A path-filtered job that never triggers leaves the PR waiting forever.
+
+**Contributing:** branch, open a PR, and — for anything that touches the UI — put a screenshot in the description (drag-and-drop, or `scripts/pr-media.sh "$(git branch --show-current)" shot.png` from the CLI and paste the Markdown it prints). Delete the branch once merged. [`AGENTS.md`](AGENTS.md) has the full working agreement, including the data-honesty rules every layer must follow.
 
 ## Data sources & attribution
 
