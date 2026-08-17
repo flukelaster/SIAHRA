@@ -1,0 +1,224 @@
+{
+  "aoiId": "36",
+  "provinceCode": "36",
+  "provinceNameTh": "ชัยภูมิ",
+  "bbox": {
+    "minLon": 101.3175753,
+    "maxLon": 102.4588677,
+    "minLat": 15.3314025,
+    "maxLat": 16.7288341
+  },
+  "utmZone": "32647",
+  "originEasting": 747098.825,
+  "originNorthing": 1696401.517,
+  "terrain": {
+    "url": "/aoi/36/terrain.bin",
+    "width": 641,
+    "height": 806,
+    "cellSizeM": 194,
+    "minZ": 88.57,
+    "maxZ": 1304.225,
+    "demType": "DSM",
+    "hillshadeUrl": "/aoi/36/hillshade.png",
+    "tiles": {
+      "urlTemplate": "/aoi/36/terrain/{z}/{x}_{y}.bin",
+      "tileSize": 128,
+      "border": 1,
+      "leafCellSizeM": 30,
+      "originEasting": 747098.825,
+      "originNorthing": 1852765.517,
+      "nodata": -32768,
+      "minZ": 86,
+      "maxZ": 1334,
+      "levels": [
+        {
+          "z": 0,
+          "cellSizeM": 1920,
+          "width": 65,
+          "height": 82,
+          "tilesX": 1,
+          "tilesY": 1,
+          "present": "AQ=="
+        },
+        {
+          "z": 1,
+          "cellSizeM": 960,
+          "width": 130,
+          "height": 163,
+          "tilesX": 2,
+          "tilesY": 2,
+          "present": "Bw=="
+        },
+        {
+          "z": 2,
+          "cellSizeM": 480,
+          "width": 260,
+          "height": 326,
+          "tilesX": 3,
+          "tilesY": 3,
+          "present": "/wA="
+        },
+        {
+          "z": 3,
+          "cellSizeM": 240,
+          "width": 519,
+          "height": 652,
+          "tilesX": 5,
+          "tilesY": 6,
+          "present": "////Dg=="
+        },
+        {
+          "z": 4,
+          "cellSizeM": 120,
+          "width": 1037,
+          "height": 1304,
+          "tilesX": 9,
+          "tilesY": 11,
+          "present": "//////////////78AA=="
+        },
+        {
+          "z": 5,
+          "cellSizeM": 60,
+          "width": 2073,
+          "height": 2608,
+          "tilesX": 17,
+          "tilesY": 21,
+          "present": "/w/+////////////////////////////////////////f/9//n/8f/j/8P8A"
+        },
+        {
+          "z": 6,
+          "cellSizeM": 30,
+          "width": 4146,
+          "height": 5215,
+          "tilesX": 33,
+          "tilesY": 41,
+          "present": "/v8/APz//wD4//8f+P///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////7////8f////H/7//w/8//8f+P//D/D//x/g//8/wP//f4D//38A//9/AAA="
+        }
+      ]
+    }
+  },
+  "buildings": {
+    "url": "/aoi/36/buildings.geojson",
+    "count": 386,
+    "coverage": "urban-core",
+    "coverageBbox": {
+      "minLon": 101.97529179750299,
+      "maxLon": 102.08745023184505,
+      "minLat": 15.75362701183914,
+      "maxLat": 15.86218499989776
+    },
+    "tiles": {
+      "urlTemplate": "/aoi/36/buildings/{z}/{x}_{y}.bin",
+      "unitM": 0.25,
+      "levels": [
+        {
+          "z": 4,
+          "tilesX": 9,
+          "tilesY": 11,
+          "present": "QECAAIAECC4QkRCAAw==",
+          "count": 67,
+          "minAreaM2": 1500,
+          "minHeightM": 25
+        },
+        {
+          "z": 5,
+          "tilesX": 17,
+          "tilesY": 21,
+          "present": "AHgAToA8AMQFkAyACUAEBAAAcAB9AAcQMEH4QPEQlgmAgIKBFwWhAnGEZIAJ",
+          "count": 475,
+          "minAreaM2": 300,
+          "minHeightM": 12
+        },
+        {
+          "z": 6,
+          "tilesX": 33,
+          "tilesY": 41,
+          "present": "gADgOgABiCwAQuQRAAAgAAAE4AcAgCAOAAAgcAoAACBAAADCgAAAgEAAAECDAACAAAAAABAEAEAAACAAAABAAAAAAAAAIAAAAAwAAMARAAAiDAAACgAAACACAANAECAAAAwGMACCAGCAUIAgBeEBACTSAgIcAYEAAAABAwAAAAAAAAGABABC7wgAa4ADAAEAUARAAATIAIAA6AgABhQQQAAMAADEFACAgQA=",
+          "count": 1724,
+          "minAreaM2": 0,
+          "minHeightM": 0
+        }
+      ],
+      "count": 1724,
+      "heightSourceCounts": {
+        "tag": 2,
+        "inferred": 21,
+        "default": 1701
+      }
+    }
+  },
+  "boundary": {
+    "url": "/aoi/36/boundary.geojson"
+  },
+  "version": "2026-08-17",
+  "features": {
+    "urlTemplate": "/aoi/36/features/{z}/{x}_{y}.bin",
+    "levels": [
+      {
+        "z": 2,
+        "tilesX": 3,
+        "tilesY": 3,
+        "present": "/wE=",
+        "count": 545
+      },
+      {
+        "z": 3,
+        "tilesX": 5,
+        "tilesY": 6,
+        "present": "///3Hw==",
+        "count": 823
+      },
+      {
+        "z": 4,
+        "tilesX": 9,
+        "tilesY": 11,
+        "present": "v/zz826e3j9//7/nBg==",
+        "count": 966
+      },
+      {
+        "z": 5,
+        "tilesX": 17,
+        "tilesY": 21,
+        "present": "++7y/2X+x/sP9w/dH+F9lv14/eH7+9cX+3//7/8//n/+f7+f//3/8///P74f",
+        "count": 2698
+      },
+      {
+        "z": 6,
+        "tilesX": 33,
+        "tilesY": 41,
+        "present": "z3/8/wCf+P8B8v/7Cpz/8xc8+PcveKD/P+DQ/n8AD+n/AD7f/wB4+PsBs/G/AQCmfwOA+HEexuHhPzSH4D94DoN/gIfH/wDn4l8D2Mf/B7CH/w9/H/Mb83f6HxJH9z8cvn72PH1v/3zyev79//f/P////w/8//0f8L/fH/zn9x78z/+/FI/7wzSHv4dvnoOH//9Du7/uB8Z//R3m//5zxnUP/pftBkiGuQE=",
+        "count": 6649
+      }
+    ],
+    "lineCount": 1793,
+    "waterAreaCount": 3421
+  },
+  "landcover": {
+    "urlTemplate": "/aoi/36/landcover/{z}/{x}_{y}.bin",
+    "levels": [
+      {
+        "z": 6,
+        "tilesX": 33,
+        "tilesY": 41,
+        "present": "/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////wE="
+      },
+      {
+        "z": 5,
+        "tilesX": 17,
+        "tilesY": 21,
+        "present": "//////////////////////////////////////////////////////////8f"
+      }
+    ],
+    "attribution": "© ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium (CC BY 4.0)",
+    "classShare": {
+      "10": 0.406,
+      "20": 0,
+      "30": 0.056,
+      "40": 0.51,
+      "50": 0.019,
+      "60": 0.002,
+      "80": 0.007,
+      "90": 0
+    }
+  }
+}

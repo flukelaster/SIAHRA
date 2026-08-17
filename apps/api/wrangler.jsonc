@@ -1,0 +1,50 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "siahra-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-16",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "assets": {
+    "directory": "../web/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/__scheduled"]
+  },
+
+  "vars": {
+    "EQ_DEFAULT_BBOX": "{\"minLat\":-2,\"maxLat\":29,\"minLon\":90,\"maxLon\":108}",
+    // TMD open-data API credentials — these defaults are TMD's published
+    // public pair; override in .dev.vars / dashboard with a registered key.
+    "TMD_UID": "api",
+    "TMD_UKEY": "api12345"
+  },
+
+  "kv_namespaces": [
+    { "binding": "CONFIG", "id": "local-dev-config-placeholder" }
+  ],
+
+  "r2_buckets": [
+    { "binding": "HAZARD_BUCKET", "bucket_name": "siahra-geodata" }
+  ],
+
+  "durable_objects": {
+    "bindings": [
+      { "name": "EARTHQUAKE_FEED", "class_name": "EarthquakeFeedDO" },
+      { "name": "FORECAST_POINTER", "class_name": "ForecastPointerDO" },
+      { "name": "OBSERVATION_CACHE", "class_name": "ObservationCacheDO" },
+      { "name": "FLOOD_EXTENT", "class_name": "FloodExtentDO" },
+      { "name": "RADAR", "class_name": "RadarDO" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["EarthquakeFeedDO", "ForecastPointerDO"] },
+    { "tag": "v2", "new_sqlite_classes": ["ObservationCacheDO"] },
+    { "tag": "v3", "new_sqlite_classes": ["FloodExtentDO"] },
+    { "tag": "v4", "new_sqlite_classes": ["RadarDO"] }
+  ],
+
+  "triggers": { "crons": ["* * * * *"] },
+
+  "observability": { "enabled": true }
+}

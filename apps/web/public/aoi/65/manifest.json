@@ -1,0 +1,224 @@
+{
+  "aoiId": "65",
+  "provinceCode": "65",
+  "provinceNameTh": "พิษณุโลก",
+  "bbox": {
+    "minLon": 99.8534102,
+    "maxLon": 101.1097165,
+    "minLat": 16.3186861,
+    "maxLat": 17.742971
+  },
+  "utmZone": "32647",
+  "originEasting": 590476.964,
+  "originNorthing": 1804419.746,
+  "terrain": {
+    "url": "/aoi/65/terrain.bin",
+    "width": 685,
+    "height": 805,
+    "cellSizeM": 197,
+    "minZ": 27.083,
+    "maxZ": 2095.465,
+    "demType": "DSM",
+    "hillshadeUrl": "/aoi/65/hillshade.png",
+    "tiles": {
+      "urlTemplate": "/aoi/65/terrain/{z}/{x}_{y}.bin",
+      "tileSize": 128,
+      "border": 1,
+      "leafCellSizeM": 30,
+      "originEasting": 590476.964,
+      "originNorthing": 1963004.746,
+      "nodata": -32768,
+      "minZ": 21,
+      "maxZ": 2111,
+      "levels": [
+        {
+          "z": 0,
+          "cellSizeM": 1920,
+          "width": 71,
+          "height": 83,
+          "tilesX": 1,
+          "tilesY": 1,
+          "present": "AQ=="
+        },
+        {
+          "z": 1,
+          "cellSizeM": 960,
+          "width": 141,
+          "height": 166,
+          "tilesX": 2,
+          "tilesY": 2,
+          "present": "Dw=="
+        },
+        {
+          "z": 2,
+          "cellSizeM": 480,
+          "width": 282,
+          "height": 331,
+          "tilesX": 3,
+          "tilesY": 3,
+          "present": "/wE="
+        },
+        {
+          "z": 3,
+          "cellSizeM": 240,
+          "width": 563,
+          "height": 661,
+          "tilesX": 5,
+          "tilesY": 6,
+          "present": "/v//GQ=="
+        },
+        {
+          "z": 4,
+          "cellSizeM": 120,
+          "width": 1125,
+          "height": 1322,
+          "tilesX": 9,
+          "tilesY": 11,
+          "present": "8Pn7///////////BAw=="
+        },
+        {
+          "z": 5,
+          "cellSizeM": 60,
+          "width": 2249,
+          "height": 2644,
+          "tilesX": 18,
+          "tilesY": 21,
+          "present": "APwD+A/8P/z/8P/j//////////////////////////////////////f/z/8/AH8A"
+        },
+        {
+          "z": 6,
+          "cellSizeM": 30,
+          "width": 4498,
+          "height": 5288,
+          "tilesX": 36,
+          "tilesY": 42,
+          "present": "AADA/w8AAP7/AADw/w8AgP//AAD8/w8A/v//APz//wfg//9/AP///wfw////gP///w/4/////v////////////////////////////////////////////////////////////////////////////////////////////////////////9///////f///9///////f///8///////H///8f//////D///8P/v//fwDg//8HAAD/PwAA4P8B"
+        }
+      ]
+    }
+  },
+  "buildings": {
+    "url": "/aoi/65/buildings.geojson",
+    "count": 3014,
+    "coverage": "urban-core",
+    "coverageBbox": {
+      "minLon": 100.13776807833389,
+      "maxLon": 100.25050943161241,
+      "minLat": 16.697003827924288,
+      "maxLat": 16.80556181598291
+    },
+    "tiles": {
+      "urlTemplate": "/aoi/65/buildings/{z}/{x}_{y}.bin",
+      "unitM": 0.25,
+      "levels": [
+        {
+          "z": 4,
+          "tilesX": 9,
+          "tilesY": 11,
+          "present": "JhwsOPHkQceGjz6EAA==",
+          "count": 591,
+          "minAreaM2": 1500,
+          "minHeightM": 25
+        },
+        {
+          "z": 5,
+          "tilesX": 18,
+          "tilesY": 21,
+          "present": "Pg7wAOEBABrgawCsIvDoQJ4TbQhEkXAvgd8J+ivOD9YPUExgcY18JfIfwKaAiyYC",
+          "count": 5824,
+          "minAreaM2": 300,
+          "minHeightM": 12
+        },
+        {
+          "z": 6,
+          "tilesX": 36,
+          "tilesY": 42,
+          "present": "igBsgDDZgAIE8QMAIgBfAAAD+AEAAEA8AAAARo4AACZIAgAtiiQAAKAMAgAgSAQAAPBFBAgALoBAAMAFQAMAQyRoADGmAAAC4wjAABAAAgAAghEAHJAgAUUBA/YIIVAhgzBQ/D4YCMD5soAABE5BBMTodwQAB/4LAADgFwB4gh8AAAOxBwAwAwkhgBIQEQAYAxFBwDDQAwIOGRGAgME/IgAAvykCAOANDgAADfEMArAEgABAj4AYBBQACAEA",
+          "count": 18989,
+          "minAreaM2": 0,
+          "minHeightM": 0
+        }
+      ],
+      "count": 18989,
+      "heightSourceCounts": {
+        "tag": 4,
+        "inferred": 161,
+        "default": 18824
+      }
+    }
+  },
+  "boundary": {
+    "url": "/aoi/65/boundary.geojson"
+  },
+  "version": "2026-08-17",
+  "features": {
+    "urlTemplate": "/aoi/65/features/{z}/{x}_{y}.bin",
+    "levels": [
+      {
+        "z": 2,
+        "tilesX": 3,
+        "tilesY": 3,
+        "present": "/wE=",
+        "count": 925
+      },
+      {
+        "z": 3,
+        "tilesX": 5,
+        "tilesY": 6,
+        "present": "////Pw==",
+        "count": 1462
+      },
+      {
+        "z": 4,
+        "tilesX": 9,
+        "tilesY": 11,
+        "present": "//7//f//3///vv//BQ==",
+        "count": 1658
+      },
+      {
+        "z": 5,
+        "tilesX": 18,
+        "tilesY": 21,
+        "present": "/P/0//N/3v/8/3v/b/z/4f/z///9//E/33/9/////////P/3/8/9P////b+//z8C",
+        "count": 4870
+      },
+      {
+        "z": 6,
+        "tilesX": 36,
+        "tilesY": 42,
+        "present": "6P//zYD//38O9/9ftxD//xgL/f8/+HH+/4I///8v/P///2D/+/9PZqb//zgg+/+PA/P//xjg////Afj//w+A//9/EP///wc7////8fH//7sH//8fP/T//8QD//8P7/H/R9Aa/39wf/H/N8L//39jDP//f//Z////++D/Hwb+9/9hoOv/Pwc2/3//4f/4fwb+y3938HH2/w4ff///sP///wdDv/9nMfb+/x3m///8RPT/z/bH////D1SL3/1A",
+        "count": 8623
+      }
+    ],
+    "lineCount": 3671,
+    "waterAreaCount": 1775
+  },
+  "landcover": {
+    "urlTemplate": "/aoi/65/landcover/{z}/{x}_{y}.bin",
+    "levels": [
+      {
+        "z": 6,
+        "tilesX": 36,
+        "tilesY": 42,
+        "present": "////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////"
+      },
+      {
+        "z": 5,
+        "tilesX": 18,
+        "tilesY": 21,
+        "present": "//////////////////////////////////////////////////////////////8D"
+      }
+    ],
+    "attribution": "© ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium (CC BY 4.0)",
+    "classShare": {
+      "10": 0.513,
+      "20": 0,
+      "30": 0.059,
+      "40": 0.403,
+      "50": 0.018,
+      "60": 0.001,
+      "80": 0.006,
+      "90": 0
+    }
+  }
+}

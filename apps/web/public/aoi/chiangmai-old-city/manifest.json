@@ -1,0 +1,26 @@
+{
+  "aoiId": "chiangmai-old-city",
+  "bbox": {
+    "minLon": 98.94,
+    "maxLon": 99.02,
+    "minLat": 18.76,
+    "maxLat": 18.82
+  },
+  "utmZone": "32647",
+  "originEasting": 493676.007,
+  "originNorthing": 2074282.11,
+  "terrain": {
+    "url": "/aoi/chiangmai-old-city/terrain.bin",
+    "width": 281,
+    "height": 221,
+    "cellSizeM": 30,
+    "minZ": 299.873,
+    "maxZ": 559.545,
+    "demType": "DSM",
+    "hillshadeUrl": "/aoi/chiangmai-old-city/hillshade.png"
+  },
+  "buildings": {
+    "url": "/aoi/chiangmai-old-city/buildings.geojson"
+  },
+  "version": "2026-08-16"
+}

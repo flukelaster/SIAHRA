@@ -1,0 +1,19 @@
+{
+  "name": "siahra",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently --names api,web --prefix-colors magenta,cyan --handle-input \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "npm run dev -w apps/api",
+    "dev:web": "npm run dev -w apps/web",
+    "build:web": "npm run build -w apps/web",
+    "build:aoi": "npm run build:all -w apps/etl"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  }
+}

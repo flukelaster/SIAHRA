@@ -1,0 +1,207 @@
+{
+  "aoiId": "11",
+  "provinceCode": "11",
+  "provinceNameTh": "สมุทรปราการ",
+  "bbox": {
+    "minLon": 100.4444351,
+    "maxLon": 100.9638955,
+    "minLat": 13.2189544,
+    "maxLat": 13.7184898
+  },
+  "utmZone": "32647",
+  "originEasting": 656188.461,
+  "originNorthing": 1461792.452,
+  "terrain": {
+    "url": "/aoi/11/terrain.bin",
+    "width": 798,
+    "height": 784,
+    "cellSizeM": 71,
+    "minZ": -18.968,
+    "maxZ": 226.55,
+    "demType": "DSM",
+    "hillshadeUrl": "/aoi/11/hillshade.png",
+    "tiles": {
+      "urlTemplate": "/aoi/11/terrain/{z}/{x}_{y}.bin",
+      "tileSize": 128,
+      "border": 1,
+      "leafCellSizeM": 30,
+      "originEasting": 656188.461,
+      "originNorthing": 1517456.452,
+      "nodata": -32768,
+      "minZ": -19,
+      "maxZ": 232,
+      "levels": [
+        {
+          "z": 0,
+          "cellSizeM": 480,
+          "width": 118,
+          "height": 116,
+          "tilesX": 1,
+          "tilesY": 1,
+          "present": "AQ=="
+        },
+        {
+          "z": 1,
+          "cellSizeM": 240,
+          "width": 236,
+          "height": 232,
+          "tilesX": 2,
+          "tilesY": 2,
+          "present": "Dw=="
+        },
+        {
+          "z": 2,
+          "cellSizeM": 120,
+          "width": 472,
+          "height": 464,
+          "tilesX": 4,
+          "tilesY": 4,
+          "present": "//8="
+        },
+        {
+          "z": 3,
+          "cellSizeM": 60,
+          "width": 944,
+          "height": 928,
+          "tilesX": 8,
+          "tilesY": 8,
+          "present": "////////f38="
+        },
+        {
+          "z": 4,
+          "cellSizeM": 30,
+          "width": 1888,
+          "height": 1855,
+          "tilesX": 15,
+          "tilesY": 15,
+          "present": "////////////////////////////////+//9/wA="
+        }
+      ]
+    }
+  },
+  "buildings": {
+    "url": "/aoi/11/buildings.geojson",
+    "count": 30000,
+    "coverage": "urban-core",
+    "coverageBbox": {
+      "minLon": 100.47533552623376,
+      "maxLon": 100.58618143865498,
+      "minLat": 13.636344135256474,
+      "maxLat": 13.7184898
+    },
+    "tiles": {
+      "urlTemplate": "/aoi/11/buildings/{z}/{x}_{y}.bin",
+      "unitM": 0.25,
+      "levels": [
+        {
+          "z": 2,
+          "tilesX": 4,
+          "tilesY": 4,
+          "present": "/4g=",
+          "count": 2773,
+          "minAreaM2": 1500,
+          "minHeightM": 25
+        },
+        {
+          "z": 3,
+          "tilesX": 8,
+          "tilesY": 8,
+          "present": "/7//uADAwIA=",
+          "count": 23245,
+          "minAreaM2": 300,
+          "minHeightM": 12
+        },
+        {
+          "z": 4,
+          "tilesX": 15,
+          "tilesY": 15,
+          "present": "/7//6f/i//n//X8XPgEAAAAAAAAYAA4ABwADAAE=",
+          "count": 188847,
+          "minAreaM2": 0,
+          "minHeightM": 0
+        }
+      ],
+      "count": 188849,
+      "heightSourceCounts": {
+        "tag": 348,
+        "inferred": 5111,
+        "default": 183390
+      }
+    }
+  },
+  "boundary": {
+    "url": "/aoi/11/boundary.geojson"
+  },
+  "version": "2026-08-17",
+  "features": {
+    "urlTemplate": "/aoi/11/features/{z}/{x}_{y}.bin",
+    "levels": [
+      {
+        "z": 0,
+        "tilesX": 1,
+        "tilesY": 1,
+        "present": "AQ==",
+        "count": 1501
+      },
+      {
+        "z": 1,
+        "tilesX": 2,
+        "tilesY": 2,
+        "present": "Cw==",
+        "count": 2871
+      },
+      {
+        "z": 2,
+        "tilesX": 4,
+        "tilesY": 4,
+        "present": "/4g=",
+        "count": 2998
+      },
+      {
+        "z": 3,
+        "tilesX": 8,
+        "tilesY": 8,
+        "present": "/////wDAwMA=",
+        "count": 7370
+      },
+      {
+        "z": 4,
+        "tilesX": 15,
+        "tilesY": 15,
+        "present": "///////////////f/wHgAAAAAAAYAA4ABgADgAE=",
+        "count": 11756
+      }
+    ],
+    "lineCount": 6979,
+    "waterAreaCount": 3268
+  },
+  "landcover": {
+    "urlTemplate": "/aoi/11/landcover/{z}/{x}_{y}.bin",
+    "levels": [
+      {
+        "z": 4,
+        "tilesX": 15,
+        "tilesY": 15,
+        "present": "/////////////////////////////////////wE="
+      },
+      {
+        "z": 3,
+        "tilesX": 8,
+        "tilesY": 8,
+        "present": "//////////8="
+      }
+    ],
+    "attribution": "© ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium (CC BY 4.0)",
+    "classShare": {
+      "10": 0.069,
+      "20": 0,
+      "30": 0.049,
+      "40": 0.054,
+      "50": 0.162,
+      "60": 0.01,
+      "80": 0.638,
+      "90": 0.012,
+      "95": 0.006
+    }
+  }
+}

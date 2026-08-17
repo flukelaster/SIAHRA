@@ -1,0 +1,225 @@
+{
+  "aoiId": "85",
+  "provinceCode": "85",
+  "provinceNameTh": "ระนอง",
+  "bbox": {
+    "minLon": 97.6650928,
+    "maxLon": 98.9649264,
+    "minLat": 9.3037965,
+    "maxLat": 10.7882665
+  },
+  "utmZone": "32647",
+  "originEasting": 353386.835,
+  "originNorthing": 1028498.402,
+  "terrain": {
+    "url": "/aoi/85/terrain.bin",
+    "width": 693,
+    "height": 798,
+    "cellSizeM": 206,
+    "minZ": -0.968,
+    "maxZ": 1349.367,
+    "demType": "DSM",
+    "hillshadeUrl": "/aoi/85/hillshade.png",
+    "tiles": {
+      "urlTemplate": "/aoi/85/terrain/{z}/{x}_{y}.bin",
+      "tileSize": 128,
+      "border": 1,
+      "leafCellSizeM": 30,
+      "originEasting": 353386.835,
+      "originNorthing": 1192886.402,
+      "nodata": -32768,
+      "minZ": -5,
+      "maxZ": 1385,
+      "levels": [
+        {
+          "z": 0,
+          "cellSizeM": 1920,
+          "width": 75,
+          "height": 86,
+          "tilesX": 1,
+          "tilesY": 1,
+          "present": "AQ=="
+        },
+        {
+          "z": 1,
+          "cellSizeM": 960,
+          "width": 149,
+          "height": 172,
+          "tilesX": 2,
+          "tilesY": 2,
+          "present": "Dw=="
+        },
+        {
+          "z": 2,
+          "cellSizeM": 480,
+          "width": 298,
+          "height": 343,
+          "tilesX": 3,
+          "tilesY": 3,
+          "present": "/gE="
+        },
+        {
+          "z": 3,
+          "cellSizeM": 240,
+          "width": 595,
+          "height": 686,
+          "tilesX": 5,
+          "tilesY": 6,
+          "present": "GPv/Pw=="
+        },
+        {
+          "z": 4,
+          "cellSizeM": 120,
+          "width": 1190,
+          "height": 1371,
+          "tilesX": 10,
+          "tilesY": 11,
+          "present": "wAMPPPDw44//f//99x8="
+        },
+        {
+          "z": 5,
+          "cellSizeM": 60,
+          "width": 2380,
+          "height": 2741,
+          "tilesX": 19,
+          "tilesY": 22,
+          "present": "AOAHAD8A+AHADwB+APADgB8A/gD4B/A/wP8B/w/4f+D/D//v/3////v/3////v/3/x/8/wA="
+        },
+        {
+          "z": 6,
+          "cellSizeM": 30,
+          "width": 4759,
+          "height": 5482,
+          "tilesX": 38,
+          "tilesY": 43,
+          "present": "AAAA8D8AAAD+DwAAgP8DAADg/wAAAPg/AAAA/g8AAID/AwAAwP8AAAD4PwAAAP4PAACA/wMAAPD/AAAA/D8AAAD/DwAA4P8DAAD8/wAAAP8/AADg/w8AAPj/AwDg//8AAPz/PwCA//8PAPD//wMA/v//AID//z8A8P//DwD8//8DgP//fwDg///PAfz///AP//8//P///x//////x//////z//////z///8//////8//////8//////8////H/////8D/////wD4//8fAA=="
+        }
+      ]
+    }
+  },
+  "buildings": {
+    "url": "/aoi/85/buildings.geojson",
+    "count": 5166,
+    "coverage": "urban-core",
+    "coverageBbox": {
+      "minLon": 98.71942797069323,
+      "maxLon": 98.82890380325347,
+      "minLat": 10.350870129337613,
+      "maxLat": 10.459428117396234
+    },
+    "tiles": {
+      "urlTemplate": "/aoi/85/buildings/{z}/{x}_{y}.bin",
+      "unitM": 0.25,
+      "levels": [
+        {
+          "z": 4,
+          "tilesX": 10,
+          "tilesY": 11,
+          "present": "AAEEGCAAAgEEEAAAAAI=",
+          "count": 62,
+          "minAreaM2": 1500,
+          "minHeightM": 25
+        },
+        {
+          "z": 5,
+          "tilesX": 19,
+          "tilesY": 22,
+          "present": "AAADABgAwAEADgAwAMABAA4AcADABQAgAAgAwAAAAwAUAIAAgAQACADAAQAACAAEQAAAAgA=",
+          "count": 2160,
+          "minAreaM2": 300,
+          "minHeightM": 12
+        },
+        {
+          "z": 6,
+          "tilesX": 38,
+          "tilesY": 43,
+          "present": "AAAAAA4AAACAAwAAAPAAAAAAfgAAAIAfAAAA4A8AAADwAQAAAHwAAAAAHwAAAMADAAAAeAAAAAAeAAAAgA8AAADgBwAAAPwAAAAAPwAAAMAXAAAAmAUAAAAAAQAAACAAAAAAAAAAABIAAACAAAAAAHAAAAAALgAAAAACAAAAzAAAAAAxAAAAQIQAAAAAAQAAAEMAAAAAAAAAAAAACAAAMAAEAABoAAAAAAAAAAAAAAAAAAAAAAAABACAAAAAEAAAMAAAAAAAAAAAAAMAAA==",
+          "count": 28608,
+          "minAreaM2": 0,
+          "minHeightM": 0
+        }
+      ],
+      "count": 28608,
+      "heightSourceCounts": {
+        "tag": 1,
+        "inferred": 29,
+        "default": 28578
+      }
+    }
+  },
+  "boundary": {
+    "url": "/aoi/85/boundary.geojson"
+  },
+  "version": "2026-08-17",
+  "features": {
+    "urlTemplate": "/aoi/85/features/{z}/{x}_{y}.bin",
+    "levels": [
+      {
+        "z": 2,
+        "tilesX": 3,
+        "tilesY": 3,
+        "present": "tgE=",
+        "count": 400
+      },
+      {
+        "z": 3,
+        "tilesX": 5,
+        "tilesY": 6,
+        "present": "GGPOOQ==",
+        "count": 449
+      },
+      {
+        "z": 4,
+        "tilesX": 10,
+        "tilesY": 11,
+        "present": "gAEHPPDAAw8+eOCABx4=",
+        "count": 514
+      },
+      {
+        "z": 5,
+        "tilesX": 19,
+        "tilesY": 22,
+        "present": "AAADAA4AcADgBwB/APgAwBcAPgDwB4A/APwA4AMAfwC8AfAHgB4AOAbANwAfAXgPwDkAggE=",
+        "count": 879
+      },
+      {
+        "z": 6,
+        "tilesX": 38,
+        "tilesY": 43,
+        "present": "AAAAAA4AAADAAAAAADwAAADABwAAAJABAAAAYAAAAADwAAAA+D8AAAD+OwAAgP8OAADgfwAAAPgPAAAA/h8AAID/AwAA4H8AAAD4DwAAAP4TAACA/w4AAOC/AwAA+H8AAAD+BwAAgP8AAADgPwAAAPwPAAAA/zMAAIAPDwAA9PMAAAB9DAAAQP8BAADI/wAAAPMHAAAAfAAAAAALMAAA8AcGAAD8gwMAAN/BAADALzAAAPgDAAAAfAAAAIAf9wAA8MELAAC4wAEAADNgAA==",
+        "count": 1716
+      }
+    ],
+    "lineCount": 779,
+    "waterAreaCount": 146
+  },
+  "landcover": {
+    "urlTemplate": "/aoi/85/landcover/{z}/{x}_{y}.bin",
+    "levels": [
+      {
+        "z": 6,
+        "tilesX": 38,
+        "tilesY": 43,
+        "present": "////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Aw=="
+      },
+      {
+        "z": 5,
+        "tilesX": 19,
+        "tilesY": 22,
+        "present": "/////////////////////////////////////////////////////////////////////wM="
+      }
+    ],
+    "attribution": "© ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium (CC BY 4.0)",
+    "classShare": {
+      "10": 0.342,
+      "20": 0,
+      "30": 0.007,
+      "40": 0.001,
+      "50": 0.002,
+      "60": 0,
+      "80": 0.627,
+      "90": 0,
+      "95": 0.02
+    }
+  }
+}

@@ -1,0 +1,177 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Sarabun", "Noto Sans Thai", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  /* Base surfaces */
+  --color-bg: #0b1220;
+  --color-bg-elevated: #0f172a;
+  --color-panel: #131c2e;
+  --color-panel-2: #17223a;
+  --color-border: #263148;
+  --color-border-strong: #3a4864;
+
+  --color-fg: #e7ecf5;
+  --color-fg-muted: #94a3b8;
+  --color-fg-subtle: #64748b;
+
+  --color-accent: #3b82f6;
+  --color-accent-fg: #eaf1ff;
+
+  /* Semantic risk scale (shared by flood + earthquake legends) */
+  --color-risk-low: #38bdf8;
+  --color-risk-medium: #eab308;
+  --color-risk-high: #f97316;
+  --color-risk-extreme: #ef4444;
+
+  --color-success: #22c55e;
+  --color-danger: #ef4444;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 8px;
+}
+
+.tabular-nums {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Map surface                                                              */
+/* ---------------------------------------------------------------------- */
+
+/* Sky behind the transparent WebGL canvas: deep night-blue horizon glow. */
+.map-sky {
+  background:
+    radial-gradient(120% 70% at 50% 100%, rgba(30, 58, 110, 0.55) 0%, rgba(7, 11, 20, 0) 60%),
+    linear-gradient(180deg, #05070d 0%, #0a1222 45%, #0c1730 100%);
+}
+
+/* Floating glass panels over the map. */
+.glass {
+  background: rgba(10, 16, 30, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+}
+
+.glass-soft {
+  background: rgba(10, 16, 30, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+
+/* CSS2D labels anchored to scene points. */
+.map-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 3px 8px 4px;
+  border-radius: 8px;
+  background: rgba(8, 12, 22, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  white-space: nowrap;
+  font-family: var(--font-sans);
+  line-height: 1.15;
+  pointer-events: none;
+  transform-origin: 50% 100%;
+}
+.map-label::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 8px;
+  height: 8px;
+  transform: translateX(-50%) rotate(45deg);
+  background: rgba(8, 12, 22, 0.78);
+  border-right: 1px solid rgba(255, 255, 255, 0.14);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+.map-label__title {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #f8fafc;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.map-label__sub {
+  font-size: 10px;
+  color: rgba(226, 232, 240, 0.85);
+}
+.map-label--warning {
+  border-color: rgba(249, 115, 22, 0.55);
+}
+.map-label--warning .map-label__sub {
+  color: #fdba74;
+}
+.map-label--severe {
+  border-color: rgba(239, 68, 68, 0.65);
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.25), 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+.map-label--severe .map-label__sub {
+  color: #fca5a5;
+}
+.map-label--info {
+  border-color: rgba(56, 189, 248, 0.5);
+}
+
+/* District / place names: no box, dark halo so they sit on imagery. */
+.map-place {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow:
+    0 0 3px rgba(0, 0, 0, 0.95),
+    0 0 8px rgba(0, 0, 0, 0.8),
+    0 1px 2px rgba(0, 0, 0, 1);
+  white-space: nowrap;
+  pointer-events: none;
+}

@@ -1,0 +1,32 @@
+import { useEffect, useState } from "react";
+
+export interface ViewportInfo {
+  width: number;
+  height: number;
+  /** Phones/tablets in portrait or narrow windows: docks become a bottom sheet. */
+  compact: boolean;
+}
+
+const COMPACT_MAX_WIDTH = 1024;
+
+export function useViewport(): ViewportInfo {
+  const read = (): ViewportInfo => ({
+    width: window.innerWidth,
+    height: window.innerHeight,
+    compact: window.innerWidth < COMPACT_MAX_WIDTH,
+  });
+  const [vp, setVp] = useState<ViewportInfo>(read);
+  useEffect(() => {
+    let raf = 0;
+    const onResize = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => setVp(read()));
+    };
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+  return vp;
+}

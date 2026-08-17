@@ -1,0 +1,24 @@
+{
+  "name": "@siahra/etl",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:chiangmai-old-city": "tsx src/buildAoi.ts chiangmai-old-city",
+    "build:all": "tsx src/buildAllProvinces.ts",
+    "build:tiles": "tsx src/buildTerrainTiles.ts",
+    "build:building-tiles": "tsx src/buildBuildingTiles.ts",
+    "build:feature-tiles": "tsx src/buildFeatureTiles.ts",
+    "build:landcover-tiles": "tsx src/buildLandcoverTiles.ts"
+  },
+  "dependencies": {
+    "@siahra/shared-types": "*",
+    "@turf/turf": "^7.2.0",
+    "execa": "^9.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "tsx": "^4.20.6",
+    "typescript": "~5.9.3"
+  }
+}

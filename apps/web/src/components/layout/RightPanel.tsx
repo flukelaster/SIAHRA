@@ -1,0 +1,71 @@
+import type { EarthquakeFeedState } from "../../hooks/useEarthquakeFeed";
+import type { DamsState } from "../../hooks/useDams";
+import type { FloodExtentState } from "../../hooks/useFloodExtent";
+import type { ObservationsState } from "../../hooks/useObservations";
+import { EarthquakeLiveCard } from "../hazard/EarthquakeLiveCard";
+import { DamCard } from "../hazard/DamCard";
+import { FloodExtentCard } from "../hazard/FloodExtentCard";
+import { RainfallCard } from "../hazard/RainfallCard";
+import { WaterLevelCard } from "../hazard/WaterLevelCard";
+
+/** Right dock: floating observation cards over the map. */
+export function RightPanel({
+  observations,
+  earthquakes,
+  floodExtent,
+  dams,
+  atIso,
+  width,
+  top,
+}: {
+  observations: ObservationsState;
+  earthquakes: EarthquakeFeedState;
+  floodExtent: FloodExtentState;
+  dams: DamsState;
+  atIso: string | null;
+  width: number;
+  top: number;
+}) {
+  const { data, loading, error } = observations;
+
+  return (
+    <aside
+      className="absolute right-3 bottom-3 flex flex-col gap-3 overflow-y-auto pl-0.5"
+      style={{ width, top }}
+    >
+      {error ? (
+        <div className="glass flex shrink-0 items-start gap-2 rounded-xl border-[var(--color-risk-high)]/40 px-3 py-2 text-xs text-[var(--color-risk-high)]">
+          <span
+            className="mt-1 h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-[var(--color-risk-high)]"
+            aria-hidden="true"
+          />
+          <span>
+            {error}
+            <br />
+            <span className="text-[var(--color-fg-muted)]">กำลังลองเชื่อมต่อใหม่อัตโนมัติ...</span>
+          </span>
+        </div>
+      ) : null}
+
+      <FloodExtentCard state={floodExtent} />
+
+      <WaterLevelCard
+        stations={data?.waterlevel ?? []}
+        loading={loading}
+        attribution={data?.summary.sourceAttribution ?? null}
+        observedAt={data?.summary.latestObservedAt ?? null}
+        historical={atIso !== null}
+      />
+
+      <DamCard state={dams} />
+
+      <RainfallCard
+        stations={data?.rainfall ?? []}
+        loading={loading}
+        attribution={data?.summary.sourceAttribution ?? null}
+      />
+
+      <EarthquakeLiveCard feed={earthquakes} />
+    </aside>
+  );
+}

@@ -1,0 +1,224 @@
+{
+  "aoiId": "53",
+  "provinceCode": "53",
+  "provinceNameTh": "อุตรดิตถ์",
+  "bbox": {
+    "minLon": 99.8944913,
+    "maxLon": 101.19266,
+    "minLat": 17.1387409,
+    "maxLat": 18.38126
+  },
+  "utmZone": "32647",
+  "originEasting": 594490.708,
+  "originNorthing": 1895192.807,
+  "terrain": {
+    "url": "/aoi/53/terrain.bin",
+    "width": 802,
+    "height": 801,
+    "cellSizeM": 173,
+    "minZ": 43.901,
+    "maxZ": 2094.413,
+    "demType": "DSM",
+    "hillshadeUrl": "/aoi/53/hillshade.png",
+    "tiles": {
+      "urlTemplate": "/aoi/53/terrain/{z}/{x}_{y}.bin",
+      "tileSize": 128,
+      "border": 1,
+      "leafCellSizeM": 30,
+      "originEasting": 594490.708,
+      "originNorthing": 2033765.807,
+      "nodata": -32768,
+      "minZ": 43,
+      "maxZ": 2111,
+      "levels": [
+        {
+          "z": 0,
+          "cellSizeM": 1920,
+          "width": 73,
+          "height": 73,
+          "tilesX": 1,
+          "tilesY": 1,
+          "present": "AQ=="
+        },
+        {
+          "z": 1,
+          "cellSizeM": 960,
+          "width": 145,
+          "height": 145,
+          "tilesX": 2,
+          "tilesY": 2,
+          "present": "Bw=="
+        },
+        {
+          "z": 2,
+          "cellSizeM": 480,
+          "width": 290,
+          "height": 289,
+          "tilesX": 3,
+          "tilesY": 3,
+          "present": "/wA="
+        },
+        {
+          "z": 3,
+          "cellSizeM": 240,
+          "width": 579,
+          "height": 578,
+          "tilesX": 5,
+          "tilesY": 5,
+          "present": "/v93AA=="
+        },
+        {
+          "z": 4,
+          "cellSizeM": 120,
+          "width": 1157,
+          "height": 1156,
+          "tilesX": 10,
+          "tilesY": 10,
+          "present": "4PP///////fPHx88AA=="
+        },
+        {
+          "z": 5,
+          "cellSizeM": 60,
+          "width": 2313,
+          "height": 2311,
+          "tilesX": 19,
+          "tilesY": 19,
+          "present": "APAHwD/g/8H/j//////////////////f///+//P/h/8f/H/g/wH/A/gHwD8AAA=="
+        },
+        {
+          "z": 6,
+          "cellSizeM": 30,
+          "width": 4626,
+          "height": 4621,
+          "tilesX": 37,
+          "tilesY": 37,
+          "present": "AAAA/h8AAOD/AwAA/H8AAMD/DwAA+P8BgP//PwD+//8H4P///4D///8f+P///4P///9////////////////////////////////////////////9////v//////z////f/7////H//////j///8P////P+D///8D/P//P4D///8D8P//PwD+//8DwP//PwD4//8DAP//DwDg/x8AAPz/AwCA/z8AAPD/BwAAAA=="
+        }
+      ]
+    }
+  },
+  "buildings": {
+    "url": "/aoi/53/buildings.geojson",
+    "count": 1770,
+    "coverage": "urban-core",
+    "coverageBbox": {
+      "minLon": 100.0330497240854,
+      "maxLon": 100.14624149347074,
+      "minLat": 17.556943617038417,
+      "maxLat": 17.665501605097038
+    },
+    "tiles": {
+      "urlTemplate": "/aoi/53/buildings/{z}/{x}_{y}.bin",
+      "unitM": 0.25,
+      "levels": [
+        {
+          "z": 4,
+          "tilesX": 10,
+          "tilesY": 10,
+          "present": "FBhwgAAxCODARDYAAA==",
+          "count": 283,
+          "minAreaM2": 1500,
+          "minHeightM": 25
+        },
+        {
+          "z": 5,
+          "tilesX": 19,
+          "tilesY": 19,
+          "present": "OAjSEUAOADoAlAGwBxAYUIAIEEQAcHiAhxAegMADGCwAXADg+EFXBiphAQAAAA==",
+          "count": 2009,
+          "minAreaM2": 300,
+          "minHeightM": 12
+        },
+        {
+          "z": 6,
+          "tilesX": 37,
+          "tilesY": 37,
+          "present": "gAlABATAAAggIDwAABiiBwIAAHQAAACEH0IAgPMAAAAAXwAAaEIBAAAmOAAAAAxBAAAEHgEABIIDAAEAJEAABAAEAAAwgAABAAAgIAAQAAyAAAAAAZgBgTYAGhCAfUARAfAFADAAPgAABPAHAAAAo0MAACDMAABpFEkAgCAgAAAAUAIBABBYBAAAwAkIEAD4AdIBYCcCPAAMIgIAEMUQgCGAIAIAAAAAAAAAAA==",
+          "count": 4342,
+          "minAreaM2": 0,
+          "minHeightM": 0
+        }
+      ],
+      "count": 4342,
+      "heightSourceCounts": {
+        "tag": 4,
+        "inferred": 52,
+        "default": 4286
+      }
+    }
+  },
+  "boundary": {
+    "url": "/aoi/53/boundary.geojson"
+  },
+  "version": "2026-08-17",
+  "features": {
+    "urlTemplate": "/aoi/53/features/{z}/{x}_{y}.bin",
+    "levels": [
+      {
+        "z": 2,
+        "tilesX": 3,
+        "tilesY": 3,
+        "present": "/wE=",
+        "count": 346
+      },
+      {
+        "z": 3,
+        "tilesX": 5,
+        "tilesY": 5,
+        "present": "////AQ==",
+        "count": 605
+      },
+      {
+        "z": 4,
+        "tilesX": 10,
+        "tilesY": 10,
+        "present": "7/j3319//f/8W//7BQ==",
+        "count": 744
+      },
+      {
+        "z": 5,
+        "tilesX": 19,
+        "tilesY": 19,
+        "present": "/P/b/9//b/6/0/+//9+c/6P8W+1/Yv+T/7//x/0P/3/o/2Pu/+F/p/9/1/+aAA==",
+        "count": 2672
+      },
+      {
+        "z": 6,
+        "tilesX": 37,
+        "tilesY": 37,
+        "present": "4P/A/wb4O7/3JP+18Rzmv3P7Qfz/fxzO//8Hw////+Caf/8fH/fj//Mn/vx/Z/y//3+O////R/AD/v8MJvD/z0AM//8YgID/n2Nx+f+7LTz//7uR2///Mfb/fzv0/4M7gfcfHLAw/+AzP/737+BH/88Q/vv/DUD///8BzP32H5DA3P8BHNj+fIEB3/9NPsDrm/8D4H+TPgj+/ycH8f//6eGj/39+PPS/+8yBAA==",
+        "count": 5718
+      }
+    ],
+    "lineCount": 2089,
+    "waterAreaCount": 1658
+  },
+  "landcover": {
+    "urlTemplate": "/aoi/53/landcover/{z}/{x}_{y}.bin",
+    "levels": [
+      {
+        "z": 6,
+        "tilesX": 37,
+        "tilesY": 37,
+        "present": "////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////AQ=="
+      },
+      {
+        "z": 5,
+        "tilesX": 19,
+        "tilesY": 19,
+        "present": "////////////////////////////////////////////////////////////AQ=="
+      }
+    ],
+    "attribution": "© ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium (CC BY 4.0)",
+    "classShare": {
+      "10": 0.725,
+      "20": 0,
+      "30": 0.073,
+      "40": 0.178,
+      "50": 0.01,
+      "60": 0.001,
+      "80": 0.012,
+      "90": 0
+    }
+  }
+}
