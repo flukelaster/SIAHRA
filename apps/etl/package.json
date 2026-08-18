@@ -2,6 +2,7 @@
   "name": "@siahra/etl",
   "version": "0.0.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "build:chiangmai-old-city": "tsx src/buildAoi.ts chiangmai-old-city",

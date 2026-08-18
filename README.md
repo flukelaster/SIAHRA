@@ -14,7 +14,7 @@
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white)](https://workers.cloudflare.com)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
 [![Status](https://img.shields.io/badge/status-active%20development-yellow)](#project-status)
-[![License](https://img.shields.io/badge/license-unspecified-lightgrey)](#license)
+[![License](https://img.shields.io/badge/code%20license-MIT-green)](LICENSE)
 
 `thailand` `disaster-response` `geospatial` `webgl` `three-js` `react` `typescript` `cloudflare-workers` `durable-objects` `flood-monitoring` `earthquake-monitoring` `digital-twin` `3d-visualization` `open-data`
 
@@ -248,4 +248,6 @@ SIAHRA aggregates and visualizes official hazard data; it is **not** an early-wa
 
 ## License
 
-No license has been declared for this repository yet — all rights reserved by default until a `LICENSE` file is added. Upstream data retains the licenses listed [above](#data-sources--attribution) regardless of this repository's own license.
+The **code** in this repository is released under the MIT License — see [`LICENSE`](LICENSE). That covers the source of the web app, the API Worker and the ETL pipelines, and nothing else.
+
+The **data** is not ours to license. Every observation, tile and imagery layer SIAHRA fetches or derives stays under the terms of the agency that published it — ThaiWater/HII, TMD, GISTDA, USGS, EMSC, Copernicus DEM, OpenStreetMap and ESA WorldCover — listed one by one [above](#data-sources--attribution). MIT applies to the code only; it grants you no right to redistribute those sources, and reusing this code does not transfer their terms to you. If you fork SIAHRA, check each upstream licence for your own use, and keep the attributions.

@@ -2,11 +2,13 @@
   "name": "api",
   "private": true,
   "version": "0.0.0",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "node scripts/dev-api.mjs",
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
+    "typecheck:test": "tsc -p test/tsconfig.json --noEmit",
     "types": "wrangler types",
     "dev:raw": "wrangler dev --port 8787 --test-scheduled",
     "test": "vitest run"
