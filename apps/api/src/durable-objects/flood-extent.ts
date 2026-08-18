@@ -22,11 +22,12 @@ const HISTORY_MS = 30 * 24 * 60 * 60 * 1000;
 /** DO ที่ยังไม่เคยมีข้อมูลเลย รอผลรอบแรกได้แค่นี้ ที่เหลือปล่อยวิ่งต่อเบื้องหลัง */
 const COLD_START_WAIT_MS = 3_000;
 /**
- * งานที่ค้างอยู่หลังตอบ request มีเวลาจำกัด (~30 วิ) — cold start จึงยิงครั้งเดียว
- * ไม่ retry เพื่อให้ refresh() ได้บันทึก lastError/backoff ทัน ไม่ถูกตัดกลางคัน
+ * งานที่ค้างอยู่หลังตอบ request มีเวลาจำกัด (~30 วิ) — ทุกการ refresh ที่เกิดจาก
+ * request (cold start และ refresh เมื่อของเก่าหมดอายุ) จึงยิงครั้งเดียวไม่ retry
+ * เพื่อให้ refresh() ได้บันทึก lastError/backoff ทัน ไม่ถูกตัดกลางคัน
  * ส่วน alarm ไม่มีข้อจำกัดนี้ จึงใช้ retry เต็มชุด
  */
-const COLD_START_FETCH = { attempts: 1, timeoutMs: 20_000 };
+const REQUEST_PATH_FETCH = { attempts: 1, timeoutMs: 20_000 };
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -138,11 +139,11 @@ export class FloodExtentDO extends DurableObject<Env> {
     const due = r === null || Date.now() - r > REFRESH_MS;
     const allowed = Date.now() >= this.nextAttemptMs();
     if (neverAttempted) {
-      const first = this.refreshOnce(COLD_START_FETCH);
+      const first = this.refreshOnce(REQUEST_PATH_FETCH);
       this.ctx.waitUntil(first);
       await Promise.race([first, sleep(COLD_START_WAIT_MS)]);
     } else if (due && allowed) {
-      this.ctx.waitUntil(this.refreshOnce());
+      this.ctx.waitUntil(this.refreshOnce(REQUEST_PATH_FETCH));
     }
     await this.armAlarm(this.retrievedMs() === null ? this.backoffMs(this.failureCount()) : REFRESH_MS);
   }
