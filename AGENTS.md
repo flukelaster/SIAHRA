@@ -1,6 +1,6 @@
 # SIAHRA — guide for agents and contributors
 
-**SIAHRA** (Spatial Intelligence Atlas for Hazard & Resilience Analytics) — a 3D per-province map of Thailand that overlays *actually measured* hazard data (ThaiWater/HII, GISTDA, TMD, USGS/EMSC) on Three.js + React (Vite) with a Cloudflare Worker backend (Durable Objects, R2). The overall plan lives in `SIAHRA-implement-plan.md`; deploy steps in `docs/deploy.md`.
+**SIAHRA** (Spatial Intelligence Atlas for Hazard & Resilience Analytics) — a 3D per-province map of Thailand that overlays *actually measured* hazard data (ThaiWater/HII, GISTDA, TMD, USGS/EMSC) on Three.js + React (Vite) with a Cloudflare Worker backend (Durable Objects, R2). The overall plan lives in `docs/SIAHRA-implement-plan.md`; deploy steps in `docs/deploy.md`.
 
 ## Non-negotiable rules (data honesty)
 - Every data layer must declare a `HazardLayerDescriptor` (`packages/shared-types/src/hazard-layer.ts`): observed / static-reference / illustrative / probabilistic — and the UI must always show when the data is from (`fetchedAt`/`observedAt`)
