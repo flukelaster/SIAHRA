@@ -207,14 +207,30 @@ For example:
 
 ```ts
 type HazardMessage =
+  // Sent first, on every connection. `EqWsMessage` already has this frame and
+  // `useEarthquakeFeed` depends on it for initial state — it only falls back to
+  // REST when the socket cannot connect at all, so a protocol without a
+  // snapshot would connect successfully and then show an empty map until the
+  // next event happened to fire. Generalising the channel must not lose it.
+  | { type: "snapshot"; asOf: string; earthquakes: EarthquakeEvent[] }
   | { type: "earthquake.created"; event: EarthquakeEvent }
   | { type: "earthquake.updated"; event: EarthquakeEvent }
+  | { type: "earthquake.deleted"; id: string }
   | { type: "flood.extent.updated"; province: string; version: string }
   | { type: "station.updated"; stationId: string; observation: Observation }
   | { type: "radar.frame"; timestamp: string }
   | { type: "forecast.published"; runId: string; hazard: "flood" }
+  | { type: "heartbeat"; ts: string }
   | { type: "source.health"; source: SourceStatus };
 ```
+
+The alternative — deltas only, with an explicit REST bootstrap before the socket
+is applied — is defensible, but then it is a **required** step and the client
+must not apply any delta until the bootstrap resolves. Pick one deliberately;
+the failure mode of leaving it implicit is a connected socket over an empty
+map. `earthquake.deleted` and `heartbeat` are carried over from `EqWsMessage`
+for the same reason: the retraction path and the liveness signal both already
+exist and consumers rely on them.
 
 ### CI/CD and test audit
 
@@ -671,7 +687,11 @@ counted twice in every spatial summary:
 INSERT INTO flood_extents (
   source, source_artifact_id, source_feature_id, observed_at, fetched_at,
   first_seen_at, last_seen_at,
-  province_code, geom, confidence, artifact_key, provenance
+  province_code, geom, confidence, artifact_key, provenance,
+  -- canonical_props is NOT NULL with no default: omitting it rejects every
+  -- insert outright, and the popup/summary columns beside it are what the UI
+  -- actually reads
+  tambon_th, amphoe_th, province_th, flood_area_rai, houses, canonical_props
 ) VALUES (
   ..., ST_Multi(ST_GeomFromGeoJSON($geometry)), ...
 )
@@ -693,6 +713,21 @@ DO UPDATE SET
                        THEN EXCLUDED.provenance ELSE flood_extents.provenance END,
   observed_at   = CASE WHEN EXCLUDED.fetched_at > flood_extents.fetched_at
                        THEN EXCLUDED.observed_at ELSE flood_extents.observed_at END,
+  -- the display properties travel with the payload, under the same guard:
+  -- a newer delivery may rename a tambon or revise the affected-house count,
+  -- and a stale one must not put the old values back
+  tambon_th       = CASE WHEN EXCLUDED.fetched_at > flood_extents.fetched_at
+                         THEN EXCLUDED.tambon_th ELSE flood_extents.tambon_th END,
+  amphoe_th       = CASE WHEN EXCLUDED.fetched_at > flood_extents.fetched_at
+                         THEN EXCLUDED.amphoe_th ELSE flood_extents.amphoe_th END,
+  province_th     = CASE WHEN EXCLUDED.fetched_at > flood_extents.fetched_at
+                         THEN EXCLUDED.province_th ELSE flood_extents.province_th END,
+  flood_area_rai  = CASE WHEN EXCLUDED.fetched_at > flood_extents.fetched_at
+                         THEN EXCLUDED.flood_area_rai ELSE flood_extents.flood_area_rai END,
+  houses          = CASE WHEN EXCLUDED.fetched_at > flood_extents.fetched_at
+                         THEN EXCLUDED.houses ELSE flood_extents.houses END,
+  canonical_props = CASE WHEN EXCLUDED.fetched_at > flood_extents.fetched_at
+                         THEN EXCLUDED.canonical_props ELSE flood_extents.canonical_props END,
   -- monotonic bounds, merged from every delivery regardless of order:
   -- first_seen_at only ever moves backwards, last_seen_at only forwards
   fetched_at    = GREATEST(flood_extents.fetched_at, EXCLUDED.fetched_at),
@@ -720,6 +755,21 @@ see the value. Charging that to the ingestion pipeline would corrupt the process
 latency is measured from publication time where the source provides one, and only end-to-end age is
 measured from `observed_at`. Where `source_published_at` is null, report end-to-end age and say so —
 do not silently substitute one metric for the other.
+
+A source's freshness is tracked per feed, not inferred from its rows — an empty
+result set says nothing about whether the poller is healthy:
+
+```sql
+CREATE TABLE ingestion_status (
+  source_group text PRIMARY KEY,
+  -- null until the very first successful fetch; rendered as "no data yet",
+  -- never as "now"
+  last_success_at timestamptz,
+  last_error_at timestamptz,
+  last_error text,
+  consecutive_failures integer NOT NULL DEFAULT 0
+);
+```
 
 ```sql
 CREATE TABLE forecast_runs (
@@ -1541,12 +1591,13 @@ export function connectHazardStream(
     );
 
     socket.addEventListener("open", () => {
-      // NOT the place to reset the backoff. A backend fault can accept the
-      // socket and drop it immediately; resetting here would turn the
-      // exponential backoff into a 1-second reconnect loop that hammers the
-      // API for as long as the outage lasts. The delay is reset only once the
-      // connection has proved itself — see the message handler.
-      onStatus({ state: "live" });
+      // Neither the backoff reset NOR the "live" transition belongs here. A
+      // socket that is accepted and then goes silent — a backend that upgrades
+      // the connection but never sends the snapshot — would otherwise be
+      // reported as live for the full heartbeat timeout, with the UI showing
+      // stale values as healthy for 150 seconds. An accepted TCP connection is
+      // not evidence the feed works; a delivered frame is. Both transitions
+      // happen in the message handler.
       armHeartbeatDeadline();
     });
 
@@ -1556,13 +1607,16 @@ export function connectHazardStream(
 
       try {
         onMessage(JSON.parse(event.data));
-        // Only here. A frame that arrives but fails to parse — or whose
-        // handler throws — is a protocol failure, and the catch below closes
-        // the socket. Resetting before this point would schedule every one of
-        // those reconnects at one second and hammer the API for as long as the
-        // server keeps sending bad frames. The backoff resets once a frame has
-        // been received AND successfully handled, not merely received.
+        // Only here, and for both signals. A frame that arrives but fails to
+        // parse — or whose handler throws — is a protocol failure, and the
+        // catch below closes the socket. Resetting the backoff before this
+        // point would schedule every one of those reconnects at one second and
+        // hammer the API for as long as the server keeps sending bad frames;
+        // reporting "live" before it would present stale data as healthy.
+        // A frame received AND successfully handled is the only proof either
+        // way.
         retryMs = 1_000;
+        onStatus({ state: "live" });
       } catch (err) {
         // Never swallow this. A malformed payload, a protocol change, or a
         // throw inside onMessage all mean live updates have stopped being
@@ -1645,17 +1699,25 @@ export const earthquakesRoute: Route = {
 
     try {
       const rows = await sql`
+        -- Column names are deliberately aliased to the EarthquakeEvent field
+        -- names in packages/shared-types. Returning raw rows would hand the web
+        -- client `magnitude`/`origin_at`/`depth_km` where the contract says
+        -- `mag`/`time`/`depthKm`, and drop clusterId, sources, magType, place,
+        -- updated and url entirely — a consumer switching to this path could
+        -- not use the shared type at all.
         SELECT
           e.id,
-          e.origin_at,
-          e.magnitude,
-          e.depth_km,
-          e.tsunami,
+          e.cluster_id  AS "clusterId",
+          e.source_ids  AS sources,
+          e.magnitude   AS mag,
+          e.mag_type    AS "magType",
+          e.place,
+          e.depth_km    AS "depthKm",
+          e.origin_at   AS time,
+          e.updated_at  AS updated,
           e.status,
-          -- without this the response cannot populate the layer descriptor's
-          -- `fetchedAt`, and the UI cannot tell a stale feed from an old event
-          -- that was fetched a moment ago
-          e.fetched_at,
+          e.tsunami,
+          e.url,
           ST_X(e.geom::geometry) AS lon,
           ST_Y(e.geom::geometry) AS lat
         FROM active_earthquakes e
@@ -1667,17 +1729,29 @@ export const earthquakesRoute: Route = {
         LIMIT 250
       `;
 
+      // Freshness is a property of the FEED, not of whatever rows this
+      // province happens to have. Reading it from `rows[0]` is wrong twice
+      // over: an empty province would report `null` — which means "never
+      // fetched" — while the feed is perfectly healthy, and a non-empty one
+      // would report the receipt time of whichever event sorted first by
+      // origin time, which is not the last poll either.
+      const [feed] = await sql`
+        SELECT last_success_at, last_error_at, consecutive_failures
+        FROM ingestion_status
+        WHERE source_group = 'earthquakes'
+      `;
+
       return json(
         {
           data: rows,
-          // the freshness contract travels with the data, never inferred
-          // client-side: null here would mean "never fetched", so an empty
-          // result set reports the layer's own last successful fetch
           layer: {
             id: "earthquakes",
             epistemicClass: "observed",
             liveOrStatic: "live",
-            fetchedAt: rows[0]?.fetched_at ?? null,
+            // null here is honest: it means the feed has never succeeded, and
+            // the UI must render that as "no data yet", never as "now"
+            fetchedAt: feed?.last_success_at ?? null,
+            staleAfterSeconds: 300,
             sourceIds: ["usgs", "emsc", "tmd"],
           },
         },
