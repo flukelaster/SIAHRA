@@ -70,4 +70,4 @@ Naming, style, comment wording, micro-optimisation, personal preference, and any
 - If a push introduces no new P1/P2, post nothing — no "LGTM" re-review
 - Codex review is **advisory**: never add it as a required status check in `.github/rulesets/main.json`
 
-**ฝั่งผู้แก้** (`/review-fix <pr>`): ดึง unresolved threads ด้วย GraphQL `reviewThreads` (คอมเมนต์ Codex เป็น inline review comment — `gh pr view --comments` และ `reviewDecision` มองไม่เห็น) แก้ P1/P2 ทั้งชุด**ในรอบเดียว** push ครั้งเดียว แล้วปิดทุก thread ให้ครบสามอย่าง: **react 👍 → reply บอกว่าแก้อะไรพร้อม sha → resolve** (P3 ก็ต้องปิด แต่ตอบเหตุผลว่าทำไมไม่แก้ — ห้ามเงียบแล้ว resolve)
+**ฝั่งผู้แก้** (`/review-fix <pr>`): ดึง unresolved threads ด้วย GraphQL `reviewThreads` (คอมเมนต์ Codex เป็น inline review comment — `gh pr view --comments` และ `reviewDecision` มองไม่เห็น) แก้ P1/P2 ทั้งชุด**ในรอบเดียว** push ครั้งเดียว แล้วปิดทุก thread ให้ครบสามอย่าง: **react 👍 → reply บอกว่าแก้อะไรพร้อม sha → resolve** ; `/babysit-prs` จะเรียกให้เองทุกครั้งที่เจอ thread ค้าง และวนแบบนี้ได้ไม่จำกัดรอบ — หยุดเฉพาะเมื่อ finding เดิมซ้ำทั้งที่แก้ไปแล้ว (P3 ก็ต้องปิด แต่ตอบเหตุผลว่าทำไมไม่แก้ — ห้ามเงียบแล้ว resolve)
