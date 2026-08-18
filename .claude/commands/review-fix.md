@@ -2,25 +2,25 @@
 description: Address Codex review on a PR in ONE batch — fix P1/P2 only, then react 👍 + reply + resolve every thread. Prevents endless review loops.
 ---
 
-ปิดวงจร Codex review ของ PR: `$ARGUMENTS` (ไม่ระบุ = PR ของสาขาปัจจุบัน)
+Close out the Codex review on PR `$ARGUMENTS` (no argument = the PR for the current branch).
 
-## 0. ยืนยันว่าอยู่ถูกสาขาก่อนแตะอะไรทั้งนั้น
+## 0. Confirm you are on the right branch before touching anything
 ```bash
 gh pr view <n> --json headRefName,headRepository,headRepositoryOwner,isCrossRepository \
   --jq '{branch:.headRefName, repo:"\(.headRepositoryOwner.login)/\(.headRepository.name)", fork:.isCrossRepository}'
 git branch --show-current
-git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null   # remote ที่สาขานี้ track อยู่จริง
+git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null   # the remote this branch really tracks
 ```
-ต้องตรงกัน **ทั้งชื่อสาขาและ repo ต้นทาง** — ชื่อสาขาซ้ำกันข้าม remote ได้ และ PR จาก fork จะยิ่งหลอกง่าย
-วิธีที่ปลอดภัยที่สุดคือ `gh pr checkout <n>` เสมอ (working tree ต้องสะอาดก่อน) ; ถ้า checkout ไม่ได้ **ให้หยุด** ห้ามแก้ต่อ
-ไม่งั้นจะกลายเป็นแก้บนสาขาอื่น push สาขาอื่น แล้วเอา sha ที่ไม่เกี่ยวไป resolve thread ของ PR นี้
+**Both the branch name and the head repository** must match — branch names repeat across remotes, and a PR from a fork is easier still to mistake.
+The safest move is always `gh pr checkout <n>` (the working tree must be clean first); if you cannot check it out, **stop** rather than continue.
+Otherwise you end up editing one branch, pushing another, and resolving this PR's threads with an unrelated sha.
 
-**PR จาก fork**: ห้าม push เข้าสาขาของคนอื่นถ้าไม่ได้รับอนุญาต — ให้รายงานผู้ใช้แทน
+**Fork PRs**: never push to someone else's branch without permission — report back to the user instead.
 
-Codex รีวิวทุก push การแก้ทีละคอมเมนต์แล้ว push ทีละครั้ง = ลูปไม่จบ คำสั่งนี้บังคับ **หนึ่ง batch ต่อหนึ่ง push**
+Codex reviews every push, so fixing one comment per push is a loop that never ends. This command enforces **one batch per push**.
 
-## 1. ดึง unresolved review threads (GraphQL เท่านั้น)
-`gh pr view --comments` และ `reviewDecision` **ไม่เห็น**คอมเมนต์ Codex เพราะมันเป็น inline review comment ในรีวิวชนิด `COMMENTED`
+## 1. Fetch unresolved review threads (GraphQL only)
+`gh pr view --comments` and `reviewDecision` **cannot see** Codex comments: they are inline review comments inside a `COMMENTED` review.
 
 ```bash
 gh api graphql -f query='
@@ -35,52 +35,52 @@ query($o:String!,$r:String!,$n:Int!,$c:String){
           comments(first:100){ nodes{ databaseId author{login} createdAt body } } } } } } }' \
   -f o=<owner> -f r=<repo> -F n=<pr>
 ```
-- `id` = thread node id → ใช้กับ `resolveReviewThread`
-- `comments.nodes[0].databaseId` = comment id ของคอมเมนต์แรก → ใช้กับ REST reactions/replies
-- **อ่านคอมเมนต์ในเธรดให้ครบ ไม่ใช่แค่ `first:1`** — ถ้ามี reply ของคนอธิบายว่าทำไมถึงตั้งใจทำแบบนั้น หรือทำไม finding ไม่ถูกต้อง ให้ถือเป็นข้อสรุปแล้วอย่าแก้ทับ (ปิด thread ด้วยเหตุผลนั้นแทน)
-- คอมเมนต์ของ Codex คือ `author.login == "chatgpt-codex-connector"` (ยืนยันจาก PR #21) — ใช้กรองแยกจากคอมเมนต์ของคน
-- **ต้องอ่าน `totalCount` + `pageInfo.hasNextPage` แล้ววนจนหมดก่อนสรุป** — thread เรียงตามเวลาสร้าง ของใหม่อยู่ท้าย การใช้ `first: N` ตายตัวเคยทำให้รายงาน "0 findings" ผิดมาแล้ว
+- `id` = the thread node id → used with `resolveReviewThread`
+- `comments.nodes[0].databaseId` = the first comment's id → used with the REST reactions/replies endpoints
+- **Read every comment in the thread, not just `first:1`** — if someone replied explaining that the behaviour is intentional or the finding is wrong, that reply stands: close the thread with that reason instead of fixing over it
+- Codex comments are `author.login == "chatgpt-codex-connector"` — use that to separate them from human comments
+- **Read `totalCount` and `pageInfo.hasNextPage` and page through until exhausted before concluding anything** — threads come back in creation order with the newest last, and a fixed `first: N` has already produced a false "0 findings" report
 
-## 2. คัดตาม rubric (หัวข้อ "Codex PR review — severity policy" ใน `AGENTS.md`)
-- **P1/P2** → แก้
-- **P3** → ไม่แก้โค้ด แต่ยังต้องปิด thread ตามข้อ 4
+## 2. Classify against the rubric ("Codex PR review — severity policy" in `AGENTS.md`)
+- **P1/P2** → fix
+- **P3** → no code change, but the thread still gets closed per step 4
 
-## 3. แก้ทั้งชุดในรอบเดียว — commit/push **เฉพาะเมื่อ QA เขียว**
-**ถ้าไม่มีอะไรต้องแก้เลย** (เหลือแต่ P3 หรือปฏิเสธทุกข้อโดยมีเหตุผล) → **ข้ามข้อ 3 ทั้งข้อ** ไม่ commit ไม่ push แล้วไปข้อ 4 เลย โดย reply อ้างเหตุผลแทน sha (`No code change — <เหตุผล>`) ; ห้ามค้างอยู่ตรงนี้เพราะไม่มี commit ให้สร้าง
+## 3. Fix the whole batch at once — commit and push **only when QA is green**
+**If nothing needs fixing** (only P3s left, or every finding rejected with a reason) → **skip this step entirely**: no commit, no push, straight to step 4, replying with the reason instead of a sha (`No code change — <reason>`). Do not stall here waiting for a commit that does not exist.
 
-มีของต้องแก้ → `Agent(senior-se)` (ส่ง finding ทั้งชุด) → `Agent(qa-verifier)` → **แยกทางตาม `verdict`**:
-- `pass` → commit → **push ครั้งเดียว** → เก็บ sha ไว้ใช้ข้อ 4
-  commit message ต้องเป็น**ภาษาอังกฤษ** (subject + body) เหมือนทุก commit ในรีโปนี้ เช็คก่อน push:
-  `git log -1 --format='%s%n%b' | LC_ALL=C.UTF-8 grep -Pq '[\x{0E00}-\x{0E7F}]'` เจอแล้วแก้ด้วย `git commit --amend`
-- `fail` → ส่ง findings กลับให้ senior-se แก้ (ไม่เกิน 2 รอบ) แล้วให้ QA ตรวจใหม่ ; ครบ 2 รอบยัง fail → **หยุด ไม่ commit ไม่ push ไม่ resolve thread** แล้วรายงานผู้ใช้
-- `blocked` → หยุดทันที บอกว่าต้องทำอะไรถึงตรวจต่อได้ ไม่ commit ไม่ push
+Otherwise → `Agent(senior-se)` (hand it the whole finding set) → `Agent(qa-verifier)` → **branch on `verdict`**:
+- `pass` → commit → **push once** → keep the sha for step 4.
+  The commit message must be **English** (subject + body), like every commit in this repo. Check before pushing:
+  `git log -1 --format='%s%n%b' | LC_ALL=C.UTF-8 grep -Pq '[\x{0E00}-\x{0E7F}]'` — fix anything it finds with `git commit --amend`
+- `fail` → send the findings back to senior-se (at most 2 rounds) and have QA re-check; still failing after 2 rounds → **stop: no commit, no push, no resolving threads**, and report to the user
+- `blocked` → stop immediately, say what has to happen before checking can continue, commit nothing
 
-ห้าม push งานที่ QA ยังไม่รับรอง — มันจะจุด CI/Codex รอบใหม่ แล้วเผลอไป resolve thread เดิมราวกับแก้สำเร็จ
+Never push work QA has not cleared — it triggers another CI/Codex round and invites resolving the original threads as though the repair had passed.
 
-## 4. ปิดทุก thread — react → reply → resolve (ครบสามอย่างเสมอ ทำหลัง push ที่ QA รับรองแล้วเท่านั้น)
+## 4. Close every thread — react → reply → resolve (all three, always, and only after a QA-cleared push)
 ```bash
 # 4.1 react 👍
 gh api -X POST repos/<owner>/<repo>/pulls/comments/<comment_id>/reactions -f content=+1
 
-# 4.2 reply ในเธรดเดิม (ไม่ใช่คอมเมนต์ลอย)
+# 4.2 reply inside the same thread (not a floating comment)
 gh api -X POST repos/<owner>/<repo>/pulls/<pr>/comments/<comment_id>/replies \
   -f body='Fixed in <sha> — <what changed, which file>.'
 
 # 4.3 resolve
 gh api graphql -f query='mutation($t:ID!){ resolveReviewThread(input:{threadId:$t}){ thread{ isResolved } } }' -f t=<thread_id>
 ```
-- reply เป็น**ภาษาอังกฤษ** สั้น บอกว่าแก้อะไรที่ไฟล์ไหน + `Fixed in <sha>` (ถ้าเป็นเส้นทางไม่มีการแก้ ให้ขึ้นต้นว่า `No code change —` แล้วตามด้วยเหตุผล)
-- P3 หรือไม่เห็นด้วย → reply บอกเหตุผลตรง ๆ ว่าทำไม won't fix (อ้าง rubric ข้อไหน) แล้วค่อย resolve — **ห้ามเงียบแล้ว resolve**
-- ลำดับสำคัญ: react + reply **ก่อน** resolve
-- ตรวจว่า mutation คืน `isResolved: true` จริง ถ้าล้มเหลว (สิทธิ์ไม่พอ / thread outdated) ให้รายงานผู้ใช้ ห้ามนับว่าเสร็จ
+- Replies are short and **in English**: what changed, in which file, plus `Fixed in <sha>` (on the no-change path, start with `No code change —` and give the reason)
+- P3, or a finding you disagree with → reply with the actual reason it will not be fixed (cite the rubric), then resolve — **never resolve in silence**
+- Order matters: react and reply **before** resolving
+- Verify the mutation really returned `isResolved: true`; if it failed (insufficient rights, outdated thread), report it rather than counting it as done
 
-## 5. สรุปแล้วจบรอบ
-พิมพ์ตาราง: `thread | severity | action | sha | resolved?`
+## 5. Summarise and end the round
+Print a table: `thread | severity | action | sha | resolved?`
 
-**ไม่มีเพดานจำนวนรอบ** — Codex รีวิวใหม่ทุก push ถ้ารอบหน้ามี finding ใหม่ก็แก้ต่อได้เรื่อย ๆ (คนเรียกคือ `/babysit-prs` ที่วนตรวจอยู่แล้ว) แต่ละครั้งคือ batch เดียว push เดียว
+**There is no cap on rounds** — Codex re-reviews every push, and new findings next cycle are simply more work (`/babysit-prs` is what re-invokes this command). Each invocation is one batch, one push.
 
-สิ่งเดียวที่ไม่ถือว่าคืบหน้าคือ **finding เดิมซ้ำแบบไม่เปลี่ยน ทั้งที่แก้ไปแล้ว** (reviewer ไม่รับการแก้ หรือพูดซ้ำ) — อันนั้นห้ามแก้รอบที่สาม ให้หยุดแล้วถามผู้ใช้ ; finding ใหม่จริง ๆ ไม่เข้าเงื่อนไขนี้
+The single thing that is not progress: **the same finding, unchanged, after it was already fixed** (the reviewer rejected the fix, or is repeating itself). Do not fix that one a third time — stop and ask the user. Genuinely new findings never hit this.
 
 ## Non-goals
-- ห้าม merge
-- ห้ามแก้เรื่องที่ไม่มีใครคอมเมนต์ (การ refactor แถมทำให้รอบรีวิวยาวขึ้น)
+- Never merge
+- Never fix things nobody commented on — bonus refactors make the review cycle longer
