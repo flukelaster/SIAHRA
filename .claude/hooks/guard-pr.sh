@@ -57,10 +57,47 @@ gh_pr_subcommand() {
   return 0
 }
 
+# Is this segment a `git push`? `git` accepts global options before the
+# subcommand — `git -C /path push`, `git --no-pager push`, `git -c k=v push` —
+# so the literal text "git push" is not reliable.
+is_git_push() {
+  local -a tok=($1)
+  local i=0 n=${#tok[@]} seen_git=0 t
+  while [ $i -lt $n ]; do
+    t=${tok[$i]}
+    if [ $seen_git -eq 0 ]; then
+      [ "$t" = "git" ] && seen_git=1
+      i=$((i+1)); continue
+    fi
+    case "$t" in
+      -C|-c|--git-dir|--work-tree|--namespace|--exec-path)
+        i=$((i+2)); continue ;;
+      -*) i=$((i+1)); continue ;;
+    esac
+    [ "$t" = "push" ] && return 0
+    return 1
+  done
+  return 1
+}
+
+# The repository a `git -C <path> …` command actually acts on, so the
+# current-branch check below looks at the right worktree.
+git_target_dir() {
+  local -a tok=($1)
+  local i=0 n=${#tok[@]}
+  while [ $i -lt $n ]; do
+    if [ "${tok[$i]}" = "-C" ] && [ $((i+1)) -lt $n ]; then
+      printf '%s' "${tok[$((i+1))]}"; return 0
+    fi
+    i=$((i+1))
+  done
+  printf '%s' "${CLAUDE_PROJECT_DIR:-.}"
+}
+
 reason=""
 while IFS= read -r seg; do
   [ -n "$seg" ] || continue
-  case "$seg" in *gh*) ;; *git\ push*) ;; *) continue ;; esac
+  case "$seg" in *gh*) ;; *git*) ;; *) continue ;; esac
 
   sub=$(gh_pr_subcommand "$seg")
   case "$sub" in
@@ -75,21 +112,19 @@ while IFS= read -r seg; do
   #   2. no refspec at all while checked out on main — a bare `git push` or
   #      `git push origin HEAD` publishes the current branch, so the word "main"
   #      never appears in the command
-  case "$seg" in
-    *"git push"*)
-      if printf '%s' "$seg" | grep -Eq 'git push[^;&|]*(\bmain\b|:main\b)'; then
-        reason="ห้าม push ตรงเข้า main — แตกสาขาแล้วเปิด PR (ruleset ฝั่ง GitHub ก็จะปฏิเสธอยู่ดี)"
-        break
-      fi
-      # Resolve the branch we are actually on. Fail closed: if git cannot answer
-      # (not a repo, detached HEAD), guard rather than wave it through.
-      branch=$(git -C "${CLAUDE_PROJECT_DIR:-.}" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
-      if [ "$branch" = "main" ] || [ -z "$branch" ]; then
-        reason="อยู่บนสาขา ${branch:-<ไม่ทราบ>} — \`git push\` เปล่า ๆ จะยิงเข้า main ตรง ๆ ให้แตกสาขาแล้วเปิด PR แทน"
-        break
-      fi
-      ;;
-  esac
+  if is_git_push "$seg"; then
+    if printf '%s' "$seg" | grep -Eq '(\bmain\b|:main\b)'; then
+      reason="ห้าม push ตรงเข้า main — แตกสาขาแล้วเปิด PR (ruleset ฝั่ง GitHub ก็จะปฏิเสธอยู่ดี)"
+      break
+    fi
+    # Resolve the branch we are actually on. Fail closed: if git cannot answer
+    # (not a repo, detached HEAD), guard rather than wave it through.
+    branch=$(git -C "$(git_target_dir "$seg")" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+    if [ "$branch" = "main" ] || [ -z "$branch" ]; then
+      reason="อยู่บนสาขา ${branch:-<ไม่ทราบ>} — \`git push\` เปล่า ๆ จะยิงเข้า main ตรง ๆ ให้แตกสาขาแล้วเปิด PR แทน"
+      break
+    fi
+  fi
 done <<< "$segments"
 
 [ -n "$reason" ] || exit 0

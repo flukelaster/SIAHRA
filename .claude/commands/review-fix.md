@@ -4,6 +4,14 @@ description: Address Codex review on a PR in ONE batch — fix P1/P2 only, then 
 
 ปิดวงจร Codex review ของ PR: `$ARGUMENTS` (ไม่ระบุ = PR ของสาขาปัจจุบัน)
 
+## 0. ยืนยันว่าอยู่ถูกสาขาก่อนแตะอะไรทั้งนั้น
+```bash
+gh pr view <n> --json headRefName,headRepositoryOwner --jq '.headRefName'
+git branch --show-current
+```
+ถ้าไม่ตรงกัน → `gh pr checkout <n>` (ต้อง working tree สะอาดก่อน) หรือถ้า checkout ไม่ได้ **ให้หยุด** ห้ามแก้ต่อ
+ไม่งั้นจะกลายเป็นแก้บนสาขาอื่น push สาขาอื่น แล้วเอา sha ที่ไม่เกี่ยวไป resolve thread ของ PR นี้
+
 Codex รีวิวทุก push การแก้ทีละคอมเมนต์แล้ว push ทีละครั้ง = ลูปไม่จบ คำสั่งนี้บังคับ **หนึ่ง batch ต่อหนึ่ง push**
 
 ## 1. ดึง unresolved review threads (GraphQL เท่านั้น)
@@ -19,11 +27,12 @@ query($o:String!,$r:String!,$n:Int!,$c:String){
         pageInfo{ hasNextPage endCursor }
         nodes{
           id isResolved isOutdated path line
-          comments(first:1){ nodes{ databaseId author{login} createdAt body } } } } } } }' \
+          comments(first:100){ nodes{ databaseId author{login} createdAt body } } } } } } }' \
   -f o=<owner> -f r=<repo> -F n=<pr>
 ```
 - `id` = thread node id → ใช้กับ `resolveReviewThread`
-- `comments.nodes[0].databaseId` = comment id → ใช้กับ REST reactions/replies
+- `comments.nodes[0].databaseId` = comment id ของคอมเมนต์แรก → ใช้กับ REST reactions/replies
+- **อ่านคอมเมนต์ในเธรดให้ครบ ไม่ใช่แค่ `first:1`** — ถ้ามี reply ของคนอธิบายว่าทำไมถึงตั้งใจทำแบบนั้น หรือทำไม finding ไม่ถูกต้อง ให้ถือเป็นข้อสรุปแล้วอย่าแก้ทับ (ปิด thread ด้วยเหตุผลนั้นแทน)
 - คอมเมนต์ของ Codex คือ `author.login == "chatgpt-codex-connector"` (ยืนยันจาก PR #21) — ใช้กรองแยกจากคอมเมนต์ของคน
 - **ต้องอ่าน `totalCount` + `pageInfo.hasNextPage` แล้ววนจนหมดก่อนสรุป** — thread เรียงตามเวลาสร้าง ของใหม่อยู่ท้าย การใช้ `first: N` ตายตัวเคยทำให้รายงาน "0 findings" ผิดมาแล้ว
 
