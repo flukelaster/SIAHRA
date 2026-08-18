@@ -1,7 +1,7 @@
 <!--
 SIAHRA PR conventions:
 - `main` only accepts PRs where Lint / TypeScript / Build are green (see .github/rulesets/main.json)
-- Title and description are ENGLISH ONLY. Commit messages and code comments may stay Thai.
+- Title, description AND commit messages are ENGLISH ONLY. Code comments may stay Thai.
 - UI change (apps/web/src/{components,scene}, App.tsx, index.css, public/*) → embed a screenshot
   below. Drag a PNG in, or from the CLI:
       scripts/pr-media.sh "$(git branch --show-current)" shot.png
@@ -23,4 +23,4 @@ SIAHRA PR conventions:
 - [ ] New/changed hazard layers declare the right `HazardLayerDescriptor` kind (observed / static-reference / illustrative / probabilistic) and the UI shows `fetchedAt`/`observedAt`
 - [ ] No self-invented forecast numbers; stale data and dead sources stay visible instead of disappearing
 - [ ] If `packages/shared-types` changed → every api/web/etl consumer of that contract was updated
-- [ ] Title and description are in English
+- [ ] Title, description and commit messages are in English
