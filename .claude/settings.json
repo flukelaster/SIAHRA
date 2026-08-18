@@ -18,7 +18,6 @@
       "Bash(npx tsc:*)",
       "Bash(npx oxlint:*)",
       "Bash(npm run build -w apps/web)",
-      "Bash(npm run dev:*)",
       "Bash(git status:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)",
