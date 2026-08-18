@@ -29,7 +29,9 @@
 - `main` merge ได้เมื่อ status check ผ่านครบ: **Lint / TypeScript / Build** (`.github/workflows/ci.yml` — คำสั่งเดียวกับหัวข้อ "ตรวจ" ด้านบน) ; ห้ามเพิ่ม job ที่ path-filter ไว้เป็น required check (PR ที่ไม่แตะ path นั้นจะรอตลอดกาล)
 - กติกา "PR เป็นอังกฤษ" และ "แก้ UI ต้องมีภาพ" **ยังบังคับใช้เหมือนเดิม แต่ไม่มี CI job คอยจับแล้ว** (`pr-rules.yml` ถูกถอดออกเพราะกิน Actions minutes) — คนตรวจคือ `/implement` ขั้นก่อนเปิด PR และตัวคุณเองเมื่อเปิด PR ด้วยมือ
 - **PR และ commit message ต้องเป็นภาษาอังกฤษทั้งหมด** (subject และ body) — เช็คเองก่อนยิง:
-  `printf '%s' "$TITLE$BODY" | LC_ALL=C.UTF-8 grep -Pq '[\x{0E00}-\x{0E7F}]'` เจอแล้วให้เขียนใหม่ (`gh pr edit <n> --title/--body`, `git commit --amend` ถ้ายังไม่ push)
+  `printf '%s' "$TITLE$BODY" | LC_ALL=C.UTF-8 grep -Pq '[\x{0E00}-\x{0E7F}]'` (PR) และ
+  `git log main..HEAD --format='%s%n%b' | LC_ALL=C.UTF-8 grep -Pq '[\x{0E00}-\x{0E7F}]'` (commit ทุกอันในสาขา — สองอันนี้แทนกันไม่ได้ PR อังกฤษแต่ commit ไทยก็ยังผิด)
+  เจอแล้วให้เขียนใหม่ (`gh pr edit <n> --title/--body`, `git commit --amend` หรือ `git rebase -i` ถ้ายังไม่ push)
   ; **คอมเมนต์ในโค้ดยังเขียนไทยได้ตามเดิม** — กติกานี้คุมเฉพาะสิ่งที่คนนอกอ่านก่อนใน repo สาธารณะ คือ log กับหน้ารีวิว
 - **แก้ UI ต้องมีภาพหน้าจอใน PR** — ถ้า PR แตะ `apps/web/src/{components,scene}/**`, `App.tsx`, `main.tsx`, `index.css`, `branding.ts`, `index.html` หรือไฟล์ระดับบนใน `public/` (ไม่รวม `public/aoi/**`) คำอธิบาย PR ต้องมีรูปอย่างน้อย 1 รูป: ถ่ายจาก dev server ด้วย `playwright-cli` แล้ว `scripts/pr-media.sh "$(git branch --show-current)" <png...>` → วาง Markdown ที่มันพิมพ์ลงใน PR body (อัปโหลดเป็น prerelease asset `primg-<branch>` ด้วย `gh` ล้วน ๆ; `pr-image-cleanup.yml` ลบให้เมื่อ PR ปิด) ; เปลี่ยนแค่โค้ดที่ไม่มีผลทางตา → ติดป้าย `no-screenshot`
 - หลัง merge: ลบ branch ทั้ง remote (`gh pr merge --delete-branch` หรือ repo ตั้ง delete-on-merge ไว้แล้ว) และ local (`git branch -d`), แล้ว `git checkout main && git pull` ก่อนเริ่มงานถัดไป

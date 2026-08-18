@@ -48,7 +48,7 @@ commit เดียวครอบทั้งโค้ดและเอกส�
 2. ถ้า diff แตะ UI → `scripts/pr-media.sh "$(git branch --show-current)" <png จาก QA>` แล้วเอา Markdown ที่มันพิมพ์ไปวางใน body
 3. เขียน title/body **ภาษาอังกฤษ**
 4. **Self-check ก่อนยิง** (ไม่มี CI คอยรับแล้ว — พลาดตรงนี้คือหลุดเลย):
-   - ภาษา: `printf '%s' "$TITLE$BODY" | LC_ALL=C.UTF-8 grep -Pq '[\x{0E00}-\x{0E7F}]'` → ถ้าเจออักษรไทย ให้เขียนใหม่
+   - ภาษา: `printf '%s' "$TITLE$BODY" | LC_ALL=C.UTF-8 grep -Pq '[\x{0E00}-\x{0E7F}]'` (title/body) **และ** `git log main..HEAD --format='%s%n%b' | LC_ALL=C.UTF-8 grep -Pq '[\x{0E00}-\x{0E7F}]'` (commit ทุกอันในสาขา) → เจออักษรไทยที่ไหนให้เขียนใหม่ที่นั่น
    - ภาพ: ถ้า `git diff --name-only main...HEAD` แตะ `apps/web/index.html`, `apps/web/src/App.tsx`, `apps/web/src/main.tsx`, `apps/web/src/index.css`, `apps/web/src/branding.ts`, `apps/web/src/components/**`, `apps/web/src/scene/**`, `apps/web/public/*` → body ต้องมีรูปอย่างน้อย 1 รูป มิฉะนั้นติดป้าย `no-screenshot` (ใช้เมื่อไม่มีผลทางตาจริง เช่น types/comment/refactor — ห้ามปั้นภาพขึ้นมา)
 5. `gh pr create` (hook จะขออนุมัติอีกครั้ง)
 6. หลังเปิดแล้ว บอกผู้ใช้ว่า Codex จะรีวิวทุก push และแก้รอบถัดไปด้วย `/review-fix <n>`
