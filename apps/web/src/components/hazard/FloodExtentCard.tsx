@@ -51,9 +51,11 @@ export function FloodExtentCard({ state }: { state: FloodExtentState }) {
             โหลดชั้นน้ำท่วมไม่ได้: {error}
           </p>
         ) : features.length === 0 && !data?.retrievedAt ? (
-          // ไม่เคยดึงสำเร็จ ≠ ไม่มีน้ำท่วม — ห้ามให้ช่องว่างถูกอ่านว่า "ปลอดภัย"
+          // ยังไม่มี retrievedAt = ยังดึงฉากแรกไม่สำเร็จ "หรือกำลังดึงอยู่" จึงยัง
+          // ฟันธงไม่ได้ว่าต้นทางล่ม (แถบสถานะด้านล่างเป็นตัวบอกว่าล่มจริงหรือไม่)
+          // แต่ต้องไม่ให้ช่องว่างถูกอ่านว่า "ปลอดภัย"
           <p className="rounded-lg bg-[var(--color-risk-medium)]/10 px-2.5 py-3 text-center text-xs text-[var(--color-risk-medium)]">
-            ยังดึงภาพชุดล่าสุดจาก GISTDA ไม่ได้ (ต้นทางไม่ตอบสนอง) — ไม่ได้แปลว่าไม่มีน้ำท่วม
+            ยังไม่ได้ภาพชุดล่าสุดจาก GISTDA (กำลังลองดึง) — ไม่ได้แปลว่าไม่มีน้ำท่วม
           </p>
         ) : features.length === 0 ? (
           <p className="rounded-lg bg-[var(--color-bg-elevated)] px-2.5 py-3 text-center text-xs text-[var(--color-fg-muted)]">
