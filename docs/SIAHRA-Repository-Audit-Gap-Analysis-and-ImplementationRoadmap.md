@@ -542,15 +542,11 @@ CREATE TABLE observations (
   -- When `observed_at` is ALSO unknown, that digest collapses to one constant
   -- per (station, variable) — every undated reading from a sensor would
   -- conflict with the last one and silently overwrite it, losing history. For
-  -- that case only, fall back to a digest that DOES include the payload
-  -- (value, unit, quality_code, fetched_at): distinct undated readings get
-  -- distinct rows, and a byte-identical redelivery still dedupes.
-  --
-  -- fetched_at must NOT appear in this key either: consecutive polls return
-  -- the same reading with a new receipt time, so a key containing it would
-  -- never conflict and every refresh would append a duplicate.
-  -- known-time readings key on identity alone (see above); undated readings
-  -- key on their full payload including fetched_at, by necessity
+  -- that case only, fall back to a digest over (station, variable, value,
+  -- unit, quality_code) — the stable payload, WITHOUT `fetched_at`. Every poll
+  -- has a new receipt time, so including it would make even a byte-identical
+  -- redelivery produce a different digest and insert another row on every
+  -- refresh — the exact duplication this key exists to prevent.
   reading_key text NOT NULL,
   CONSTRAINT observations_identity_uniq
     UNIQUE (source, station_id, variable, reading_key)
@@ -573,13 +569,26 @@ INSERT INTO observations (
   source, station_id, variable, reading_key, observed_at,
   source_published_at, fetched_at, value, unit, quality_code, source_payload
 ) VALUES (...)
+-- Precedence is `source_published_at` — the provider's own revision time —
+-- NOT `fetched_at`. `fetched_at` is receipt time: if a stale cached delivery
+-- of an old revision is redelivered after the corrected one already arrived,
+-- its later receipt time would otherwise win and restore the obsolete value.
+-- Where a source never states a revision time, `fetched_at` is the only
+-- signal available and is used as a fallback, not as the primary rule.
 ON CONFLICT (source, station_id, variable, reading_key) DO UPDATE SET
   fetched_at     = GREATEST(observations.fetched_at, EXCLUDED.fetched_at),
-  value          = CASE WHEN EXCLUDED.fetched_at > observations.fetched_at
+  value          = CASE WHEN COALESCE(EXCLUDED.source_published_at, EXCLUDED.fetched_at)
+                            > COALESCE(observations.source_published_at, observations.fetched_at)
                         THEN EXCLUDED.value ELSE observations.value END,
-  quality_code   = CASE WHEN EXCLUDED.fetched_at > observations.fetched_at
+  unit           = CASE WHEN COALESCE(EXCLUDED.source_published_at, EXCLUDED.fetched_at)
+                            > COALESCE(observations.source_published_at, observations.fetched_at)
+                        THEN EXCLUDED.unit ELSE observations.unit END,
+  quality_code   = CASE WHEN COALESCE(EXCLUDED.source_published_at, EXCLUDED.fetched_at)
+                            > COALESCE(observations.source_published_at, observations.fetched_at)
                         THEN EXCLUDED.quality_code ELSE observations.quality_code END,
-  source_payload = CASE WHEN EXCLUDED.fetched_at > observations.fetched_at
+  source_published_at = GREATEST(observations.source_published_at, EXCLUDED.source_published_at),
+  source_payload = CASE WHEN COALESCE(EXCLUDED.source_published_at, EXCLUDED.fetched_at)
+                            > COALESCE(observations.source_published_at, observations.fetched_at)
                         THEN EXCLUDED.source_payload ELSE observations.source_payload END;
 ```
 
@@ -887,7 +896,12 @@ SELECT e.*
 FROM active_earthquakes e
 JOIN provinces p ON p.code = $1
 WHERE ST_Intersects(e.geom, p.geom)
-  AND e.origin_at >= now() - interval '7 days'
+  -- 30 days, matching EarthquakeFeedDO's existing backfill/retention window
+  -- (see apps/web/src/components/hazard/EarthquakeLiveCard.tsx, which labels
+  -- and counts the feed as "30 วันล่าสุด"). Replacing the feed with a query
+  -- that returns a different window either understates the count under the
+  -- existing label or requires the label and this query to change together.
+  AND e.origin_at >= now() - interval '30 days'
 ORDER BY e.origin_at DESC;
 ```
 
@@ -1835,7 +1849,11 @@ export const earthquakesRoute: Route = {
         -- exactly the events a user opened the page for. ST_DWithin on
         -- geography is metres and is index-assisted, so this stays fast.
         WHERE ST_DWithin(e.geom::geography, p.geom::geography, ${radiusM})
-          AND e.origin_at >= now() - interval '7 days'
+          -- 30 days, not 7: EarthquakeLiveCard.tsx labels and counts this feed
+          -- as the latest 30 days, matching EarthquakeFeedDO's retention
+          -- window. Returning fewer days here would understate the count
+          -- under a label this endpoint did not also change.
+          AND e.origin_at >= now() - interval '30 days'
         ORDER BY e.origin_at DESC
         LIMIT 250
       `;
@@ -2047,6 +2065,7 @@ jobs:
       - run: npm test
 
       - name: Deploy API Worker
+        id: deploy-api
         run: npm run deploy:api
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -2057,12 +2076,31 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Roll back API on partial deployment
+        if: failure() && steps.deploy-api.outcome == 'success'
+        run: npx wrangler rollback --name siahra-api
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 ```
 
 `siahra-web` and `siahra-api` are **two separate Workers sharing one host**, so a release must deploy
 both. Building the client (`npm run build:web`) only produces the asset bundle; it publishes nothing.
 Omitting the second step leaves the production web Worker serving the previous UI while the API moves
 on — see `docs/deploy.md` §0.1 for why the two deploys are independent.
+
+**The concurrency lock above stops two releases from interleaving; it does not stop one release from
+half-landing.** If the API step succeeds and the web step then fails, production is left indefinitely
+on a new API paired with the previous UI — and whenever a release changes their shared contract
+(a new/renamed field, a route shape change), that combination is broken, not merely stale. The rollback
+step reverts `siahra-api` to its previous deployment whenever the API step itself reported success but
+the job overall failed, so a failed web deploy cannot leave the pair mismatched. `npx wrangler
+rollback` needs `id: deploy-api` on the API step above and requires the target Worker to have prior
+deployments to roll back to, which is true after the first release. The stronger fix — a backward-
+compatible staged rollout where the API tolerates both the old and new web contract for one release —
+is worth adopting once the API actually gains breaking response-shape changes; until then, rollback on
+partial failure is the floor, not the target state.
 
 ### Geodata CI should be separate
 
