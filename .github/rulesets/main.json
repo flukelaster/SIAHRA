@@ -27,9 +27,7 @@
         "required_status_checks": [
           { "context": "Lint", "integration_id": 15368 },
           { "context": "TypeScript", "integration_id": 15368 },
-          { "context": "Build", "integration_id": 15368 },
-          { "context": "PR screenshot", "integration_id": 15368 },
-          { "context": "PR language", "integration_id": 15368 }
+          { "context": "Build", "integration_id": 15368 }
         ]
       }
     }

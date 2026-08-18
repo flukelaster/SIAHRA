@@ -201,12 +201,14 @@ Build ───────┘
 - **TypeScript** — `tsc -b` (apps/web), `tsc --noEmit` (apps/api, apps/etl); the same commands as the pre-push checklist in [`AGENTS.md`](AGENTS.md)
 - **Build** — production web build, then `wrangler deploy --dry-run` to bundle the Worker against it, plus a guard on the Workers static-asset limits (≤ 20,000 files, ≤ 25 MiB each)
 
-**`pr-rules.yml`** enforces the conventions a branch ruleset can't express: a PR that touches UI files (`apps/web/src/{components,scene}`, `index.css`, `public/*` …) must embed a screenshot in its description, or carry the `no-screenshot` label. `pr-image-cleanup.yml` / `pr-cache-cleanup.yml` tidy up screenshot releases and npm caches when a PR closes; `dependabot.yml` batches minor/patch bumps weekly and opens majors one-by-one.
+Two conventions a branch ruleset can't express — a PR that touches UI files must embed a screenshot (or carry the `no-screenshot` label), and PR titles/descriptions are English-only — used to live in a `pr-rules.yml` workflow. They are still the rules, but they are now checked locally by the `/implement` loop instead of burning Actions minutes on every edit to a PR description. `pr-image-cleanup.yml` / `pr-cache-cleanup.yml` tidy up screenshot releases and npm caches when a PR closes; `dependabot.yml` batches minor/patch bumps weekly and opens majors one-by-one.
 
-**Rules on `main`** ([`.github/rulesets/main.json`](.github/rulesets/main.json), applied with `scripts/apply-branch-rules.sh`): no direct pushes, no force-push or deletion, every change via a pull request with `Lint`, `TypeScript`, `Build` and `PR screenshot` green.
+**Rules on `main`** ([`.github/rulesets/main.json`](.github/rulesets/main.json), applied with `scripts/apply-branch-rules.sh`): no direct pushes, no force-push or deletion, every change via a pull request with `Lint`, `TypeScript` and `Build` green.
 
 > [!WARNING]
 > Only jobs that *always* run may be required checks. A path-filtered job that never triggers leaves the PR waiting forever.
+
+**Agent loop:** `.claude/` holds the working loop this repo is built with — `/implement` runs a senior-engineer agent, gates it on a QA agent that runs the same commands as CI plus a headless screenshot pass, loops until the verdict is green, syncs the docs, and then *asks* before opening a PR (a `PreToolUse` hook makes sure it never opens one on its own). `/review-fix` addresses a Codex review in a single batch — P1/P2 only — and closes every thread with a reaction, a reply and a resolve. See [`AGENTS.md`](AGENTS.md).
 
 **Social preview / Open Graph image:** [`docs/images/og-image.png`](docs/images/og-image.png) (1280 × 640) is rendered from [`docs/og/og-image.html`](docs/og/og-image.html) with `node docs/og/render.mjs` — edit the HTML, re-render, and upload the PNG in *Settings → General → Social preview*.
 

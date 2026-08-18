@@ -16,3 +16,6 @@ scripts/.env.r2
 # `npm run build:tiles -w apps/etl`, served in dev by a Vite middleware and
 # meant for R2 in production, not the git repo or the Worker asset bundle.
 apps/etl/data/tiles
+
+# Claude Code — machine-local overrides (agents/commands/hooks stay tracked)
+.claude/settings.local.json
