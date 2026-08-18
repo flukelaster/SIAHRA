@@ -7,6 +7,10 @@ name: PR rules
 # one image (drag-and-drop in the GitHub UI, or `scripts/pr-media.sh` from the
 # CLI). Add the `no-screenshot` label to opt out for a change that is UI-adjacent
 # but has no visible effect (pure refactor, comments, types).
+#
+# Language rule: PR titles and descriptions are English-only. Code comments and
+# commit messages are unaffected — this is about the review surface, which is
+# what an outside reader of a public repo sees first.
 
 on:
   pull_request:
@@ -90,4 +94,49 @@ jobs:
             echo "- No visible change? Add the \`no-screenshot\` label."
           } >> "$GITHUB_STEP_SUMMARY"
           echo "::error::UI files changed but the PR description contains no screenshot (add one, or the 'no-screenshot' label)."
+          exit 1
+
+  language:
+    name: PR language
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check the PR title and body are English
+        env:
+          # Passed via env, never interpolated into the script: title and body
+          # are attacker-controlled on a public repo.
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Detects Thai script (U+0E00–U+0E7F), the only non-English writing
+          # system that realistically shows up here. Latin-script accents, em
+          # dashes and emoji stay allowed — this is a language rule, not an
+          # ASCII rule.
+          thai='[\x{0E00}-\x{0E7F}]'
+          bad=()
+          # LC_ALL pinned: `\x{…}` only means a code point when PCRE is in UTF-8
+          # mode, which grep derives from the locale.
+          printf '%s' "$PR_TITLE" | LC_ALL=C.UTF-8 grep -Pq "$thai" && bad+=("title") || true
+          printf '%s' "$PR_BODY"  | LC_ALL=C.UTF-8 grep -Pq "$thai" && bad+=("description") || true
+
+          if [ ${#bad[@]} -eq 0 ]; then
+            echo "PR title and description are English ✅" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          {
+            echo "## ❌ English required"
+            echo
+            echo "Thai text found in the PR **${bad[*]}**."
+            echo
+            echo "PR titles and descriptions must be written in English so the"
+            echo "review surface of this public repo is readable to everyone."
+            echo "Code comments and commit messages are not affected."
+            echo
+            echo "Rewrite it and the check re-runs on save (\`gh pr edit <n> --title/--body\`)."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::error::PR ${bad[*]} contains Thai text — write it in English."
           exit 1
