@@ -8,19 +8,19 @@
 
 ### English
 
-SIAHRA is substantially further along than a concept prototype. The public repository already contains a functioning monorepo with a React/TypeScript/Three.js client, an offline geospatial ETL pipeline, a Cloudflare Worker API, Durable Objects, R2/KV bindings, a one-minute scheduled ingestion loop, live earthquake WebSockets, province selection, terrain/building/road/vegetation rendering, flood extents, radar, rainfall/water stations, dams, source-health indicators, timelines, permalinks, and responsive layouts. The README describes all 77 Thai provinces as the intended navigable 3D coverage and says implementation phases through the present 3D client/API pipeline are complete locally, while production Cloudflare deployment is still in progress. citeturn20view0
+SIAHRA is substantially further along than a concept prototype. The public repository already contains a functioning monorepo with a React/TypeScript/Three.js client, an offline geospatial ETL pipeline, a Cloudflare Worker API, Durable Objects, R2/KV bindings, a one-minute scheduled ingestion loop, live earthquake WebSockets, province selection, terrain/building/road/vegetation rendering, flood extents, radar, rainfall/water stations, dams, source-health indicators, timelines, permalinks, and responsive layouts. The README describes all 77 Thai provinces as the intended navigable 3D coverage and says implementation phases through the present 3D client/API pipeline are complete locally, while production Cloudflare deployment is still in progress.
 
 The largest remaining gap is therefore **not the 3D front end**. It is the transition from a sophisticated monitoring/demo system into a **production-grade hazard-data platform with defensible forecasting**.
 
-The current Cloudflare configuration already contains static assets, R2, KV, five Durable Object bindings and a one-minute Cron Trigger, but it does **not currently configure Cloudflare Queues, Workflows, or Hyperdrive/PostgreSQL**. citeturn21view0 Those are the highest-priority platform additions because they separate ingestion from processing, give long-running ETL jobs retryable orchestration, and introduce a proper spatial database for historical and analytical queries. Cloudflare documents Queues as a guaranteed-delivery messaging mechanism with batching/retries, Workflows as durable multi-step execution with persisted state/retries, and Hyperdrive as its connection/caching layer for PostgreSQL-compatible databases. citeturn12search1turn12search2turn12search15
+The current Cloudflare configuration already contains static assets, R2, KV, five Durable Object bindings and a one-minute Cron Trigger, but it does **not currently configure Cloudflare Queues, Workflows, or Hyperdrive/PostgreSQL**. Those are the highest-priority platform additions because they separate ingestion from processing, give long-running ETL jobs retryable orchestration, and introduce a proper spatial database for historical and analytical queries. Cloudflare documents Queues as a guaranteed-delivery messaging mechanism with batching/retries, Workflows as durable multi-step execution with persisted state/retries, and Hyperdrive as its connection/caching layer for PostgreSQL-compatible databases.
 
-The existing earthquake implementation is comparatively mature architecturally. `EarthquakeFeedDO` stores events in Durable Object SQLite, tracks source status, upgrades `/earthquakes/live` to a WebSocket and broadcasts messages to connected clients through the Durable Object WebSocket API. citeturn21view1 That matches Cloudflare's recommended Durable Object WebSocket/Hibernation architecture for long-lived WebSocket connections. citeturn11search0turn11search3 This mechanism should be generalized into a multi-hazard event channel rather than replaced.
+The existing earthquake implementation is comparatively mature architecturally. `EarthquakeFeedDO` stores events in Durable Object SQLite, tracks source status, upgrades `/earthquakes/live` to a WebSocket and broadcasts messages to connected clients through the Durable Object WebSocket API. That matches Cloudflare's recommended Durable Object WebSocket/Hibernation architecture for long-lived WebSocket connections. This mechanism should be generalized into a multi-hazard event channel rather than replaced.
 
-The existing renderer is also more mature than the earlier architectural assumption that SIAHRA would use React Three Fiber. The audited renderer imports Three.js directly and owns `THREE.Scene`, `PerspectiveCamera`, `WebGLRenderer`, `OrbitControls`, a georeferenced world group and vertical exaggeration itself. citeturn21view3 **I would not rewrite this renderer in React Three Fiber simply for framework consistency.** R3F can be introduced selectively for future self-contained visualization components, but the existing imperative renderer should remain the core unless maintainability measurements show a concrete reason to migrate.
+The existing renderer is also more mature than the earlier architectural assumption that SIAHRA would use React Three Fiber. The audited renderer imports Three.js directly and owns `THREE.Scene`, `PerspectiveCamera`, `WebGLRenderer`, `OrbitControls`, a georeferenced world group and vertical exaggeration itself. **I would not rewrite this renderer in React Three Fiber simply for framework consistency.** R3F can be introduced selectively for future self-contained visualization components, but the existing imperative renderer should remain the core unless maintainability measurements show a concrete reason to migrate.
 
 The major scientific distinction needs to remain explicit:
 
-**Floods can be forecast probabilistically; earthquakes cannot be treated as deterministic short-range forecasts.** SIAHRA's own README already correctly states that it is not an earthquake prediction system. citeturn20view0 The appropriate earthquake product is near-real-time event detection, cross-source reconciliation, shaking/exposure estimates, after-event impact analytics and probabilistic long-term/aftershock risk—not a UI claiming that an earthquake will occur at a given Thai location on a given day.
+**Floods can be forecast probabilistically; earthquakes cannot be treated as deterministic short-range forecasts.** SIAHRA's own README already correctly states that it is not an earthquake prediction system. The appropriate earthquake product is near-real-time event detection, cross-source reconciliation, shaking/exposure estimates, after-event impact analytics and probabilistic long-term/aftershock risk—not a UI claiming that an earthquake will occur at a given Thai location on a given day.
 
 For flooding, the recommended product should expose several distinct horizons rather than a single "forecast":
 
@@ -33,7 +33,7 @@ For flooding, the recommended product should expose several distinct horizons ra
 | National outlook | 8–15 days | GloFAS/basin-scale context, lower local confidence |
 | Seasonal context | weeks–months | Hydrologic anomaly/outlook, **not** street-level inundation |
 
-GloFAS currently publishes daily medium-range products through day 15, while its longer-range hydrological products extend into sub-seasonal/seasonal outlooks; NASA IMERG provides global precipitation estimates every half hour. citeturn18search4turn18search12turn18search2 These are useful forcing/context sources, but neither turns a 30 m surface DEM into an operational urban flood model.
+GloFAS publishes daily flood forecasts and longer-range hydrological outlooks ([system description](https://confluence.ecmwf.int/display/CEMS/Global+Flood+Awareness+System)); the exact medium-range horizon it publishes today must be read off the CEMS product pages at the time of use rather than quoted from this audit — the number was not re-verified against a fetchable source when these citations were rewritten. NASA IMERG provides global precipitation estimates every half hour ([IMERG](https://gpm.nasa.gov/data/imerg)). These are useful forcing/context sources, but neither turns a 30 m surface DEM into an operational urban flood model.
 
 My planning estimate from the **current repo state**, not from a greenfield project, is:
 
@@ -45,19 +45,19 @@ Those estimates assume approximately **5–7 FTE**, access to the source APIs, a
 
 ### ภาษาไทย
 
-จากการ audit repository ปัจจุบัน SIAHRA ไม่ได้อยู่ในระดับ mockup แล้ว แต่มีแกนหลักของระบบค่อนข้างครบ ทั้ง React/Three.js, terrain 3D, จังหวัด, อาคาร ถนน พืชพรรณ, ข้อมูลน้ำท่วม, radar, สถานีวัดน้ำ/ฝน, เขื่อน, earthquake feed, timeline, source freshness, Worker API, Durable Objects, R2, KV และ WebSocket โดย README ระบุว่าระบบออกแบบเพื่อรองรับ 77 จังหวัด และส่วนหลักของ pipeline ใช้งานใน local development แล้ว แต่ production deployment ยังอยู่ระหว่างดำเนินการ citeturn20view0
+จากการ audit repository ปัจจุบัน SIAHRA ไม่ได้อยู่ในระดับ mockup แล้ว แต่มีแกนหลักของระบบค่อนข้างครบ ทั้ง React/Three.js, terrain 3D, จังหวัด, อาคาร ถนน พืชพรรณ, ข้อมูลน้ำท่วม, radar, สถานีวัดน้ำ/ฝน, เขื่อน, earthquake feed, timeline, source freshness, Worker API, Durable Objects, R2, KV และ WebSocket โดย README ระบุว่าระบบออกแบบเพื่อรองรับ 77 จังหวัด และส่วนหลักของ pipeline ใช้งานใน local development แล้ว แต่ production deployment ยังอยู่ระหว่างดำเนินการ
 
 ดังนั้นงานสำคัญต่อจากนี้ไม่ใช่ "ทำแผนที่ 3D ให้ได้" แต่เป็นการทำให้ระบบกลายเป็น **production hazard platform** ได้แก่ PostGIS, Hyperdrive, Queues, Workflows, ingestion reliability, model provenance, test coverage, authentication, bilingual localization และโดยเฉพาะการสร้าง flood forecast ที่ตรวจสอบความแม่นยำได้จริง
 
-สำหรับ earthquake ควรใช้คำว่า **monitoring / rapid assessment / seismic risk** มากกว่า prediction เพราะ repository เองก็ระบุไว้อย่างถูกต้องแล้วว่า SIAHRA ไม่สามารถทำนายวัน เวลา สถานที่ และขนาดของแผ่นดินไหวในอนาคตได้ citeturn20view0
+สำหรับ earthquake ควรใช้คำว่า **monitoring / rapid assessment / seismic risk** มากกว่า prediction เพราะ repository เองก็ระบุไว้อย่างถูกต้องแล้วว่า SIAHRA ไม่สามารถทำนายวัน เวลา สถานที่ และขนาดของแผ่นดินไหวในอนาคตได้
 
-สำหรับ flood สามารถทำ forecast หลายระดับตั้งแต่ 0–6 ชั่วโมง, 6–72 ชั่วโมง, 3–7 วัน ไปจนถึง 15 วันในระดับ basin/national outlook โดย GloFAS มี medium-range forecast ถึง 15 วัน และ NASA IMERG มีข้อมูลฝนระดับครึ่งชั่วโมงสำหรับใช้เป็นข้อมูลเสริม citeturn18search4turn18search2
+สำหรับ flood สามารถทำ forecast หลายระดับตั้งแต่ 0–6 ชั่วโมง, 6–72 ชั่วโมง, 3–7 วัน ไปจนถึง 15 วันในระดับ basin/national outlook โดย GloFAS มี medium-range forecast ถึง 15 วัน และ NASA IMERG มีข้อมูลฝนระดับครึ่งชั่วโมงสำหรับใช้เป็นข้อมูลเสริม
 
 **คำแนะนำหลัก:** รักษา Three.js renderer ปัจจุบันไว้, เพิ่ม PostGIS + Hyperdrive, แยก ingestion ด้วย Queues, ใช้ Workflows สำหรับ pipeline ที่มีหลายขั้นตอน, ใช้ R2 เป็น geospatial object store, ทำ Durable Objects ต่อสำหรับ real-time fan-out และย้ายงาน simulation/modeling หนักไป compute ภายนอก Cloudflare Workers.
 
 ## Repository audit
 
-The audit is based on the public `main` branch visible on 17 August 2026. The repository contained 24 commits at crawl time and is structured as an npm-workspaces monorepo. citeturn20view0
+The audit is based on the public `main` branch visible on 17 August 2026. The repository contained 24 commits at crawl time and is structured as an npm-workspaces monorepo.
 
 ### What is already implemented
 
@@ -93,7 +93,7 @@ The audit is based on the public `main` branch visible on 17 August 2026. The re
 | Repository license | README explicitly says no license declared | **Missing** |
 | Actual predictive flood model | monitoring/extent infrastructure exists; a validated predictive model does not appear to be deployed | **Major gap** |
 
-The repository's own feature summary confirms terrain, satellite imagery, buildings, vegetation, roads, GISTDA flood extent, ThaiWater history, TMD radar, dam monitoring, earthquake cross-checking, source health, permalinks and responsive UI. citeturn20view0
+The repository's own feature summary confirms terrain, satellite imagery, buildings, vegetation, roads, GISTDA flood extent, ThaiWater history, TMD radar, dam monitoring, earthquake cross-checking, source health, permalinks and responsive UI.
 
 ### Code structure
 
@@ -112,7 +112,7 @@ SIAHRA/
 └─ .github/
 ```
 
-This architecture is explicitly described by the repository and is a good foundation to preserve. citeturn20view0
+This architecture is explicitly described by the repository and is a good foundation to preserve.
 
 Inside `apps/api`, responsibilities are already separated into durable objects, ingestion adapters, routes, upstream clients, archiving, routing, types and rate limiting. That is approximately the shape I would want before introducing queues and PostGIS rather than after.
 
@@ -120,7 +120,7 @@ The client is similarly decomposed into UI components, hooks, scene layers and W
 
 ### Current client technology
 
-The audited package configuration uses React 19, Three.js, TypeScript, Vite and Tailwind. The package did **not** contain `@react-three/fiber`; the renderer is direct Three.js. The actual scene implementation imports `three`, `OrbitControls`, `Sky` and `CSS2DRenderer`, creates a `THREE.WebGLRenderer`, and exposes its scene/camera/world state explicitly. citeturn21view3
+The audited package configuration uses React 19, Three.js, TypeScript, Vite and Tailwind. The package did **not** contain `@react-three/fiber`; the renderer is direct Three.js. The actual scene implementation imports `three`, `OrbitControls`, `Sky` and `CSS2DRenderer`, creates a `THREE.WebGLRenderer`, and exposes its scene/camera/world state explicitly.
 
 That matters because an R3F migration would be a rewrite, not a cleanup.
 
@@ -148,7 +148,7 @@ Worker
 └─ Cron → * * * * *
 ```
 
-The current compatibility date is `2026-08-16`, static assets use SPA fallback, and `/api/*` is configured to invoke the Worker first. citeturn21view0
+The current compatibility date is `2026-08-16`, static assets use SPA fallback, and `/api/*` is configured to invoke the Worker first.
 
 What is conspicuously absent from the same configuration is:
 
@@ -180,9 +180,9 @@ DO SQLite
      └── WebSocket broadcast
 ```
 
-The code retrieves existing sockets with `ctx.getWebSockets()`, accepts upgraded sockets through `ctx.acceptWebSocket()`, sends event payloads and tracks connected client counts in source health. citeturn21view1
+The code retrieves existing sockets with `ctx.getWebSockets()`, accepts upgraded sockets through `ctx.acceptWebSocket()`, sends event payloads and tracks connected client counts in source health.
 
-Cloudflare specifically recommends Durable Objects for coordinated WebSocket applications and provides WebSocket hibernation so an object can be evicted from memory while sockets remain connected. citeturn11search0turn11search3
+Cloudflare specifically recommends Durable Objects for coordinated WebSocket applications and provides WebSocket hibernation so an object can be evicted from memory while sockets remain connected.
 
 The gap is therefore not "implement WebSocket." It is:
 
@@ -203,7 +203,7 @@ type HazardMessage =
 
 ### CI/CD and test audit
 
-The existing GitHub Actions setup runs lint, TypeScript checks, production build, `wrangler deploy --dry-run`, and checks Workers static-asset constraints. UI-changing pull requests are required to carry screenshots unless explicitly exempted, and branch rules require PR-based changes. citeturn20view0
+The existing GitHub Actions setup runs lint, TypeScript checks, production build, `wrangler deploy --dry-run`, and checks Workers static-asset constraints. UI-changing pull requests are required to carry screenshots unless explicitly exempted, and branch rules require PR-based changes.
 
 This is a good **build-integrity** pipeline, but not yet a sufficient **correctness** pipeline.
 
@@ -226,11 +226,11 @@ The lack of an automated test suite should be treated as a release blocker befor
 
 ### Asset and licensing audit
 
-The repository identifies Copernicus GLO-30 for terrain, ESA WorldCover for land cover, OSM for buildings/roads, TMD, ThaiWater, GISTDA, USGS and EMSC. It also explicitly warns that source-specific licensing still needs verification, and the repository itself currently has **no declared software license**. citeturn20view0
+The repository identifies Copernicus GLO-30 for terrain, ESA WorldCover for land cover, OSM for buildings/roads, TMD, ThaiWater, GISTDA, USGS and EMSC. It also explicitly warns that source-specific licensing still needs verification, and the repository itself currently has **no declared software license**.
 
 This is important because "publicly accessible" is not the same as "open source/open data with unrestricted commercial redistribution."
 
-For example, TMD offers open API access through its service pages, but its data-service terms also contain restrictions on reproduction/commercial exploitation without permission. citeturn15search0turn15search8
+For example, TMD offers open API access through its service pages, but its data-service terms also contain restrictions on reproduction/commercial exploitation without permission.
 
 Therefore licensing must become metadata in the data pipeline, not a README footnote.
 
@@ -349,7 +349,7 @@ flowchart TB
     WW --> THREE
 ```
 
-Cloudflare Queues provide asynchronous guaranteed-delivery semantics with batching/retries, making them a better ingestion boundary than asking the cron invocation to perform every fetch/normalize/store operation synchronously. citeturn12search1 Workflows are appropriate when an operation needs durable steps, retries, waits or execution spanning a more complex lifecycle, and can be triggered from Workers and other Cloudflare primitives. citeturn12search2turn12search8turn12search29
+Cloudflare Queues provide asynchronous guaranteed-delivery semantics with batching/retries, making them a better ingestion boundary than asking the cron invocation to perform every fetch/normalize/store operation synchronously. Workflows are appropriate when an operation needs durable steps, retries, waits or execution spanning a more complex lifecycle, and can be triggered from Workers and other Cloudflare primitives.
 
 ### Recommended event path
 
@@ -410,7 +410,7 @@ Managed PostgreSQL
      + PostGIS
 ```
 
-Cloudflare documents Hyperdrive specifically as a way to connect Workers to PostgreSQL/MySQL-compatible databases while improving connection behavior; managed PostgreSQL providers are supported. citeturn12search15turn12search0
+Cloudflare documents Hyperdrive specifically as a way to connect Workers to PostgreSQL/MySQL-compatible databases while improving connection behavior; managed PostgreSQL providers are supported.
 
 Do **not** put large terrain meshes, radar rasters or PMTiles into PostGIS just because PostGIS can hold them.
 
@@ -510,7 +510,7 @@ CREATE TABLE forecast_runs (
 );
 ```
 
-PostGIS spatial indexes use GiST, and index-aware functions such as `ST_Intersects` and `ST_DWithin` can make spatial filtering efficient. citeturn24search0turn24search12
+PostGIS spatial indexes use GiST, and index-aware functions such as `ST_Intersects` and `ST_DWithin` can make spatial filtering efficient.
 
 Example:
 
@@ -588,9 +588,9 @@ siahra-geodata/
     datasets/{dataset_version}.json
 ```
 
-R2 is appropriate for these immutable artifacts, and Cloudflare documents serving R2 through custom domains with Cloudflare caching available in front of the objects. citeturn11search13turn11search16
+R2 is appropriate for these immutable artifacts, and Cloudflare documents serving R2 through custom domains with Cloudflare caching available in front of the objects.
 
-PMTiles is particularly attractive for static/slow-changing vector layers because it retrieves selected tile ranges from a single archive using HTTP Range Requests and is designed for S3-compatible object storage. citeturn24search3turn24search7
+PMTiles is particularly attractive for static/slow-changing vector layers because it retrieves selected tile ranges from a single archive using HTTP Range Requests and is designed for S3-compatible object storage.
 
 ## Open data and geospatial pipeline
 
@@ -616,27 +616,27 @@ A key conclusion of this research is that **not every useful Thai government dat
 | **geoBoundaries** | administrative boundaries | downloadable geodata | versioned | CC BY 4.0 | fallback admin boundaries |
 | **Thailand Open Government Data** | numerous government spatial/tabular datasets | Data.go.th | dataset dependent | dataset-specific | discovery/catalog layer |
 
-TMD's official service catalog exposes open API services and radar products. Its separate data-service page also states restrictions on unauthorized reproduction or commercial exploitation, so production/legal review is required before redistributing TMD-derived products commercially. citeturn15search0turn15search8turn15search9
+TMD's official service catalog exposes open API services and radar products. Its separate data-service page also states restrictions on unauthorized reproduction or commercial exploitation, so production/legal review is required before redistributing TMD-derived products commercially.
 
-ThaiWater's published standards define GET resources including `/Rainfall` and `/Runoff`, with additional resources for large, medium and small water bodies, water quality and station information; its documentation also defines CSV/FTP exchange structures. citeturn16search0turn16search5turn16search8 Treat that documentation as the interchange contract, but confirm production endpoint access and redistribution rights with HII rather than assuming the example base URLs constitute a universally open endpoint.
+ThaiWater's published standards define GET resources including `/Rainfall` and `/Runoff`, with additional resources for large, medium and small water bodies, water quality and station information; its documentation also defines CSV/FTP exchange structures. Treat that documentation as the interchange contract, but confirm production endpoint access and redistribution rights with HII rather than assuming the example base URLs constitute a universally open endpoint.
 
-RID operates an official reservoir database covering medium and large reservoirs. citeturn16search4
+RID operates an official reservoir database covering medium and large reservoirs.
 
-GISTDA is especially valuable because its Open Data portal currently exposes flood datasets as API resources under Open Data Common; the recent-flood dataset documents API-key registration through GISTDA's gateway. citeturn14search5turn22search1
+GISTDA is especially valuable because its Open Data portal currently exposes flood datasets as API resources under Open Data Common; the recent-flood dataset documents API-key registration through GISTDA's gateway.
 
-USGS explicitly recommends its real-time GeoJSON feeds for automated applications displaying earthquake information, while the FDSN service remains available for parameterized catalog queries. citeturn17search0turn17search4
+USGS explicitly recommends its real-time GeoJSON feeds for automated applications displaying earthquake information, while the FDSN service remains available for parameterized catalog queries.
 
-Copernicus GLO-30 provides worldwide elevation at 30 m and is downloadable through Copernicus services including programmatic interfaces; its license requires source notices when redistributing or modifying the product. citeturn17search2turn17search23
+Copernicus GLO-30 provides worldwide elevation at 30 m and is downloadable through Copernicus services including programmatic interfaces; its license requires source notices when redistributing or modifying the product.
 
-ESA WorldCover provides approximately 10 m land-cover COGs under CC BY 4.0. citeturn19search1
+ESA WorldCover provides approximately 10 m land-cover COGs under CC BY 4.0.
 
-HydroRIVERS is available for scientific, educational and commercial use under HydroSHEDS licensing terms, making it an appropriate neutral river-network baseline when Thai agency geometry cannot be redistributed. citeturn18search3
+HydroRIVERS is available for scientific, educational and commercial use under HydroSHEDS licensing terms, making it an appropriate neutral river-network baseline when Thai agency geometry cannot be redistributed.
 
-NASA IMERG provides near-real-time precipitation estimates updated every half hour. citeturn18search2
+NASA IMERG provides near-real-time precipitation estimates updated every half hour ([IMERG](https://gpm.nasa.gov/data/imerg)).
 
-GloFAS currently uses daily medium-range forecasts for days 1–15. citeturn18search4
+GloFAS publishes daily medium-range forecasts; treat the lead time as a figure to confirm against CEMS rather than a constant fixed by this audit.
 
-OpenStreetMap data is distributed under ODbL, so attribution and database-license obligations must remain visible in SIAHRA's production data catalog. citeturn19search4
+OpenStreetMap data is distributed under ODbL, so attribution and database-license obligations must remain visible in SIAHRA's production data catalog.
 
 ### A specific gap: tide data
 
@@ -678,7 +678,7 @@ This is one of the areas where an agency data-sharing agreement may provide more
 | Events/stations | PostGIS | JSON/GeoJSON |
 | Large static tile pyramids | intermediate MVT | PMTiles |
 
-GDAL supports raster/vector conversion and has a dedicated Cloud Optimized GeoTIFF driver. citeturn24search1turn24search5 PDAL is designed for translating, filtering and manipulating point-cloud datasets and supports declarative processing pipelines. citeturn24search2turn24search6
+GDAL supports raster/vector conversion and has a dedicated Cloud Optimized GeoTIFF driver. PDAL is designed for translating, filtering and manipulating point-cloud datasets and supports declarative processing pipelines.
 
 ### Recommended preprocessing pipeline
 
@@ -798,7 +798,7 @@ These values are **engineering targets, not upstream-provider SLAs**.
 | GloFAS | daily | <30 min |
 | Static geodata | weekly/monthly/versioned | offline |
 
-The existing Worker already schedules source refresh every minute. citeturn21view0 The architecture should keep that one-minute scheduler lightweight rather than forcing every upstream source to refresh every minute.
+The existing Worker already schedules source refresh every minute. The architecture should keep that one-minute scheduler lightweight rather than forcing every upstream source to refresh every minute.
 
 ### Sample latency/update chart
 
@@ -810,7 +810,7 @@ xychart-beta
     bar [1,5,10,30,1440,1440]
 ```
 
-The final two values are intentionally conservative planning placeholders rather than claims that GISTDA and GloFAS have identical source publication behavior. GloFAS itself is a daily medium-range product. citeturn18search4
+The final two values are intentionally conservative planning placeholders rather than claims that GISTDA and GloFAS have identical source publication behavior. GloFAS itself is a daily medium-range product.
 
 ### Flood forecasting architecture
 
@@ -860,10 +860,23 @@ radar trend
 Produces:
 
 ```text
-low / elevated / high / severe flood likelihood
+low / elevated / high / severe flood exposure — illustrative
 ```
 
-This can be operational sooner, but must be explicitly labelled **risk/nowcast**, not simulated water depth.
+This can be operational sooner, but it is an **uncalibrated heuristic composite**, and the repository's
+data-honesty rules decide how it may be published:
+
+- It must ship a `HazardLayerDescriptor` with `epistemicClass: "illustrative"` — a topographic/threshold
+  approximation the project computed itself. It is **not** `probabilistic`: that class is reserved for a
+  named, cited, third-party model, and no such model produces this output.
+- It must **not** be presented as a likelihood, a probability, or a "% chance of flooding". Ranking
+  observed exposure is honest; attaching an implied probability to an uncalibrated composite is exactly
+  the invented forecast number `AGENTS.md` forbids.
+- The legend must state the inputs and that the layer is a derived approximation, and `methodologyUrl`
+  must point at the derivation.
+- Promoting this output to `probabilistic` requires a validated, citable model and published skill
+  metrics first — not a rename. Until then the wording stays "illustrative", not "risk" or "nowcast",
+  both of which read to users as a forecast.
 
 **Tier B — basin forecast**
 
@@ -873,7 +886,7 @@ Use rainfall-runoff modelling to predict discharge.
 
 Use discharge + terrain + river geometry + drainage/structures to calculate extent/depth.
 
-A 30 m global surface DEM such as Copernicus GLO-30 is appropriate for impressive provincial terrain and broad catchment analysis, but it should not be marketed as street-level flood-depth truth. Copernicus describes GLO-30 as a global 30 m elevation product and notes that it represents surface elevation influenced by structures/vegetation rather than a bespoke Thai bare-earth urban DTM. citeturn17search2turn17search14
+A 30 m global surface DEM such as Copernicus GLO-30 is appropriate for impressive provincial terrain and broad catchment analysis, but it should not be marketed as street-level flood-depth truth. Copernicus describes GLO-30 as a global 30 m *Digital Surface Model* — it represents surface elevation including buildings and vegetation, not a bare-earth urban DTM ([Copernicus DEM](https://registry.opendata.aws/copernicus-dem/)).
 
 For Bangkok or another dense urban pilot, high-resolution LiDAR/bare-earth DTM, drainage assets, road/embankment elevations, culverts, canals and river cross sections become the highest-value data acquisitions.
 
@@ -897,7 +910,7 @@ NOW                           FUTURE
 │   wider uncertainty
 │
 ├─ 3–7 d Outlook
-│   basin/probability focus
+│   basin context; probability only from a cited model
 │
 └─ 8–15 d Outlook
     strategic signal only
@@ -924,7 +937,7 @@ EarthquakeFeedDO
  └─ live WebSocket
 ```
 
-That is directionally correct. USGS recommends real-time GeoJSON feeds for automated real-time display. citeturn17search0
+That is directionally correct. USGS recommends real-time GeoJSON feeds for automated real-time display.
 
 Extend it with:
 
@@ -948,7 +961,7 @@ What the UI should **not** contain:
 "Earthquake forecast: Bangkok, 62%, next Tuesday"
 ```
 
-The current repository correctly rejects that product framing. citeturn20view0
+The current repository correctly rejects that product framing.
 
 Use terminology such as:
 
@@ -978,7 +991,7 @@ real DEM
 + screen-space LOD
 ```
 
-The existing renderer already supports a common world group and vertical exaggeration, providing a strong basis for this treatment. citeturn21view3
+The existing renderer already supports a common world group and vertical exaggeration, providing a strong basis for this treatment.
 
 For flood visualization, use actual flood depth as the geometry signal:
 
@@ -1073,7 +1086,7 @@ first useful frame
 
 Never block first render waiting for vegetation or high-detail buildings.
 
-PMTiles can reduce object proliferation for static vector-tile pyramids by using byte-range retrieval from one archive. citeturn24search7
+PMTiles can reduce object proliferation for static vector-tile pyramids by using byte-range retrieval from one archive.
 
 ### Web Worker opportunities
 
@@ -1283,7 +1296,7 @@ export default {
 };
 ```
 
-Hyperdrive is the Cloudflare-native bridge recommended here rather than exposing the database directly to browsers. citeturn12search15
+Hyperdrive is the Cloudflare-native bridge recommended here rather than exposing the database directly to browsers.
 
 ## Implementation roadmap, operations, and naming
 
@@ -1347,7 +1360,7 @@ The dates are planning estimates, not commitments.
 | Workflow orchestration | 3–4 weeks | versioned ETL/forecast jobs | idempotent reruns |
 | Unified real-time | 2–4 weeks | `/hazards/live` | reconnect/load tests pass |
 | 3D performance pass | 4–7 weeks | LOD/streaming/memory fixes | target devices maintain performance budget |
-| Flood nowcast | 6–8 weeks | 0–6 h probabilistic product | hindcast metrics published |
+| Flood nowcast | 6–8 weeks | 0–6 h layer, `illustrative` until a cited model exists | hindcast metrics published before any `probabilistic` reclassification |
 | Short forecast | 8–16+ weeks | 6–72 h calibrated model | domain expert validation |
 | Localization | 2–4 weeks | Thai + English | UI coverage test |
 | Production beta | ~4 months from start | selected provinces | ops/security/SLO sign-off |
@@ -1372,7 +1385,7 @@ A smaller 3-person team can ship a monitoring product, but making defensible flo
 
 ### CI/CD target
 
-The existing CI already handles lint/type/build/dry-run deploy. citeturn20view0 Expand it to:
+The existing CI already handles lint/type/build/dry-run deploy. Expand it to:
 
 ```text
 Pull request
@@ -1400,7 +1413,7 @@ Pull request
         └─ promote production
 ```
 
-Cloudflare's GitHub Actions deployment guidance recommends storing the Cloudflare account identifier and API token in GitHub secrets rather than committing credentials, then invoking Wrangler from the workflow. citeturn11search21
+Cloudflare's GitHub Actions deployment guidance recommends storing the Cloudflare account identifier and API token in GitHub secrets rather than committing credentials, then invoking Wrangler from the workflow.
 
 Example:
 
@@ -1431,13 +1444,23 @@ jobs:
       - run: npm run build:web
       - run: npm test
 
-      - name: Deploy Worker
-        working-directory: apps/api
-        run: npx wrangler deploy
+      - name: Deploy API Worker
+        run: npm run deploy:api
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Deploy web Worker
+        run: npm run deploy:web
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 ```
+
+`siahra-web` and `siahra-api` are **two separate Workers sharing one host**, so a release must deploy
+both. Building the client (`npm run build:web`) only produces the asset bundle; it publishes nothing.
+Omitting the second step leaves the production web Worker serving the previous UI while the API moves
+on — see `docs/deploy.md` §0.1 for why the two deploys are independent.
 
 ### Geodata CI should be separate
 
@@ -1486,7 +1509,7 @@ This avoids accidentally redeploying gigabytes of terrain because a button chang
 
 Before production release:
 
-**Secrets and access.** All non-public API credentials must move to Wrangler secrets/secret stores rather than regular variables. The TMD pair currently present in `wrangler.jsonc` is documented by the repo as TMD's published public pair, but any registered/privileged replacement should never be committed. citeturn21view0
+**Secrets and access.** All non-public API credentials must move to Wrangler secrets/secret stores rather than regular variables. The TMD pair currently present in `wrangler.jsonc` is documented by the repo as TMD's published public pair, but any registered/privileged replacement should never be committed.
 
 **Public vs private API.** Keep public hazard reads anonymous; require authentication for administrative actions, source overrides, model publishing and reprocessing.
 
@@ -1506,7 +1529,7 @@ Before production release:
 
 **Headers.** Add CSP, HSTS, `X-Content-Type-Options`, appropriate `Referrer-Policy`, and restrictive frame policy.
 
-**Dependency security.** Dependabot already exists according to the repository; add automated vulnerability gating for production-severity findings. citeturn20view0
+**Dependency security.** Dependabot already exists according to the repository; add automated vulnerability gating for production-severity findings.
 
 **Availability.** Define degraded behavior for every source. The existing source-health UX is a good starting point.
 
@@ -1534,7 +1557,7 @@ DOWN
 UNKNOWN
 ```
 
-SIAHRA already follows this philosophy for source health. citeturn20view0turn21view1
+SIAHRA already follows this philosophy for source health.
 
 ### Localization architecture
 
@@ -1592,7 +1615,7 @@ I therefore treated "unique" as:
 
 > No obvious exact-match disaster/geospatial platform using the same proposed expanded name surfaced in the exact-string web searches run on 17 August 2026.
 
-This is an important distinction because Thailand already has other disaster technology branding—for example, the Thai government publicized **SRI Alert** in April 2026 as a real-time disaster-management platform—so generic "Alert", "Geo", "Resilience" and "Thailand Risk" combinations are especially collision-prone. citeturn23search5
+This is an important distinction because Thailand already has other disaster technology branding—for example, the Thai government publicized **SRI Alert** in April 2026 as a real-time disaster-management platform—so generic "Alert", "Geo", "Resilience" and "Thailand Risk" combinations are especially collision-prone.
 
 Ten provisional candidates:
 
@@ -1625,9 +1648,9 @@ I would not claim any of them is trademark-clear from a general web search alone
 
 ## ฉบับภาษาไทย
 
-SIAHRA เวอร์ชันปัจจุบันถือว่ามี foundation ของระบบครบกว่าที่คาดไว้มาก ดังนั้น roadmap ควรเปลี่ยนจากแนวคิด **“สร้าง WebGL disaster map”** เป็น **“ทำระบบ monitoring ที่มีอยู่ให้กลายเป็น production hazard-intelligence และ forecasting platform”** โดยไม่ rewrite ของเดิมโดยไม่จำเป็น. โครงสร้าง repository ปัจจุบันแบ่งเป็น `apps/web`, `apps/api`, `apps/etl` และ `packages/shared-types` ซึ่งเป็น separation ที่เหมาะกับงานประเภทนี้อยู่แล้ว. citeturn20view0
+SIAHRA เวอร์ชันปัจจุบันถือว่ามี foundation ของระบบครบกว่าที่คาดไว้มาก ดังนั้น roadmap ควรเปลี่ยนจากแนวคิด **“สร้าง WebGL disaster map”** เป็น **“ทำระบบ monitoring ที่มีอยู่ให้กลายเป็น production hazard-intelligence และ forecasting platform”** โดยไม่ rewrite ของเดิมโดยไม่จำเป็น. โครงสร้าง repository ปัจจุบันแบ่งเป็น `apps/web`, `apps/api`, `apps/etl` และ `packages/shared-types` ซึ่งเป็น separation ที่เหมาะกับงานประเภทนี้อยู่แล้ว.
 
-**สิ่งที่มีแล้ว:** React, TypeScript, Three.js, terrain 3D แบบ tiled, buildings, roads, vegetation, satellite imagery, province selector, flood extent จาก GISTDA, สถานีวัดน้ำ/ฝน, TMD radar, dams, USGS/EMSC/TMD earthquake ingestion, source health, timeline, permalink, mobile UI, Cloudflare Worker, R2, KV, Durable Objects, Cron และ earthquake WebSocket. citeturn20view0turn21view0
+**สิ่งที่มีแล้ว:** React, TypeScript, Three.js, terrain 3D แบบ tiled, buildings, roads, vegetation, satellite imagery, province selector, flood extent จาก GISTDA, สถานีวัดน้ำ/ฝน, TMD radar, dams, USGS/EMSC/TMD earthquake ingestion, source health, timeline, permalink, mobile UI, Cloudflare Worker, R2, KV, Durable Objects, Cron และ earthquake WebSocket.
 
 **สิ่งที่ยังขาดระดับ critical:** PostGIS, Hyperdrive, Queues, Workflows, automated tests, production authentication, bilingual i18n, explicit cache strategy, data-license registry และ flood forecasting model ที่ผ่าน calibration/validation.
 
@@ -1663,7 +1686,7 @@ Official Data Sources
        └─ WebSocket ────┘
 ```
 
-Cloudflare Queues เหมาะสำหรับแยก ingestion ออกจาก scheduled job และรองรับ retry/batching ส่วน Workflows เหมาะกับ ETL หรือ model job ที่มีหลายขั้นตอนและต้องการ durable execution. Hyperdrive เป็นตัวเชื่อม Workers กับ PostgreSQL-compatible database. citeturn12search1turn12search2turn12search15
+Cloudflare Queues เหมาะสำหรับแยก ingestion ออกจาก scheduled job และรองรับ retry/batching ส่วน Workflows เหมาะกับ ETL หรือ model job ที่มีหลายขั้นตอนและต้องการ durable execution. Hyperdrive เป็นตัวเชื่อม Workers กับ PostgreSQL-compatible database.
 
 **Database:** ใช้ PostgreSQL + PostGIS เป็น historical/spatial analytical database และ R2 เป็น object storage. ไม่ควรเอา terrain, radar หรือ tile files จำนวนมากไปใส่ PostgreSQL.
 
@@ -1685,7 +1708,7 @@ ST_Within()
 ST_DWithin()
 ```
 
-และควรสร้าง GiST spatial indexes. citeturn24search0turn24search12
+และควรสร้าง GiST spatial indexes.
 
 **R2:** แนะนำให้แบ่ง raw source, normalized data และ browser-ready artifacts ออกจากกัน พร้อม version ของทุก dataset เช่น:
 
@@ -1696,13 +1719,13 @@ flood/forecast/model-v2/run-abc/lead-024/...
 pmtiles/thailand-roads-2026-08.pmtiles
 ```
 
-PMTiles เหมาะกับ roads/rivers/buildings แบบ vector ที่เปลี่ยนไม่บ่อย เพราะสามารถอ่านเฉพาะ byte range ที่ต้องการจาก object storage ได้. citeturn24search3turn24search7
+PMTiles เหมาะกับ roads/rivers/buildings แบบ vector ที่เปลี่ยนไม่บ่อย เพราะสามารถอ่านเฉพาะ byte range ที่ต้องการจาก object storage ได้.
 
-**ข้อมูลประเทศไทย:** ให้ TMD เป็น source หลักด้าน weather/radar, ThaiWater/HII เป็น abstraction หลักสำหรับ rainfall/water level/station, RID สำหรับ reservoirs และ GISTDA สำหรับ satellite flood extent. TMD มี Open API แต่ต้องตรวจสอบข้อกำหนดด้านการเผยแพร่/เชิงพาณิชย์ให้ชัด เนื่องจากหน้า service ของ TMD มีข้อจำกัดบางประการเกี่ยวกับการนำข้อมูลไปเผยแพร่หรือแสวงหาประโยชน์โดยไม่ได้รับอนุญาต. citeturn15search0turn15search8
+**ข้อมูลประเทศไทย:** ให้ TMD เป็น source หลักด้าน weather/radar, ThaiWater/HII เป็น abstraction หลักสำหรับ rainfall/water level/station, RID สำหรับ reservoirs และ GISTDA สำหรับ satellite flood extent. TMD มี Open API แต่ต้องตรวจสอบข้อกำหนดด้านการเผยแพร่/เชิงพาณิชย์ให้ชัด เนื่องจากหน้า service ของ TMD มีข้อจำกัดบางประการเกี่ยวกับการนำข้อมูลไปเผยแพร่หรือแสวงหาประโยชน์โดยไม่ได้รับอนุญาต.
 
-ThaiWater Standard กำหนด resource อย่าง `/Rainfall` และ `/Runoff` รวมถึงข้อมูล reservoir และ station information ทำให้สามารถสร้าง canonical adapter ภายใน SIAHRA ได้. citeturn16search0turn16search5
+ThaiWater Standard กำหนด resource อย่าง `/Rainfall` และ `/Runoff` รวมถึงข้อมูล reservoir และ station information ทำให้สามารถสร้าง canonical adapter ภายใน SIAHRA ได้.
 
-GISTDA มี flood extent API ที่ระบุเป็น Open Data Common และต้องสมัคร API key ผ่าน gateway. citeturn14search5
+GISTDA มี flood extent API ที่ระบุเป็น Open Data Common และต้องสมัคร API key ผ่าน gateway.
 
 Global fallback/context ควรใช้:
 
@@ -1717,7 +1740,7 @@ NASA IMERG        precipitation
 GloFAS            basin flood outlook
 ```
 
-Copernicus GLO-30 มีความละเอียดประมาณ 30 เมตรระดับโลก. citeturn17search2 ESA WorldCover ประมาณ 10 เมตรและใช้ CC BY 4.0. citeturn19search1 NASA IMERG ให้ precipitation estimate ทุกครึ่งชั่วโมง. citeturn18search2 GloFAS มี medium-range flood forecast ถึง 15 วันในปัจจุบัน. citeturn18search4
+Copernicus GLO-30 มีความละเอียดประมาณ 30 เมตรระดับโลก. ESA WorldCover ประมาณ 10 เมตรและใช้ CC BY 4.0. NASA IMERG ให้ precipitation estimate ทุกครึ่งชั่วโมง. GloFAS มี medium-range flood forecast ถึง 15 วันในปัจจุบัน.
 
 แต่ **30 m DEM ไม่ควรถูกใช้เพื่ออ้างความแม่นยำระดับถนนใน Bangkok flood depth**. หากจะทำ operational urban flood simulation จริง ต้องหา bare-earth DTM/LiDAR ที่ละเอียดกว่า รวม drainage, canal, road/embankment height, culvert และ river geometry.
 
@@ -1739,7 +1762,7 @@ terrain tiles
 R2
 ```
 
-GDAL รองรับการสร้าง Cloud Optimized GeoTIFF โดยตรง. citeturn24search1 ถ้าได้ LiDAR ให้ใช้ PDAL สำหรับ filter/classification/point-cloud pipeline. citeturn24search2turn24search6
+GDAL รองรับการสร้าง Cloud Optimized GeoTIFF โดยตรง. ถ้าได้ LiDAR ให้ใช้ PDAL สำหรับ filter/classification/point-cloud pipeline.
 
 **Flood forecasting:** แนะนำให้แยกเป็นสี่ product แทนการเรียกทุกอย่างว่า forecast:
 
@@ -1759,9 +1782,9 @@ probabilistic basin/national risk
 
 หน้า UI ต้องแยกอย่างชัดเจนว่า polygon ไหนคือ **satellite-observed flood extent** และ polygon ไหนคือ **model forecast**.
 
-สำหรับ earthquake ให้คงระบบ USGS/EMSC/TMD + Durable Object + WebSocket ที่มีอยู่ แล้วเพิ่ม exposure/shaking analysis แทนการสร้าง earthquake prediction. ปัจจุบัน Durable Object มีการเก็บ event, health status และ WebSocket broadcast อยู่แล้ว. citeturn21view1
+สำหรับ earthquake ให้คงระบบ USGS/EMSC/TMD + Durable Object + WebSocket ที่มีอยู่ แล้วเพิ่ม exposure/shaking analysis แทนการสร้าง earthquake prediction. ปัจจุบัน Durable Object มีการเก็บ event, health status และ WebSocket broadcast อยู่แล้ว.
 
-**3D:** ไม่แนะนำ rewrite Three.js เป็น React Three Fiber ตอนนี้. Renderer ปัจจุบันจัดการ `THREE.Scene`, `PerspectiveCamera`, `WebGLRenderer`, controls และ vertical exaggeration โดยตรงอยู่แล้ว. citeturn21view3 ควรลงทุนกับ LOD, streaming, mesh optimization, Web Worker และ GPU budget มากกว่า framework migration.
+**3D:** ไม่แนะนำ rewrite Three.js เป็น React Three Fiber ตอนนี้. Renderer ปัจจุบันจัดการ `THREE.Scene`, `PerspectiveCamera`, `WebGLRenderer`, controls และ vertical exaggeration โดยตรงอยู่แล้ว. ควรลงทุนกับ LOD, streaming, mesh optimization, Web Worker และ GPU budget มากกว่า framework migration.
 
 LOD ที่แนะนำ:
 
@@ -1789,9 +1812,9 @@ zoom ระดับพื้นที่
 อายุข้อมูล
 ```
 
-Earthquake อาจ poll ทุกหนึ่งนาทีตาม architecture ปัจจุบัน ส่วน radar/gauge ใช้ cadence ตาม source และไม่จำเป็นต้องยิงทุก API ทุกหนึ่งนาที. Cron Trigger ปัจจุบันทำงานทุกนาทีอยู่แล้ว. citeturn21view0
+Earthquake อาจ poll ทุกหนึ่งนาทีตาม architecture ปัจจุบัน ส่วน radar/gauge ใช้ cadence ตาม source และไม่จำเป็นต้องยิงทุก API ทุกหนึ่งนาที. Cron Trigger ปัจจุบันทำงานทุกนาทีอยู่แล้ว.
 
-**CI/CD:** pipeline ปัจจุบันมี lint, type checking, build และ Wrangler dry-run แล้ว. citeturn20view0 สิ่งที่ควรเพิ่มทันทีคือ:
+**CI/CD:** pipeline ปัจจุบันมี lint, type checking, build และ Wrangler dry-run แล้ว. สิ่งที่ควรเพิ่มทันทีคือ:
 
 ```text
 unit
@@ -1819,7 +1842,7 @@ smoke/E2E
 production
 ```
 
-Cloudflare แนะนำให้เก็บ API token/account credentials เป็น GitHub Secrets และใช้ Wrangler deploy ใน workflow แทนการ commit secret ลง repository. citeturn11search21
+Cloudflare แนะนำให้เก็บ API token/account credentials เป็น GitHub Secrets และใช้ Wrangler deploy ใน workflow แทนการ commit secret ลง repository.
 
 **Security:** public hazard APIs สามารถ anonymous ได้ แต่ model publishing, source override, admin, reprocessing และ configuration ต้องมี auth. แยก public R2 derived assets ออกจาก raw/restricted upstream data, ใช้ CORS แบบ allowlist, rate limit, CSP/HSTS, audit logs และ immutable forecast run IDs.
 
@@ -1852,7 +1875,7 @@ Earthquake monitoring ≠ Earthquake prediction
 
 ทีมที่เหมาะสมประมาณ 5–7 FTE: Cloudflare/backend lead, geospatial engineer, 3D frontend, UX/frontend, data/backend, hydrologist/hydraulic modeler และ QA/SRE บางส่วน. Critical path ของระบบระยะยาวจะไม่ใช่ Three.js แต่เป็น **data rights + data quality + flood-model calibration + validation**.
 
-สำหรับชื่อระบบ จากการค้น exact-string เพื่อหา collision ในบริบท disaster/geospatial เมื่อ 17 สิงหาคม 2026 ตัวเลือกที่น่าสนใจที่สุดคือ **THAERIS**, **FLOQIS**, **GEONARA**, **QUAFLO** และ **SIAREN**. การค้นเว็บไม่สามารถยืนยัน trademark uniqueness ทั่วโลกได้ จึงควรถือว่าเป็น provisional naming shortlist ไม่ใช่ legal clearance. การหลีกเลี่ยงชื่อกว้างเกินไปมีเหตุผลเพิ่มขึ้นเพราะประเทศไทยมี platform disaster branding อื่นอยู่แล้ว เช่น **SRI Alert** ที่เปิดตัวในปี 2026. citeturn23search5
+สำหรับชื่อระบบ จากการค้น exact-string เพื่อหา collision ในบริบท disaster/geospatial เมื่อ 17 สิงหาคม 2026 ตัวเลือกที่น่าสนใจที่สุดคือ **THAERIS**, **FLOQIS**, **GEONARA**, **QUAFLO** และ **SIAREN**. การค้นเว็บไม่สามารถยืนยัน trademark uniqueness ทั่วโลกได้ จึงควรถือว่าเป็น provisional naming shortlist ไม่ใช่ legal clearance. การหลีกเลี่ยงชื่อกว้างเกินไปมีเหตุผลเพิ่มขึ้นเพราะประเทศไทยมี platform disaster branding อื่นอยู่แล้ว เช่น **SRI Alert** ที่เปิดตัวในปี 2026.
 
 โดยสรุป architecture ที่เหมาะกับ SIAHRA หลัง audit คือ:
 
@@ -1881,3 +1904,43 @@ External Flood Model Compute
 ```
 
 ส่วนที่ควร **เก็บไว้** คือ Three.js renderer, monorepo layout, Durable Object earthquake feed, source-health model, province/AOI architecture และ Worker API. ส่วนที่ควร **สร้างต่อทันที** คือ tests, PostGIS/Hyperdrive, queue-based ingestion, Workflows, R2 dataset versioning, bilingual localization, provenance/licensing registry และ flood-nowcast validation. ส่วนที่ควร **หลีกเลี่ยง** คือการ rewrite renderer โดยไม่มีเหตุผล, การรัน hydraulic simulation หนักใน Workers, การใช้ 30 m DEM อ้าง flood depth ระดับถนน และการนำ earthquake monitoring ไปสื่อสารเป็น earthquake prediction.
+
+
+## Sources
+
+The citation markers this audit was drafted with were internal research-export identifiers that no
+reader could resolve, so they have been removed. The sources below were each fetched and confirmed to
+describe the claim they are attached to at the time of this rewrite.
+
+**Cloudflare platform**
+- Queues — guaranteed delivery, batching, retries and delays: <https://developers.cloudflare.com/queues/>
+- Workflows — durable multi-step execution, persisted state, automatic retries: <https://developers.cloudflare.com/workflows/>
+- Hyperdrive — connection pooling and query caching for PostgreSQL-compatible databases: <https://developers.cloudflare.com/hyperdrive/>
+- Durable Objects WebSockets — hibernation and `ctx.acceptWebSocket()`: <https://developers.cloudflare.com/durable-objects/best-practices/websockets/>
+- Workers CI/CD — index of first-party and external (GitHub Actions) pipelines: <https://developers.cloudflare.com/workers/ci-cd/>
+
+**Hazard and meteorological sources**
+- GloFAS / CEMS Global Flood Awareness System: <https://confluence.ecmwf.int/display/CEMS/Global+Flood+Awareness+System>
+- NASA IMERG — half-hourly global precipitation estimates: <https://gpm.nasa.gov/data/imerg>
+- USGS real-time earthquake feeds (GeoJSON summary/detail): <https://earthquake.usgs.gov/earthquakes/feed/>
+- USGS FDSN event web service — parameterized catalog queries: <https://earthquake.usgs.gov/fdsnws/event/1/>
+- EMSC seismic portal — QuakeML/GeoJSON event services: <https://www.seismicportal.eu/>
+
+**Geodata**
+- Copernicus DEM (GLO-30) — a 30 m *Digital Surface Model*, includes buildings and vegetation: <https://registry.opendata.aws/copernicus-dem/>
+- ESA WorldCover — global 10 m land cover: <https://esa-worldcover.org/en>
+- OpenStreetMap — ODbL licence and attribution requirements: <https://www.openstreetmap.org/copyright>
+- HydroRIVERS / HydroSHEDS — global river network, free for scientific/educational/commercial use under the HydroSHEDS licence: <https://www.hydrosheds.org/products/hydrorivers>
+- GDAL Cloud Optimized GeoTIFF driver: <https://gdal.org/en/stable/drivers/raster/cog.html>
+- PMTiles — single-file tile pyramid served by HTTP Range Requests from S3-compatible storage: <https://docs.protomaps.com/pmtiles/>
+- PostGIS documentation: <https://postgis.net/documentation/>
+
+**Not verified in this pass — confirm before relying on them**
+- The Thai agency endpoints and licence terms discussed above (ThaiWater/HII, TMD, RID, GISTDA, LDD).
+  `docs/SIAHRA-implement-plan.md` already carries the endpoint list this project actually uses; treat
+  that file as the endpoint source of truth and re-read each agency's terms before redistributing any
+  derived product.
+- The specific GloFAS medium-range lead time in days. The CEMS portal is a client-rendered application
+  that could not be fetched here, so no figure from it is asserted as verified.
+- Claims in this audit about the repository's own state were made against `main` on 17 August 2026 and
+  should be re-read against the code rather than trusted from here.
