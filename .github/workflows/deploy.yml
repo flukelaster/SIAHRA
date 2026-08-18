@@ -46,6 +46,11 @@ jobs:
     if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # ทำให้ GitHub รู้จักการ deploy นี้ → ขึ้นกล่อง Environments ในแถบข้างหน้า repo
+    # และมีหน้า Deployments ไล่ประวัติได้ (secret ยังอยู่ระดับ repo ตามเดิม)
+    environment:
+      name: production-web
+      url: https://siahra-radar.co
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -64,6 +69,9 @@ jobs:
     if: needs.changes.outputs.api == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    environment:
+      name: production-api
+      url: https://siahra-radar.co/api/v1/health
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
