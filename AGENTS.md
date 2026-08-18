@@ -28,14 +28,18 @@
 - **ห้าม push ตรงเข้า `main`** ไม่ว่าเล็กหรือด่วนแค่ไหน — แตก branch → เปิด PR เสมอ แม้ผู้ใช้จะพูดว่า "push" ก็ตาม (เว้นแต่สั่ง override ชัด ๆ ในตอนนั้น); ruleset ไม่มี bypass จึง push ตรงจะถูกปฏิเสธอยู่ดี
 - `main` merge ได้เมื่อ status check ผ่านครบ: **Lint / TypeScript / Build** (`.github/workflows/ci.yml` — คำสั่งเดียวกับหัวข้อ "ตรวจ" ด้านบน) ; ห้ามเพิ่ม job ที่ path-filter ไว้เป็น required check (PR ที่ไม่แตะ path นั้นจะรอตลอดกาล)
 - กติกา "PR เป็นอังกฤษ" และ "แก้ UI ต้องมีภาพ" **ยังบังคับใช้เหมือนเดิม แต่ไม่มี CI job คอยจับแล้ว** (`pr-rules.yml` ถูกถอดออกเพราะกิน Actions minutes) — คนตรวจคือ `/implement` ขั้นก่อนเปิด PR และตัวคุณเองเมื่อเปิด PR ด้วยมือ
-- **หัวข้อและคำอธิบาย PR ต้องเป็นภาษาอังกฤษเท่านั้น** — เช็คเองก่อนยิง: `printf '%s' "$TITLE$BODY" | LC_ALL=C.UTF-8 grep -Pq '[\x{0E00}-\x{0E7F}]'` เจอแล้วให้เขียนใหม่ (`gh pr edit <n> --title/--body`) ; ไม่บังคับกับ commit message และคอมเมนต์ในโค้ด (ยังเขียนไทยได้ตามเดิม)
+- **PR และ commit message ต้องเป็นภาษาอังกฤษทั้งหมด** (subject และ body) — เช็คเองก่อนยิง:
+  `printf '%s' "$TITLE$BODY" | LC_ALL=C.UTF-8 grep -Pq '[\x{0E00}-\x{0E7F}]'` (PR) และ
+  `git log main..HEAD --format='%s%n%b' | LC_ALL=C.UTF-8 grep -Pq '[\x{0E00}-\x{0E7F}]'` (commit ทุกอันในสาขา — สองอันนี้แทนกันไม่ได้ PR อังกฤษแต่ commit ไทยก็ยังผิด)
+  เจอแล้วให้เขียนใหม่ (`gh pr edit <n> --title/--body`, `git commit --amend` หรือ `git rebase -i` ถ้ายังไม่ push)
+  ; **คอมเมนต์ในโค้ดยังเขียนไทยได้ตามเดิม** — กติกานี้คุมเฉพาะสิ่งที่คนนอกอ่านก่อนใน repo สาธารณะ คือ log กับหน้ารีวิว
 - **แก้ UI ต้องมีภาพหน้าจอใน PR** — ถ้า PR แตะ `apps/web/src/{components,scene}/**`, `App.tsx`, `main.tsx`, `index.css`, `branding.ts`, `index.html` หรือไฟล์ระดับบนใน `public/` (ไม่รวม `public/aoi/**`) คำอธิบาย PR ต้องมีรูปอย่างน้อย 1 รูป: ถ่ายจาก dev server ด้วย `playwright-cli` แล้ว `scripts/pr-media.sh "$(git branch --show-current)" <png...>` → วาง Markdown ที่มันพิมพ์ลงใน PR body (อัปโหลดเป็น prerelease asset `primg-<branch>` ด้วย `gh` ล้วน ๆ; `pr-image-cleanup.yml` ลบให้เมื่อ PR ปิด) ; เปลี่ยนแค่โค้ดที่ไม่มีผลทางตา → ติดป้าย `no-screenshot`
 - หลัง merge: ลบ branch ทั้ง remote (`gh pr merge --delete-branch` หรือ repo ตั้ง delete-on-merge ไว้แล้ว) และ local (`git branch -d`), แล้ว `git checkout main && git pull` ก่อนเริ่มงานถัดไป
 - แก้ ruleset → แก้ `.github/rulesets/main.json` แล้วรัน `scripts/apply-branch-rules.sh` (idempotent; ต้อง `gh` สิทธิ์ admin)
 
 ## Loop engineering (`.claude/`)
 ลูปมาตรฐานของงานเขียนโค้ด: `/implement <งาน>` → **senior-se** เขียน → **qa-verifier** ตรวจ → วนแก้สูงสุด 3 รอบจน verdict = pass → **docs-sync** อัปเดตเอกสาร → commit → **ถามผู้ใช้ก่อนเปิด PR เสมอ**
-- นิยาม agent อยู่ใน `.claude/agents/{senior-se,qa-verifier,docs-sync}.md` ; คำสั่งอยู่ใน `.claude/commands/{implement,review-fix}.md`
+- นิยาม agent อยู่ใน `.claude/agents/{senior-se,qa-verifier,docs-sync}.md` ; คำสั่งอยู่ใน `.claude/commands/{implement,review-fix,babysit-prs}.md`
 - `qa-verifier` **ไม่มี Write/Edit โดยเจตนา** — QA แก้โค้ดเองไม่ได้ นั่นคือสิ่งที่ทำให้ลูปเป็นลูปจริง; มันคืน JSON `{verdict, findings[], screenshots[]}` เพื่อให้เงื่อนไขวนลูปเช็คได้ด้วยเครื่อง ไม่ใช่ด้วยการตีความ
 - QA รันคำสั่งชุดเดียวกับ `ci.yml` เป๊ะ ๆ (ถ้าไม่ตรง QA จะเขียวแต่ CI แดง) บวก visual acceptance ด้วย `playwright-cli` — **ห้ามสตาร์ท dev server เอง** (มีได้ตัวเดียวต่อ worktree; ถ้าไม่รันให้คืน `blocked`)
 - **agent ไม่เปิด PR เอง** ไม่ว่าผู้ใช้จะเคยพูดว่า "push" ไว้ก่อนหน้าหรือไม่ — `.claude/hooks/guard-pr.sh` (PreToolUse) ดัก `gh pr create/merge/ready` และ `git push … main` แล้วบังคับให้ถามผู้ใช้ ; hook เป็นตาข่าย ไม่ใช่ข้ออ้างที่จะไม่ถาม
@@ -70,4 +74,4 @@ Naming, style, comment wording, micro-optimisation, personal preference, and any
 - If a push introduces no new P1/P2, post nothing — no "LGTM" re-review
 - Codex review is **advisory**: never add it as a required status check in `.github/rulesets/main.json`
 
-**ฝั่งผู้แก้** (`/review-fix <pr>`): ดึง unresolved threads ด้วย GraphQL `reviewThreads` (คอมเมนต์ Codex เป็น inline review comment — `gh pr view --comments` และ `reviewDecision` มองไม่เห็น) แก้ P1/P2 ทั้งชุด**ในรอบเดียว** push ครั้งเดียว แล้วปิดทุก thread ให้ครบสามอย่าง: **react 👍 → reply บอกว่าแก้อะไรพร้อม sha → resolve** (P3 ก็ต้องปิด แต่ตอบเหตุผลว่าทำไมไม่แก้ — ห้ามเงียบแล้ว resolve)
+**ฝั่งผู้แก้** (`/review-fix <pr>`): ดึง unresolved threads ด้วย GraphQL `reviewThreads` (คอมเมนต์ Codex เป็น inline review comment — `gh pr view --comments` และ `reviewDecision` มองไม่เห็น) แก้ P1/P2 ทั้งชุด**ในรอบเดียว** push ครั้งเดียว แล้วปิดทุก thread ให้ครบสามอย่าง: **react 👍 → reply บอกว่าแก้อะไรพร้อม sha → resolve** ; `/babysit-prs` (`.claude/commands/babysit-prs.md`) จะเรียกให้เองทุกครั้งที่เจอ thread ค้าง และวนแบบนี้ได้ไม่จำกัดรอบ — หยุดเฉพาะเมื่อ finding เดิมซ้ำทั้งที่แก้ไปแล้ว (P3 ก็ต้องปิด แต่ตอบเหตุผลว่าทำไมไม่แก้ — ห้ามเงียบแล้ว resolve)

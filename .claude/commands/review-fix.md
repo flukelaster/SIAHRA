@@ -50,6 +50,8 @@ query($o:String!,$r:String!,$n:Int!,$c:String){
 
 มีของต้องแก้ → `Agent(senior-se)` (ส่ง finding ทั้งชุด) → `Agent(qa-verifier)` → **แยกทางตาม `verdict`**:
 - `pass` → commit → **push ครั้งเดียว** → เก็บ sha ไว้ใช้ข้อ 4
+  commit message ต้องเป็น**ภาษาอังกฤษ** (subject + body) เหมือนทุก commit ในรีโปนี้ เช็คก่อน push:
+  `git log -1 --format='%s%n%b' | LC_ALL=C.UTF-8 grep -Pq '[\x{0E00}-\x{0E7F}]'` เจอแล้วแก้ด้วย `git commit --amend`
 - `fail` → ส่ง findings กลับให้ senior-se แก้ (ไม่เกิน 2 รอบ) แล้วให้ QA ตรวจใหม่ ; ครบ 2 รอบยัง fail → **หยุด ไม่ commit ไม่ push ไม่ resolve thread** แล้วรายงานผู้ใช้
 - `blocked` → หยุดทันที บอกว่าต้องทำอะไรถึงตรวจต่อได้ ไม่ commit ไม่ push
 
@@ -72,9 +74,12 @@ gh api graphql -f query='mutation($t:ID!){ resolveReviewThread(input:{threadId:$
 - ลำดับสำคัญ: react + reply **ก่อน** resolve
 - ตรวจว่า mutation คืน `isResolved: true` จริง ถ้าล้มเหลว (สิทธิ์ไม่พอ / thread outdated) ให้รายงานผู้ใช้ ห้ามนับว่าเสร็จ
 
-## 5. สรุปแล้วหยุด
+## 5. สรุปแล้วจบรอบ
 พิมพ์ตาราง: `thread | severity | action | sha | resolved?`
-ทำได้อีกไม่เกิน 1 รอบ — ถ้า Codex ยกเรื่องเดิมเป็นรอบที่ 3 ให้หยุดแล้วถามผู้ใช้ ห้ามวนต่อเอง
+
+**ไม่มีเพดานจำนวนรอบ** — Codex รีวิวใหม่ทุก push ถ้ารอบหน้ามี finding ใหม่ก็แก้ต่อได้เรื่อย ๆ (คนเรียกคือ `/babysit-prs` ที่วนตรวจอยู่แล้ว) แต่ละครั้งคือ batch เดียว push เดียว
+
+สิ่งเดียวที่ไม่ถือว่าคืบหน้าคือ **finding เดิมซ้ำแบบไม่เปลี่ยน ทั้งที่แก้ไปแล้ว** (reviewer ไม่รับการแก้ หรือพูดซ้ำ) — อันนั้นห้ามแก้รอบที่สาม ให้หยุดแล้วถามผู้ใช้ ; finding ใหม่จริง ๆ ไม่เข้าเงื่อนไขนี้
 
 ## Non-goals
 - ห้าม merge
