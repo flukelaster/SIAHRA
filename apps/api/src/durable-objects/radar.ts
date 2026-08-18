@@ -133,7 +133,7 @@ export class RadarDO extends DurableObject<Env> {
         epistemicClass: "observed",
         liveOrStatic: "live",
         observedAt: newest,
-        fetchedAt: fetchedAt ?? new Date(nowMs).toISOString(),
+        fetchedAt,
         staleAfterSeconds: STALE_AFTER_MS / 1000,
         sourceIds: ["tmd-radar"],
       },
