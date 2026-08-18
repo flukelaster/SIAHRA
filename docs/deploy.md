@@ -140,6 +140,8 @@ Worker มี token-bucket ต่อ IP อยู่แล้ว (`apps/api/src/
   ตอบ 200 = route `/api/*` ชี้ไป siahra-api ถูกแล้ว; ถ้าได้ HTML ของ SPA แทน = route ไม่ทำงาน
 - `curl -I https://siahra-radar.co/` → HTML จาก siahra-web (deploy คนละครั้งกับ api ได้)
 - เปิดเว็บ → tile โหลดจาก `/aoi/...` (Network tab: `cf-cache-status: HIT` ในรอบสอง)
+- `curl -sk -I https://siahra-radar.co/og-image.jpg` → `200 image/jpeg` แล้วลองวางลิงก์ใน LINE/Facebook ให้เห็นการ์ดพรีวิว
+  (`apps/web/index.html` ชี้ `og:image` เป็น URL เต็ม; ถ้าเปลี่ยนรูป ให้เปลี่ยนชื่อไฟล์หรือ re-scrape ที่ Facebook Sharing Debugger / LINE Poker เพราะ scraper cache ตาม URL)
 - ดู R2: `archive/snapshots/<day>/<HH>.json.gz` เกิดทุกชั่วโมง, `archive/waterlevel/<day>/<province>.json.gz` เกิดตอนตี 0:20 (เวลาไทย)
 
 ## ค่าใช้จ่ายโดยประมาณ

@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
+    "og:image": "node og/build.mjs",
     "deploy": "wrangler deploy"
   },
   "dependencies": {

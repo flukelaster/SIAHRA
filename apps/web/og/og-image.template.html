@@ -1,0 +1,233 @@
+<!doctype html>
+<!--
+  Design template for the Open Graph image. `build.mjs` fills the {{...}} tokens
+  (province outlines, graticule, radar motif) and renders it at 1200×630.
+  Palette and fonts mirror apps/web/src/index.css so the card looks like the app.
+-->
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=block" rel="stylesheet" />
+<script>
+  // build.mjs renders at 2× by zooming the whole page: playwright-cli screenshots
+  // in CSS pixels, so this is how a retina-sharp 2400×1260 comes out.
+  const scale = Number(new URLSearchParams(location.search).get("scale") || 1);
+  if (scale !== 1) document.documentElement.style.zoom = String(scale);
+</script>
+<style>
+  :root {
+    --bg: #0b1220;
+    --panel: #131c2e;
+    --border: #263148;
+    --fg: #e7ecf5;
+    --muted: #94a3b8;
+    --subtle: #64748b;
+    --accent: #3b82f6;
+    --accent-2: #7dd3fc;
+    --sky: #38bdf8;
+    --deep: #1d4ed8;
+    --mark: #fb923c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1200px; height: 630px; overflow: hidden; }
+  body {
+    position: relative;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Sarabun", "Noto Sans Thai", ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: geometricPrecision;
+  }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace; }
+
+  /* --- backdrop -------------------------------------------------------- */
+  .bg-glow {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(560px 560px at {{GLOW_CX}}px {{GLOW_CY}}px, rgba(37, 99, 235, 0.30), rgba(37, 99, 235, 0) 68%),
+      radial-gradient(520px 420px at 120px 600px, rgba(29, 78, 216, 0.16), rgba(29, 78, 216, 0) 70%),
+      linear-gradient(180deg, #0c1425 0%, #0b1220 55%, #0a101c 100%);
+  }
+  .bg-dots {
+    position: absolute; inset: 0;
+    background-image: radial-gradient(rgba(148, 163, 184, 0.16) 1px, transparent 1.2px);
+    background-size: 26px 26px;
+    background-position: 13px 13px;
+    -webkit-mask-image: radial-gradient(900px 620px at 640px 300px, #000 30%, transparent 100%);
+            mask-image: radial-gradient(900px 620px at 640px 300px, #000 30%, transparent 100%);
+  }
+  .bg-vignette {
+    position: absolute; inset: 0;
+    background: radial-gradient(1400px 900px at 50% 45%, transparent 55%, rgba(4, 8, 18, 0.55) 100%);
+  }
+  .top-bar {
+    position: absolute; left: 0; right: 0; top: 0; height: 5px;
+    background: linear-gradient(90deg, var(--deep) 0%, var(--sky) 55%, var(--mark) 100%);
+  }
+  .frame {
+    position: absolute; inset: 20px;
+    border: 1px solid rgba(148, 163, 184, 0.10);
+    border-radius: 18px;
+    pointer-events: none;
+  }
+
+  /* --- left column ------------------------------------------------------ */
+  .left {
+    position: absolute; left: 72px; top: 0; bottom: 0; width: 600px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    padding: 64px 0 56px;
+  }
+  .brand { display: flex; align-items: center; gap: 18px; }
+  .brand svg { width: 60px; height: 60px; flex: none; filter: drop-shadow(0 6px 18px rgba(29, 78, 216, 0.45)); }
+  .wordmark {
+    font-weight: 700; font-size: 58px; line-height: 1; letter-spacing: 0.045em;
+    background: linear-gradient(180deg, #ffffff 0%, #dbeafe 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .expansion {
+    margin-top: 12px;
+    font-size: 12.5px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; white-space: nowrap;
+    color: var(--accent-2); opacity: 0.85;
+  }
+
+  .headline { font-weight: 600; font-size: 41px; line-height: 1.26; color: #f8fafc; letter-spacing: -0.005em; white-space: nowrap; }
+  .headline .hi {
+    background: linear-gradient(90deg, #7dd3fc 0%, #60a5fa 60%, #93c5fd 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 14px 8px 11px;
+    border-radius: 999px;
+    border: 1px solid rgba(125, 211, 252, 0.22);
+    background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.025));
+    font-size: 17px; font-weight: 500; color: #dbe5f3;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+  .chip svg { width: 18px; height: 18px; stroke: var(--accent-2); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  .foot { display: flex; flex-direction: column; gap: 10px; }
+  .sources { font-size: 14.5px; line-height: 1.5; color: var(--muted); }
+  .sources b { font-weight: 600; color: #cbd5e1; }
+  .url-row { display: flex; align-items: center; gap: 14px; }
+  .url { font-size: 19px; font-weight: 500; color: var(--accent-2); letter-spacing: 0.02em; }
+  .honest {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 14px; font-weight: 500; color: var(--muted);
+    padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(148,163,184,0.18);
+  }
+  .honest i { width: 7px; height: 7px; border-radius: 50%; background: var(--sky); box-shadow: 0 0 10px var(--sky); }
+
+  /* --- map -------------------------------------------------------------- */
+  .map {
+    position: absolute; left: {{MAP_LEFT}}px; top: {{MAP_TOP}}px; width: {{MAP_W}}px; height: {{MAP_H}}px;
+    overflow: visible;
+  }
+  .grat line { stroke: rgba(148, 163, 184, 0.13); stroke-width: 1; shape-rendering: crispEdges; }
+  .grat text { font-family: "IBM Plex Mono", monospace; font-size: 10px; fill: rgba(148, 163, 184, 0.7); letter-spacing: 0.06em; }
+  .rings circle { fill: none; stroke: rgba(56, 189, 248, 0.22); stroke-width: 1; stroke-dasharray: 3 5; }
+  .glow path { fill: #3b82f6; opacity: 0.85; }
+  .land path { fill: url(#landFill); stroke: rgba(165, 205, 255, 0.5); stroke-width: 0.9; stroke-linejoin: round; fill-rule: evenodd; }
+  .coast path { fill: none; stroke: rgba(191, 219, 254, 0.75); stroke-width: 1.1; stroke-linejoin: round; }
+  .sweep path { fill: #38bdf8; }
+  .sweep line { stroke: rgba(224, 242, 254, 0.9); stroke-width: 1.2; }
+  .bkk .halo { fill: rgba(125, 211, 252, 0.28); }
+  .bkk .dot { fill: #f0f9ff; stroke: rgba(11, 18, 32, 0.9); stroke-width: 1.5; }
+</style>
+</head>
+<body>
+  <div class="bg-glow"></div>
+  <div class="bg-dots"></div>
+  <div class="bg-vignette"></div>
+  <div class="frame"></div>
+  <div class="top-bar"></div>
+
+  <svg class="map" viewBox="0 0 {{MAP_W}} {{MAP_H}}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs>
+      <radialGradient id="landFill" gradientUnits="userSpaceOnUse" cx="{{BKK_X}}" cy="{{BKK_Y}}" r="330">
+        <stop offset="0" stop-color="#2447b8" stop-opacity="0.92"/>
+        <stop offset="0.5" stop-color="#1e3a8a" stop-opacity="0.92"/>
+        <stop offset="1" stop-color="#16244d" stop-opacity="0.96"/>
+      </radialGradient>
+      <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+        <feGaussianBlur stdDeviation="16"/>
+      </filter>
+      <filter id="coastGlow" x="-10%" y="-10%" width="120%" height="120%">
+        <feGaussianBlur stdDeviation="2.2"/>
+      </filter>
+      <clipPath id="landClip">
+        {{PROVINCE_PATHS}}
+      </clipPath>
+    </defs>
+
+    <g class="grat">
+      {{GRATICULE_LINES}}
+      {{GRATICULE_LABELS}}
+    </g>
+    <g class="rings">{{RADAR_RINGS}}</g>
+
+    <g class="glow" filter="url(#glow)">
+      {{PROVINCE_PATHS}}
+    </g>
+    <g class="land">
+      {{PROVINCE_PATHS}}
+    </g>
+    <g class="coast" filter="url(#coastGlow)" opacity="0.7">
+      {{PROVINCE_PATHS}}
+    </g>
+    <g class="sweep" clip-path="url(#landClip)" style="mix-blend-mode: screen">
+      {{RADAR_SWEEP}}
+      {{RADAR_HEAD}}
+    </g>
+    <g class="bkk">
+      <circle class="halo" cx="{{BKK_X}}" cy="{{BKK_Y}}" r="9"/>
+      <circle class="dot" cx="{{BKK_X}}" cy="{{BKK_Y}}" r="3.6"/>
+    </g>
+  </svg>
+
+  <div class="left">
+    <div>
+      <div class="brand">
+        <!-- the favicon mark, enlarged -->
+        <svg viewBox="0 0 64 64" aria-hidden="true">
+          <defs><clipPath id="disc"><circle cx="32" cy="32" r="30"/></clipPath></defs>
+          <circle cx="32" cy="32" r="30" fill="#1d4ed8"/>
+          <g clip-path="url(#disc)" fill="none" stroke-width="5" stroke-linecap="round">
+            <path d="M-2 30 C10 16 22 16 32 26 C42 36 54 36 66 24" stroke="#ffffff"/>
+            <path d="M-2 46 C10 32 22 32 32 42 C42 52 54 52 66 40" stroke="#7dd3fc"/>
+          </g>
+          <circle cx="14" cy="19" r="6.5" fill="#1d4ed8"/>
+          <circle cx="14" cy="19" r="4.5" fill="#fb923c"/>
+        </svg>
+        <div class="wordmark">SIAHRA</div>
+      </div>
+      <div class="expansion mono">Spatial Intelligence Atlas for Hazard &amp; Resilience Analytics</div>
+    </div>
+
+    <div>
+      <div class="headline">
+        แผนที่ 3 มิติเฝ้าระวังภัยพิบัติของไทย<br/>
+        <span class="hi">จากข้อมูลที่ตรวจวัดได้จริง</span>
+      </div>
+      <div class="chips">
+        <span class="chip"><svg viewBox="0 0 24 24"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>ภูมิประเทศ 3D</span>
+        <span class="chip"><svg viewBox="0 0 24 24"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>ระดับน้ำ</span>
+        <span class="chip"><svg viewBox="0 0 24 24"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M16 14v6"/><path d="M8 14v6"/><path d="M12 16v6"/></svg>เรดาร์ฝน</span>
+        <span class="chip"><svg viewBox="0 0 24 24"><path d="m13.5 6.5-3.148-3.148a1.205 1.205 0 0 0-1.704 0L6.352 5.648a1.205 1.205 0 0 0 0 1.704L9.5 10.5"/><path d="M16.5 7.5 19 5"/><path d="m17.5 10.5 3.148 3.148a1.205 1.205 0 0 1 0 1.704l-2.296 2.296a1.205 1.205 0 0 1-1.704 0L13.5 14.5"/><path d="M9 21a6 6 0 0 0-6-6"/><path d="M9.352 10.648a1.205 1.205 0 0 0 0 1.704l2.296 2.296a1.205 1.205 0 0 0 1.704 0l4.296-4.296a1.205 1.205 0 0 0 0-1.704l-2.296-2.296a1.205 1.205 0 0 0-1.704 0z"/></svg>น้ำท่วมจากดาวเทียม</span>
+        <span class="chip"><svg viewBox="0 0 24 24"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/></svg>แผ่นดินไหว</span>
+      </div>
+    </div>
+
+    <div class="foot">
+      <div class="sources">ข้อมูลจาก <b>สสน. (ThaiWater)</b> · <b>กรมอุตุนิยมวิทยา</b> · <b>GISTDA</b> · <b>USGS</b> · <b>EMSC</b></div>
+      <div class="url-row">
+        <span class="url mono">siahra-radar.co</span>
+        <span class="honest"><i></i>ระบุเวลาที่ตรวจวัดทุกชั้นข้อมูล</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
