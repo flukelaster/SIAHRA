@@ -474,9 +474,14 @@ ON stations USING GIST (geom);
 
 
 CREATE TABLE observations (
+  id bigserial PRIMARY KEY,
   station_id text NOT NULL REFERENCES stations(id),
-  -- when the instrument/agency says the value was measured
-  observed_at timestamptz NOT NULL,
+  -- Nullable: shared-types declares `observedAt: string | null` for both
+  -- RainfallObservation and WaterLevelObservation because ThaiWater does omit
+  -- or corrupt the measurement time. NOT NULL here would force the consumer to
+  -- drop a real sensor reading or write the fetch time in and thereby invent
+  -- when the instrument measured — the forbidden move.
+  observed_at timestamptz,
   -- when the upstream source published it (null when the source does not say)
   source_published_at timestamptz,
   -- when SIAHRA successfully received it. NOT NULL: a row cannot exist
@@ -487,11 +492,17 @@ CREATE TABLE observations (
   unit text NOT NULL,
   quality_code text,
   source_payload jsonb,
-  PRIMARY KEY (station_id, observed_at, variable)
+  -- Idempotency without a usable observation time: a surrogate PK plus a
+  -- uniqueness key that tolerates the null. An undated reading dedupes on the
+  -- reading itself rather than silently collapsing every undated value for a
+  -- station into one row.
+  CONSTRAINT observations_identity_uniq
+    UNIQUE NULLS NOT DISTINCT (station_id, variable, observed_at, fetched_at)
 );
 
+-- NULLS LAST so undated readings never sort as the most recent
 CREATE INDEX observations_time_idx
-ON observations (observed_at DESC);
+ON observations (observed_at DESC NULLS LAST);
 
 CREATE INDEX observations_fetched_idx
 ON observations (fetched_at DESC);
@@ -578,14 +589,9 @@ CREATE TABLE flood_extents (
   fetched_at timestamptz NOT NULL,
   first_seen_at timestamptz NOT NULL,
   last_seen_at timestamptz NOT NULL,
-  -- Nullable, because a real extent may genuinely span no single province and
-  -- there is no provinces row to point a sentinel at. What must NOT happen is
-  -- a plain UNIQUE: it treats every NULL as distinct, so an unassigned extent
-  -- would slip past the key and be inserted again on every redelivery.
-  -- NULLS NOT DISTINCT (Postgres 15+) closes that hole without inventing a
-  -- province. If you are on an older Postgres, add a real '__unassigned__' row
-  -- to `provinces` first — a sentinel with no referent just fails the foreign
-  -- key and drops the extent entirely.
+  -- Nullable and mutable: an extent may arrive with no province and be
+  -- assigned one later. Because it is no longer part of the uniqueness key,
+  -- a null here neither blocks the insert nor splits the row's identity.
   province_code text REFERENCES provinces(code),
   -- MultiPolygon only, so every insert must normalise: FloodExtentFeature
   -- permits `Polygon | MultiPolygon` and GISTDA does return bare Polygons.
@@ -595,9 +601,13 @@ CREATE TABLE flood_extents (
   confidence double precision,
   artifact_key text,
   provenance jsonb NOT NULL,
+  -- Identity is the upstream artifact + feature, and nothing else.
+  -- province_code is DERIVED metadata: an extent may arrive unassigned and be
+  -- assigned later, or have a wrong code corrected. If it were part of the key
+  -- that correction would not conflict with the original row — the old polygon
+  -- would survive next to the new one and be rendered and counted twice.
   CONSTRAINT flood_extents_source_artifact_uniq
-    UNIQUE NULLS NOT DISTINCT
-      (source, source_artifact_id, source_feature_id, province_code)
+    UNIQUE (source, source_artifact_id, source_feature_id)
 );
 
 CREATE INDEX flood_extents_geom_gix
@@ -624,16 +634,29 @@ INSERT INTO flood_extents (
 ) VALUES (
   ..., ST_Multi(ST_GeomFromGeoJSON($geometry)), ...
 )
-ON CONFLICT (source, source_artifact_id, source_feature_id, province_code)
+ON CONFLICT (source, source_artifact_id, source_feature_id)
 DO UPDATE SET
-  -- EXCLUDED.geom is already ST_Multi'd by the VALUES clause above
-  geom         = EXCLUDED.geom,
-  confidence   = EXCLUDED.confidence,
-  fetched_at   = EXCLUDED.fetched_at,
-  -- first_seen_at is deliberately absent: it is set once, on the first
-  -- insert, and a redelivery must not move it forward
-  last_seen_at = EXCLUDED.last_seen_at,
-  provenance   = EXCLUDED.provenance;
+  -- Queue redelivery is not ordered, so the payload is replaced only by a
+  -- genuinely newer delivery: a retried older message must not overwrite newer
+  -- geometry or drag the displayed freshness backwards. This is a CASE rather
+  -- than a statement-level WHERE because an out-of-order delivery still
+  -- carries valid evidence about when the feature was seen, and that must be
+  -- merged even when its payload is discarded.
+  geom          = CASE WHEN EXCLUDED.fetched_at > flood_extents.fetched_at
+                       THEN EXCLUDED.geom ELSE flood_extents.geom END,
+  confidence    = CASE WHEN EXCLUDED.fetched_at > flood_extents.fetched_at
+                       THEN EXCLUDED.confidence ELSE flood_extents.confidence END,
+  province_code = CASE WHEN EXCLUDED.fetched_at > flood_extents.fetched_at
+                       THEN EXCLUDED.province_code ELSE flood_extents.province_code END,
+  provenance    = CASE WHEN EXCLUDED.fetched_at > flood_extents.fetched_at
+                       THEN EXCLUDED.provenance ELSE flood_extents.provenance END,
+  observed_at   = CASE WHEN EXCLUDED.fetched_at > flood_extents.fetched_at
+                       THEN EXCLUDED.observed_at ELSE flood_extents.observed_at END,
+  -- monotonic bounds, merged from every delivery regardless of order:
+  -- first_seen_at only ever moves backwards, last_seen_at only forwards
+  fetched_at    = GREATEST(flood_extents.fetched_at, EXCLUDED.fetched_at),
+  first_seen_at = LEAST(flood_extents.first_seen_at, EXCLUDED.first_seen_at),
+  last_seen_at  = GREATEST(flood_extents.last_seen_at, EXCLUDED.last_seen_at);
 ```
 
 ### Why every table carries both `observed_at` and `fetched_at`
@@ -662,7 +685,15 @@ CREATE TABLE forecast_runs (
   id uuid PRIMARY KEY,
   model text NOT NULL,
   model_version text NOT NULL,
+  -- the forecast's model time — the cycle it was initialised from
   initialized_at timestamptz NOT NULL,
+  -- when the provider actually published the run (null if it does not say)
+  published_at timestamptz,
+  -- when SIAHRA received it. This — never initialized_at — is what the layer
+  -- descriptor's `fetchedAt` is rendered from: a run can be published hours
+  -- after its cycle, and reusing initialized_at would report a receipt time
+  -- that never happened.
+  fetched_at timestamptz NOT NULL,
   horizon_hours integer NOT NULL,
   status text NOT NULL,
   forcing jsonb NOT NULL,
@@ -676,13 +707,22 @@ PostGIS spatial indexes use GiST, and index-aware functions such as `ST_Intersec
 Example:
 
 ```sql
+-- one view, so no read path can forget the retraction filter
+CREATE VIEW active_earthquakes AS
+  SELECT * FROM earthquakes WHERE status <> 'deleted';
+
 SELECT e.*
-FROM earthquakes e
+FROM active_earthquakes e
 JOIN provinces p ON p.code = $1
 WHERE ST_Intersects(e.geom, p.geom)
   AND e.origin_at >= now() - interval '7 days'
 ORDER BY e.origin_at DESC;
 ```
+
+The row itself is kept — the retraction is part of the history — but a
+withdrawn event must never be served as an active one. Every read path goes
+through `active_earthquakes` rather than repeating `status <> 'deleted'` and
+eventually omitting it somewhere.
 
 Or:
 
@@ -1426,7 +1466,11 @@ export function connectHazardStream(
     );
 
     socket.addEventListener("open", () => {
-      retryMs = 1_000;
+      // NOT the place to reset the backoff. A backend fault can accept the
+      // socket and drop it immediately; resetting here would turn the
+      // exponential backoff into a 1-second reconnect loop that hammers the
+      // API for as long as the outage lasts. The delay is reset only once the
+      // connection has proved itself — see the message handler.
       onStatus({ state: "live" });
       armHeartbeatDeadline();
     });
@@ -1434,6 +1478,9 @@ export function connectHazardStream(
     socket.addEventListener("message", (event) => {
       // any frame, heartbeat included, proves the connection is still alive
       armHeartbeatDeadline();
+      // ...and a delivered frame is what "stable" means, so this is where the
+      // backoff resets
+      retryMs = 1_000;
 
       try {
         onMessage(JSON.parse(event.data));
@@ -1526,7 +1573,7 @@ export const earthquakesRoute: Route = {
           e.depth_km,
           ST_X(e.geom::geometry) AS lon,
           ST_Y(e.geom::geometry) AS lat
-        FROM earthquakes e
+        FROM active_earthquakes e
         JOIN provinces p
           ON p.code = ${province}
         WHERE ST_Intersects(e.geom, p.geom)
