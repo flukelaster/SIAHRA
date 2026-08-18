@@ -7,7 +7,7 @@ import type {
   HazardLayerDescriptor,
   SourceStatus,
 } from "@siahra/shared-types";
-import { fetchGistdaFloodExtent } from "../ingestion/gistda.js";
+import { fetchGistdaFloodExtent, type FetchOptions } from "../ingestion/gistda.js";
 import { keys as archiveKeys, putJsonGz } from "../archive.js";
 
 /** GISTDA re-interprets scenes irregularly; half-hourly polling is plenty. */
@@ -21,6 +21,12 @@ const STALE_AFTER_MS = 3 * 60 * 60 * 1000;
 const HISTORY_MS = 30 * 24 * 60 * 60 * 1000;
 /** DO ที่ยังไม่เคยมีข้อมูลเลย รอผลรอบแรกได้แค่นี้ ที่เหลือปล่อยวิ่งต่อเบื้องหลัง */
 const COLD_START_WAIT_MS = 3_000;
+/**
+ * งานที่ค้างอยู่หลังตอบ request มีเวลาจำกัด (~30 วิ) — cold start จึงยิงครั้งเดียว
+ * ไม่ retry เพื่อให้ refresh() ได้บันทึก lastError/backoff ทัน ไม่ถูกตัดกลางคัน
+ * ส่วน alarm ไม่มีข้อจำกัดนี้ จึงใช้ retry เต็มชุด
+ */
+const COLD_START_FETCH = { attempts: 1, timeoutMs: 20_000 };
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -97,7 +103,7 @@ export class FloodExtentDO extends DurableObject<Env> {
   /** ระยะรอครั้งถัดไปเมื่อล้มติดกัน n ครั้ง: 5m, 10m, 20m, 30m… (+jitter) */
   private backoffMs(failures: number): number {
     const base = Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** Math.max(0, failures - 1));
-    return Math.round(base * (0.85 + Math.random() * 0.3));
+    return Math.min(RETRY_MAX_MS, Math.round(base * (0.85 + Math.random() * 0.3)));
   }
 
   private failureCount(): number {
@@ -132,7 +138,7 @@ export class FloodExtentDO extends DurableObject<Env> {
     const due = r === null || Date.now() - r > REFRESH_MS;
     const allowed = Date.now() >= this.nextAttemptMs();
     if (neverAttempted) {
-      const first = this.refreshOnce();
+      const first = this.refreshOnce(COLD_START_FETCH);
       this.ctx.waitUntil(first);
       await Promise.race([first, sleep(COLD_START_WAIT_MS)]);
     } else if (due && allowed) {
@@ -141,21 +147,21 @@ export class FloodExtentDO extends DurableObject<Env> {
     await this.armAlarm(this.retrievedMs() === null ? this.backoffMs(this.failureCount()) : REFRESH_MS);
   }
 
-  private refreshOnce(): Promise<boolean> {
+  private refreshOnce(options?: FetchOptions): Promise<boolean> {
     if (!this.inflight) {
-      this.inflight = this.refresh().finally(() => {
+      this.inflight = this.refresh(options).finally(() => {
         this.inflight = null;
       });
     }
     return this.inflight;
   }
 
-  private async refresh(): Promise<boolean> {
+  private async refresh(options?: FetchOptions): Promise<boolean> {
     const nowMs = Date.now();
     this.writeMeta("lastAttemptAt", new Date(nowMs).toISOString());
     let features;
     try {
-      features = await fetchGistdaFloodExtent();
+      features = await fetchGistdaFloodExtent(options);
     } catch (err) {
       const failures = this.failureCount() + 1;
       const waitMs = this.backoffMs(failures);

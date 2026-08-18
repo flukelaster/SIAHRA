@@ -16,7 +16,8 @@ const HEALTH_META: Record<SourceHealth, { dot: string; label: string }> = {
  */
 function statusLabel(s: SourceStatus): string {
   if (s.health === "down" && !s.fetchedAt) return "ต้นทางไม่ตอบสนอง (ยังไม่เคยได้ข้อมูล)";
-  if (s.health === "degraded" && s.fetchedAt) return "ต้นทางล่ม · ใช้ข้อมูลเดิม";
+  // degraded = "บางส่วนล้มเหลว" ซึ่งอาจมีข้อมูลบางชุดที่เพิ่งดึงมาใหม่จริง ๆ
+  // (ThaiWater สำเร็จครึ่งเดียว / แผ่นดินไหวเสียแหล่งเดียว) จึงห้ามเหมาว่า "ใช้ข้อมูลเดิม"
   return HEALTH_META[s.health].label;
 }
 
