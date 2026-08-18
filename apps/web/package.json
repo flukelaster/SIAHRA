@@ -9,7 +9,8 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "og:image": "node og/build.mjs",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "test": "vitest run"
   },
   "dependencies": {
     "@siahra/shared-types": "*",
@@ -29,6 +30,7 @@
     "tailwindcss": "^4.3.3",
     "typescript": "~7.0.2",
     "vite": "^8.2.0",
+    "vitest": "^4.1.0",
     "wrangler": "^4.123.0"
   }
 }

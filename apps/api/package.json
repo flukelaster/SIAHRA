@@ -8,13 +8,16 @@
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
     "types": "wrangler types",
-    "dev:raw": "wrangler dev --port 8787 --test-scheduled"
+    "dev:raw": "wrangler dev --port 8787 --test-scheduled",
+    "test": "vitest run"
   },
   "dependencies": {
     "@siahra/shared-types": "*"
   },
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.22.0",
     "typescript": "^7.0.2",
+    "vitest": "^4.1.0",
     "wrangler": "^4.123.0"
   }
 }

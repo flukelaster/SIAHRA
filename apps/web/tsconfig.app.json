@@ -22,5 +22,8 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  // เทสรันด้วย vitest (ไม่ผ่าน tsc -b) จึงไม่เอาเข้า build graph — ไม่งั้น
+  // ต้องลาก types ของ vitest เข้ามาใน tsconfig ของแอปโดยไม่จำเป็น
+  "exclude": ["src/**/*.test.ts"]
 }
