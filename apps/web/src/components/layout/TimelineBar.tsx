@@ -1,6 +1,7 @@
 import { Pause, Play, RotateCcw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Segmented } from "../ui/Segmented";
+import { formatFetchedAt } from "../../lib/time";
 
 /** Selectable playback windows: hours, slider step in minutes, tick marks (hours ago). */
 const RANGES: { hours: number; stepMin: number; label: string; ticks: number[] }[] = [
@@ -68,7 +69,7 @@ export function TimelineBar({
 
   const label = useMemo(() => {
     if (!atIso) return "ปัจจุบัน · ค่าล่าสุด";
-    return new Date(atIso).toLocaleString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + " น.";
+    return formatFetchedAt(atIso);
   }, [atIso]);
 
   const live = atIso === null;

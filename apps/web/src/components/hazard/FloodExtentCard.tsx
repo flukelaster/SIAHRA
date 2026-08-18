@@ -1,18 +1,8 @@
 import { Info, Satellite } from "lucide-react";
 import type { FloodExtentState } from "../../hooks/useFloodExtent";
 import { Panel } from "../ui/Panel";
-
-function ago(iso: string | null): string {
-  if (!iso) return "—";
-  const min = Math.round((Date.now() - Date.parse(iso)) / 60000);
-  if (min < 60) return `${min} นาทีที่แล้ว`;
-  const h = Math.floor(min / 60);
-  return h < 48 ? `${h} ชม.ที่แล้ว` : `${Math.floor(h / 24)} วันที่แล้ว`;
-}
-
-function dateTh(iso: string): string {
-  return new Date(iso).toLocaleString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-}
+import { formatNumber } from "../../lib/number";
+import { NEVER_RECEIVED_TH, formatAge, formatDateTime } from "../../lib/time";
 
 /**
  * Satellite-observed flood extent for the selected province. Everything shown
@@ -60,7 +50,7 @@ export function FloodExtentCard({ state }: { state: FloodExtentState }) {
         ) : features.length === 0 ? (
           <p className="rounded-lg bg-[var(--color-bg-elevated)] px-2.5 py-3 text-center text-xs text-[var(--color-fg-muted)]">
             ไม่พบพื้นที่น้ำท่วมในจังหวัดนี้จากภาพชุดล่าสุด
-            {data?.retrievedAt ? ` (ดึงเมื่อ ${ago(data.retrievedAt)})` : ""}
+            {data?.retrievedAt ? ` (ดึงเมื่อ ${formatAge(data.retrievedAt)})` : ""}
           </p>
         ) : (
           <>
@@ -72,13 +62,13 @@ export function FloodExtentCard({ state }: { state: FloodExtentState }) {
               <div>
                 <p className="text-[11px] text-[var(--color-fg-muted)]">พื้นที่ (ไร่)</p>
                 <p className="text-xl font-bold tabular-nums text-[#4d94b8]">
-                  {Math.round(totalRai).toLocaleString("th-TH")}
+                  {formatNumber(Math.round(totalRai))}
                 </p>
               </div>
               <div>
                 <p className="text-[11px] text-[var(--color-fg-muted)]">บ้านเรือน</p>
                 <p className="text-xl font-bold tabular-nums text-[var(--color-fg)]">
-                  {houses.toLocaleString("th-TH")}
+                  {formatNumber(houses)}
                 </p>
               </div>
             </div>
@@ -89,14 +79,14 @@ export function FloodExtentCard({ state }: { state: FloodExtentState }) {
                   className="flex items-center gap-2 border-t border-white/8 py-1.5 first:border-t-0"
                 >
                   <span className="w-16 shrink-0 text-right text-sm font-semibold tabular-nums text-[#4d94b8]">
-                    {Math.round(f.properties.floodAreaRai ?? 0).toLocaleString("th-TH")}
+                    {formatNumber(Math.round(f.properties.floodAreaRai ?? 0))}
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-xs text-[var(--color-fg)]">
                       {f.properties.tambonTh ?? "ไม่ระบุตำบล"}
                     </p>
                     <p className="truncate text-[11px] text-[var(--color-fg-subtle)]">
-                      {f.properties.amphoeTh ?? ""} · พบครั้งแรก {dateTh(f.properties.firstSeenAt)}
+                      {f.properties.amphoeTh ?? ""} · พบครั้งแรก {formatDateTime(f.properties.firstSeenAt)}
                     </p>
                   </div>
                 </li>
@@ -108,8 +98,8 @@ export function FloodExtentCard({ state }: { state: FloodExtentState }) {
           <Info size={13} className="mt-0.5 shrink-0 text-[var(--color-fg-subtle)]" aria-hidden="true" />
           ขอบเขตน้ำท่วมแปลจากภาพดาวเทียมโดย GISTDA (ชุดข้อมูล flooding_vis) — เป็นสิ่งที่ตรวจพบแล้ว
           ไม่ใช่การพยากรณ์ · ภาพชุดนี้ไม่ระบุวันที่ถ่าย ระบบจึงแสดงเวลาที่ดึงข้อมูล
-          {data?.retrievedAt ? ` (${ago(data.retrievedAt)})` : ""}
-          {earliest ? ` และเวลาที่พบพื้นที่แต่ละแห่งครั้งแรก (เก่าสุด ${dateTh(earliest)})` : ""}
+          {` (${data?.retrievedAt ? formatAge(data.retrievedAt) : NEVER_RECEIVED_TH})`}
+          {earliest ? ` และเวลาที่พบพื้นที่แต่ละแห่งครั้งแรก (เก่าสุด ${formatDateTime(earliest)})` : ""}
         </p>
       </div>
     </Panel>

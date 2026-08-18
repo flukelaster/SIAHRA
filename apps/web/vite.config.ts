@@ -55,6 +55,8 @@ function terrainTiles(): Plugin {
 // share one origin through zone routes (`/api/*` → siahra-api, `/*` →
 // siahra-web). Dev mirrors that single-origin view with two processes, so proxy
 // /api to the local `wrangler dev` instance.
+const API_TARGET = `http://127.0.0.1:${PORTS.api ?? 8787}`;
+
 export default defineConfig({
   plugins: [react(), tailwindcss(), terrainTiles()],
   server: {
@@ -62,9 +64,18 @@ export default defineConfig({
     strictPort: PORTS.web !== undefined,
     proxy: {
       "/api": {
-        target: `http://127.0.0.1:${PORTS.api ?? 8787}`,
+        target: API_TARGET,
         changeOrigin: true,
         ws: true,
+        // `changeOrigin` rewrites Host but leaves Origin pointing at the vite
+        // port, so the api Worker's same-origin guard (apps/api/src/rateLimit.ts
+        // `originAllowed`) sees Origin != Host and answers 403 — which it is
+        // right to do. In production both Workers share siahra-radar.co, so the
+        // browser's Origin already matches; dev is the only place the two split.
+        // Rewriting Origin to the proxy target restores that single-origin view
+        // instead of loosening the guard. Without this the earthquake WebSocket
+        // handshake, which always sends an Origin, can never connect in dev.
+        headers: { Origin: API_TARGET },
       },
     },
   },

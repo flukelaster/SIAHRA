@@ -1,3 +1,5 @@
+import { formatFetchedAt } from "../../lib/time";
+
 const STALE_AFTER_MS = 15 * 60 * 1000;
 
 export function ApiStatusFooter({
@@ -30,11 +32,8 @@ export function ApiStatusFooter({
             {!connected ? "ยังไม่เชื่อมต่อ" : stale ? "ข้อมูลค้าง" : "ปกติ"}
           </span>
         </div>
-        {fetchedAt ? (
-          <span className="tabular-nums text-[var(--color-fg-subtle)]">
-            {new Date(fetchedAt).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })} น.
-          </span>
-        ) : null}
+        {/* fetchedAt = null คือ "ยังไม่เคยดึงสำเร็จ" — ต้องเห็นข้อความนั้น ไม่ใช่หายไปเฉย ๆ */}
+        <span className="tabular-nums text-[var(--color-fg-subtle)]">{formatFetchedAt(fetchedAt)}</span>
       </div>
       {attribution ? (
         <p className="text-[10px] leading-snug text-[var(--color-fg-subtle)]">{attribution}</p>

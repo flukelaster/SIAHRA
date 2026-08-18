@@ -1,12 +1,14 @@
 import { Activity, AlertTriangle, Waves } from "lucide-react";
 import type { EarthquakeEvent } from "@siahra/shared-types";
 import type { EarthquakeFeedState, FeedStatus } from "../../hooks/useEarthquakeFeed";
+import { NEVER_RECEIVED_TH, formatAge, formatFetchedAt } from "../../lib/time";
 import { Panel } from "../ui/Panel";
 
 const STATUS_META: Record<FeedStatus, { label: string; dot: string; text: string }> = {
   connecting: { label: "กำลังเชื่อมต่อ", dot: "bg-slate-400", text: "text-[var(--color-fg-muted)]" },
   live: { label: "เรียลไทม์", dot: "bg-[var(--color-success)]", text: "text-[var(--color-success)]" },
   polling: { label: "ดึงข้อมูลเป็นช่วง", dot: "bg-amber-400", text: "text-amber-400" },
+  reconnecting: { label: "สายหลุด กำลังต่อใหม่", dot: "bg-amber-400 animate-pulse", text: "text-amber-400" },
   error: { label: "เชื่อมต่อไม่ได้", dot: "bg-[var(--color-danger)]", text: "text-[var(--color-danger)]" },
 };
 
@@ -16,15 +18,6 @@ function magnitudeColor(mag: number | null): string {
   if (mag >= 5) return "text-[var(--color-risk-high)]";
   if (mag >= 4) return "text-[var(--color-risk-medium)]";
   return "text-[var(--color-risk-low)]";
-}
-
-function timeAgo(iso: string): string {
-  const diffMin = Math.floor((Date.now() - Date.parse(iso)) / 60000);
-  if (diffMin < 1) return "เมื่อสักครู่";
-  if (diffMin < 60) return `${diffMin} นาทีที่แล้ว`;
-  const h = Math.floor(diffMin / 60);
-  if (h < 24) return `${h} ชม.ที่แล้ว`;
-  return `${Math.floor(h / 24)} วันที่แล้ว`;
 }
 
 function EventRow({ event }: { event: EarthquakeEvent }) {
@@ -44,7 +37,7 @@ function EventRow({ event }: { event: EarthquakeEvent }) {
           <span aria-hidden="true">·</span>
           <span>ลึก {event.depthKm?.toFixed(0) ?? "—"} กม.</span>
           <span aria-hidden="true">·</span>
-          <span>{timeAgo(event.time)}</span>
+          <span>{formatAge(event.time)}</span>
           {/* Automatic detections are unreviewed — must not look identical
               to human-reviewed solutions (see docs/ui-copy-rules.md). */}
           {event.status === "automatic" ? (
@@ -64,7 +57,7 @@ function EventRow({ event }: { event: EarthquakeEvent }) {
 }
 
 export function EarthquakeLiveCard({ feed }: { feed: EarthquakeFeedState }) {
-  const { events, status, asOf, error } = feed;
+  const { events, status, asOf, error, parseErrors } = feed;
   const meta = STATUS_META[status];
   const strongest = events.reduce<EarthquakeEvent | null>(
     (acc, e) => ((e.mag ?? -Infinity) > (acc?.mag ?? -Infinity) ? e : acc),
@@ -106,6 +99,13 @@ export function EarthquakeLiveCard({ feed }: { feed: EarthquakeFeedState }) {
           </p>
         ) : null}
 
+        {parseErrors > 0 ? (
+          <p className="flex items-start gap-1.5 rounded-lg bg-amber-500/10 px-2.5 py-2 text-[11px] text-amber-400">
+            <AlertTriangle size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
+            ข้อความจากฟีดอ่านไม่ได้ {parseErrors} รายการ — อาจมีเหตุการณ์ที่ยังไม่ได้แสดง
+          </p>
+        ) : null}
+
         {events.length > 0 ? (
           <ul className="max-h-72 overflow-y-auto pr-0.5">
             {events.slice(0, 25).map((e) => (
@@ -123,7 +123,9 @@ export function EarthquakeLiveCard({ feed }: { feed: EarthquakeFeedState }) {
         <p className="flex items-start gap-1.5 rounded-lg bg-[var(--color-bg-elevated)] px-2.5 py-2 text-[11px] text-[var(--color-fg-muted)]">
           <Activity size={13} className="mt-0.5 shrink-0 text-[var(--color-fg-subtle)]" aria-hidden="true" />
           ข้อมูลตรวจวัดจริงจาก USGS และ EMSC — เป็นเหตุการณ์ที่ตรวจพบแล้ว ไม่ใช่การพยากรณ์
-          {asOf ? ` · อัปเดต ${new Date(asOf).toLocaleTimeString("th-TH")}` : ""}
+          {/* ความซื่อสัตย์ต่อข้อมูล: asOf มาจากต้นทางเท่านั้น ตอนสายหลุดจึงยังเป็น
+              เวลาเดิม + อายุที่เพิ่มขึ้น ไม่ใช่ "เมื่อสักครู่" ของนาฬิกาเครื่องผู้ใช้ */}
+          {` · ข้อมูล ณ ${asOf ? `${formatFetchedAt(asOf)} (${formatAge(asOf)})` : NEVER_RECEIVED_TH}`}
         </p>
       </div>
     </Panel>

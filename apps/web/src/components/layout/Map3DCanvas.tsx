@@ -35,6 +35,7 @@ import { buildStationMarkers, type StationMarkerResult } from "../../scene/Stati
 import { buildTerrainMesh, type TerrainField } from "../../scene/TerrainMesh";
 import { createTerrainSharedUniforms } from "../../scene/terrainMaterial";
 import { TerrainTileTree, type TerrainTileStats } from "../../scene/TerrainTiles";
+import { formatNumber } from "../../lib/number";
 
 export interface MapLayers {
   imagery: boolean;
@@ -772,7 +773,7 @@ export function Map3DCanvas({
       labels.add(
         makeLabel(
           tambonTh ?? "พื้นที่น้ำท่วม",
-          floodAreaRai !== null ? `น้ำท่วม ${Math.round(floodAreaRai).toLocaleString("th-TH")} ไร่ (ภาพดาวเทียม)` : "น้ำท่วม (ภาพดาวเทียม)",
+          floodAreaRai !== null ? `น้ำท่วม ${formatNumber(Math.round(floodAreaRai))} ไร่ (ภาพดาวเทียม)` : "น้ำท่วม (ภาพดาวเทียม)",
           "info",
           new THREE.Vector3(x, loaded.terrain.sample(x, z) + 30, z),
           40 + (floodAreaRai ?? 0) / 1000,

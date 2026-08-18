@@ -12,6 +12,7 @@ import type { CameraPose, MapTool, SafeArea, SceneHandles } from "../../scene/se
 import { IconButton } from "../ui/Panel";
 import { Map3DCanvas, type MapApi, type MapInfo, type MapLayers } from "./Map3DCanvas";
 import type { QualityLevel, QualityMode } from "../../scene/quality";
+import { formatTime } from "../../lib/time";
 
 const ZOOM_FACTOR = 0.75;
 
@@ -160,7 +161,7 @@ export function MapViewport({
           <p className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-black/70 px-2.5 py-0.5 text-[11px] text-white/85 backdrop-blur-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden="true" />
             เรดาร์ฝน TMD{" "}
-            {new Date(info.radarFrameAt).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })} น.
+            {formatTime(info.radarFrameAt)} น.
           </p>
         ) : null}
       </div>

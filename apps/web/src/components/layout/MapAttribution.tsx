@@ -1,5 +1,6 @@
 import { BRAND, DATA_ATTRIBUTION_TH } from "../../branding";
 import type { MapInfo } from "./Map3DCanvas";
+import { formatNumber } from "../../lib/number";
 
 /**
  * Terrain/imagery provenance + copyright, one quiet block under the dock.
@@ -16,9 +17,9 @@ export function MapAttribution({ info, exaggeration }: { info: MapInfo | null; e
     );
     parts.push(`มาตราส่วนแนวดิ่ง ${exaggeration === 1 ? "1:1 (จริง)" : `${exaggeration}:1 (ขยายแนวดิ่ง)`}`);
     parts.push(
-      `อาคาร OSM ${info.buildingCount.toLocaleString("th-TH")} หลัง${info.coverage === "urban-core" ? " (เฉพาะเขตเมือง)" : ""}`,
+      `อาคาร OSM ${formatNumber(info.buildingCount)} หลัง${info.coverage === "urban-core" ? " (เฉพาะเขตเมือง)" : ""}`,
     );
-    if (info.stationCount > 0) parts.push(`สถานีตรวจวัด ${info.stationCount.toLocaleString("th-TH")} สถานี`);
+    if (info.stationCount > 0) parts.push(`สถานีตรวจวัด ${formatNumber(info.stationCount)} สถานี`);
     if (info.imagery) parts.push(`ภาพดาวเทียม © ${info.imagery.attribution}`);
   }
   return (

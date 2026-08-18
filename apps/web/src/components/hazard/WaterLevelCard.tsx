@@ -4,6 +4,7 @@ import type { SituationLevel, WaterLevelObservation } from "@siahra/shared-types
 import { useStationHistory } from "../../hooks/useStationHistory";
 import { Panel } from "../ui/Panel";
 import { Sparkline } from "./Sparkline";
+import { NEVER_RECEIVED_TH, formatFetchedAt } from "../../lib/time";
 
 /**
  * ThaiWater's own published situation levels. This app displays the source's
@@ -155,7 +156,9 @@ export function WaterLevelCard({
           <Info size={13} className="mt-0.5 shrink-0 text-[var(--color-fg-subtle)]" aria-hidden="true" />
           ค่าที่แสดงเป็นการตรวจวัดจริงจากสถานีโทรมาตร ไม่ใช่การพยากรณ์
           {attribution ? ` · ${attribution}` : ""}
-          {observedAt ? ` · ข้อมูล ${observedAt}` : ""}
+          {/* NEVER_RECEIVED_TH already reads "ยังไม่เคยได้รับข้อมูล", so the "ข้อมูล" prefix
+              would repeat the word; prefix it only when there is a real timestamp to label. */}
+          {observedAt ? ` · ข้อมูล ${formatFetchedAt(observedAt)}` : ` · ${NEVER_RECEIVED_TH}`}
         </p>
       </div>
     </Panel>

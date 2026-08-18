@@ -3,10 +3,11 @@ import { useState } from "react";
 import type { PickResult } from "../../scene/picking";
 import { useStationHistory } from "../../hooks/useStationHistory";
 import { Sparkline } from "../hazard/Sparkline";
+import { formatNumber } from "../../lib/number";
+import { formatDateTime } from "../../lib/time";
 
 function fmtTime(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  return iso ? formatDateTime(iso) : "—";
 }
 
 const SITUATION: Record<number, string> = { 1: "น้ำน้อยวิกฤต", 2: "น้ำน้อย", 3: "ปกติ", 4: "น้ำมาก", 5: "ล้นตลิ่ง" };
@@ -113,8 +114,8 @@ export function InfoPopup({ pick, onClose }: { pick: PickResult; onClose: () => 
           </p>
           <div className="mt-2 flex flex-col gap-0.5">
             <Row k="ความจุที่เก็บกัก" v={pick.dam.storagePercent !== null ? `${pick.dam.storagePercent.toFixed(1)} %` : "—"} />
-            <Row k="ปริมาณน้ำ" v={pick.dam.storageMcm !== null ? `${pick.dam.storageMcm.toLocaleString("th-TH", { maximumFractionDigits: 1 })} ล้าน ลบ.ม.` : "—"} />
-            {pick.dam.maxStorageMcm !== null ? <Row k="ความจุสูงสุด" v={`${pick.dam.maxStorageMcm.toLocaleString("th-TH", { maximumFractionDigits: 0 })} ล้าน ลบ.ม.`} /> : null}
+            <Row k="ปริมาณน้ำ" v={pick.dam.storageMcm !== null ? `${formatNumber(pick.dam.storageMcm, 1)} ล้าน ลบ.ม.` : "—"} />
+            {pick.dam.maxStorageMcm !== null ? <Row k="ความจุสูงสุด" v={`${formatNumber(pick.dam.maxStorageMcm)} ล้าน ลบ.ม.`} /> : null}
             {pick.dam.inflowMcm !== null ? <Row k="น้ำไหลเข้า" v={`${pick.dam.inflowMcm.toFixed(2)} ล้าน ลบ.ม./วัน`} /> : null}
             {pick.dam.releasedMcm !== null ? <Row k="ระบายออก" v={`${pick.dam.releasedMcm.toFixed(2)} ล้าน ลบ.ม./วัน`} /> : null}
             <Row k="รายงานเมื่อ" v={fmtTime(pick.dam.observedAt)} />
@@ -142,7 +143,7 @@ export function InfoPopup({ pick, onClose }: { pick: PickResult; onClose: () => 
             {pick.flood ? (
               <>
                 <Row k="อำเภอ" v={pick.flood.properties.amphoeTh ?? "—"} />
-                <Row k="พื้นที่น้ำท่วม" v={pick.flood.properties.floodAreaRai !== null ? `${Math.round(pick.flood.properties.floodAreaRai).toLocaleString("th-TH")} ไร่` : "—"} />
+                <Row k="พื้นที่น้ำท่วม" v={pick.flood.properties.floodAreaRai !== null ? `${formatNumber(Math.round(pick.flood.properties.floodAreaRai))} ไร่` : "—"} />
                 <Row k="พบครั้งแรก" v={fmtTime(pick.flood.properties.firstSeenAt)} />
                 <Row k="พบล่าสุด" v={fmtTime(pick.flood.properties.lastSeenAt)} />
               </>

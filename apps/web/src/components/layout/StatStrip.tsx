@@ -1,5 +1,6 @@
 import { AlertTriangle, CloudRain, Droplets, Waves } from "lucide-react";
 import type { ObservationSummary } from "@siahra/shared-types";
+import { formatNumber } from "../../lib/number";
 
 function Tile({
   icon,
@@ -78,14 +79,14 @@ export function StatStrip({
   }
 
   const fmt = (n: number | null, digits = 1) =>
-    n === null ? "—" : n.toLocaleString("th-TH", { maximumFractionDigits: digits });
+    formatNumber(n, digits);
 
   return (
     <div className={GRID}>
       <Tile
         icon={<CloudRain size={17} aria-hidden="true" />}
         label="สถานีวัดน้ำฝน"
-        value={summary.rainfallStationCount.toLocaleString("th-TH")}
+        value={formatNumber(summary.rainfallStationCount)}
         unit="สถานี"
       />
       <Tile
@@ -97,13 +98,13 @@ export function StatStrip({
       <Tile
         icon={<Waves size={17} aria-hidden="true" />}
         label="สถานีวัดระดับน้ำ"
-        value={summary.waterlevelStationCount.toLocaleString("th-TH")}
+        value={formatNumber(summary.waterlevelStationCount)}
         unit="สถานี"
       />
       <Tile
         icon={<AlertTriangle size={17} aria-hidden="true" />}
         label="เกินเกณฑ์เฝ้าระวัง"
-        value={summary.stationsAboveWarning.toLocaleString("th-TH")}
+        value={formatNumber(summary.stationsAboveWarning)}
         unit="สถานี"
         emphasis={summary.stationsAboveWarning > 0}
       />

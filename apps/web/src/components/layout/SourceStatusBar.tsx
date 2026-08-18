@@ -1,5 +1,6 @@
 import type { SourceHealth, SourceStatus } from "@siahra/shared-types";
 import type { ApiHealthState } from "../../hooks/useApiHealth";
+import { formatAge } from "../../lib/time";
 
 const HEALTH_META: Record<SourceHealth, { dot: string; label: string }> = {
   ok: { dot: "bg-[var(--color-success)] shadow-[0_0_8px_rgba(34,197,94,0.8)]", label: "ปกติ" },
@@ -26,14 +27,8 @@ function tooltip(s: SourceStatus): string {
   return s.lastError ? `${base}\n${s.lastError}` : base;
 }
 
-function ageLabel(iso: string | null): string {
-  if (!iso) return "ยังไม่มีข้อมูล";
-  const min = Math.round((Date.now() - Date.parse(iso)) / 60000);
-  if (min < 1) return "เมื่อสักครู่";
-  if (min < 60) return `${min} นาทีที่แล้ว`;
-  const h = Math.floor(min / 60);
-  return h < 24 ? `${h} ชม.ที่แล้ว` : `${Math.floor(h / 24)} วันที่แล้ว`;
-}
+/** null = ยังไม่เคยดึงสำเร็จ → formatAge คืนข้อความ "ยังไม่เคยได้รับข้อมูล" ไม่ใช่เวลา */
+const ageLabel = (iso: string | null): string => formatAge(iso);
 
 /**
  * Per-source freshness strip that sits on the map (bottom-left, above the

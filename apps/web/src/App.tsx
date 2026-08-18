@@ -29,6 +29,7 @@ import { EarthquakeLiveCard } from "./components/hazard/EarthquakeLiveCard";
 import { BRAND, DATA_ATTRIBUTION_TH } from "./branding";
 import type { CameraPose } from "./scene/setupScene";
 import type { QualityLevel, QualityMode } from "./scene/quality";
+import { formatFullDateTime } from "./lib/time";
 
 const DEFAULT_PROVINCE_CODE = "10"; // Bangkok
 
@@ -161,8 +162,9 @@ export default function App() {
   const snapshot = useCallback(async () => {
     const api = mapApiRef.current;
     if (!api) return;
-    const stamp = new Date().toLocaleString("th-TH");
-    const footer = `${BRAND.name} · จังหวัด${province.nameTh} · ${stamp}${atIso ? ` · ค่าย้อนหลัง ${new Date(atIso).toLocaleString("th-TH")}` : ""} · ${DATA_ATTRIBUTION_TH} · ภาพดาวเทียม Esri`;
+    // เวลาที่กดบันทึกภาพ (ไม่ใช่เวลาที่ดึงข้อมูล) — ตรึงเป็นเวลาไทยเช่นกัน
+    const stamp = formatFullDateTime(Date.now());
+    const footer = `${BRAND.name} · จังหวัด${province.nameTh} · ${stamp}${atIso ? ` · ค่าย้อนหลัง ${formatFullDateTime(atIso)}` : ""} · ${DATA_ATTRIBUTION_TH} · ภาพดาวเทียม Esri`;
     const blob = await api.captureImage(footer);
     if (!blob) return;
     const url = URL.createObjectURL(blob);

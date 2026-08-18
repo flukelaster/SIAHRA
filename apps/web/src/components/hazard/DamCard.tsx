@@ -1,6 +1,8 @@
 import { Database, Info } from "lucide-react";
 import type { DamsState } from "../../hooks/useDams";
 import { Panel } from "../ui/Panel";
+import { formatNumber } from "../../lib/number";
+import { formatDateTime } from "../../lib/time";
 
 function pctClass(p: number | null): string {
   if (p === null) return "text-[var(--color-fg-muted)]";
@@ -47,12 +49,12 @@ export function DamCard({ state }: { state: DamsState }) {
                     {d.nameTh ?? d.nameEn ?? `#${d.id}`}
                   </p>
                   <p className="truncate text-[11px] text-[var(--color-fg-subtle)]">
-                    {d.storageMcm !== null ? `${d.storageMcm.toLocaleString("th-TH", { maximumFractionDigits: 0 })} ล้าน ลบ.ม.` : ""}
-                    {d.maxStorageMcm !== null ? ` / ${d.maxStorageMcm.toLocaleString("th-TH", { maximumFractionDigits: 0 })}` : ""}
+                    {d.storageMcm !== null ? `${formatNumber(d.storageMcm)} ล้าน ลบ.ม.` : ""}
+                    {d.maxStorageMcm !== null ? ` / ${formatNumber(d.maxStorageMcm)}` : ""}
                     {d.inflowMcm !== null ? ` · น้ำไหลเข้า ${d.inflowMcm.toFixed(1)}` : ""}
                     {d.releasedMcm !== null ? ` · ระบาย ${d.releasedMcm.toFixed(1)}` : ""}
                     {d.observedAt
-                      ? ` · ${new Date(d.observedAt).toLocaleString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
+                      ? ` · ${formatDateTime(d.observedAt)}`
                       : ""}
                   </p>
                 </div>
