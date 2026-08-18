@@ -212,10 +212,15 @@ type HazardMessage =
   // REST when the socket cannot connect at all, so a protocol without a
   // snapshot would connect successfully and then show an empty map until the
   // next event happened to fire. Generalising the channel must not lose it.
-  | { type: "snapshot"; asOf: string; earthquakes: EarthquakeEvent[] }
-  | { type: "earthquake.created"; event: EarthquakeEvent }
-  | { type: "earthquake.updated"; event: EarthquakeEvent }
-  | { type: "earthquake.deleted"; id: string }
+  // Field and discriminant names match the existing EqWsMessage exactly —
+  // NOT renamed. apps/web/src/hooks/useEarthquakeFeed.ts reads `msg.events`
+  // on the snapshot branch and switches on `event.created`/`event.updated`/
+  // `event.deleted`; renaming here without updating that consumer in the same
+  // change would crash the initial frame and silently drop every update.
+  | { type: "snapshot"; asOf: string; events: EarthquakeEvent[] }
+  | { type: "event.created"; event: EarthquakeEvent }
+  | { type: "event.updated"; event: EarthquakeEvent }
+  | { type: "event.deleted"; id: string }
   | { type: "flood.extent.updated"; province: string; version: string }
   | { type: "station.updated"; stationId: string; observation: Observation }
   | { type: "radar.frame"; timestamp: string }
@@ -228,7 +233,7 @@ The alternative — deltas only, with an explicit REST bootstrap before the sock
 is applied — is defensible, but then it is a **required** step and the client
 must not apply any delta until the bootstrap resolves. Pick one deliberately;
 the failure mode of leaving it implicit is a connected socket over an empty
-map. `earthquake.deleted` and `heartbeat` are carried over from `EqWsMessage`
+map. `event.deleted` and `heartbeat` are carried over from `EqWsMessage`
 for the same reason: the retraction path and the liveness signal both already
 exist and consumers rely on them.
 
@@ -485,14 +490,22 @@ ON CONFLICT (code) DO UPDATE SET
   geom = EXCLUDED.geom;
 
 
+-- Station identity is (source, local_id), not local_id alone: two providers
+-- can legitimately reuse the same local station id, and a bare
+-- `id text PRIMARY KEY` would reject the second one on ingest or silently
+-- overwrite the first, attaching future observations to the wrong location.
 CREATE TABLE stations (
-  id text PRIMARY KEY,
   source text NOT NULL,
+  -- the provider's own station id — unique per source, not globally
+  local_id text NOT NULL,
   station_type text NOT NULL,
   name_th text,
   name_en text,
   geom geometry(Point, 4326) NOT NULL,
   metadata jsonb NOT NULL DEFAULT '{}'
+);
+
+  PRIMARY KEY (source, local_id)
 );
 
 CREATE INDEX stations_geom_gix
@@ -501,7 +514,11 @@ ON stations USING GIST (geom);
 
 CREATE TABLE observations (
   id bigserial PRIMARY KEY,
-  station_id text NOT NULL REFERENCES stations(id),
+  -- (source, station_id), matching stations' own namespacing above —
+  -- station_id alone is ambiguous across providers
+  source text NOT NULL,
+  station_id text NOT NULL,
+  FOREIGN KEY (source, station_id) REFERENCES stations(source, local_id),
   -- Nullable: shared-types declares `observedAt: string | null` for both
   -- RainfallObservation and WaterLevelObservation because ThaiWater does omit
   -- or corrupt the measurement time. NOT NULL here would force the consumer to
@@ -518,18 +535,21 @@ CREATE TABLE observations (
   unit text NOT NULL,
   quality_code text,
   source_payload jsonb,
-  -- Identity of the READING, never of the fetch. The upstream reading id when
-  -- ThaiWater supplies one; otherwise a digest over the reading's own content
-  -- (station, variable, observed_at, value, unit, quality_code).
+  -- The upstream reading id when ThaiWater supplies one; otherwise a digest
+  -- over (station, variable, observed_at) ONLY — deliberately excluding
+  -- `value`/`quality_code`. A digest that includes the value cannot represent
+  -- a correction: if a provider revises a reading for the same station,
+  -- variable and time, the value changes and a content hash produces a
+  -- *different* key, so the corrected reading inserts as a new row beside the
+  -- erroneous one instead of replacing it. Keying on identity-only fields
+  -- means a correction is a normal conflict, handled below.
   --
-  -- fetched_at must NOT appear here: consecutive polls return the same reading
-  -- with a new receipt time, so a key containing it never conflicts and every
-  -- refresh appends a duplicate — repeating points in the timeline and
-  -- inflating historical aggregates. The digest makes an undated reading
-  -- dedupe on what it actually says, which is the only stable thing about it.
+  -- fetched_at must NOT appear in this key either: consecutive polls return
+  -- the same reading with a new receipt time, so a key containing it would
+  -- never conflict and every refresh would append a duplicate.
   reading_key text NOT NULL,
   CONSTRAINT observations_identity_uniq
-    UNIQUE (station_id, variable, reading_key)
+    UNIQUE (source, station_id, variable, reading_key)
 );
 
 -- NULLS LAST so undated readings never sort as the most recent
@@ -540,16 +560,23 @@ CREATE INDEX observations_fetched_idx
 ON observations (fetched_at DESC);
 ```
 
-Re-ingesting the same reading updates its receipt metadata and nothing else —
-the measured value is immutable, and `fetched_at` only moves forward:
+Re-ingesting the same reading advances receipt metadata; a **revision** of that
+same reading — same identity, different value — replaces the stored payload
+only when the incoming delivery is newer, exactly like the flood-extent upsert:
 
 ```sql
 INSERT INTO observations (
-  station_id, variable, reading_key, observed_at,
+  source, station_id, variable, reading_key, observed_at,
   source_published_at, fetched_at, value, unit, quality_code, source_payload
 ) VALUES (...)
-ON CONFLICT (station_id, variable, reading_key) DO UPDATE SET
-  fetched_at = GREATEST(observations.fetched_at, EXCLUDED.fetched_at);
+ON CONFLICT (source, station_id, variable, reading_key) DO UPDATE SET
+  fetched_at     = GREATEST(observations.fetched_at, EXCLUDED.fetched_at),
+  value          = CASE WHEN EXCLUDED.fetched_at > observations.fetched_at
+                        THEN EXCLUDED.value ELSE observations.value END,
+  quality_code   = CASE WHEN EXCLUDED.fetched_at > observations.fetched_at
+                        THEN EXCLUDED.quality_code ELSE observations.quality_code END,
+  source_payload = CASE WHEN EXCLUDED.fetched_at > observations.fetched_at
+                        THEN EXCLUDED.source_payload ELSE observations.source_payload END;
 ```
 
 ```sql
@@ -711,6 +738,11 @@ DO UPDATE SET
                        THEN EXCLUDED.province_code ELSE flood_extents.province_code END,
   provenance    = CASE WHEN EXCLUDED.fetched_at > flood_extents.fetched_at
                        THEN EXCLUDED.provenance ELSE flood_extents.provenance END,
+  -- a corrected delivery is written to a new immutable/version-addressed R2
+  -- key; leaving this pointed at the old object would let a consumer follow
+  -- artifact_key to geometry inconsistent with the row it just read
+  artifact_key  = CASE WHEN EXCLUDED.fetched_at > flood_extents.fetched_at
+                       THEN EXCLUDED.artifact_key ELSE flood_extents.artifact_key END,
   observed_at   = CASE WHEN EXCLUDED.fetched_at > flood_extents.fetched_at
                        THEN EXCLUDED.observed_at ELSE flood_extents.observed_at END,
   -- the display properties travel with the payload, under the same guard:
@@ -778,6 +810,26 @@ CREATE TABLE ingestion_status (
   last_error text,
   consecutive_failures integer NOT NULL DEFAULT 0
 );
+```
+
+Nothing populates this table on its own — it must be written by the ingestion
+path that currently updates `EarthquakeFeedDO`'s source-health state, on every
+poll, success or failure. Without this the read above finds no row, `feed` is
+always undefined, and `fetchedAt` reports `null` forever — falsely claiming the
+feed has never succeeded even while it is polling normally every minute:
+
+```sql
+INSERT INTO ingestion_status (source_group, last_success_at, consecutive_failures)
+VALUES ('earthquakes', now(), 0)
+ON CONFLICT (source_group) DO UPDATE SET
+  last_success_at = EXCLUDED.last_success_at,
+  consecutive_failures = 0;
+
+-- on a failed poll instead:
+-- UPDATE ingestion_status
+-- SET last_error_at = now(), last_error = $1,
+--     consecutive_failures = consecutive_failures + 1
+-- WHERE source_group = 'earthquakes';
 ```
 
 ```sql
