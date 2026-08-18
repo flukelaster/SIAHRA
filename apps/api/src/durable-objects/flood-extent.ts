@@ -175,11 +175,14 @@ export class FloodExtentDO extends DurableObject<Env> {
     try {
       features = await fetchGistdaFloodExtent(options);
     } catch (err) {
+      // นับ backoff จากเวลาที่ "ล้มจริง" ไม่ใช่เวลาที่เริ่มยิง ไม่งั้นเวลาที่ใช้
+      // ระหว่างรอ (ต้นทางค้าง/retry) จะไปกินโควตาการรอจนลองใหม่เร็วกว่าที่ตั้งไว้
+      const failedAtMs = Date.now();
       const failures = this.failureCount() + 1;
       const waitMs = this.backoffMs(failures);
       this.writeMeta("lastError", String(err).slice(0, 300));
       this.writeMeta("failureCount", String(failures));
-      this.writeMeta("nextAttemptAt", new Date(nowMs + waitMs).toISOString());
+      this.writeMeta("nextAttemptAt", new Date(failedAtMs + waitMs).toISOString());
       console.error(
         JSON.stringify({
           level: "error",
@@ -189,7 +192,7 @@ export class FloodExtentDO extends DurableObject<Env> {
           retryInSeconds: Math.round(waitMs / 1000),
         }),
       );
-      await this.armAlarmAt(nowMs + waitMs);
+      await this.armAlarmAt(failedAtMs + waitMs);
       return false;
     }
     // Upsert: new ids get first_seen = now, known ids just bump last_seen.
@@ -230,7 +233,9 @@ export class FloodExtentDO extends DurableObject<Env> {
     this.writeMeta("failureCount", null);
     this.writeMeta("nextAttemptAt", null);
     this.writeMeta("featureCount", String(features.length));
-    await this.armAlarmAt(nowMs + REFRESH_MS);
+    // สำเร็จแล้วต้อง "ทับ" alarm ชั่วคราว/backoff ที่ตั้งไว้ตอนยังไม่รู้ผล
+    // ไม่งั้นจะไปยิงต้นทางซ้ำใน 5 นาทีทั้งที่เพิ่งได้ข้อมูลสดมา
+    await this.ctx.storage.setAlarm(Date.now() + REFRESH_MS);
     console.log(
       JSON.stringify({ level: "info", message: "gistda flood refreshed", features: features.length }),
     );
