@@ -69,12 +69,23 @@ while IFS= read -r seg; do
     ready)  reason="การเปลี่ยน draft → ready เท่ากับส่งเข้ารีวิวจริง ต้องให้ผู้ใช้ยืนยัน"; break ;;
   esac
 
-  # `git push` targeting main in any argument order (origin main, main:main,
-  # HEAD:main, --force origin main …). Pushing a feature branch stays untouched.
+  # `git push` reaching main. Two ways that happens, and the literal-argument
+  # check only catches the first:
+  #   1. main named explicitly — `origin main`, `main:main`, `HEAD:main`
+  #   2. no refspec at all while checked out on main — a bare `git push` or
+  #      `git push origin HEAD` publishes the current branch, so the word "main"
+  #      never appears in the command
   case "$seg" in
     *"git push"*)
       if printf '%s' "$seg" | grep -Eq 'git push[^;&|]*(\bmain\b|:main\b)'; then
         reason="ห้าม push ตรงเข้า main — แตกสาขาแล้วเปิด PR (ruleset ฝั่ง GitHub ก็จะปฏิเสธอยู่ดี)"
+        break
+      fi
+      # Resolve the branch we are actually on. Fail closed: if git cannot answer
+      # (not a repo, detached HEAD), guard rather than wave it through.
+      branch=$(git -C "${CLAUDE_PROJECT_DIR:-.}" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+      if [ "$branch" = "main" ] || [ -z "$branch" ]; then
+        reason="อยู่บนสาขา ${branch:-<ไม่ทราบ>} — \`git push\` เปล่า ๆ จะยิงเข้า main ตรง ๆ ให้แตกสาขาแล้วเปิด PR แทน"
         break
       fi
       ;;

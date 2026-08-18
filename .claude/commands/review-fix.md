@@ -32,7 +32,9 @@ query($o:String!,$r:String!,$n:Int!,$c:String){
 - **P3** → ไม่แก้โค้ด แต่ยังต้องปิด thread ตามข้อ 4
 
 ## 3. แก้ทั้งชุดในรอบเดียว — commit/push **เฉพาะเมื่อ QA เขียว**
-`Agent(senior-se)` (ส่ง finding ทั้งชุด) → `Agent(qa-verifier)` → **แยกทางตาม `verdict`**:
+**ถ้าไม่มีอะไรต้องแก้เลย** (เหลือแต่ P3 หรือปฏิเสธทุกข้อโดยมีเหตุผล) → **ข้ามข้อ 3 ทั้งข้อ** ไม่ commit ไม่ push แล้วไปข้อ 4 เลย โดย reply อ้างเหตุผลแทน sha (`No code change — <เหตุผล>`) ; ห้ามค้างอยู่ตรงนี้เพราะไม่มี commit ให้สร้าง
+
+มีของต้องแก้ → `Agent(senior-se)` (ส่ง finding ทั้งชุด) → `Agent(qa-verifier)` → **แยกทางตาม `verdict`**:
 - `pass` → commit → **push ครั้งเดียว** → เก็บ sha ไว้ใช้ข้อ 4
 - `fail` → ส่ง findings กลับให้ senior-se แก้ (ไม่เกิน 2 รอบ) แล้วให้ QA ตรวจใหม่ ; ครบ 2 รอบยัง fail → **หยุด ไม่ commit ไม่ push ไม่ resolve thread** แล้วรายงานผู้ใช้
 - `blocked` → หยุดทันที บอกว่าต้องทำอะไรถึงตรวจต่อได้ ไม่ commit ไม่ push
@@ -51,7 +53,7 @@ gh api -X POST repos/<owner>/<repo>/pulls/<pr>/comments/<comment_id>/replies \
 # 4.3 resolve
 gh api graphql -f query='mutation($t:ID!){ resolveReviewThread(input:{threadId:$t}){ thread{ isResolved } } }' -f t=<thread_id>
 ```
-- reply เป็น**ภาษาอังกฤษ** สั้น บอกว่าแก้อะไรที่ไฟล์ไหน + `Fixed in <sha>`
+- reply เป็น**ภาษาอังกฤษ** สั้น บอกว่าแก้อะไรที่ไฟล์ไหน + `Fixed in <sha>` (ถ้าเป็นเส้นทางไม่มีการแก้ ให้ขึ้นต้นว่า `No code change —` แล้วตามด้วยเหตุผล)
 - P3 หรือไม่เห็นด้วย → reply บอกเหตุผลตรง ๆ ว่าทำไม won't fix (อ้าง rubric ข้อไหน) แล้วค่อย resolve — **ห้ามเงียบแล้ว resolve**
 - ลำดับสำคัญ: react + reply **ก่อน** resolve
 - ตรวจว่า mutation คืน `isResolved: true` จริง ถ้าล้มเหลว (สิทธิ์ไม่พอ / thread outdated) ให้รายงานผู้ใช้ ห้ามนับว่าเสร็จ
