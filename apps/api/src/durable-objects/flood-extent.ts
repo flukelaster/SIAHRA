@@ -101,6 +101,17 @@ export class FloodExtentDO extends DurableObject<Env> {
     await this.ctx.storage.setAlarm(Date.now() + delay);
   }
 
+  /**
+   * ตั้งปลุกที่เวลาหนึ่ง โดย "เลื่อนให้เร็วขึ้นได้" ต่างจาก armAlarm ที่ยอมให้
+   * alarm เดิมชนะเสมอ — จำเป็นเมื่อ refresh ที่ปล่อยไว้เบื้องหลังล้มทีหลัง
+   * แล้วคิว backoff (5–20 นาที) มาก่อน alarm 30 นาทีที่ตั้งไว้ตอนยังไม่รู้ผล
+   */
+  private async armAlarmAt(whenMs: number): Promise<void> {
+    const existing = await this.ctx.storage.getAlarm();
+    if (existing !== null && existing > Date.now() && existing <= whenMs) return;
+    await this.ctx.storage.setAlarm(Math.max(whenMs, Date.now() + 1_000));
+  }
+
   /** ระยะรอครั้งถัดไปเมื่อล้มติดกัน n ครั้ง: 5m, 10m, 20m, 30m… (+jitter) */
   private backoffMs(failures: number): number {
     const base = Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** Math.max(0, failures - 1));
@@ -178,6 +189,7 @@ export class FloodExtentDO extends DurableObject<Env> {
           retryInSeconds: Math.round(waitMs / 1000),
         }),
       );
+      await this.armAlarmAt(nowMs + waitMs);
       return false;
     }
     // Upsert: new ids get first_seen = now, known ids just bump last_seen.
@@ -218,6 +230,7 @@ export class FloodExtentDO extends DurableObject<Env> {
     this.writeMeta("failureCount", null);
     this.writeMeta("nextAttemptAt", null);
     this.writeMeta("featureCount", String(features.length));
+    await this.armAlarmAt(nowMs + REFRESH_MS);
     console.log(
       JSON.stringify({ level: "info", message: "gistda flood refreshed", features: features.length }),
     );
