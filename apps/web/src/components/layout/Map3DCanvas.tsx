@@ -331,10 +331,19 @@ export function Map3DCanvas({
         // Animated water shimmer / hazard pulse + label declutter.
         const h = handles;
         const frameDistance = h.controls.maxDistance / 2.2;
+        // LOD re-evaluation and label declutter are the CPU-heavy part of the
+        // frame. While the camera moves they must keep up with it, but on a
+        // still camera nothing they compute can change, so they drop to 10 Hz
+        // (a heartbeat that still picks up tiles streaming in).
+        const HEAVY_IDLE_INTERVAL_MS = 100;
+        let heavyAt = 0;
         handles.addTicker((t) => {
           terrain.material.uniforms.uTime.value = t;
           radarOverlay.tick(performance.now());
-          if (tree) {
+          const heavy =
+            h.isCameraActive() || performance.now() - heavyAt >= HEAVY_IDLE_INTERVAL_MS;
+          if (heavy) heavyAt = performance.now();
+          if (tree && heavy) {
             tree.update(h.camera, h.world.scale.y, container.clientHeight);
             const keys = tree.visibleTileKeys();
             const now = performance.now();
@@ -348,17 +357,19 @@ export function Map3DCanvas({
             1,
             THREE.MathUtils.smoothstep(d, 0.12, 0.45),
           );
-          const all: CSS2DObject[] = [];
-          const collect = (g: THREE.Object3D | null | undefined) =>
-            g?.traverse((o) => {
-              if (o instanceof CSS2DObject) all.push(o);
-            });
-          collect(labelsRef.current);
-          collect(floodLabelsRef.current);
-          collect(damsRef.current?.labels);
-          collect(quakesRef.current?.group);
-          if (all.length > 0) {
-            declutterLabels(all, h.camera, container.clientWidth, container.clientHeight);
+          if (heavy) {
+            const all: CSS2DObject[] = [];
+            const collect = (g: THREE.Object3D | null | undefined) =>
+              g?.traverse((o) => {
+                if (o instanceof CSS2DObject) all.push(o);
+              });
+            collect(labelsRef.current);
+            collect(floodLabelsRef.current);
+            collect(damsRef.current?.labels);
+            collect(quakesRef.current?.group);
+            if (all.length > 0) {
+              declutterLabels(all, h.camera, container.clientWidth, container.clientHeight);
+            }
           }
         });
 
