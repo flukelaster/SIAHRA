@@ -53,7 +53,7 @@ Each task is a `####` heading `E<epic>.<n> — <title>` followed by:
 | **M1 Foundation & quick honesty wins** | E1, E2 | `npm test` runs vitest (api pure + web pure); CI has an always-running `Test` job (not required yet); LICENSE exists; times render in `Asia/Bangkok`; the WS client survives a 2-minute API outage and returns to live; every route is GET/HEAD-only; no plaintext TMD credentials in the repo |
 | **M2 Honest data contract & security** | E3, E4 | Every data response (earthquakes included) carries a descriptor whose `sourceIds` join to `SourceStatus.id`; the legend shows an epistemic badge plus observed/fetched age per layer, and null is never rendered as "now"; observed and illustrative are visually distinct; security headers, validated upstream payloads, named cache policy |
 | **M3 Resilient & observable** | E5, E6 | One failing source cannot starve the others; health `ok` is false when a source is `down`; a `delayed` state exists; DO tests with fixtures; `docs/ops.md`; deploy runs a smoke check and can roll back |
-| **M4 Bilingual, fast, versioned** | E7, E8, E9 | th/en toggle covers all visible strings; LOD no longer flickers; the deploy no longer ships legacy `buildings.geojson`; manifests carry provenance and checksums; version-addressed tile prefix and a release script |
+| **M4 Bilingual, fast, versioned** | E7, E8, E9 | th/en toggle covers all visible strings; LOD no longer flickers; the deploy no longer ships legacy `buildings.geojson`; manifests carry per-layer provenance and checksums, and a `terrain.bin` checksum mismatch suppresses the terrain-derived hazard overlays instead of silently driving them; version-addressed tile prefix and a release script |
 | **M5 Illustrative exposure & quake analytics** | E10 | `/api/v1/provinces/NN/exposure/latest` serves an immutable, run-id'd, `illustrative` layer with a `methodologyUrl`; the map drapes it in the "modelled" visual language; the earthquake card shows distance-to-province; no probability, "risk" or "forecast" wording anywhere |
 
 ## 2. Tasks
@@ -202,17 +202,26 @@ Each task is a `####` heading `E<epic>.<n> — <title>` followed by:
 6. Each DO `status()` has a test per state using a fake clock.
 
 #### E3.4 — Legend consumes `HazardLayerDescriptor`: epistemic badge and age per layer
-- Touches: new `apps/web/src/hooks/useLayerDescriptors.ts` (server layers from `.layer`; client and static layers from new `src/data/staticLayerDescriptors.ts`: `lowland` = `illustrative`, static, `methodologyUrl` → `docs/methodology/lowland.md`; imagery/roads/water/buildings/trees = `static-reference` with `fetchedAt` = the manifest build date; `sunlight` is not data), new `hooks/useNow.ts`, `MapLegend.tsx` (badge chip and "observed HH:mm · fetched N min ago" computed at render; null → "never received"; stale → amber; the existing one-line `note` stays as the description), `App.tsx`
+- Touches: new `apps/web/src/hooks/useLayerDescriptors.ts` (server layers from `.layer`; client and static layers from new `src/data/staticLayerDescriptors.ts`: `lowland` = `illustrative`, static, `methodologyUrl` → `docs/methodology/lowland.md`; imagery/roads/water/buildings/trees = `static-reference` whose `fetchedAt` is that layer's **own** retrieval/build time, per layer, and `null` when it is not recorded; `sunlight` is not data), new `hooks/useNow.ts`, `MapLegend.tsx` (badge chip and "observed HH:mm · fetched N min ago" computed at render; null → a string chosen by descriptor **kind**, not by the null alone: `observed` → "never received", `static-reference` → "retrieval time not recorded"; stale → amber; the existing one-line `note` stays as the description), `App.tsx`
 - Depends: E3.1, E1.2
 - Size: M
 - Risk: none identified
 - Issue: _(not yet filed)_
+
+**Do not use `AoiManifest.version` as `fetchedAt`.** `version` is one whole-build date, so rebuilding a
+single artefact would make every static source claim it was newly retrieved — a false retrieval time.
+`AoiManifest` records no per-layer provenance today; **E9.1** is the task that adds it, and until E9.1
+lands these five layers ship `fetchedAt: null`, rendered as "retrieval time not recorded". E9.1 then
+back-fills `staticLayerDescriptors.ts` from the manifest's per-layer `sources` entries; this task does
+not depend on E9.1 and must not wait for it. A source's own publication epoch (the WorldCover 2021
+product year, an OSM extract date) is `publishedAt` (E3.2), never `fetchedAt`.
 
 1. `grep -rn epistemicClass apps/web/src` returns ≥3 hits.
 2. Every legend row that has a descriptor shows an epistemic badge.
 3. A playwright `route.fulfill` mock with `fetchedAt: null` shows the "never received" string and no "now".
 4. The age text updates without a reload after 65 s.
 5. `methodologyUrl` renders as a link; screenshot at 1536×960.
+6. No static-reference descriptor reads `fetchedAt` from `AoiManifest.version` (`grep -n 'manifest\.version' apps/web/src/data/staticLayerDescriptors.ts` returns 0 hits); with today's manifests all five render "retrieval time not recorded", and any `publishedAt` they carry is the source's publication epoch.
 
 #### E3.5 — Observed versus illustrative visual language (shader and legend swatches)
 - Touches: `apps/web/src/scene/terrainMaterial.ts` (illustrative lowland gets a hatched/stippled non-water hue; GISTDA observed stays a solid fill), `MapLegend.tsx` swatches (SVG pattern for illustrative), `docs/methodology/lowland.md`
@@ -344,10 +353,16 @@ Each task is a `####` heading `E<epic>.<n> — <title>` followed by:
 - Risk: the job stays path-filtered and non-required, so it can never block an unrelated PR
 - Issue: _(not yet filed)_
 
-1. After `deploy-api`, `curl -fsS /api/v1/health` returns 200 with four sources (checked via jq) — it does **not** gate on `ok`.
-2. After `deploy-web`, `/` returns 200 and a known tile HEAD returns 200.
-3. `if: failure()` runs `wrangler rollback` for that Worker only.
-4. The added wall-clock time is ≤1 minute.
+**Assert a required *set* of source IDs, never a count.** The smoke check must verify that
+`thaiwater`, `earthquakes`, `gistda-flood` and `tmd-radar` are all present in `sources[].id`, and must
+tolerate extra IDs — E10.3 adds a fifth source (`exposure-illustrative`), and an exact-count assertion
+would fail every deploy from that day on and trigger the rollback below on a healthy release.
+
+1. After `deploy-api`, `curl -fsS /api/v1/health` returns 200 and jq asserts the four required IDs `thaiwater`, `earthquakes`, `gistda-flood`, `tmd-radar` are a **subset** of `[.sources[].id]` — no `length ==` check anywhere in the step — and it does **not** gate on `ok`.
+2. The step contains no exact-count expression (`grep -n 'length ==\|length !=\|== 4' .github/workflows/deploy.yml` over the smoke step returns 0 hits), so a health payload carrying an extra source ID still passes.
+3. After `deploy-web`, `/` returns 200 and a known tile HEAD returns 200.
+4. `if: failure()` runs `wrangler rollback` for that Worker only.
+5. The added wall-clock time is ≤1 minute.
 
 #### E5.5 — Workers-pool tests: router, health, one DO
 - Touches: `apps/api/vitest.config.ts` (`defineWorkersConfig`, `wrangler.configPath`), `test/{router,health,earthquake-feed}.test.ts`
@@ -357,7 +372,7 @@ Each task is a `####` heading `E<epic>.<n> — <title>` followed by:
 - Issue: _(not yet filed)_
 
 1. Via `SELF.fetch`: 404, 403, 405 and 429 (with `Retry-After`) are asserted.
-2. A cold `/health` returns four sources with `fetchedAt: null` and health `unknown` or `down`.
+2. A cold `/health` includes at least the source IDs `thaiwater`, `earthquakes`, `gistda-flood`, `tmd-radar`, each with `fetchedAt: null` and health `unknown` or `down` — asserted as a required subset, not an exact count, so E10.3's fifth source does not break this test.
 3. With `runInDurableObject` and `fetchMock`: three feed fixtures produce N events and `ok`.
 4. All feeds returning 500 yields `down` while prior events are still served.
 5. An R2 put/get smoke test passes.
@@ -488,16 +503,24 @@ Each task is a `####` heading `E<epic>.<n> — <title>` followed by:
 ### E9 — Provenance, versioned datasets, release
 
 #### E9.1 — Manifest provenance: `datasetVersion`, `generatedAt`, `sources`, `checksums`
-- Touches: `packages/shared-types/src/aoi.ts` (optional fields; `version` kept), `apps/etl/src/writeManifest.ts` (plus sha256), `apps/web/src/scene/loadAoiManifest.ts` (tolerant; verify the `terrain.bin` checksum via SubtleCrypto → warn and label "integrity unknown", never block), `MapAttribution.tsx` shows the build date, new `docs/dataset.md`
-- Depends: E3.1
-- Size: M
-- Risk: the fields only appear after the user reruns ETL, so the web side must tolerate old manifests indefinitely
+- Touches: `packages/shared-types/src/aoi.ts` (optional fields; `version` kept; `sources` carries **per-layer** provenance — for each of imagery/roads/water/buildings/trees/terrain, the retrieval or build time of that layer's own artefact, plus the upstream publication epoch where one exists), `apps/etl/src/writeManifest.ts` (plus sha256, and record each layer's own timestamp as it is written), `apps/web/src/scene/loadAoiManifest.ts` (tolerant; verify the `terrain.bin` checksum via SubtleCrypto → warn and export a `terrainIntegrity: "verified" | "mismatch" | "unknown"` flag, labelled per value: `"unknown"` → "integrity unknown", `"mismatch"` → "integrity check failed"), `scene/hazardOverlay.ts` (on `"mismatch"`, zero **only** the lowland R contribution inside `buildOverlayField` — G, the observed halo around stations reporting heavy rain or high water, and B, the mask, are not derived from `terrain.bin` and must keep rendering; the GISTDA satellite extent is a separate texture built by `scene/floodMask.ts` and sampled as `uFloodMask`, so it is untouched by a terrain mismatch), `MapLegend.tsx` (the suppressed rows say why), `src/data/staticLayerDescriptors.ts` (back-fill the E3.4 static-reference `fetchedAt` from the per-layer `sources` entries; still `null` → "retrieval time not recorded" for manifests without them), `MapAttribution.tsx` shows the build date, new `docs/dataset.md`
+- Depends: E3.1, E3.4
+- Size: L — the manifest fields, the integrity flag and the hazard-overlay gate that consumes it are only checkable together
+- Risk: the fields only appear after the user reruns ETL, so the web side must tolerate old manifests indefinitely; a missing checksum is `"unknown"`, which must **not** suppress anything — only a real `"mismatch"` does
 - Issue: _(not yet filed)_
 
-1. An ETL unit test writes a manifest to a temp dir and asserts all four fields.
-2. The web client loads both old and new manifests without error.
-3. A checksum mismatch warns and shows "integrity unknown" — it never blocks rendering.
-4. `MapAttribution.tsx` shows the dataset build date.
+**A checksum mismatch must not keep driving hazard output.** Those elevations feed `buildOverlayField`
+in `scene/hazardOverlay.ts`, which produces the illustrative low-lying classification, and E10.4 gates
+the exposure layer on that same R channel — so an untrusted DEM would otherwise go on generating hazard
+values. Base terrain may keep rendering (labelled "integrity unknown"), but every **terrain-derived
+hazard overlay** — the lowland channel and anything gated on it, including the E10 exposure layer — is
+disabled until a manifest-matching `terrain.bin` loads, with the legend and status bar saying why.
+
+1. An ETL unit test writes a manifest to a temp dir and asserts all four fields, including a per-layer timestamp for each static layer.
+2. The web client loads both old and new manifests without error; a manifest with no checksum yields `terrainIntegrity: "unknown"` and suppresses nothing.
+3. With a deliberately corrupted `terrain.bin`, base terrain still renders, the lowland overlay is suppressed (the R channel is zero) and its legend row is labelled "terrain integrity check failed — low-lying layer unavailable", while the observed station halos (G) and the mask (B) are unchanged, and the GISTDA extent layer still draws from its own texture; screenshot in the PR.
+4. `MapAttribution.tsx` shows the dataset build date, and the E3.4 static-reference rows show their per-layer retrieval times once the manifest carries them.
+5. `docs/dataset.md` states the mismatch behaviour and which layers it disables.
 
 #### E9.2 — Version-addressed tile prefix
 - Touches: `apps/web/worker/index.ts` regex extracted to `worker/tilePath.ts` (plus tests; accepts `/aoi/{code}/v/{ver}/{layer}/{z}/{x}_{y}.bin` and the legacy form; rejects traversal), `vite.config.ts` middleware, ETL fills a versioned `urlTemplate`, `scripts/upload-tiles.sh --version`, `scripts/verify-tiles.sh`
@@ -571,21 +594,35 @@ Deferred D-1). qa-verifier greps the touched files for the forbidden words.
 4. Zero stations is a valid run, not an error.
 
 #### E10.3 — Publish runs: immutable R2 artefact, pointer DO, routes, health entry
-- Touches: `observation-cache.ts` (compute one **nationwide** run after a successful refresh, write only when the level set changed), `forecast-pointer.ts` (repurposed as the run pointer, class name kept), new `routes/exposure.ts` (`GET /api/v1/provinces/NN/exposure/latest` filters the run; `GET /api/v1/exposure/runs/{runId}` uses `frozenArtifact`), `index.ts`, `health.ts` source `exposure-illustrative` (`delayed` after 30 minutes without a run), tests, `docs/ops.md`
+- Touches: `observation-cache.ts` (compute one **nationwide** run after a successful refresh, and publish a new immutable run whenever **any exposed field changes** — a level, any `factors.*` value, or any station `observedAt`), `forecast-pointer.ts` (repurposed as the run pointer, class name kept), new `routes/exposure.ts` (`GET /api/v1/provinces/NN/exposure/latest` filters the run; `GET /api/v1/exposure/runs/{runId}` uses `frozenArtifact`), `index.ts`, `health.ts` source `exposure-illustrative` (`delayed` after 30 minutes without a run), tests, `docs/ops.md`
 - Depends: E10.2, E5.2, E4.6
 - Size: L — the artefact, the pointer, the routes and the health entry are only checkable together
 - Risk: compute after the DO transaction commits; at most one R2 write per refresh
 - Issue: _(not yet filed)_
 
+**Publish rule and its cost.** The run artefact defined in E10.1 carries per-station `factors`
+(`rain1hMm`, `rain24hMm`, `freeboardM`, `freeboardTrendMPerH`, `situationLevel`) and `observedAt`, so
+publishing only when the *level set* changed would leave `/latest` serving the previous measurements
+and the previous `observedAt` — possibly for hours — while the layer presents itself as current. That
+is stale data rendered as fresh. So: **a new run is published whenever any exposed factor or timestamp
+changes**, not only on a level change. In practice that is one run per successful ThaiWater refresh,
+i.e. roughly every 5 minutes, ≈288 runs/day (≈105k small JSON objects a year, about 100× what the
+level-change rule would have written) — still at most one R2 write per refresh. Runs are kept
+indefinitely, which is what makes `/exposure/runs/{runId}` citable; `docs/ops.md` records the object
+count and states that an R2 lifecycle rule is the lever if the bucket ever needs one. The level-change-only optimisation becomes available **only** if the artefact stops
+carrying per-station measurements and freshness is advanced through a separate, always-updated pointer
+field; it is not available while the artefact exposes measurements.
+
 1. The key `exposure/runs/{runId}.json` is never overwritten (test).
-2. `/latest` returns `layer.epistemicClass === "illustrative"`, a non-empty `methodologyUrl` and an `X-Run-Id` header.
-3. An unknown province code returns 404.
-4. A contract test asserts no response key matches `probability|chance|likelihood|risk`.
-5. `/health` lists `exposure-illustrative` and marks it `delayed` after 30 minutes without a run.
+2. A refresh that changes a measurement (a `factors.*` value or a station `observedAt`) but no level produces a **new** run id, and `/latest` then serves the new measurements and the new `observedAt` (test).
+3. `/latest` returns `layer.epistemicClass === "illustrative"`, a non-empty `methodologyUrl` and an `X-Run-Id` header.
+4. An unknown province code returns 404.
+5. A contract test asserts no response key matches `probability|chance|likelihood|risk`.
+6. `/health` lists `exposure-illustrative` and marks it `delayed` after 30 minutes without a run.
 
 #### E10.4 — Map layer, legend and permalink
 - Touches: new `apps/web/src/hooks/useFloodExposure.ts`, `scene/hazardOverlay.ts` (station levels draped as halos **gated by the lowland R channel**, so only low ground lights up), `terrainMaterial.ts` (the E3.5 illustrative treatment plus a level ramp), `MapLegend.tsx` row (illustrative badge, input list, methodology link, `computedAt` age), `usePermalink.ts` (`layers` += `exposure`), i18n keys th/en — Thai label `"พื้นที่ลุ่มต่ำที่ขณะนี้มีฝนหนัก/น้ำสูงในบริเวณใกล้เคียง (ภาพประกอบ)"`, Thai note `"คำนวณเองจากภูมิประเทศ + ค่าตรวจวัดจริง ไม่ใช่การพยากรณ์ ไม่ใช่ความน่าจะเป็น"`
-- Depends: E10.3, E3.5, E3.4, E7.1
+- Depends: E10.3, E3.5, E3.4, E7.1, E9.1
 - Size: L — the hook, overlay, shader and legend have to land together to be checkable
 - Risk: none identified
 - Issue: _(not yet filed)_
@@ -594,8 +631,9 @@ Deferred D-1). qa-verifier greps the touched files for the forbidden words.
 2. A screenshot shows the treatment as distinct from GISTDA observed and from plain lowland.
 3. The legend text contains the illustrative wording plus the input list and the methodology link.
 4. When the API is down the layer dims and the legend says there has been no run since a stated time.
-5. Frame-time delta ≤1 ms.
-6. The forbidden-word grep over the touched files is clean.
+5. With a `terrain.bin` checksum mismatch (E9.1 `terrainIntegrity: "mismatch"`) the exposure layer is suppressed along with the lowland channel it is gated on, and the legend says why — it never drapes over an unverified DEM.
+6. Frame-time delta ≤1 ms.
+7. The forbidden-word grep over the touched files is clean.
 
 #### E10.5 — Radar term as an input (optional)
 - Touches: new `apps/api/src/exposure/radarTrend.ts` (decode the last three TMD PNGs, sample at station locations, class 0–3 via a documented lookup table), a methodology update, tests
@@ -610,16 +648,28 @@ Deferred D-1). qa-verifier greps the touched files for the forbidden words.
 4. The added CPU time per run is measured and reported in the PR.
 
 #### E10.6 — Earthquake distance-to-province (no prediction, no shaking model)
-- Touches: `packages/shared-types/src/earthquake.ts` (`nearest?: {provinceCode,nameTh,nameEn,distanceKm}[]`), `apps/etl/src/provinceCentroids.ts` → `apps/api/src/data/provinceCentroids.json`, `EarthquakeFeedDO` (haversine on ingest; `ALTER TABLE … ADD COLUMN` guarded by `PRAGMA table_info`, never a table recreate), `EarthquakeLiveCard.tsx`, `InfoPopup.tsx`
+- Touches: `packages/shared-types/src/earthquake.ts` (`nearest?: {provinceCode,nameTh,nameEn,distanceKm,inside:boolean}[]` — `distanceKm` is the distance to the province **polygon**, 0 when the epicentre is inside it), `apps/etl/src/provinceCentroids.ts` → `apps/api/src/data/provinceCentroids.json` **plus** a new simplified-ring artefact `apps/api/src/data/provinceRings.json` (emitted by the existing `apps/etl/src/provinceBoundaries.ts`, which already parses boundaries — do not re-implement that; built from `apps/web/public/aoi/*/boundary.geojson` — those files are web assets a Worker cannot read at runtime, so the rings must be baked into the api bundle, mirroring `provinceCentroids.json`; simplify and quantise to a budget of **≤400 KB** raw for all 77 provinces, and state the simplification tolerance in the PR), new `apps/api/src/geo/pointInProvince.ts` (point-in-ring plus point-to-segment distance, pure, tested), `EarthquakeFeedDO` (centroid haversine only as a coarse pre-filter to shortlist candidates, then exact polygon distance on the shortlist; `ALTER TABLE … ADD COLUMN` guarded by `PRAGMA table_info`, never a table recreate), `EarthquakeLiveCard.tsx`, `InfoPopup.tsx`, i18n keys th/en for both wordings — `"ในเขต <province>"` / `"within <province>"` and `"ห่างจาก <province> ≈ N กม."` / `"≈ N km from <province>"`
 - Depends: E3.1, E7.3
-- Size: M
-- Risk: a careless migration drops stored events — the guarded `ALTER TABLE` is the point
+- Size: L — the ring artefact, the pure geometry module, the DO migration and the two UI surfaces are only checkable together
+- Risk: a careless migration drops stored events — the guarded `ALTER TABLE` is the point; second, the ring artefact inflates the api bundle, hence the stated budget and the reported simplification tolerance
 - Issue: _(not yet filed)_
 
-1. Each event carries its three nearest provinces.
-2. The card reads `≈ N km from <province>` and links to the upstream event page.
-3. Existing rows gain `nearest` on the next poll and the row count is unchanged (test).
-4. The wording contains nothing that reads as a forecast or a prediction; screenshot in the PR.
+**Centroid distance is not the province distance.** Ranking centroids by haversine and printing
+"≈ N km from <province>" is wrong for large or elongated provinces: an epicentre already inside the
+province can be reported tens of km away, and the containing province can drop out of the nearest-three
+list entirely. Specified behaviour is **point-to-polygon** distance from the boundary rings, 0 when the
+point is inside, with the centroid table kept only as the coarse pre-filter. If polygon distance is
+judged too costly at implementation time, the only acceptable alternative is to rename and type the
+field explicitly as distance to the province *centre* (`centroidDistanceKm`, UI "≈ N km from the centre
+of <province>") — but polygon distance is what this task specifies.
+
+1. Each event carries its three nearest provinces, ranked by polygon distance.
+2. An epicentre inside a province reports `distanceKm === 0` / `inside: true`, that province ranks first, and the card reads `ในเขต <province>` / `within <province>` rather than a non-zero distance (fixture test with a known inland epicentre).
+3. Otherwise the card reads `≈ N km from <province>` and links to the upstream event page.
+4. `pointInProvince.ts` has unit tests: inside, outside-near-edge, and a point whose nearest centroid is not its containing province.
+5. Existing rows gain `nearest` on the next poll and the row count is unchanged (test).
+6. `provinceRings.json` is ≤400 KB and `wrangler deploy --dry-run` for `siahra-api` stays inside the Worker script-size limit (`ci.yml` bounds only `apps/web/dist`, so it does not cover this).
+7. The wording contains nothing that reads as a forecast or a prediction; screenshot in the PR.
 
 ## 3. Suggested first two weeks
 
