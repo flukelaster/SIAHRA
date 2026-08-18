@@ -20,6 +20,7 @@ gh api graphql -f query='
 query($o:String!,$r:String!,$n:Int!,$c:String){
   repository(owner:$o,name:$r){
     pullRequest(number:$n){
+      reviews(first:100){ nodes{ author{login} state submittedAt body } }
       reviewThreads(first:100, after:$c){
         totalCount
         pageInfo{ hasNextPage endCursor }
@@ -27,6 +28,8 @@ query($o:String!,$r:String!,$n:Int!,$c:String){
                comments(first:100){ nodes{ databaseId author{login} createdAt body } } } } } } }' \
   -f o=<owner> -f r=<repo> -F n=<n>
 ```
+**Read `reviews` as well as `reviewThreads`** — `AGENTS.md` asks Codex for one consolidated comment per round, and a review whose findings sit in the review `body` instead of an inline thread produces zero threads while still holding P1s. Count a Codex review with a non-empty body as unfinished work.
+
 **Read `totalCount` and `pageInfo.hasNextPage` and page through until exhausted before concluding "no unresolved threads."** Threads come back in creation order with the newest last; a fixed `first:N` silently truncates them and has already produced a false "0 findings" report. Codex posts as `chatgpt-codex-connector`.
 
 ## 3. Report
@@ -35,7 +38,7 @@ query($o:String!,$r:String!,$n:Int!,$c:String){
   state: OPEN  mergeState: CLEAN
   checks: 3 ok / 0 pending / 0 fail   (failed: <list>)
   review threads: 2/7 unresolved  (Codex: 2)
-    - .claude/hooks/guard-pr.sh:30 — <first line of the comment>
+    - .claude/hooks/guard-pr.sh:30 — <one line per finding in that thread, not just the first>
   url: <url>
 ```
 
@@ -48,7 +51,7 @@ query($o:String!,$r:String!,$n:Int!,$c:String){
 ## 5. Failing check → `gh run view <runId> --log-failed` and quote the last ~40 lines. Do not fix it here; let the user or the next cycle react.
 
 ## 6. All green
-- Print `✅ ready` **only when the checks pass and there are zero unresolved threads** — never over the top of pending comments; use `⏳ checks green, N review threads unresolved` instead
+- Print `✅ ready` **only when the checks pass, there are zero unresolved threads, and no Codex review body is left unanswered** — never over the top of pending comments; use `⏳ checks green, N review threads unresolved` instead
 - **Never merge**, however green it looks
 
 ## Output

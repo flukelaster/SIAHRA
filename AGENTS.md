@@ -45,11 +45,53 @@ The standard loop for writing code: `/implement <task>` → **senior-se** writes
 - **Agents do not open PRs**, whatever the user said earlier about "push" — `.claude/hooks/guard-pr.sh` (PreToolUse) intercepts `gh pr create/merge/ready` and `git push … main` and forces the question back to the user; the hook is a safety net, not an excuse to skip asking
 - `.claude/settings.json` (tracked) holds the hook and the allow-list; `.claude/settings.local.json` is per-machine (gitignored)
 
-## Codex PR review — severity policy
-Codex reviews this repo on every push. **Comment only on P1 and P2.** Anything below that is noise:
-it lengthens the review loop without making the product more honest or more correct.
+## Code Review Rules
+This is the section Codex's GitHub code review reads and applies to every changed file
+([`## Code Review Rules` is the surface it consumes](https://developers.openai.com/blog/custom-code-review-rules-for-codex));
+the rest of this file is background context, not a review instruction. Keep it short — the full
+rubric is [Codex PR review — severity policy](#codex-pr-review--severity-policy) below, and
+mechanical checks stay in `ci.yml`.
 
-**P1 — comment, blocking**
+### Output contract — one comment per review round
+- Post **one consolidated comment per round**, findings ordered by severity, each on its own line:
+  severity, `file:line`, what breaks at runtime (not the code smell), and a concrete fix
+- Post it as **one inline comment anchored at the most relevant `file:line`**, with every finding
+  in that body — not as a floating review summary. The fixing side reads `reviewThreads` only, so a
+  finding that lives outside a thread is a finding nobody ever sees
+- **Never open a separate thread per finding.** Every thread costs the author a react → reply →
+  resolve cycle, so ten threads make the loop ten times longer without surfacing one extra defect
+- Blocking findings lead; everything non-blocking goes at the end of the *same* comment under a
+  `### Minor / optional` heading — still stated, still fixed, but never its own thread
+- Nothing to report → say so in one line, or post nothing at all. Never an LGTM re-review
+
+### Blocking findings — data honesty first
+- A forecast number no citable model produced; a hazard layer whose `HazardLayerDescriptor` kind
+  does not match what the data actually is; `fetchedAt: null` rendered as a real time ("now").
+  Honest degradation *is* the product: stale data and dead sources must stay visible (dimmed,
+  labelled, in `/api/v1/health`), never disappear silently
+- A correctness bug a user would hit: crash, wrong hazard value, wrong units or CRS, GPU or memory
+  leak in the render loop
+- A `packages/shared-types` change whose api/web/etl consumers were not updated in the same diff
+- The same-origin guard or rate limiting in `apps/api/src/router.ts` weakened or bypassed; a
+  Durable Object / R2 change that loses or corrupts stored observations; a leaked credential; a
+  `wrangler.jsonc`, route or binding change that breaks a deploy
+
+### Re-review restraint
+- On re-review, look only at findings still unresolved and at regressions introduced by the repair
+  diff. Do not reopen unchanged code, and do not re-raise a point the author already answered with
+  a reason
+- A round that turns up no new P1/P2 finding ends the loop: post nothing
+
+### Not a finding
+Naming, style, comment wording, micro-optimisation, personal preference, and anything `oxlint` or
+`tsc` already catches — `ci.yml` owns those, and a review comment about them is pure loop tax.
+
+## Codex PR review — severity policy
+The detail behind the concise [Code Review Rules](#code-review-rules) above. Codex reviews this repo
+on every push. **Comment only on P1 and P2.** Anything below that is noise: it lengthens the review
+loop without making the product more honest or more correct.
+
+**P1 — blocking; leads the consolidated comment**
 - Data-honesty violation: a self-invented forecast number, a hazard layer without the right `HazardLayerDescriptor` kind, `fetchedAt: null` rendered as a real time ("now"), stale data or a dead source disappearing silently instead of degrading visibly
 - Correctness bug a user would hit: crash, wrong hazard value, wrong units/CRS, GPU or memory leak in the render loop
 - A `packages/shared-types` contract change whose api/web/etl consumers were not updated
@@ -58,7 +100,7 @@ it lengthens the review loop without making the product more honest or more corr
 - Durable Object / R2 change that loses or corrupts stored observations
 - Config change that breaks a deploy (`wrangler.jsonc`, routes, bindings, environments)
 
-**P2 — comment, non-blocking but should fix**
+**P2 — non-blocking; goes under `### Minor / optional` in that same comment, never its own thread**
 - Error handling that swallows failures instead of surfacing them
 - Stale / degraded source state not shown in the UI
 - Race or missed reschedule in a DO alarm
@@ -69,9 +111,10 @@ Naming, style, comment wording, micro-optimisation, personal preference, and any
 `tsc` already catches.
 
 **Loop discipline**
-- At most 10 comments per review
+- **One comment per review round, not one per finding** — a round with three P1s is one comment with three lines. The cost of a review is threads, not findings: each thread has to be reacted to, replied to and resolved one by one
 - Never re-raise a thread that is already resolved, or a point the author answered with a reason
 - If a push introduces no new P1/P2, post nothing — no "LGTM" re-review
 - Codex review is **advisory**: never add it as a required status check in `.github/rulesets/main.json`
+- **No cap on review rounds.** A cap stops progress, not noise — PR #22 turned up real P2 defects four rounds deep. What stops a genuine loop is narrower: the same finding repeating unchanged after it was already fixed, and `/review-fix` already halts and asks the user on that
 
-**On the fixing side** (`/review-fix <pr>`): fetch unresolved threads with the GraphQL `reviewThreads` query (Codex comments are inline review comments — `gh pr view --comments` and `reviewDecision` cannot see them), fix the whole set of P1/P2 findings **in one batch**, push once, then close every thread with all three steps: **react 👍 → reply saying what changed, with the sha → resolve**. `/babysit-prs` (`.claude/commands/babysit-prs.md`) dispatches this automatically whenever it finds unresolved threads, with no cap on rounds — it only stops when the same finding repeats unchanged after it was already fixed. (P3 threads must be closed too, but with a reply explaining why they will not be fixed — never resolve silently.)
+**On the fixing side** (`/review-fix <pr>`): fetch unresolved threads with the GraphQL `reviewThreads` query (Codex comments are inline review comments — `gh pr view --comments` and `reviewDecision` cannot see them). **One thread now carries several findings** — read the whole comment body, fix the entire set of P1/P2 findings **in one batch**, push once, then close each thread with all three steps: **react 👍 → reply saying what changed, with the sha → resolve**, covering every finding that thread raised. `/babysit-prs` (`.claude/commands/babysit-prs.md`) dispatches this automatically whenever it finds unresolved threads, with no cap on rounds — it only stops when the same finding repeats unchanged after it was already fixed. (A thread whose findings are all P3 must be closed too, but with a reply explaining why they will not be fixed — never resolve silently.)
