@@ -133,7 +133,7 @@ Each task is a `####` heading `E<epic>.<n> — <title>` followed by:
 - Risk: the secrets must exist in the deployed Worker before merge, or the TMD feed degrades in production
 - Issue: _(not yet filed)_
 
-1. `git grep api12345` returns 0 hits.
+1. The hardcoded TMD fallback key no longer appears anywhere in the repo (`git grep` for it returns 0 hits — the literal is deliberately not written here).
 2. A missing secret makes the TMD feed `degraded` with `lastError: "TMD credentials not configured"`, and leaves the other feeds unaffected.
 3. `wrangler deploy --dry-run` succeeds.
 4. `.gitignore` contains `.dev.vars`, and `.dev.vars.example` documents both keys.
@@ -741,16 +741,16 @@ artefact exists or is needed) — but polygon distance is what this task specifi
 
 Tracked as one pinned `needs-user` checklist issue, not as tasks.
 
-| Blocker | Needed by |
-|---|---|
-| Workers Paid active (the DO-backed endpoints return 500 on the Free tier — already documented) | any api change deployed |
-| **blocker: TMD secrets** — `wrangler secret put TMD_UID` / `TMD_UKEY` (a registered key is preferable) | E2.3 |
-| **blocker: licence choice** — MIT / Apache-2.0 / other | E2.4 |
-| Make `Test` a required check (`.github/rulesets/main.json` + `scripts/apply-branch-rules.sh`) once E1.3 is stable | after M1 |
-| HSTS `includeSubDomains`/`preload`: yes or no | E4.2 |
-| Does the default UI language stay Thai? | E7.1 |
-| Rerun ETL and upload with `scripts/.env.r2` (the user's machine, hours of runtime) | E9.1, E9.2, E9.3, and verifying E8.3 |
-| Is a GitHub blob URL acceptable as the methodology URL? | E3.4, E10.1 |
+| Blocker | Needed by | Status |
+|---|---|---|
+| Workers Paid active (the DO-backed endpoints return 500 on the Free tier — already documented) | any api change deployed | **open** — user action, deploy-time only |
+| **blocker: TMD secrets** — `wrangler secret put TMD_UID` / `TMD_UKEY` (a registered key is preferable) | E2.3 | **open** — user action; the code degrades honestly without them, but the TMD feed stays `degraded` in production until they are set |
+| **blocker: licence choice** — MIT / Apache-2.0 / other | E2.4 | **resolved 2026-08-18: MIT** |
+| Make `Test` a required check (`.github/rulesets/main.json` + `scripts/apply-branch-rules.sh`) once E1.3 is stable | after M1 | **open** — user action |
+| HSTS `includeSubDomains`/`preload`: yes or no | E4.2 | **resolved 2026-08-18: `max-age` only** — no `includeSubDomains`, no `preload` |
+| Does the default UI language stay Thai? | E7.1 | **resolved 2026-08-18: yes, Thai always** — English via the toggle or `?lang=en`, never auto-detected |
+| Rerun ETL and upload with `scripts/.env.r2` (the user's machine, hours of runtime) | E9.1, E9.2, E9.3, and verifying E8.3 | **open** — user action; the pipeline changes land, the rerun does not |
+| Is a GitHub blob URL acceptable as the methodology URL? | E3.4, E10.1 | **resolved 2026-08-18: no — a `/methodology` page on the web app**, rendering the Markdown in `docs/methodology/` |
 
 ## 5. Deferred — deliberately not doing now (with triggers)
 
