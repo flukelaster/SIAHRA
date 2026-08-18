@@ -502,9 +502,7 @@ CREATE TABLE stations (
   name_th text,
   name_en text,
   geom geometry(Point, 4326) NOT NULL,
-  metadata jsonb NOT NULL DEFAULT '{}'
-);
-
+  metadata jsonb NOT NULL DEFAULT '{}',
   PRIMARY KEY (source, local_id)
 );
 
@@ -535,18 +533,24 @@ CREATE TABLE observations (
   unit text NOT NULL,
   quality_code text,
   source_payload jsonb,
-  -- The upstream reading id when ThaiWater supplies one; otherwise a digest
-  -- over (station, variable, observed_at) ONLY — deliberately excluding
-  -- `value`/`quality_code`. A digest that includes the value cannot represent
-  -- a correction: if a provider revises a reading for the same station,
-  -- variable and time, the value changes and a content hash produces a
-  -- *different* key, so the corrected reading inserts as a new row beside the
-  -- erroneous one instead of replacing it. Keying on identity-only fields
-  -- means a correction is a normal conflict, handled below.
+  -- The upstream reading id when ThaiWater supplies one. Otherwise, when
+  -- `observed_at` is known: a digest over (station, variable, observed_at)
+  -- ONLY — deliberately excluding `value`/`quality_code`, so a provider
+  -- revising the same station/variable/time is a correction (a normal
+  -- conflict, handled below) rather than a second row.
+  --
+  -- When `observed_at` is ALSO unknown, that digest collapses to one constant
+  -- per (station, variable) — every undated reading from a sensor would
+  -- conflict with the last one and silently overwrite it, losing history. For
+  -- that case only, fall back to a digest that DOES include the payload
+  -- (value, unit, quality_code, fetched_at): distinct undated readings get
+  -- distinct rows, and a byte-identical redelivery still dedupes.
   --
   -- fetched_at must NOT appear in this key either: consecutive polls return
   -- the same reading with a new receipt time, so a key containing it would
   -- never conflict and every refresh would append a duplicate.
+  -- known-time readings key on identity alone (see above); undated readings
+  -- key on their full payload including fetched_at, by necessity
   reading_key text NOT NULL,
   CONSTRAINT observations_identity_uniq
     UNIQUE (source, station_id, variable, reading_key)
@@ -625,8 +629,19 @@ CREATE TABLE earthquakes (
 CREATE INDEX earthquakes_geom_gix
 ON earthquakes USING GIST (geom);
 
+-- the province-radius query below runs ST_DWithin against `geom::geography`,
+-- a distinct expression from the plain-geometry index above and one GiST
+-- cannot use interchangeably — without this the query falls back to a
+-- sequential scan as the table grows
+CREATE INDEX earthquakes_geog_gix
+ON earthquakes USING GIST ((geom::geography));
+
 CREATE INDEX earthquakes_fetched_idx
 ON earthquakes (fetched_at DESC);
+
+-- and the query's own `origin_at >= now() - interval '7 days'` predicate
+CREATE INDEX earthquakes_origin_idx
+ON earthquakes (origin_at DESC);
 
 -- read paths filter deleted events out rather than deleting the row: the
 -- retraction itself is part of the history
@@ -825,11 +840,16 @@ ON CONFLICT (source_group) DO UPDATE SET
   last_success_at = EXCLUDED.last_success_at,
   consecutive_failures = 0;
 
--- on a failed poll instead:
--- UPDATE ingestion_status
--- SET last_error_at = now(), last_error = $1,
---     consecutive_failures = consecutive_failures + 1
--- WHERE source_group = 'earthquakes';
+-- on a failed poll instead — an upsert too, not a plain UPDATE: a WHERE-only
+-- update against a source_group that has never succeeded touches no row and
+-- silently discards the very first failure, which is exactly the case a dead
+-- source needs surfaced
+-- INSERT INTO ingestion_status (source_group, last_error_at, last_error, consecutive_failures)
+-- VALUES ('earthquakes', now(), $1, 1)
+-- ON CONFLICT (source_group) DO UPDATE SET
+--   last_error_at = EXCLUDED.last_error_at,
+--   last_error = EXCLUDED.last_error,
+--   consecutive_failures = ingestion_status.consecutive_failures + 1;
 ```
 
 ```sql
@@ -1996,6 +2016,15 @@ name: Deploy
 on:
   push:
     branches: [main]
+
+# One production deployment at a time, and never cancel one mid-flight to
+# start another: this workflow deploys the API and web Workers as separate
+# sequential steps, so two overlapping runs can interleave and leave
+# production on a cross-commit combination, or roll one Worker back while the
+# other advances.
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
 
 jobs:
   deploy:
