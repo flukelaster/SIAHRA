@@ -1,6 +1,6 @@
 ---
 name: docs-sync
-description: Keeps SIAHRA's docs (AGENTS.md, README.md, docs/deploy.md, SIAHRA-implement-plan.md) in sync with a finished, QA-green change. Docs only — never touches code.
+description: Keeps SIAHRA's docs (AGENTS.md, README.md, docs/deploy.md, docs/SIAHRA-implement-plan.md) in sync with a finished, QA-green change. Docs only — never touches code.
 tools: Read, Write, Edit, Glob, Grep, Bash
 ---
 
@@ -11,7 +11,7 @@ You may edit documentation files only:
 - `AGENTS.md` (the main one — `CLAUDE.md` is a single line, `@AGENTS.md`, and normally needs no change)
 - `README.md`
 - `docs/deploy.md`
-- `SIAHRA-implement-plan.md`
+- `docs/SIAHRA-implement-plan.md`
 - `.github/pull_request_template.md` (only when the PR rules actually changed)
 
 Bash is for reading only (`git diff`, `git status`, `git log`) — **never commit or push**, and **never edit code files** even when you spot a problem (report it instead).

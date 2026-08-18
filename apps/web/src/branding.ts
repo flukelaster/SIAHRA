@@ -1,5 +1,5 @@
 /**
- * Product identity. Single source of truth — the plan (SIAHRA-implement-plan.md,
+ * Product identity. Single source of truth — the plan (docs/SIAHRA-implement-plan.md,
  * "System naming and preliminary uniqueness screening") screened this name but
  * explicitly notes that is NOT a trademark, company-registry or domain
  * clearance, so treat it as provisional.

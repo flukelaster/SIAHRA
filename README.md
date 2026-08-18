@@ -134,7 +134,7 @@ SIAHRA/
 │   └── etl/     # Offline geodata pipeline (terrain/building/feature/land-cover tiles)
 ├── packages/
 │   └── shared-types/   # Types shared between web and api
-└── SIAHRA-implement-plan.md   # Research & architecture blueprint
+└── docs/       # Plan, audit & deploy guide
 ```
 
 ## Getting started
@@ -228,11 +228,11 @@ Two conventions a branch ruleset can't express — a PR that touches UI files mu
 | Satellite flood extent | GISTDA | Open Data Commons |
 | Earthquake cross-check | USGS, EMSC | Public data policy |
 
-This is an attribution list, **not** a claim of authorship or endorsement — these agencies supply the data; they did not build or endorse this application. Several upstream layers referenced in [`SIAHRA-implement-plan.md`](SIAHRA-implement-plan.md) (e.g. some LDD soil datasets) carry non-commercial or share-alike terms and are deliberately **not** wired into the live product; verify licensing before adding any new source.
+This is an attribution list, **not** a claim of authorship or endorsement — these agencies supply the data; they did not build or endorse this application. Several upstream layers referenced in [`docs/SIAHRA-implement-plan.md`](docs/SIAHRA-implement-plan.md) (e.g. some LDD soil datasets) carry non-commercial or share-alike terms and are deliberately **not** wired into the live product; verify licensing before adding any new source.
 
 ## Project status
 
-Phases 1–9 of the implementation plan are complete in local development (terrain/building/flood/earthquake/radar pipelines, the full Worker API, and the 3D client). Production deployment via Cloudflare Workers + R2 is in progress. See [`SIAHRA-implement-plan.md`](SIAHRA-implement-plan.md) for the full research blueprint, data-source inventory and roadmap.
+Phases 1–9 of the implementation plan are complete in local development (terrain/building/flood/earthquake/radar pipelines, the full Worker API, and the 3D client). Production deployment via Cloudflare Workers + R2 is in progress. See [`docs/SIAHRA-implement-plan.md`](docs/SIAHRA-implement-plan.md) for the full research blueprint, data-source inventory and roadmap.
 
 ## Disclaimer
 
