@@ -15,7 +15,8 @@ export interface HazardLayerDescriptor {
   epistemicClass: EpistemicClass;
   liveOrStatic: "live" | "static";
   observedAt?: string;
-  fetchedAt: string;
+  /** เวลาที่ backend ดึงสำเร็จครั้งล่าสุด — null = ยังไม่เคยสำเร็จ (ห้ามแทนด้วย "ตอนนี้") */
+  fetchedAt: string | null;
   staleAfterSeconds?: number;
   methodologyUrl?: string;
   sourceIds: string[];

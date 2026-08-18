@@ -7,16 +7,29 @@ import type {
   HazardLayerDescriptor,
   SourceStatus,
 } from "@siahra/shared-types";
-import { fetchGistdaFloodExtent } from "../ingestion/gistda.js";
+import { fetchGistdaFloodExtent, type FetchOptions } from "../ingestion/gistda.js";
 import { keys as archiveKeys, putJsonGz } from "../archive.js";
 
 /** GISTDA re-interprets scenes irregularly; half-hourly polling is plenty. */
 const REFRESH_MS = 30 * 60 * 1000;
-const RETRY_MS = 5 * 60 * 1000;
+/** ล้มครั้งแรกรอเท่านี้ แล้วคูณสองไปเรื่อย ๆ จนถึงเพดาน — ต้นทางล่มทั้งวันจะได้ไม่โดนยิง 288 ครั้ง */
+const RETRY_BASE_MS = 5 * 60 * 1000;
+const RETRY_MAX_MS = 30 * 60 * 1000;
 /** No successful pull for this long => stale (the scene itself may be older). */
 const STALE_AFTER_MS = 3 * 60 * 60 * 1000;
 /** Polygons that vanish from the scene are kept this long as history. */
 const HISTORY_MS = 30 * 24 * 60 * 60 * 1000;
+/** DO ที่ยังไม่เคยมีข้อมูลเลย รอผลรอบแรกได้แค่นี้ ที่เหลือปล่อยวิ่งต่อเบื้องหลัง */
+const COLD_START_WAIT_MS = 3_000;
+/**
+ * งานที่ค้างอยู่หลังตอบ request มีเวลาจำกัด (~30 วิ) — ทุกการ refresh ที่เกิดจาก
+ * request (cold start และ refresh เมื่อของเก่าหมดอายุ) จึงยิงครั้งเดียวไม่ retry
+ * เพื่อให้ refresh() ได้บันทึก lastError/backoff ทัน ไม่ถูกตัดกลางคัน
+ * ส่วน alarm ไม่มีข้อจำกัดนี้ จึงใช้ retry เต็มชุด
+ */
+const REQUEST_PATH_FETCH = { attempts: 1, timeoutMs: 20_000 };
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 interface FeatureRow extends Record<string, SqlStorageValue> {
   id: string;
@@ -88,38 +101,98 @@ export class FloodExtentDO extends DurableObject<Env> {
     await this.ctx.storage.setAlarm(Date.now() + delay);
   }
 
+  /**
+   * ตั้งปลุกที่เวลาหนึ่ง โดย "เลื่อนให้เร็วขึ้นได้" ต่างจาก armAlarm ที่ยอมให้
+   * alarm เดิมชนะเสมอ — จำเป็นเมื่อ refresh ที่ปล่อยไว้เบื้องหลังล้มทีหลัง
+   * แล้วคิว backoff (5–20 นาที) มาก่อน alarm 30 นาทีที่ตั้งไว้ตอนยังไม่รู้ผล
+   */
+  private async armAlarmAt(whenMs: number): Promise<void> {
+    const existing = await this.ctx.storage.getAlarm();
+    if (existing !== null && existing > Date.now() && existing <= whenMs) return;
+    await this.ctx.storage.setAlarm(Math.max(whenMs, Date.now() + 1_000));
+  }
+
+  /** ระยะรอครั้งถัดไปเมื่อล้มติดกัน n ครั้ง: 5m, 10m, 20m, 30m… (+jitter) */
+  private backoffMs(failures: number): number {
+    const base = Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** Math.max(0, failures - 1));
+    return Math.min(RETRY_MAX_MS, Math.round(base * (0.85 + Math.random() * 0.3)));
+  }
+
+  private failureCount(): number {
+    return Number(this.readMeta("failureCount") ?? "0");
+  }
+
+  /** เวลาที่เร็วที่สุดที่จะยิงต้นทางได้อีกครั้ง (0 = ได้เลย) */
+  private nextAttemptMs(): number {
+    const v = this.readMeta("nextAttemptAt");
+    return v ? Date.parse(v) : 0;
+  }
+
   async alarm(): Promise<void> {
+    // นาฬิกาปลุกอาจถูกตั้งไว้เร็วกว่าคิว backoff (เช่นตอน cold start) — ห้ามยิงก่อนกำหนด
+    const wait = this.nextAttemptMs() - Date.now();
+    if (wait > 0) {
+      await this.ctx.storage.setAlarm(Date.now() + wait);
+      return;
+    }
     const ok = await this.refreshOnce();
-    await this.armAlarm(ok ? REFRESH_MS : RETRY_MS);
+    await this.armAlarm(ok ? REFRESH_MS : this.backoffMs(this.failureCount()));
   }
 
-  /** Refresh if never fetched or older than REFRESH_MS; arms the alarm. */
+  /**
+   * Non-blocking: การอ่านของผู้ใช้ต้องไม่ไปรอ (หรือไปกระตุ้น) ต้นทางที่ล่มอยู่
+   * — เสิร์ฟของที่ cache ไว้ แล้วให้ alarm เป็นเจ้าของการ refresh
+   * ยกเว้น cold start (ยังไม่เคยลองเลย) ที่รอผลรอบแรกเพื่อไม่ให้หน้าจอว่าง
+   */
   async ensureFresh(): Promise<void> {
+    const neverAttempted = this.readMeta("lastAttemptAt") === null;
     const r = this.retrievedMs();
-    if (r === null || Date.now() - r > REFRESH_MS) await this.refreshOnce();
-    await this.armAlarm();
+    const due = r === null || Date.now() - r > REFRESH_MS;
+    const allowed = Date.now() >= this.nextAttemptMs();
+    if (neverAttempted) {
+      const first = this.refreshOnce(REQUEST_PATH_FETCH);
+      this.ctx.waitUntil(first);
+      await Promise.race([first, sleep(COLD_START_WAIT_MS)]);
+    } else if (due && allowed) {
+      this.ctx.waitUntil(this.refreshOnce(REQUEST_PATH_FETCH));
+    }
+    await this.armAlarm(this.retrievedMs() === null ? this.backoffMs(this.failureCount()) : REFRESH_MS);
   }
 
-  private refreshOnce(): Promise<boolean> {
+  private refreshOnce(options?: FetchOptions): Promise<boolean> {
     if (!this.inflight) {
-      this.inflight = this.refresh().finally(() => {
+      this.inflight = this.refresh(options).finally(() => {
         this.inflight = null;
       });
     }
     return this.inflight;
   }
 
-  private async refresh(): Promise<boolean> {
+  private async refresh(options?: FetchOptions): Promise<boolean> {
     const nowMs = Date.now();
     this.writeMeta("lastAttemptAt", new Date(nowMs).toISOString());
     let features;
     try {
-      features = await fetchGistdaFloodExtent();
+      features = await fetchGistdaFloodExtent(options);
     } catch (err) {
+      // นับ backoff จากเวลาที่ "ล้มจริง" ไม่ใช่เวลาที่เริ่มยิง ไม่งั้นเวลาที่ใช้
+      // ระหว่างรอ (ต้นทางค้าง/retry) จะไปกินโควตาการรอจนลองใหม่เร็วกว่าที่ตั้งไว้
+      const failedAtMs = Date.now();
+      const failures = this.failureCount() + 1;
+      const waitMs = this.backoffMs(failures);
       this.writeMeta("lastError", String(err).slice(0, 300));
+      this.writeMeta("failureCount", String(failures));
+      this.writeMeta("nextAttemptAt", new Date(failedAtMs + waitMs).toISOString());
       console.error(
-        JSON.stringify({ level: "error", message: "gistda flood fetch failed", error: String(err) }),
+        JSON.stringify({
+          level: "error",
+          message: "gistda flood fetch failed",
+          error: String(err),
+          consecutiveFailures: failures,
+          retryInSeconds: Math.round(waitMs / 1000),
+        }),
       );
+      await this.armAlarmAt(failedAtMs + waitMs);
       return false;
     }
     // Upsert: new ids get first_seen = now, known ids just bump last_seen.
@@ -157,7 +230,12 @@ export class FloodExtentDO extends DurableObject<Env> {
     }
     this.writeMeta("retrievedAt", new Date(nowMs).toISOString());
     this.writeMeta("lastError", null);
+    this.writeMeta("failureCount", null);
+    this.writeMeta("nextAttemptAt", null);
     this.writeMeta("featureCount", String(features.length));
+    // สำเร็จแล้วต้อง "ทับ" alarm ชั่วคราว/backoff ที่ตั้งไว้ตอนยังไม่รู้ผล
+    // ไม่งั้นจะไปยิงต้นทางซ้ำใน 5 นาทีทั้งที่เพิ่งได้ข้อมูลสดมา
+    await this.ctx.storage.setAlarm(Date.now() + REFRESH_MS);
     console.log(
       JSON.stringify({ level: "info", message: "gistda flood refreshed", features: features.length }),
     );
@@ -169,7 +247,7 @@ export class FloodExtentDO extends DurableObject<Env> {
       id: "gistda-flood-extent",
       epistemicClass: "observed",
       liveOrStatic: "live",
-      fetchedAt: retrievedAt ?? new Date().toISOString(),
+      fetchedAt: retrievedAt,
       staleAfterSeconds: STALE_AFTER_MS / 1000,
       methodologyUrl: "https://opendata.gistda.or.th/dataset/floodcheck",
       sourceIds: ["gistda-wfs-flooding_vis"],
@@ -265,7 +343,11 @@ export class FloodExtentDO extends DurableObject<Env> {
       latestObservedAt: null,
       lastAttemptAt: this.readMeta("lastAttemptAt"),
       lastError,
-      detail: { features: Number(this.readMeta("featureCount") ?? "0") },
+      detail: {
+        features: Number(this.readMeta("featureCount") ?? "0"),
+        consecutiveFailures: this.failureCount(),
+        nextAttemptAt: this.readMeta("nextAttemptAt"),
+      },
       staleAfterSeconds: STALE_AFTER_MS / 1000,
     };
   }

@@ -71,12 +71,69 @@ export interface RawFloodFeature {
   geometry: FloodExtentFeature["geometry"];
 }
 
-export async function fetchGistdaFloodExtent(): Promise<RawFloodFeature[]> {
-  const res = await fetch(GISTDA_WFS_URL, {
-    headers: { "User-Agent": "siahra-api/0.0.0 (flood extent ingestion)", Accept: "application/json" },
-  });
-  if (!res.ok) throw new Error(`GISTDA WFS failed: ${res.status} ${res.statusText}`);
-  const body = (await res.json()) as { features?: WfsFeature[] };
+/** GeoServer ค้างได้ — กันไม่ให้ DO ถูกแขวนรอ response ที่ไม่มีวันมา */
+const FETCH_TIMEOUT_MS = 25_000;
+/** ดีเลย์ก่อน retry ในรอบเดียวกัน (หน่วง + jitter) — กลบอาการล่มแป๊บเดียวของต้นทาง */
+const RETRY_DELAYS_MS = [800, 2_500];
+
+/** 5xx/429 คือ "ลองใหม่แล้วอาจได้" (525/520 = Cloudflare ต่อ origin ไม่ติด), 4xx อื่นคือขอผิด */
+function retryableStatus(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/** ±25% jitter กัน DO ทุกตัว/ทุก retry ยิงพร้อมกัน */
+function jitter(ms: number): number {
+  return Math.round(ms * (0.75 + Math.random() * 0.5));
+}
+
+class UpstreamError extends Error {
+  constructor(
+    message: string,
+    readonly retryable: boolean,
+  ) {
+    super(message);
+    this.name = "UpstreamError";
+  }
+}
+
+/**
+ * ดึงฉากน้ำท่วมหนึ่งครั้ง โดยลองซ้ำได้เมื่อความผิดพลาดเป็นแบบชั่วคราว
+ * (ต้นทาง GISTDA ล่ม ๆ หาย ๆ เป็นปกติ — 525/520 คือ Cloudflare ต่อ origin ไม่ติด)
+ */
+export interface FetchOptions {
+  /** จำนวนครั้งที่ยอมยิงทั้งหมด (รวมครั้งแรก) — ผู้เรียกที่มีเพดานเวลาจำกัดใช้ 1 */
+  attempts?: number;
+  timeoutMs?: number;
+}
+
+async function fetchSceneJson(options?: FetchOptions): Promise<{ features?: WfsFeature[] }> {
+  const attempts = Math.max(1, options?.attempts ?? RETRY_DELAYS_MS.length + 1);
+  const timeoutMs = options?.timeoutMs ?? FETCH_TIMEOUT_MS;
+  let lastError: Error = new Error("GISTDA WFS: no attempt made");
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    if (attempt > 0) await sleep(jitter(RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length) - 1]));
+    try {
+      const res = await fetch(GISTDA_WFS_URL, {
+        headers: { "User-Agent": "siahra-api/0.0.0 (flood extent ingestion)", Accept: "application/json" },
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      if (res.ok) return (await res.json()) as { features?: WfsFeature[] };
+      throw new UpstreamError(
+        `GISTDA WFS failed: ${res.status} ${res.statusText}`,
+        retryableStatus(res.status),
+      );
+    } catch (err) {
+      if (err instanceof UpstreamError && !err.retryable) throw err;
+      lastError = err instanceof Error ? err : new Error(String(err));
+    }
+  }
+  throw lastError;
+}
+
+export async function fetchGistdaFloodExtent(options?: FetchOptions): Promise<RawFloodFeature[]> {
+  const body = await fetchSceneJson(options);
   const features = Array.isArray(body.features) ? body.features : [];
   const out: RawFloodFeature[] = [];
   for (const f of features) {

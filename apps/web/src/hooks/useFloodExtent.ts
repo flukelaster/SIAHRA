@@ -33,7 +33,9 @@ export function useFloodExtent(provinceCode: string | null): FloodExtentState {
         const data = (await res.json()) as FloodExtentResponse;
         if (cancelled) return;
         setState({ data, loading: false, error: null });
-        timer = window.setTimeout(load, REFRESH_MS);
+        // retrievedAt = null คือฝั่ง API ยังดึงฉากแรกไม่สำเร็จ (หรือกำลังวิ่งอยู่)
+        // อย่ารอครบ 10 นาที ไม่งั้นการ์ดจะยืนยันว่า "ต้นทางไม่ตอบสนอง" ทั้งที่ข้อมูลมาแล้ว
+        timer = window.setTimeout(load, data.retrievedAt ? REFRESH_MS : RETRY_MS);
       } catch (err) {
         if (cancelled || controller.signal.aborted) return;
         setState((s) => ({ ...s, loading: false, error: err instanceof Error ? err.message : "โหลดไม่สำเร็จ" }));
