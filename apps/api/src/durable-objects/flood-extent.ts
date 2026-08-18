@@ -111,6 +111,12 @@ export class FloodExtentDO extends DurableObject<Env> {
   }
 
   async alarm(): Promise<void> {
+    // นาฬิกาปลุกอาจถูกตั้งไว้เร็วกว่าคิว backoff (เช่นตอน cold start) — ห้ามยิงก่อนกำหนด
+    const wait = this.nextAttemptMs() - Date.now();
+    if (wait > 0) {
+      await this.ctx.storage.setAlarm(Date.now() + wait);
+      return;
+    }
     const ok = await this.refreshOnce();
     await this.armAlarm(ok ? REFRESH_MS : this.backoffMs(this.failureCount()));
   }
