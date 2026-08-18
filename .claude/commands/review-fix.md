@@ -24,11 +24,11 @@ Codex reviews every push, so fixing one comment per push is a loop that never en
 
 ```bash
 gh api graphql -f query='
-query($o:String!,$r:String!,$n:Int!,$c:String,$rc:String){
+query($o:String!,$r:String!,$n:Int!,$c:String,$rc:String,$cc:String){
   repository(owner:$o,name:$r){
     pullRequest(number:$n){
       reviews(first:100, after:$rc){ pageInfo{ hasNextPage endCursor } nodes{ author{login} state submittedAt body } }
-      comments(last:100){ nodes{ author{login} body } }
+      comments(first:100, after:$cc){ pageInfo{ hasNextPage endCursor } nodes{ author{login} body } }
       reviewThreads(first:100, after:$c){
         totalCount
         pageInfo{ hasNextPage endCursor }
@@ -42,7 +42,7 @@ query($o:String!,$r:String!,$n:Int!,$c:String,$rc:String){
 - **Read every comment in the thread, not just `first:1`** — if someone replied explaining that the behaviour is intentional or the finding is wrong, that reply stands: close the thread with that reason instead of fixing over it
 - Codex comments are `author.login == "chatgpt-codex-connector"` — use that to separate them from human comments
 - **Read `reviews` too, not only `reviewThreads`**: `AGENTS.md` asks Codex for one consolidated comment, and if it puts that list in the review body instead of an inline thread there is no thread to find. Such a review is a finding set to process even when `reviewThreads` comes back empty — but it has no thread to resolve, so close it with **one PR comment ending in the marker `Addressed Codex review <submittedAt>`** (step 4 has the command). Skip the boilerplate "Here are some automated review suggestions" body Codex posts alongside inline threads, and skip any review whose marker is already in `comments` — a review body never stops being non-empty, and re-processing one is how the loop would never end
-- **`reviews` has its own cursor** (`$rc`) — page it to exhaustion separately from `reviewThreads`, or on a long-lived PR the newest review is the one you drop
+- **Each connection has its own cursor** — `reviewThreads` on `$c`, `reviews` on `$rc`, `comments` on `$cc`. Page all three to exhaustion: on a long-lived PR an unpaged `first:100` drops the newest review, or the marker proving an older one was already handled
 - **Read `totalCount` and `pageInfo.hasNextPage` and page through until exhausted before concluding anything** — threads come back in creation order with the newest last, and a fixed `first: N` has already produced a false "0 findings" report
 
 ## 2. Classify against the rubric (`## Code Review Rules` + "Codex PR review — severity policy" in `AGENTS.md`)

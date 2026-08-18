@@ -17,11 +17,11 @@ This repo has three required checks: `Lint` / `TypeScript` / `Build` (`.github/w
 Codex comments are inline review comments inside a `COMMENTED` review, so `gh pr view --comments` cannot see them and `reviewDecision` stays blank. GraphQL is the only way:
 ```bash
 gh api graphql -f query='
-query($o:String!,$r:String!,$n:Int!,$c:String,$rc:String){
+query($o:String!,$r:String!,$n:Int!,$c:String,$rc:String,$cc:String){
   repository(owner:$o,name:$r){
     pullRequest(number:$n){
       reviews(first:100, after:$rc){ pageInfo{ hasNextPage endCursor } nodes{ author{login} state submittedAt body } }
-      comments(last:100){ nodes{ author{login} body } }
+      comments(first:100, after:$cc){ pageInfo{ hasNextPage endCursor } nodes{ author{login} body } }
       reviewThreads(first:100, after:$c){
         totalCount
         pageInfo{ hasNextPage endCursor }
@@ -37,7 +37,7 @@ A review body counts as unfinished work only when **both** hold:
 
 That marker is the whole mechanism: a review body stays non-empty forever, so without it every later cycle would re-dispatch `/review-fix` over an already-handled review and the PR could never reach `✅ ready`. `/review-fix` posts the marker when it answers a body-only review.
 
-**`reviews` pages on its own cursor** (`$rc`) — it is a separate connection from `reviewThreads`, and rounds here are uncapped, so on a long-running PR the newest review (the one holding current findings) is exactly the one a single unpaged `first:100` drops. Advance both cursors until both report `hasNextPage: false`.
+**All three connections page on their own cursor** — `reviewThreads` on `$c`, `reviews` on `$rc`, `comments` on `$cc`. Rounds here are uncapped, so on a long-running PR a single unpaged `first:100` drops exactly the thing that matters: the newest review (the one holding current findings), or an acknowledgement marker for an older one. A truncated marker search is worse than none — it reports handled work as unfinished and re-dispatches `/review-fix` forever. Advance all three until each reports `hasNextPage: false`.
 
 **Read `totalCount` and `pageInfo.hasNextPage` and page through until exhausted before concluding "no unresolved threads."** Threads come back in creation order with the newest last; a fixed `first:N` silently truncates them and has already produced a false "0 findings" report. Codex posts as `chatgpt-codex-connector`.
 
