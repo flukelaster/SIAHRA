@@ -24,10 +24,11 @@ Codex reviews every push, so fixing one comment per push is a loop that never en
 
 ```bash
 gh api graphql -f query='
-query($o:String!,$r:String!,$n:Int!,$c:String){
+query($o:String!,$r:String!,$n:Int!,$c:String,$rc:String){
   repository(owner:$o,name:$r){
     pullRequest(number:$n){
-      reviews(first:100){ nodes{ author{login} state submittedAt body } }
+      reviews(first:100, after:$rc){ pageInfo{ hasNextPage endCursor } nodes{ author{login} state submittedAt body } }
+      comments(last:100){ nodes{ author{login} body } }
       reviewThreads(first:100, after:$c){
         totalCount
         pageInfo{ hasNextPage endCursor }
@@ -40,7 +41,8 @@ query($o:String!,$r:String!,$n:Int!,$c:String){
 - `comments.nodes[0].databaseId` = the first comment's id → used with the REST reactions/replies endpoints
 - **Read every comment in the thread, not just `first:1`** — if someone replied explaining that the behaviour is intentional or the finding is wrong, that reply stands: close the thread with that reason instead of fixing over it
 - Codex comments are `author.login == "chatgpt-codex-connector"` — use that to separate them from human comments
-- **Read `reviews` too, not only `reviewThreads`**: `AGENTS.md` asks Codex for one consolidated comment, and if it puts that list in the review body instead of an inline thread there is no thread to find. A Codex review with a non-empty `body` is a finding set to process even when `reviewThreads` comes back empty — it just has no thread to resolve, so answer it with one reply on the PR
+- **Read `reviews` too, not only `reviewThreads`**: `AGENTS.md` asks Codex for one consolidated comment, and if it puts that list in the review body instead of an inline thread there is no thread to find. Such a review is a finding set to process even when `reviewThreads` comes back empty — but it has no thread to resolve, so close it with **one PR comment ending in the marker `Addressed Codex review <submittedAt>`** (step 4 has the command). Skip the boilerplate "Here are some automated review suggestions" body Codex posts alongside inline threads, and skip any review whose marker is already in `comments` — a review body never stops being non-empty, and re-processing one is how the loop would never end
+- **`reviews` has its own cursor** (`$rc`) — page it to exhaustion separately from `reviewThreads`, or on a long-lived PR the newest review is the one you drop
 - **Read `totalCount` and `pageInfo.hasNextPage` and page through until exhausted before concluding anything** — threads come back in creation order with the newest last, and a fixed `first: N` has already produced a false "0 findings" report
 
 ## 2. Classify against the rubric (`## Code Review Rules` + "Codex PR review — severity policy" in `AGENTS.md`)
@@ -73,6 +75,11 @@ gh api -X POST repos/<owner>/<repo>/pulls/<pr>/comments/<comment_id>/replies \
 
 # 4.3 resolve
 gh api graphql -f query='mutation($t:ID!){ resolveReviewThread(input:{threadId:$t}){ thread{ isResolved } } }' -f t=<thread_id>
+
+# 4.4 body-only review (no thread to resolve) — one PR comment carrying the marker
+gh pr comment <pr> --body 'Fixed in <sha> — <what changed, which file>.
+
+Addressed Codex review <submittedAt>'
 ```
 - Replies are short and **in English**: what changed, in which file, plus `Fixed in <sha>` (on the no-change path, start with `No code change —` and give the reason)
 - One reply per thread must cover **every finding that thread raised** — a consolidated comment holds several, and answering only the first leaves the rest silently unaddressed
