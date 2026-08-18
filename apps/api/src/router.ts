@@ -14,7 +14,12 @@ export type Handler = (
 ) => Promise<Response> | Response;
 
 export interface Route {
-  method?: "GET" | "POST";
+  /**
+   * Method this route answers — required, so a new endpoint cannot silently
+   * inherit "any method". A `GET` route also answers `HEAD` (served as GET
+   * with the body stripped), which is what keeps `curl -I` honest.
+   */
+  method: "GET" | "POST";
   pattern: RegExp;
   handler: Handler;
   /** Per-client rate limit; defaults to DEFAULT_LIMIT. */
@@ -37,16 +42,61 @@ export const json = (
     },
   });
 
+/**
+ * The `Allow` value for a path: every method its routes declare, plus HEAD
+ * whenever GET is one of them. Deterministic order (GET, HEAD, POST) so the
+ * header is comparable across responses.
+ */
+export function allowHeader(matched: Route[]): string {
+  const methods = new Set<string>();
+  for (const route of matched) {
+    methods.add(route.method);
+    if (route.method === "GET") methods.add("HEAD");
+  }
+  return ["GET", "HEAD", "POST"].filter((m) => methods.has(m)).join(", ");
+}
+
+/**
+ * RFC 9110: a HEAD response carries the headers of the GET response and no
+ * body. Statuses that are defined as body-less already (and the 101 upgrade)
+ * are passed through untouched — constructing a Response for those with an
+ * explicit null body is either pointless or a RangeError.
+ */
+function withoutBody(res: Response): Response {
+  if (res.status === 101 || res.status === 204 || res.status === 304) return res;
+  const stripped = new Response(null, {
+    status: res.status,
+    statusText: res.statusText,
+    headers: res.headers,
+  });
+  // The GET body was produced but is never sent; release it rather than
+  // leaving an R2/DO stream dangling for the GC. A locked or already-consumed
+  // body throws synchronously — that is fine, there is nothing left to free.
+  try {
+    void res.body?.cancel().catch(() => {});
+  } catch {
+    // already consumed
+  }
+  return stripped;
+}
+
 export function createRouter(routes: Route[]) {
-  return async (request: Request, env: AppEnv, ctx: ExecutionContext): Promise<Response> => {
+  const dispatch = async (request: Request, env: AppEnv, ctx: ExecutionContext): Promise<Response> => {
     const { pathname } = new URL(request.url);
     if (!originAllowed(request, env.ALLOWED_ORIGINS ?? "")) {
       return json({ error: "Cross-origin use of this API is not allowed" }, { status: 403 });
     }
+    // HEAD is dispatched as GET; the body is dropped on the way out.
+    const method = request.method === "HEAD" ? "GET" : request.method;
+    // Path first, method second: a known path called with the wrong method has
+    // to answer 405 + Allow, not 404. Rate limiting stays where it was —
+    // after the same-origin guard, before the handler runs.
+    const matched: Route[] = [];
     for (const route of routes) {
-      if (route.method && request.method !== route.method) continue;
       const m = route.pattern.exec(pathname);
       if (!m) continue;
+      matched.push(route);
+      if (route.method !== method) continue;
       const wait = checkLimit(route.limitScope ?? route.pattern.source, clientKey(request), route.limit ?? DEFAULT_LIMIT);
       if (wait !== null) {
         return json(
@@ -63,6 +113,18 @@ export function createRouter(routes: Route[]) {
         return json({ error: "Internal error" }, { status: 500 });
       }
     }
+    if (matched.length > 0) {
+      const allow = allowHeader(matched);
+      return json(
+        { error: "Method not allowed", allow },
+        { status: 405, headers: { Allow: allow } },
+      );
+    }
     return json({ error: "Not found" }, { status: 404 });
+  };
+
+  return async (request: Request, env: AppEnv, ctx: ExecutionContext): Promise<Response> => {
+    const res = await dispatch(request, env, ctx);
+    return request.method === "HEAD" ? withoutBody(res) : res;
   };
 }

@@ -7,6 +7,8 @@ apps/etl/data/raw
 apps/etl/data/work
 .env
 .env.local
+# local secrets for `wrangler dev` (apps/api/.dev.vars.example is the template)
+.dev.vars
 # per-worktree dev ports (scripts/setup-worktree.sh)
 .env.worktree
 # คีย์ R2 S3 สำหรับ scripts/upload-tiles.sh

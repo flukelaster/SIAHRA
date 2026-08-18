@@ -28,9 +28,12 @@ export default {
     const url = new URL(request.url);
     const tile = TILE_PATH.exec(url.pathname);
 
-    // Not a tile: hand it back to the asset layer. `run_worker_first` in
-    // wrangler.jsonc routes the whole `/aoi/*` prefix through this Worker, so
-    // this branch is what serves the tracked manifests and overviews.
+    // Not a tile: hand it back to the asset layer. There is deliberately no
+    // `run_worker_first` in wrangler.jsonc — the asset layer answers first and
+    // only what it does not have (a `.bin` tile that is not in the bundle)
+    // reaches this Worker, so the tracked manifests and overviews under /aoi/
+    // are usually served without ever getting here. This branch is the
+    // fallthrough for the requests that do.
     if (!tile) return env.ASSETS.fetch(request);
 
     if (request.method !== "GET" && request.method !== "HEAD") {

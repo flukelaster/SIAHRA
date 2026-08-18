@@ -1,0 +1,11 @@
+{
+  // Test-only project. The build tsconfig deliberately excludes `test/` (E1.1), so without
+  // this file an editor resolves `cloudflare:test` against the build project and reports it
+  // as missing. Nothing here feeds `wrangler deploy`; it only types the vitest sources.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["../worker-configuration.d.ts", "@cloudflare/vitest-pool-workers/types"]
+  },
+  "include": ["**/*.ts", "../vitest.config.ts", "../src"]
+}

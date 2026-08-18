@@ -10,6 +10,16 @@ R2 bucket `siahra-geodata` ตรวจแล้วว่า `/api/v1/health` �
 - โดเมน `siahra-radar.co` เป็น zone ใน account เดียวกัน (route ของทั้งสอง Worker ผูกกับ zone นี้)
 - `npx wrangler login` ในเครื่องที่จะ deploy
 - Node 20+, gdal/osmium (เฉพาะถ้าจะสร้าง tile ใหม่)
+- **secret ของ `siahra-api` ตั้งครบก่อน deploy** (ไม่ได้อยู่ใน `wrangler.jsonc` แล้ว — ดู §3):
+  ```bash
+  cd apps/api
+  npx wrangler secret put TMD_UID     # ลงทะเบียนที่ data.tmd.go.th
+  npx wrangler secret put TMD_UKEY
+  ```
+  ยังไม่ตั้งก็ deploy ผ่าน แต่ฟีดแผ่นดินไหวจะรายงานที่ `/api/v1/health` ว่า source `earthquakes`
+  เป็น `degraded` พร้อม `lastError: "TMD credentials not configured"` (USGS/EMSC และอีกสาม source
+  ทำงานตามปกติ) — ตั้งใจให้เห็นชัดแทนที่จะแอบใช้คีย์สาธารณะร่วมกับคนอื่น
+  เครื่อง dev ใช้ `apps/api/.dev.vars` (gitignored) โดยคัดลอกจาก `apps/api/.dev.vars.example`
 
 ## 0.1 สอง Worker แยก deploy กัน
 | Worker | config | เนื้อหา | ผูกกับโดเมนแบบ |
@@ -96,7 +106,9 @@ invocation (ถ้าเจอ tile ตอบ `200 text/html` แปลว่า
 ## 3. wrangler.jsonc / secrets
 ทั้งหมดนี้อยู่ที่ `apps/api/wrangler.jsonc` — `apps/web/wrangler.jsonc` ไม่มี secret และไม่มี binding
 - ไม่มี KV binding แล้ว: `CONFIG` เคยมี id เป็น placeholder และไม่มีโค้ดไหนอ่านมันเลย จึงถอดออก (ถ้าวันหน้าต้องเก็บ config ที่เปลี่ยนช้า ๆ ค่อย `npx wrangler kv namespace create CONFIG` แล้วใส่ id จริงกลับมา)
-- ตั้งค่า `TMD_UID`, `TMD_UKEY` (ลงทะเบียนที่ data.tmd.go.th) ผ่าน `npx wrangler secret put TMD_UKEY` แล้วลบ default ออกจาก `vars`
+- `TMD_UID`, `TMD_UKEY` เป็น **secret** ล้วน ไม่มี default ใน `vars` และไม่มี fallback ในโค้ดแล้ว
+  (`apps/api/src/ingestion/tmd.ts`) — ตั้งด้วย `npx wrangler secret put TMD_UID` / `TMD_UKEY` ตาม §0
+  ; ตรวจว่ามีอยู่จริงด้วย `npx wrangler secret list` (ค่าไม่ถูกแสดง แสดงแค่ชื่อ)
 - `ALLOWED_ORIGINS`: ว่าง = same-origin เท่านั้น — ไม่ต้องตั้ง เพราะ route ของสอง Worker อยู่บน host
   เดียวกัน (`siahra-radar.co`) ตามหัวข้อ 0.1 ; ถ้าวันหน้าย้าย SPA ไปคนละ host ต้องใส่ origin ของ SPA ที่นี่
   **และ** เติม CORS header ใน `apps/api/src/router.ts` ด้วย ไม่ใช่ตั้งค่านี้ตัวเดียว

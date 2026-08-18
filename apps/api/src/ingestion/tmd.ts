@@ -3,16 +3,32 @@ import type { Bbox } from "./usgs.js";
 
 const TMD_SEISMIC_BASE = "https://data.tmd.go.th/api/DailySeismicEvent/v1/";
 
+export interface TmdCredentials {
+  uid: string;
+  ukey: string;
+}
+
 /**
- * TMD's open-data API is keyed. The credentials come from the environment
- * (wrangler `vars` / `.dev.vars`) — the shipped defaults are TMD's own
- * published public-access pair, so replace them with a registered key for
- * anything beyond development.
+ * Message used both as the thrown error and as the `lastError` on /health when
+ * the feed is unusable because nobody ran `wrangler secret put`. Exported so
+ * the DO can report it without re-typing the string.
  */
-function tmdSeismicUrl(env: { TMD_UID?: string; TMD_UKEY?: string }): string {
-  const uid = env.TMD_UID?.trim() || "api";
-  const ukey = env.TMD_UKEY?.trim() || "api12345";
-  return `${TMD_SEISMIC_BASE}?uid=${encodeURIComponent(uid)}&ukey=${encodeURIComponent(ukey)}`;
+export const TMD_MISSING_CREDENTIALS = "TMD credentials not configured";
+
+/**
+ * TMD's open-data API is keyed and the pair is a secret (`wrangler secret put
+ * TMD_UID` / `TMD_UKEY`, `.dev.vars` locally — see apps/api/.dev.vars.example).
+ * There is deliberately no fallback pair: a missing secret degrades the TMD
+ * feed visibly instead of quietly calling the API as somebody else.
+ */
+export function tmdCredentials(env: { TMD_UID?: string; TMD_UKEY?: string }): TmdCredentials | null {
+  const uid = env.TMD_UID?.trim();
+  const ukey = env.TMD_UKEY?.trim();
+  return uid && ukey ? { uid, ukey } : null;
+}
+
+function tmdSeismicUrl(creds: TmdCredentials): string {
+  return `${TMD_SEISMIC_BASE}?uid=${encodeURIComponent(creds.uid)}&ukey=${encodeURIComponent(creds.ukey)}`;
 }
 
 /**
@@ -75,7 +91,9 @@ export async function fetchTmdEvents(
   env: { TMD_UID?: string; TMD_UKEY?: string },
   nowMs = Date.now(),
 ): Promise<EarthquakeEvent[]> {
-  const res = await fetch(tmdSeismicUrl(env), {
+  const creds = tmdCredentials(env);
+  if (!creds) throw new Error(TMD_MISSING_CREDENTIALS);
+  const res = await fetch(tmdSeismicUrl(creds), {
     headers: { "User-Agent": "siahra-api/0.0.0 (earthquake ingestion)" },
   });
   if (!res.ok) {

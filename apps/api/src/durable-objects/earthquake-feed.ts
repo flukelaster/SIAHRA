@@ -3,7 +3,7 @@ import type { EarthquakeEvent, EqWsMessage, SourceStatus } from "@siahra/shared-
 import type { Bbox } from "../ingestion/usgs.js";
 import { backfillUsgsEvents, fetchUsgsEvents } from "../ingestion/usgs.js";
 import { fetchEmscEvents } from "../ingestion/emsc.js";
-import { fetchTmdEvents } from "../ingestion/tmd.js";
+import { fetchTmdEvents, TMD_MISSING_CREDENTIALS, tmdCredentials } from "../ingestion/tmd.js";
 import { findCorroboratingCluster, type StoredEventRow } from "../ingestion/normalize.js";
 
 const RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -159,7 +159,26 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
       : [];
 
     const feedErrors: string[] = [];
-    const [usgsEvents, emscEvents, tmdEvents] = await Promise.all([
+
+    /**
+     * TMD is the only keyed feed. With no secret set there is nothing to call,
+     * so report it as this poll's error and keep USGS/EMSC untouched — the
+     * whole refresh must never throw over a missing credential.
+     */
+    const tmdEvents = async (): Promise<EarthquakeEvent[]> => {
+      if (!tmdCredentials(this.env)) {
+        console.error(JSON.stringify({ level: "error", message: "tmd poll skipped", error: TMD_MISSING_CREDENTIALS }));
+        feedErrors.push(TMD_MISSING_CREDENTIALS);
+        return [];
+      }
+      return fetchTmdEvents(bbox, this.env, nowMs).catch((err: unknown) => {
+        console.error(JSON.stringify({ level: "error", message: "tmd poll failed", error: String(err) }));
+        feedErrors.push(`tmd: ${String(err).slice(0, 120)}`);
+        return [] as EarthquakeEvent[];
+      });
+    };
+
+    const [usgsEvents, emscEvents, tmdFeedEvents] = await Promise.all([
       fetchUsgsEvents(bbox).catch((err: unknown) => {
         console.error(JSON.stringify({ level: "error", message: "usgs poll failed", error: String(err) }));
         feedErrors.push(`usgs: ${String(err).slice(0, 120)}`);
@@ -170,18 +189,14 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
         feedErrors.push(`emsc: ${String(err).slice(0, 120)}`);
         return [] as EarthquakeEvent[];
       }),
-      fetchTmdEvents(bbox, this.env, nowMs).catch((err: unknown) => {
-        console.error(JSON.stringify({ level: "error", message: "tmd poll failed", error: String(err) }));
-        feedErrors.push(`tmd: ${String(err).slice(0, 120)}`);
-        return [] as EarthquakeEvent[];
-      }),
+      tmdEvents(),
     ]);
 
     // Backfill first so live-feed revisions of the same event win on updated_ms.
     // TMD (the Thai national network) is listed last only so that its events
     // corroborate into clusters already seeded by the global feeds; all four
     // sources share the same dedupe path below.
-    const candidates = [...seededEvents, ...usgsEvents, ...emscEvents, ...tmdEvents];
+    const candidates = [...seededEvents, ...usgsEvents, ...emscEvents, ...tmdFeedEvents];
     let created = 0;
     let updated = 0;
     const messages: EqWsMessage[] = [];

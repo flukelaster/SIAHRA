@@ -57,6 +57,12 @@ jobs:
       - name: tsc --noEmit apps/api
         run: npx tsc --noEmit
         working-directory: apps/api
+      # test/ is not in the deploy project's `include`, so it needs its own
+      # project — without this the vitest sources are never type-checked.
+      - name: tsc --noEmit apps/api tests
+        run: npx tsc -p test/tsconfig.json --noEmit
+        working-directory: apps/api
+
       - name: tsc --noEmit apps/etl
         run: npx tsc --noEmit
         working-directory: apps/etl
