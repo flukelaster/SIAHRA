@@ -501,9 +501,16 @@ CREATE TABLE earthquakes (
   id text PRIMARY KEY,
   origin_at timestamptz NOT NULL,
   magnitude double precision,
+  -- nullable, because it genuinely is: shared-types declares
+  -- `depthKm: number | null` and the TMD adapter legitimately produces null
   depth_km double precision,
   source_ids jsonb NOT NULL,
-  geom geometry(PointZ, 4326) NOT NULL,
+  -- 2D deliberately. A PointZ needs a third ordinate, so an event with no
+  -- reported depth would either produce a null geometry (violating NOT NULL,
+  -- dropping a real earthquake) or force the writer to invent a depth of 0 —
+  -- publishing a hazard value nobody measured. Depth stays in its own nullable
+  -- column where "unknown" can be represented honestly.
+  geom geometry(Point, 4326) NOT NULL,
   -- upstream revision time (USGS/EMSC revise magnitude and depth after the fact)
   updated_at timestamptz NOT NULL,
   -- when SIAHRA first received this event, and when it last re-fetched it.
@@ -529,28 +536,43 @@ CREATE TABLE flood_extents (
   -- Queue delivery is at-least-once, so this is what makes a redelivery
   -- an update instead of a duplicate polygon.
   source_artifact_id text NOT NULL,
-  observed_at timestamptz NOT NULL,
+  -- Nullable on purpose. GISTDA features carry no observation timestamp —
+  -- FloodExtentDO and packages/shared-types/src/flood.ts keep only retrieval
+  -- and first/last-seen times. Requiring it would force the consumer to copy a
+  -- receipt time in here and thereby state when the satellite observed the
+  -- flood, which nobody knows. Null means unknown, and the UI must say so
+  -- rather than showing a retrieval time as an observation time.
+  observed_at timestamptz,
   fetched_at timestamptz NOT NULL,
-  -- NOT NULL with a sentinel, deliberately. A plain UNIQUE treats every NULL as
-  -- distinct, so an extent that could not be assigned to a province would slip
-  -- past the constraint and be inserted again on every redelivery — the exact
-  -- duplicate this key exists to prevent. Postgres 15+ can express the same
-  -- thing as UNIQUE NULLS NOT DISTINCT; pick one, but do not leave it nullable.
-  province_code text NOT NULL DEFAULT '__unassigned__'
-    REFERENCES provinces(code),
+  first_seen_at timestamptz NOT NULL,
+  last_seen_at timestamptz NOT NULL,
+  -- Nullable, because a real extent may genuinely span no single province and
+  -- there is no provinces row to point a sentinel at. What must NOT happen is
+  -- a plain UNIQUE: it treats every NULL as distinct, so an unassigned extent
+  -- would slip past the key and be inserted again on every redelivery.
+  -- NULLS NOT DISTINCT (Postgres 15+) closes that hole without inventing a
+  -- province. If you are on an older Postgres, add a real '__unassigned__' row
+  -- to `provinces` first — a sentinel with no referent just fails the foreign
+  -- key and drops the extent entirely.
+  province_code text REFERENCES provinces(code),
   geom geometry(MultiPolygon, 4326) NOT NULL,
   confidence double precision,
   artifact_key text,
   provenance jsonb NOT NULL,
   CONSTRAINT flood_extents_source_artifact_uniq
-    UNIQUE (source, source_artifact_id, province_code)
+    UNIQUE NULLS NOT DISTINCT (source, source_artifact_id, province_code)
 );
 
 CREATE INDEX flood_extents_geom_gix
 ON flood_extents USING GIST (geom);
 
+-- NULLS LAST: extents with no observation time sort to the end rather than
+-- masquerading as the newest rows
 CREATE INDEX flood_extents_time_idx
-ON flood_extents (observed_at DESC);
+ON flood_extents (observed_at DESC NULLS LAST);
+
+CREATE INDEX flood_extents_seen_idx
+ON flood_extents (last_seen_at DESC);
 ```
 
 The queue consumer must therefore upsert rather than insert, so that a retry or redelivery of the same
@@ -560,13 +582,17 @@ counted twice in every spatial summary:
 ```sql
 INSERT INTO flood_extents (
   source, source_artifact_id, observed_at, fetched_at,
+  first_seen_at, last_seen_at,
   province_code, geom, confidence, artifact_key, provenance
 ) VALUES (...)
 ON CONFLICT (source, source_artifact_id, province_code) DO UPDATE SET
-  geom       = EXCLUDED.geom,
-  confidence = EXCLUDED.confidence,
-  fetched_at = EXCLUDED.fetched_at,
-  provenance = EXCLUDED.provenance;
+  geom         = EXCLUDED.geom,
+  confidence   = EXCLUDED.confidence,
+  fetched_at   = EXCLUDED.fetched_at,
+  -- first_seen_at is deliberately absent: it is set once, on the first
+  -- insert, and a redelivery must not move it forward
+  last_seen_at = EXCLUDED.last_seen_at,
+  provenance   = EXCLUDED.provenance;
 ```
 
 ### Why every table carries both `observed_at` and `fetched_at`
@@ -1330,6 +1356,25 @@ export function connectHazardStream(
   let stopped = false;
   let retryMs = 1_000;
   let timer: number | undefined;
+  let heartbeatTimer: number | undefined;
+
+  // EarthquakeFeedDO.pollOnce() broadcasts on every poll (once a minute), so
+  // silence well past that means the socket is half-open — mobile sleep and
+  // network transitions both produce a connection that never fires `close` or
+  // `error`. Without this deadline the client sits in `live` forever and the UI
+  // keeps presenting stale hazard values as healthy, which is the one thing
+  // AGENTS.md forbids.
+  const HEARTBEAT_TIMEOUT_MS = 150_000; // ~2.5 missed one-minute polls
+
+  const armHeartbeatDeadline = () => {
+    if (heartbeatTimer !== undefined) window.clearTimeout(heartbeatTimer);
+    heartbeatTimer = window.setTimeout(() => {
+      onStatus({ state: "degraded", reason: "heartbeat-timeout" });
+      // close() drives the reconnect/backoff path below; a half-open socket
+      // will not do it for us
+      socket?.close();
+    }, HEARTBEAT_TIMEOUT_MS);
+  };
 
   const connect = () => {
     if (stopped) return;
@@ -1342,9 +1387,13 @@ export function connectHazardStream(
     socket.addEventListener("open", () => {
       retryMs = 1_000;
       onStatus({ state: "live" });
+      armHeartbeatDeadline();
     });
 
     socket.addEventListener("message", (event) => {
+      // any frame, heartbeat included, proves the connection is still alive
+      armHeartbeatDeadline();
+
       try {
         onMessage(JSON.parse(event.data));
       } catch (err) {
@@ -1384,6 +1433,10 @@ export function connectHazardStream(
 
     if (timer !== undefined) {
       window.clearTimeout(timer);
+    }
+
+    if (heartbeatTimer !== undefined) {
+      window.clearTimeout(heartbeatTimer);
     }
 
     socket?.close();
