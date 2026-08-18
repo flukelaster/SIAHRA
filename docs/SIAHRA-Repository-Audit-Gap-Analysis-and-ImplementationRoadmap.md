@@ -8,11 +8,11 @@
 
 ### English
 
-SIAHRA is substantially further along than a concept prototype. The public repository already contains a functioning monorepo with a React/TypeScript/Three.js client, an offline geospatial ETL pipeline, a Cloudflare Worker API, Durable Objects, R2/KV bindings, a one-minute scheduled ingestion loop, live earthquake WebSockets, province selection, terrain/building/road/vegetation rendering, flood extents, radar, rainfall/water stations, dams, source-health indicators, timelines, permalinks, and responsive layouts. The README describes all 77 Thai provinces as the intended navigable 3D coverage and says implementation phases through the present 3D client/API pipeline are complete locally, while production Cloudflare deployment is still in progress.
+SIAHRA is substantially further along than a concept prototype. The public repository already contains a functioning monorepo with a React/TypeScript/Three.js client, an offline geospatial ETL pipeline, a Cloudflare Worker API, Durable Objects, an R2 binding, a one-minute scheduled ingestion loop, live earthquake WebSockets, province selection, terrain/building/road/vegetation rendering, flood extents, radar, rainfall/water stations, dams, source-health indicators, timelines, permalinks, and responsive layouts. The README describes all 77 Thai provinces as the intended navigable 3D coverage and says implementation phases through the present 3D client/API pipeline are complete locally, while production Cloudflare deployment is still in progress.
 
 The largest remaining gap is therefore **not the 3D front end**. It is the transition from a sophisticated monitoring/demo system into a **production-grade hazard-data platform with defensible forecasting**.
 
-The current Cloudflare configuration already contains static assets, R2, KV, five Durable Object bindings and a one-minute Cron Trigger, but it does **not currently configure Cloudflare Queues, Workflows, or Hyperdrive/PostgreSQL**. Those are the highest-priority platform additions because they separate ingestion from processing, give long-running ETL jobs retryable orchestration, and introduce a proper spatial database for historical and analytical queries. Cloudflare documents Queues as a guaranteed-delivery messaging mechanism with batching/retries, Workflows as durable multi-step execution with persisted state/retries, and Hyperdrive as its connection/caching layer for PostgreSQL-compatible databases.
+The current Cloudflare configuration already contains static assets, R2, five Durable Object bindings and a one-minute Cron Trigger (no KV namespace is bound in either Worker), but it does **not currently configure Cloudflare Queues, Workflows, or Hyperdrive/PostgreSQL**. Those are the highest-priority platform additions because they separate ingestion from processing, give long-running ETL jobs retryable orchestration, and introduce a proper spatial database for historical and analytical queries. Cloudflare documents Queues as a guaranteed-delivery messaging mechanism with batching/retries, Workflows as durable multi-step execution with persisted state/retries, and Hyperdrive as its connection/caching layer for PostgreSQL-compatible databases.
 
 The existing earthquake implementation is comparatively mature architecturally. `EarthquakeFeedDO` stores events in Durable Object SQLite, tracks source status, upgrades `/earthquakes/live` to a WebSocket and broadcasts messages to connected clients through the Durable Object WebSocket API. That matches Cloudflare's recommended Durable Object WebSocket/Hibernation architecture for long-lived WebSocket connections. This mechanism should be generalized into a multi-hazard event channel rather than replaced.
 
@@ -45,7 +45,7 @@ Those estimates assume approximately **5–7 FTE**, access to the source APIs, a
 
 ### ภาษาไทย
 
-จากการ audit repository ปัจจุบัน SIAHRA ไม่ได้อยู่ในระดับ mockup แล้ว แต่มีแกนหลักของระบบค่อนข้างครบ ทั้ง React/Three.js, terrain 3D, จังหวัด, อาคาร ถนน พืชพรรณ, ข้อมูลน้ำท่วม, radar, สถานีวัดน้ำ/ฝน, เขื่อน, earthquake feed, timeline, source freshness, Worker API, Durable Objects, R2, KV และ WebSocket โดย README ระบุว่าระบบออกแบบเพื่อรองรับ 77 จังหวัด และส่วนหลักของ pipeline ใช้งานใน local development แล้ว แต่ production deployment ยังอยู่ระหว่างดำเนินการ
+จากการ audit repository ปัจจุบัน SIAHRA ไม่ได้อยู่ในระดับ mockup แล้ว แต่มีแกนหลักของระบบค่อนข้างครบ ทั้ง React/Three.js, terrain 3D, จังหวัด, อาคาร ถนน พืชพรรณ, ข้อมูลน้ำท่วม, radar, สถานีวัดน้ำ/ฝน, เขื่อน, earthquake feed, timeline, source freshness, Worker API, Durable Objects, R2 และ WebSocket (ไม่มี KV namespace ผูกอยู่ใน Worker ใดเลย) โดย README ระบุว่าระบบออกแบบเพื่อรองรับ 77 จังหวัด และส่วนหลักของ pipeline ใช้งานใน local development แล้ว แต่ production deployment ยังอยู่ระหว่างดำเนินการ
 
 ดังนั้นงานสำคัญต่อจากนี้ไม่ใช่ "ทำแผนที่ 3D ให้ได้" แต่เป็นการทำให้ระบบกลายเป็น **production hazard platform** ได้แก่ PostGIS, Hyperdrive, Queues, Workflows, ingestion reliability, model provenance, test coverage, authentication, bilingual localization และโดยเฉพาะการสร้าง flood forecast ที่ตรวจสอบความแม่นยำได้จริง
 
@@ -289,7 +289,7 @@ refuse anything still `"unknown"` rather than treat it as permitted.
 | Queues | absent | source-specific ingestion queues + DLQ | High |
 | Workflows | absent | forecast/ETL orchestration | High |
 | WebSocket | earthquake only | unified multi-hazard stream | Medium |
-| Caching | DO/KV/R2 | explicit CDN/API cache policy | High |
+| Caching | DO/R2 (no KV bound today) | explicit CDN/API cache policy | High |
 | Auth | absent | public read + protected operator/admin | High |
 | Localization | mostly Thai-specific UI | th-TH + en-US resource catalog | Medium |
 | Tests | minimal/not evident | unit/integration/E2E/data-quality | **Critical** |
@@ -518,7 +518,25 @@ CREATE TABLE earthquakes (
   -- columns would throw that away and leave the history unable to say whether
   -- an old event came from a live feed or a stale one.
   first_seen_at timestamptz NOT NULL,
-  fetched_at timestamptz NOT NULL
+  fetched_at timestamptz NOT NULL,
+
+  -- The rest of the EarthquakeEvent contract. These are not optional extras:
+  --   status  — 'deleted' is how an upstream retraction is honoured. Without
+  --             it the table cannot suppress a withdrawn event and would keep
+  --             showing an earthquake the agency has taken back.
+  --   tsunami — a user-visible hazard flag; losing it silently downgrades a
+  --             tsunami-flagged event to an ordinary one.
+  -- magType/place/url are what the UI labels and links the event with.
+  cluster_id text NOT NULL,
+  mag_type text,
+  place text,
+  status text NOT NULL
+    CHECK (status IN ('automatic', 'reviewed', 'deleted')),
+  tsunami boolean NOT NULL,
+  url text,
+  -- lossless copy of the reconciled event, so a future field added to
+  -- EarthquakeEvent is not lost by rows written before the column exists
+  canonical jsonb NOT NULL
 );
 
 CREATE INDEX earthquakes_geom_gix
@@ -526,6 +544,11 @@ ON earthquakes USING GIST (geom);
 
 CREATE INDEX earthquakes_fetched_idx
 ON earthquakes (fetched_at DESC);
+
+-- read paths filter deleted events out rather than deleting the row: the
+-- retraction itself is part of the history
+CREATE INDEX earthquakes_status_idx
+ON earthquakes (status);
 
 
 CREATE TABLE flood_extents (
@@ -536,6 +559,15 @@ CREATE TABLE flood_extents (
   -- Queue delivery is at-least-once, so this is what makes a redelivery
   -- an update instead of a duplicate polygon.
   source_artifact_id text NOT NULL,
+  -- ...and the feature within it. One GISTDA scene carries many tambon
+  -- polygons in the same province, and fetchGistdaFloodExtent emits each as a
+  -- distinct FloodExtentFeature with its own `id`. Keying on the artifact
+  -- alone would make every tambon after the first overwrite its predecessor,
+  -- leaving one polygon per province and understating the flood. The
+  -- alternative is to dissolve the features into a single province geometry
+  -- before insert — but then do that deliberately, not as a side effect of a
+  -- too-narrow key.
+  source_feature_id text NOT NULL,
   -- Nullable on purpose. GISTDA features carry no observation timestamp —
   -- FloodExtentDO and packages/shared-types/src/flood.ts keep only retrieval
   -- and first/last-seen times. Requiring it would force the consumer to copy a
@@ -555,12 +587,17 @@ CREATE TABLE flood_extents (
   -- to `provinces` first — a sentinel with no referent just fails the foreign
   -- key and drops the extent entirely.
   province_code text REFERENCES provinces(code),
+  -- MultiPolygon only, so every insert must normalise: FloodExtentFeature
+  -- permits `Polygon | MultiPolygon` and GISTDA does return bare Polygons.
+  -- Without ST_Multi those features fail on insert and vanish from the
+  -- observed flood layer — a silent hole in the data, not a loud error.
   geom geometry(MultiPolygon, 4326) NOT NULL,
   confidence double precision,
   artifact_key text,
   provenance jsonb NOT NULL,
   CONSTRAINT flood_extents_source_artifact_uniq
-    UNIQUE NULLS NOT DISTINCT (source, source_artifact_id, province_code)
+    UNIQUE NULLS NOT DISTINCT
+      (source, source_artifact_id, source_feature_id, province_code)
 );
 
 CREATE INDEX flood_extents_geom_gix
@@ -581,11 +618,15 @@ counted twice in every spatial summary:
 
 ```sql
 INSERT INTO flood_extents (
-  source, source_artifact_id, observed_at, fetched_at,
+  source, source_artifact_id, source_feature_id, observed_at, fetched_at,
   first_seen_at, last_seen_at,
   province_code, geom, confidence, artifact_key, provenance
-) VALUES (...)
-ON CONFLICT (source, source_artifact_id, province_code) DO UPDATE SET
+) VALUES (
+  ..., ST_Multi(ST_GeomFromGeoJSON($geometry)), ...
+)
+ON CONFLICT (source, source_artifact_id, source_feature_id, province_code)
+DO UPDATE SET
+  -- EXCLUDED.geom is already ST_Multi'd by the VALUES clause above
   geom         = EXCLUDED.geom,
   confidence   = EXCLUDED.confidence,
   fetched_at   = EXCLUDED.fetched_at,
@@ -1864,7 +1905,7 @@ I would not claim any of them is trademark-clear from a general web search alone
 
 SIAHRA เวอร์ชันปัจจุบันถือว่ามี foundation ของระบบครบกว่าที่คาดไว้มาก ดังนั้น roadmap ควรเปลี่ยนจากแนวคิด **“สร้าง WebGL disaster map”** เป็น **“ทำระบบ monitoring ที่มีอยู่ให้กลายเป็น production hazard-intelligence และ forecasting platform”** โดยไม่ rewrite ของเดิมโดยไม่จำเป็น. โครงสร้าง repository ปัจจุบันแบ่งเป็น `apps/web`, `apps/api`, `apps/etl` และ `packages/shared-types` ซึ่งเป็น separation ที่เหมาะกับงานประเภทนี้อยู่แล้ว.
 
-**สิ่งที่มีแล้ว:** React, TypeScript, Three.js, terrain 3D แบบ tiled, buildings, roads, vegetation, satellite imagery, province selector, flood extent จาก GISTDA, สถานีวัดน้ำ/ฝน, TMD radar, dams, USGS/EMSC/TMD earthquake ingestion, source health, timeline, permalink, mobile UI, Cloudflare Worker, R2, KV, Durable Objects, Cron และ earthquake WebSocket.
+**สิ่งที่มีแล้ว:** React, TypeScript, Three.js, terrain 3D แบบ tiled, buildings, roads, vegetation, satellite imagery, province selector, flood extent จาก GISTDA, สถานีวัดน้ำ/ฝน, TMD radar, dams, USGS/EMSC/TMD earthquake ingestion, source health, timeline, permalink, mobile UI, Cloudflare Worker, R2, Durable Objects, Cron และ earthquake WebSocket (ยังไม่มี KV namespace).
 
 **สิ่งที่ยังขาดระดับ critical:** PostGIS, Hyperdrive, Queues, Workflows, automated tests, production authentication, bilingual i18n, explicit cache strategy, data-license registry และ flood forecasting model ที่ผ่าน calibration/validation.
 
@@ -1990,8 +2031,10 @@ radar + rainfall + gauge trend
 FORECAST 6–72h
 weather forcing + hydrological/hydraulic model
 
-OUTLOOK 3–15d
+OUTLOOK 3d+
 probabilistic basin/national risk
+(lead time = whatever GloFAS product is
+actually in use; not asserted here)
 ```
 
 หน้า UI ต้องแยกอย่างชัดเจนว่า polygon ไหนคือ **satellite-observed flood extent** และ polygon ไหนคือ **model forecast**.
