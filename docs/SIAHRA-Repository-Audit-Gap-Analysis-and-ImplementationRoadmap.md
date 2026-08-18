@@ -745,16 +745,25 @@ would then have no honest `fetchedAt` to return, and stale rows would render as 
 migration. Storing the ingestion time explicitly is also what makes the latency targets later in this
 document measurable at all — and the two intervals must not be confused:
 
-| Metric | Formula | What it measures |
-|---|---|---|
-| **Pipeline latency** | `fetched_at - source_published_at` | the part SIAHRA is responsible for; the SLO |
-| **End-to-end age** | `fetched_at - observed_at` | how old the value is to a user; includes upstream delay |
+| Metric | Formula | Computed | What it measures |
+|---|---|---|---|
+| **Pipeline latency** | `fetched_at - source_published_at` | at ingestion | the part SIAHRA is responsible for; the SLO |
+| **Ingestion lag** | `fetched_at - observed_at` | at ingestion | how far behind the measurement we were when we got it |
+| **Displayed age** | `now() - observed_at` | **at render time** | how old the value is *to the person looking at it* |
 
 A source that measures at 09:00 and publishes at 09:12 has already spent 12 minutes before SIAHRA can
 see the value. Charging that to the ingestion pipeline would corrupt the processing SLO, so pipeline
-latency is measured from publication time where the source provides one, and only end-to-end age is
-measured from `observed_at`. Where `source_published_at` is null, report end-to-end age and say so —
-do not silently substitute one metric for the other.
+latency is measured from publication time where the source provides one. Where `source_published_at`
+is null, report ingestion lag instead and say which one you are showing — do not silently substitute
+one metric for the other.
+
+**The age shown to a user must be computed when the page renders, never stored.** A reading observed
+and fetched yesterday within seconds of each other has an ingestion lag of seconds and is a day old;
+freezing `fetched_at - observed_at` into the response would report it as seconds old and hide a
+full day of staleness. The API therefore sends timestamps (`observedAt`, `fetchedAt`) and the client
+subtracts from the current clock — which is also why `staleAfterSeconds` lives on the descriptor
+rather than a pre-computed "fresh/stale" boolean that would be wrong the moment it was cached. The
+same rule kills any temptation to cache an age string in R2 or a CDN.
 
 A source's freshness is tracked per feed, not inferred from its rows — an empty
 result set says nothing about whether the poller is healthy:
@@ -910,8 +919,28 @@ object. Pick one before uploading anything under these prefixes:
   `Range` returns whole archives and breaks the format's whole point. Keeps one origin and one cache
   policy.
 - **An R2 custom domain**, which serves the bucket directly with Cloudflare caching in front. Cheaper
-  in Worker invocations, but it is a second hostname: document it, and remember the same-origin
-  assumption in `apps/api/src/router.ts` covers only the main host.
+  in Worker invocations, but it is a second hostname, and that has two consequences that must be
+  handled *before* it is chosen, not discovered afterwards:
+  - **The bucket needs a CORS policy.** A `fetch()` from `siahra-radar.co` to that domain is
+    cross-origin, so without one the browser blocks every PMTiles and forecast request even though R2
+    serves the bytes and the ranges correctly. The rule must allow the web origin and — because
+    PMTiles is byte-range retrieval — permit the `Range` request header and expose
+    `Content-Range`/`Accept-Ranges`, or range reads fail on their own:
+
+    ```json
+    [{
+      "AllowedOrigins": ["https://siahra-radar.co"],
+      "AllowedMethods": ["GET", "HEAD"],
+      "AllowedHeaders": ["Range"],
+      "ExposeHeaders": ["Content-Range", "Accept-Ranges", "Content-Length", "ETag"],
+      "MaxAgeSeconds": 86400
+    }]
+    ```
+  - The same-origin assumption in `apps/api/src/router.ts` covers only the main host, so document the
+    second hostname rather than leaving it implicit.
+
+  The Worker route avoids both problems by staying same-origin. Choose the custom domain for the
+  Worker-invocation saving, not for simplicity.
 
 PMTiles is particularly attractive for static/slow-changing vector layers because it retrieves selected tile ranges from a single archive using HTTP Range Requests and is designed for S3-compatible object storage.
 
@@ -1692,6 +1721,11 @@ export const earthquakesRoute: Route = {
       return json({ error: "province is required" }, { status: 400 });
     }
 
+    // how far outside the province boundary an epicentre still counts.
+    // Named and echoed back to the client, because the UI has to label what
+    // it is actually showing (see below).
+    const radiusM = 200_000;
+
     const sql = postgres(env.HYPERDRIVE.connectionString, {
       max: 5,
       prepare: false,
@@ -1723,7 +1757,12 @@ export const earthquakesRoute: Route = {
         FROM active_earthquakes e
         JOIN provinces p
           ON p.code = ${province}
-        WHERE ST_Intersects(e.geom, p.geom)
+        -- Distance, NOT ST_Intersects. A strict point-in-polygon test drops an
+        -- offshore or just-across-the-border epicentre even when its shaking is
+        -- felt in the province — for a coastal province like Phuket that hides
+        -- exactly the events a user opened the page for. ST_DWithin on
+        -- geography is metres and is index-assisted, so this stays fast.
+        WHERE ST_DWithin(e.geom::geography, p.geom::geography, ${radiusM})
           AND e.origin_at >= now() - interval '7 days'
         ORDER BY e.origin_at DESC
         LIMIT 250
@@ -1744,6 +1783,9 @@ export const earthquakesRoute: Route = {
       return json(
         {
           data: rows,
+          // the query is a radius, not the province outline, so the client is
+          // told which radius produced this list and must label it that way
+          radiusM,
           layer: {
             id: "earthquakes",
             epistemicClass: "observed",
@@ -1763,6 +1805,12 @@ export const earthquakesRoute: Route = {
   },
 };
 ```
+
+`radiusM` is a deliberate product decision, not a magic number: it is the distance from the province
+boundary within which an epicentre is treated as relevant to that province, and the UI must say which
+radius it used — "earthquakes within 200 km of Phuket" is honest, "earthquakes in Phuket" is not, once
+the query stops being point-in-polygon. A modelled shaking footprint (ShakeMap-style) is the better
+long-term filter; distance is the defensible approximation until one exists.
 
 `AppEnv` gains the `HYPERDRIVE: Hyperdrive` binding, and `src/index.ts` adds `earthquakesRoute` to the
 array it passes to `createRouter`. The 404 fall-through, the same-origin 403 and the 429 all stay in
