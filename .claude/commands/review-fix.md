@@ -6,11 +6,16 @@ description: Address Codex review on a PR in ONE batch — fix P1/P2 only, then 
 
 ## 0. ยืนยันว่าอยู่ถูกสาขาก่อนแตะอะไรทั้งนั้น
 ```bash
-gh pr view <n> --json headRefName,headRepositoryOwner --jq '.headRefName'
+gh pr view <n> --json headRefName,headRepository,headRepositoryOwner,isCrossRepository \
+  --jq '{branch:.headRefName, repo:"\(.headRepositoryOwner.login)/\(.headRepository.name)", fork:.isCrossRepository}'
 git branch --show-current
+git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null   # remote ที่สาขานี้ track อยู่จริง
 ```
-ถ้าไม่ตรงกัน → `gh pr checkout <n>` (ต้อง working tree สะอาดก่อน) หรือถ้า checkout ไม่ได้ **ให้หยุด** ห้ามแก้ต่อ
+ต้องตรงกัน **ทั้งชื่อสาขาและ repo ต้นทาง** — ชื่อสาขาซ้ำกันข้าม remote ได้ และ PR จาก fork จะยิ่งหลอกง่าย
+วิธีที่ปลอดภัยที่สุดคือ `gh pr checkout <n>` เสมอ (working tree ต้องสะอาดก่อน) ; ถ้า checkout ไม่ได้ **ให้หยุด** ห้ามแก้ต่อ
 ไม่งั้นจะกลายเป็นแก้บนสาขาอื่น push สาขาอื่น แล้วเอา sha ที่ไม่เกี่ยวไป resolve thread ของ PR นี้
+
+**PR จาก fork**: ห้าม push เข้าสาขาของคนอื่นถ้าไม่ได้รับอนุญาต — ให้รายงานผู้ใช้แทน
 
 Codex รีวิวทุก push การแก้ทีละคอมเมนต์แล้ว push ทีละครั้ง = ลูปไม่จบ คำสั่งนี้บังคับ **หนึ่ง batch ต่อหนึ่ง push**
 

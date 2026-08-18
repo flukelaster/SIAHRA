@@ -21,6 +21,9 @@ fi
 # Normalise whitespace, then treat every shell separator as a segment boundary so
 # a guarded command hidden behind `&&`, `;`, a pipe or `$(...)` is still seen.
 norm=$(printf '%s' "$cmd" | tr '\n\t' '  ' | tr -s ' ')
+# `$(command -v gh) pr create` / `$(which git) push` resolve to the executable at
+# run time; fold them back to the plain name so the tokenisers below see it.
+norm=$(printf '%s' "$norm" | sed -E 's/\$\((command -v|which) ([A-Za-z0-9_.-]+)\)/\2/g; s/`(command -v|which) ([A-Za-z0-9_.-]+)`/\2/g')
 segments=$(printf '%s' "$norm" | sed 's/[;&|()`]/\n/g; s/\$(/\n/g')
 
 # Which `gh pr` subcommand does this segment invoke, if any? Flags may appear
@@ -45,7 +48,9 @@ gh_pr_subcommand() {
         i=$((i+1)); continue ;;
     esac
     if [ $seen_gh -eq 0 ]; then
-      [ "$t" = "gh" ] && seen_gh=1
+      # `/usr/local/bin/gh`, `$(command -v gh)` — compare the basename, not the
+      # literal token, or a resolved path walks straight past the guard.
+      [ "${t##*/}" = "gh" ] && seen_gh=1
       i=$((i+1)); continue
     fi
     if [ $seen_pr -eq 0 ]; then
@@ -66,7 +71,7 @@ is_git_push() {
   while [ $i -lt $n ]; do
     t=${tok[$i]}
     if [ $seen_git -eq 0 ]; then
-      [ "$t" = "git" ] && seen_git=1
+      [ "${t##*/}" = "git" ] && seen_git=1
       i=$((i+1)); continue
     fi
     case "$t" in
@@ -97,9 +102,17 @@ git_target_dir() {
 reason=""
 while IFS= read -r seg; do
   [ -n "$seg" ] || continue
-  case "$seg" in *gh*) ;; *git*) ;; *) continue ;; esac
+  case "$seg" in *gh*) ;; *git*) ;; *) continue ;; esac  # basename check happens in the tokenisers
 
   sub=$(gh_pr_subcommand "$seg")
+  # A leftover `pr create` fragment (e.g. produced by a substitution this script
+  # could not fold) is treated the same way — fail closed.
+  if [ -z "$sub" ]; then
+    case "$seg" in
+      "pr create"*|" pr create"*|"pr merge"*|" pr merge"*|"pr ready"*|" pr ready"*)
+        sub=$(printf '%s' "$seg" | awk '{print $2}') ;;
+    esac
+  fi
   case "$sub" in
     create) reason="เปิด PR ต้องให้ผู้ใช้ตัดสินใจก่อนเสมอ (/implement ขั้นที่ 5) — อนุมัติที่นี่ถ้าผู้ใช้บอกให้เปิดแล้ว"; break ;;
     merge)  reason="agent ไม่ merge PR เอง — ผู้ใช้เป็นคนกดเอง"; break ;;

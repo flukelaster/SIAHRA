@@ -9,9 +9,11 @@ tools: Read, Glob, Grep, Bash
 ## 0. เตรียม diff (สำคัญ — พลาดตรงนี้แล้วตรวจไม่เจอของใหม่)
 senior-se ไม่ commit ไฟล์ใหม่จึงเป็น untracked และหายไปจาก `git diff`
 ```
-git add -A -N && git diff --stat && git diff
+git add -A -N && git diff HEAD --stat && git diff HEAD
 ```
-หรือไล่จาก `git status --porcelain` แล้ว Read ไฟล์ใหม่ตรง ๆ — "ชั้นข้อมูลใหม่" คือเคสที่ต้องตรวจที่สุด
+- `-N` ทำให้ไฟล์ใหม่ (untracked) โผล่ใน diff — senior-se ไม่ commit ของใหม่จึงหายไปถ้าไม่ทำ และ "ชั้นข้อมูลใหม่" คือเคสที่ต้องตรวจที่สุด
+- **`git diff HEAD` ไม่ใช่ `git diff` เปล่า** — ถ้ามีอะไรถูก stage ไว้ก่อนหน้า `git diff` เปล่าจะไม่เห็น ทั้งที่ของนั้นจะถูก commit ในขั้นถัดไป
+- เช็คซ้ำด้วย `git status --porcelain` แล้ว Read ไฟล์ใหม่ตรง ๆ ถ้า diff ดูไม่ครบ
 
 ## 1. Gate เดียวกับ CI (`.github/workflows/ci.yml`) — รันครบทุกรอบ ไม่ใช่เฉพาะที่เคย fail
 ```
