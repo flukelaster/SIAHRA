@@ -274,7 +274,7 @@ product year, an OSM extract date) is `publishedAt` (E3.2), never `fetchedAt`.
 4. The `wrangler deploy --dry-run` bundle delta is reported in the PR and is under 60 KB gzipped.
 
 #### E4.4 — Runtime validation (zod) — ThaiWater, GISTDA WFS, TMD radar
-- Touches: the other three adapters, their schemas, and the DO error paths
+- Touches: the other three adapters, their schemas, and the DO error paths (`observation-cache.ts`, `flood-extent.ts`, `radar.ts` — `RadarDO`'s `status()` in particular, see AC 3)
 - Depends: E4.3
 - Size: M
 - Risk: a 2–4 MB ThaiWater payload can make eager validation the slowest step of a refresh
@@ -282,7 +282,7 @@ product year, an OSM extract date) is `publishedAt` (E3.2), never `fetchedAt`.
 
 1. The ThaiWater payload validates in <300 ms in a test, or validation is per-record and lazy.
 2. A malformed GISTDA response keeps the last scene and never half-overwrites the R2 object.
-3. A bad radar frame is skipped and counted in `detail.skippedFrames`.
+3. A bad radar frame is skipped, counted in `detail.skippedFrames`, **and made visible**: `RadarDO.status()` reports `health: "degraded"` with a populated `lastError` naming the skipped frame, cleared only after a refresh in which every frame validated — `SourceStatusBar` renders `health` and `lastError`, never arbitrary `detail` keys, so a counter alone would hide the failure until the retained frames aged into staleness (AGENTS.md: stale and degraded sources stay visible).
 4. `ObservationCacheDO` validates before the transaction, so a refresh is never half-applied.
 
 #### E4.5 — Request-input validation and explicit per-endpoint limits
@@ -347,10 +347,10 @@ product year, an OSM extract date) is `publishedAt` (E3.2), never `fetchedAt`.
 4. It documents `wrangler rollback`, the Workers Paid prerequisite and the cost note.
 
 #### E5.4 — Post-deploy smoke check and rollback in `deploy.yml` *(standalone CI change)*
-- Touches: `.github/workflows/deploy.yml`, `docs/ops.md`
+- Touches: `.github/workflows/deploy.yml` (smoke steps, previous-deployment capture, the `needs: deploy-web` + `!cancelled()` gate on `deploy-api`, reverse-order rollback), `docs/ops.md`; the forward-compatibility premise (a new web bundle must accept the old payload) belongs on the shared-types-changing task's release checklist in `docs/ops.md`, not in a CI assertion — no step here can check a bundle's tolerance
 - Depends: E3.3, E5.3
-- Size: S
-- Risk: the job stays path-filtered and non-required, so it can never block an unrelated PR
+- Size: M — the both-or-neither path below turns two independent jobs into an ordered pair with a shared rollback, which is more than a step bolted onto each job
+- Risk: the job stays path-filtered and non-required, so it can never block an unrelated PR; the serialized path lengthens a shared-types deploy to two sequential Worker deploys
 - Issue: _(not yet filed)_
 
 **Assert a required *set* of source IDs, never a count.** The smoke check must verify that
@@ -358,11 +358,39 @@ product year, an OSM extract date) is `publishedAt` (E3.2), never `fetchedAt`.
 tolerate extra IDs — E10.3 adds a fifth source (`exposure-illustrative`), and an exact-count assertion
 would fail every deploy from that day on and trigger the rollback below on a healthy release.
 
+**A shared-types release is both-or-neither.** `deploy-web` and `deploy-api` today both carry only
+`needs: changes`, so they run in parallel and roll back independently. That is fine while the two
+Workers' contract is unchanged, but a release that touches `packages/shared-types` ships one contract
+across both units: roll back only the failing one and production is left on a mismatched pair — e.g.
+E3.3 has the API emit the new `delayed` health value while the old web bundle has no `HEALTH_META`
+entry for it and throws while rendering `SourceStatusBar`. The selector already exists: the `changes`
+job's path filter sets **both** `web=true` and `api=true` for anything under `packages/shared-types/`,
+and that combination (not a new filter) is what selects the stricter path. On it, the two deploys are
+**serialized — web first, then api** (the new web bundle is written to accept both the old and the new
+payload, so the bounded window between the two deploys is new-web-against-old-api, the direction that
+degrades rather than crashes; the window is stated in `docs/ops.md`, not hidden), and **both units'**
+previous deployment ids are captured *before* either deploy runs, because rolling back the unit that
+did not fail still needs its prior version id. **Rollback runs in the reverse order — api first, then
+web** — for the same reason the deploy is ordered: rolling web back first would put the old web bundle
+against the still-new API, which is precisely the crashing direction described above. Where a release
+does not touch shared-types, only one unit deploys and per-Worker rollback is sufficient — the weaker
+path stays.
+
+**Two details `deploy.yml` gets wrong if they are not stated.** The strict path is selected by both
+flags **and** a diff touching `packages/shared-types/` — both flags alone also fire for a release that
+happens to touch `apps/web/` and `apps/api/` with no contract change, which belongs on the per-Worker
+path. And `deploy-api` cannot simply take `needs: deploy-web`: a skipped job propagates, so an
+api-only release would silently never deploy. The gate is `needs: deploy-web` plus
+`if: !cancelled() && needs.changes.outputs.api == 'true' && (needs.deploy-web.result == 'success' ||
+needs.deploy-web.result == 'skipped')`.
+
 1. After `deploy-api`, `curl -fsS /api/v1/health` returns 200 and jq asserts the four required IDs `thaiwater`, `earthquakes`, `gistda-flood`, `tmd-radar` are a **subset** of `[.sources[].id]` — no `length ==` check anywhere in the step — and it does **not** gate on `ok`.
 2. The step contains no exact-count expression (`grep -n 'length ==\|length !=\|== 4' .github/workflows/deploy.yml` over the smoke step returns 0 hits), so a health payload carrying an extra source ID still passes.
 3. After `deploy-web`, `/` returns 200 and a known tile HEAD returns 200.
-4. `if: failure()` runs `wrangler rollback` for that Worker only.
-5. The added wall-clock time is ≤1 minute.
+4. On a smoke failure in a release that does **not** touch `packages/shared-types` — whichever flags `changes` set — `if: failure()` runs `wrangler rollback` for that Worker only.
+5. On a smoke failure in a release that **does** touch `packages/shared-types` (both flags set **and** the diff touched that path), the failure handler rolls **both** Workers back to the deployment ids captured before the release — never just the failing one — in the order api then web, and the two deploy jobs ran in the fixed order web → api with `deploy-api` gated on `deploy-web`, so a web failure never leaves a new API live.
+6. An api-only release (no `apps/web/` or `packages/shared-types/` change) still deploys: `deploy-api` runs even though `deploy-web` was skipped.
+7. The added wall-clock time is ≤1 minute for a single-unit release, and ≤3 minutes for a serialized shared-types release.
 
 #### E5.5 — Workers-pool tests: router, health, one DO
 - Touches: `apps/api/vitest.config.ts` (`defineWorkersConfig`, `wrangler.configPath`), `test/{router,health,earthquake-feed}.test.ts`
@@ -570,7 +598,7 @@ and `methodologyUrl` is mandatory. It cannot become `probabilistic` under the cu
 Deferred D-1). qa-verifier greps the touched files for the forbidden words.
 
 #### E10.1 — Contract and methodology document
-- Touches: new `packages/shared-types/src/exposure.ts` (`ExposureLevel`, `StationExposure {stationId,lat,lon,level,factors:{rain1hMm,rain24hMm,freeboardM,freeboardTrendMPerH,situationLevel},observedAt}`, `FloodExposureRun {runId,computedAt,inputs:{thaiwaterFetchedAt,historyWindowH},layer,stations[]}`; the doc comment forbids probability fields), new `docs/methodology/flood-exposure.md`
+- Touches: new `packages/shared-types/src/exposure.ts` (`ExposureLevel`, `StationExposure {stationId,provinceCode,lat,lon,level,factors:{rain1hMm,rain24hMm,freeboardM,freeboardTrendMPerH,situationLevel},observedAt}` — `provinceCode: string | null` is copied verbatim from `StationRef.provinceCode` (`packages/shared-types/src/observations.ts`, already `string | null` because the ThaiWater station record carries the province code and some stations have none) at compute time, so the run is self-describing and E10.3 can scope it without consulting live station data), `FloodExposureRun {runId,computedAt,inputs:{thaiwaterFetchedAt,historyWindowH},layer,stations[]}`; the doc comment forbids probability fields), new `docs/methodology/flood-exposure.md`
 - Depends: E3.2
 - Size: S
 - Risk: none identified
@@ -580,9 +608,10 @@ Deferred D-1). qa-verifier greps the touched files for the forbidden words.
 2. The methodology document contains the threshold table.
 3. It states what is **not** included: radar (until E10.5), DEM depth, hydraulics.
 4. It defines the run-id format.
+5. `StationExposure.provinceCode` is documented as a snapshot of the station's province at compute time, `null` when the upstream record has none — never guessed from geometry, never back-filled into an already-published run.
 
 #### E10.2 — Pure exposure computation with fixture tests
-- Touches: new `apps/api/src/exposure/compute.ts` (`computeExposure(observations, hourlyLevels, thresholds, now)`), tests
+- Touches: new `apps/api/src/exposure/compute.ts` (`computeExposure(observations, hourlyLevels, thresholds, now)` — it builds the `StationExposure` records, so it is what copies `StationRef.provinceCode` into `StationExposure.provinceCode`, verbatim and `null`-preserving), tests
 - Depends: E10.1, E5.6
 - Size: M
 - Risk: none identified
@@ -594,10 +623,10 @@ Deferred D-1). qa-verifier greps the touched files for the forbidden words.
 4. Zero stations is a valid run, not an error.
 
 #### E10.3 — Publish runs: immutable R2 artefact, pointer DO, routes, health entry
-- Touches: `observation-cache.ts` (compute one **nationwide** run after a successful refresh, and publish a new immutable run whenever **any exposed field changes** — a level, any `factors.*` value, or any station `observedAt`), `forecast-pointer.ts` (repurposed as the run pointer, class name kept), new `routes/exposure.ts` (`GET /api/v1/provinces/NN/exposure/latest` filters the run; `GET /api/v1/exposure/runs/{runId}` uses `frozenArtifact`), `index.ts`, `health.ts` source `exposure-illustrative` (`delayed` after 30 minutes without a run), tests, `docs/ops.md`
+- Touches: `observation-cache.ts` (compute one **nationwide** run after a successful refresh, and publish a new immutable run whenever **any exposed field changes** — a level, any `factors.*` value, or any station `observedAt`; the publish is wrapped so a failure cannot skip the alarm rearm, see the rearm note below), `forecast-pointer.ts` (repurposed as the run pointer, class name kept), new `routes/exposure.ts` (`GET /api/v1/provinces/NN/exposure/latest` filters the stored run **on `StationExposure.provinceCode` alone**; `GET /api/v1/exposure/runs/{runId}` uses `frozenArtifact`), `index.ts`, `health.ts` source `exposure-illustrative` (`delayed` after 30 minutes without a run, plus `lastError` when the last publish failed), tests, `docs/ops.md`
 - Depends: E10.2, E5.2, E4.6
 - Size: L — the artefact, the pointer, the routes and the health entry are only checkable together
-- Risk: compute after the DO transaction commits; at most one R2 write per refresh
+- Risk: compute after the DO transaction commits; at most one R2 write per refresh; a rejecting publish must not take the refresh alarm down with it (rearm note below)
 - Issue: _(not yet filed)_
 
 **Publish rule and its cost.** The run artefact defined in E10.1 carries per-station `factors`
@@ -613,12 +642,33 @@ count and states that an R2 lifecycle rule is the lever if the bucket ever needs
 carrying per-station measurements and freshness is advanced through a separate, always-updated pointer
 field; it is not available while the artefact exposes measurements.
 
+**Province scoping lives inside the run.** `/provinces/NN/exposure/latest` must decide which stations
+belong to `NN` using only what the run itself stores — the `provinceCode` E10.1 adds to
+`StationExposure`. Deriving it at request time from the live `waterlevel`/`rainfall` tables would
+scope a *historical* run by *today's* station list: a station that has since been retired upstream
+would silently drop out of a run it was part of, and a station whose province record changed would be
+re-attributed, so the same run id would answer differently on different days. The boundary rings that
+would allow a geometric fallback do not exist until E10.6 either, and geometry is not the source of
+truth for administrative membership anyway. Stations with `provinceCode: null` belong to no province
+endpoint and appear only in the nationwide run — that is honest, not a gap to be filled by guessing.
+
+**The alarm rearm cannot depend on the publish.** `ObservationCacheDO.alarm()` today is
+`await this.refreshOnce(...)` then `await this.armAlarm()`, with no `finally`; the same pattern repeats
+at every site where a refresh precedes the rearm — `ensureFresh()`, and the lazy path in
+`getObservations()`, where `armAlarm()` is not even awaited. Adding an R2 write and a pointer update to the refresh path puts a rejecting
+promise in front of `armAlarm()`, and one rejection then leaves the DO with **no** alarm scheduled, so
+observation refreshes stop too, not just exposure ones. Production cron papers over this; a missed
+cron or `wrangler dev` (where cron does not fire at all) does not. So the publish error is caught and
+surfaced on `/health` (`lastError`, source `exposure-illustrative`) so it can never reject out of
+`refreshOnce()`, and `armAlarm()` runs from a `finally` at all three sites.
+
 1. The key `exposure/runs/{runId}.json` is never overwritten (test).
 2. A refresh that changes a measurement (a `factors.*` value or a station `observedAt`) but no level produces a **new** run id, and `/latest` then serves the new measurements and the new `observedAt` (test).
-3. `/latest` returns `layer.epistemicClass === "illustrative"`, a non-empty `methodologyUrl` and an `X-Run-Id` header.
+3. `/latest` returns `layer.epistemicClass === "illustrative"`, a non-empty `methodologyUrl`, an `X-Run-Id` header, and no response key matching `probability|chance|likelihood|risk` (one contract test covering all four assertions).
 4. An unknown province code returns 404.
-5. A contract test asserts no response key matches `probability|chance|likelihood|risk`.
+5. Two known province endpoints return disjoint, correctly-scoped station sets filtered on `StationExposure.provinceCode` only, and re-reading an old run id through `/exposure/runs/{runId}` (then scoping it) yields exactly the scoping it had when written, even after the live station table has changed (test that removes a station from the live table and asserts the old run is unaffected).
 6. `/health` lists `exposure-illustrative` and marks it `delayed` after 30 minutes without a run.
+7. An alarm whose exposure publish rejects (R2 put or pointer update failing, in a test) still leaves the next alarm armed — `ctx.storage.getAlarm()` is non-null afterwards — and the failure shows on `/health` as a populated `lastError` on `exposure-illustrative`, never as silence.
 
 #### E10.4 — Map layer, legend and permalink
 - Touches: new `apps/web/src/hooks/useFloodExposure.ts`, `scene/hazardOverlay.ts` (station levels draped as halos **gated by the lowland R channel**, so only low ground lights up), `terrainMaterial.ts` (the E3.5 illustrative treatment plus a level ramp), `MapLegend.tsx` row (illustrative badge, input list, methodology link, `computedAt` age), `usePermalink.ts` (`layers` += `exposure`), i18n keys th/en — Thai label `"พื้นที่ลุ่มต่ำที่ขณะนี้มีฝนหนัก/น้ำสูงในบริเวณใกล้เคียง (ภาพประกอบ)"`, Thai note `"คำนวณเองจากภูมิประเทศ + ค่าตรวจวัดจริง ไม่ใช่การพยากรณ์ ไม่ใช่ความน่าจะเป็น"`
@@ -648,7 +698,7 @@ field; it is not available while the artefact exposes measurements.
 4. The added CPU time per run is measured and reported in the PR.
 
 #### E10.6 — Earthquake distance-to-province (no prediction, no shaking model)
-- Touches: `packages/shared-types/src/earthquake.ts` (`nearest?: {provinceCode,nameTh,nameEn,distanceKm,inside:boolean}[]` — `distanceKm` is the distance to the province **polygon**, 0 when the epicentre is inside it), `apps/etl/src/provinceCentroids.ts` → `apps/api/src/data/provinceCentroids.json` **plus** a new simplified-ring artefact `apps/api/src/data/provinceRings.json` (emitted by the existing `apps/etl/src/provinceBoundaries.ts`, which already parses boundaries — do not re-implement that; built from `apps/web/public/aoi/*/boundary.geojson` — those files are web assets a Worker cannot read at runtime, so the rings must be baked into the api bundle, mirroring `provinceCentroids.json`; simplify and quantise to a budget of **≤400 KB** raw for all 77 provinces, and state the simplification tolerance in the PR), new `apps/api/src/geo/pointInProvince.ts` (point-in-ring plus point-to-segment distance, pure, tested), `EarthquakeFeedDO` (centroid haversine only as a coarse pre-filter to shortlist candidates, then exact polygon distance on the shortlist; `ALTER TABLE … ADD COLUMN` guarded by `PRAGMA table_info`, never a table recreate), `EarthquakeLiveCard.tsx`, `InfoPopup.tsx`, i18n keys th/en for both wordings — `"ในเขต <province>"` / `"within <province>"` and `"ห่างจาก <province> ≈ N กม."` / `"≈ N km from <province>"`
+- Touches: `packages/shared-types/src/earthquake.ts` (`nearest?: {provinceCode,nameTh,nameEn,distanceKm,inside:boolean}[]` — `distanceKm` is the distance to the province **polygon**, 0 when the epicentre is inside it), a new simplified-ring artefact `apps/api/src/data/provinceRings.json` (emitted by the existing `apps/etl/src/provinceBoundaries.ts`, which already parses boundaries — do not re-implement that; built from `apps/web/public/aoi/*/boundary.geojson` — those files are web assets a Worker cannot read at runtime, so the rings must be baked into the api bundle; simplify and quantise to a budget of **≤400 KB** raw for all 77 provinces, and state the simplification tolerance in the PR), new `apps/api/src/geo/pointInProvince.ts` (point-in-ring plus point-to-segment distance, pure, tested), `EarthquakeFeedDO` (exact point-to-polygon distance against **all 77** province ring sets per new event — no shortlisting step, see the callout; `ALTER TABLE … ADD COLUMN` guarded by `PRAGMA table_info`, never a table recreate), `EarthquakeLiveCard.tsx`, `InfoPopup.tsx`, i18n keys th/en for both wordings — `"ในเขต <province>"` / `"within <province>"` and `"ห่างจาก <province> ≈ N กม."` / `"≈ N km from <province>"`
 - Depends: E3.1, E7.3
 - Size: L — the ring artefact, the pure geometry module, the DO migration and the two UI surfaces are only checkable together
 - Risk: a careless migration drops stored events — the guarded `ALTER TABLE` is the point; second, the ring artefact inflates the api bundle, hence the stated budget and the reported simplification tolerance
@@ -658,15 +708,25 @@ field; it is not available while the artefact exposes measurements.
 "≈ N km from <province>" is wrong for large or elongated provinces: an epicentre already inside the
 province can be reported tens of km away, and the containing province can drop out of the nearest-three
 list entirely. Specified behaviour is **point-to-polygon** distance from the boundary rings, 0 when the
-point is inside, with the centroid table kept only as the coarse pre-filter. If polygon distance is
+point is inside — and **evaluated against all 77 provinces, with no shortlisting step**. Ranking or
+pre-filtering by centroid is not a safe lower bound and reintroduces exactly this defect: an elongated
+province can have its centroid hundreds of km from the epicentre while its boundary runs right past
+it, so it never reaches the polygon phase and the true containing or nearest province is dropped.
+The full pass is cheap enough not to need one: the ring set is the ≤400 KB artefact above, held in
+module memory, giving a few tens of thousands of point-to-segment tests — sub-millisecond, run **once
+per new event on ingest** inside `EarthquakeFeedDO` and persisted on the row, so no request ever pays
+for it. (The only shortlist that would be admissible is one whose bound is provably never greater than
+the polygon distance — e.g. distance to each province's precomputed bounding box — and it is not worth
+the extra artefact and the extra failure mode at this scale.) If polygon distance is
 judged too costly at implementation time, the only acceptable alternative is to rename and type the
 field explicitly as distance to the province *centre* (`centroidDistanceKm`, UI "≈ N km from the centre
-of <province>") — but polygon distance is what this task specifies.
+of <province>", the centre derived from `provinceRings.json` at build time — no separate centroid
+artefact exists or is needed) — but polygon distance is what this task specifies.
 
 1. Each event carries its three nearest provinces, ranked by polygon distance.
 2. An epicentre inside a province reports `distanceKm === 0` / `inside: true`, that province ranks first, and the card reads `ในเขต <province>` / `within <province>` rather than a non-zero distance (fixture test with a known inland epicentre).
 3. Otherwise the card reads `≈ N km from <province>` and links to the upstream event page.
-4. `pointInProvince.ts` has unit tests: inside, outside-near-edge, and a point whose nearest centroid is not its containing province.
+4. `pointInProvince.ts` has unit tests: inside, outside-near-edge, and — against an elongated province whose geometric centre lies far from the test point while its boundary passes close by — that province is still ranked first, proving no shortlisting step can discard it.
 5. Existing rows gain `nearest` on the next poll and the row count is unchanged (test).
 6. `provinceRings.json` is ≤400 KB and `wrangler deploy --dry-run` for `siahra-api` stays inside the Worker script-size limit (`ci.yml` bounds only `apps/web/dist`, so it does not cover this).
 7. The wording contains nothing that reads as a forecast or a prediction; screenshot in the PR.
