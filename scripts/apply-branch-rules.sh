@@ -10,7 +10,6 @@
 #   - no force-push, no branch deletion
 #   - required status checks (from GitHub Actions, integration_id 15368):
 #       Lint, TypeScript, Build   (.github/workflows/ci.yml)
-#       PR screenshot             (.github/workflows/pr-rules.yml)
 #     0 approving reviews required — this is a solo-maintained repo; bump
 #     required_approving_review_count in main.json when that changes.
 #
