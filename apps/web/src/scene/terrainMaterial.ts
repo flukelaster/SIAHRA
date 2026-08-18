@@ -22,7 +22,11 @@ export interface TerrainSharedUniforms {
   uOutsideDim: { value: number };
   uHillshade: { value: THREE.Texture | null };
   uHasHillshade: { value: number };
-  /** 1 at province scale -> ~0.4 close up; the lowland wash is a regional cue. */
+  /**
+   * 1 at province scale -> ~0.4 close up; the lowland wash is a regional cue
+   * and a full-strength one fills the screen with blue once a single district
+   * fills the frame. Relief (the hillshade) is deliberately outside this.
+   */
   uDetailFade: { value: number };
   /** 1 when the observation source is stale/unreachable: halos desaturate. */
   uHazardStale: { value: number };
@@ -125,10 +129,13 @@ vec4 ov = texture2D(uOverlay, vTerrainUv);
 float inside = ov.b;
 
 // Analytic hillshade from the DEM adds crisp relief on top of the scene
-// lighting (flat ground ~0.71 in gdaldem's output => neutral).
+// lighting (flat ground ~0.71 in gdaldem's output => neutral). Deliberately
+// NOT scaled by uDetailFade: relief is what makes the surface read as 3D at
+// every scale, and dimming it close up flattened the terrain just as the
+// slopes became worth looking at.
 if (uHasHillshade > 0.5) {
   float hs = texture2D(uHillshade, vTerrainUv).r;
-  diffuseColor.rgb *= mix(1.0, clamp(hs / 0.71, 0.35, 1.45), 0.6 * uDetailFade);
+  diffuseColor.rgb *= mix(1.0, clamp(hs / 0.71, 0.35, 1.45), 0.6);
 }
 
 // Neighbouring provinces: darker and slightly desaturated so the selected
