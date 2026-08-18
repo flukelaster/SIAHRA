@@ -1,5 +1,7 @@
 # Thailand 3D Hazard Intelligence Web Platform: Deep Research and Implementation Blueprint
 
+> **This file is the original research blueprint** — data sources, methodology, feasibility and licensing research. It has **no phase structure** and is not a schedule: nothing here is numbered as "phase 1…9". The execution order — epics, ordered tasks with acceptance criteria, milestones and deferred work — lives in [`docs/roadmap.md`](roadmap.md); deploy steps live in [`docs/deploy.md`](deploy.md).
+
 ## Executive summary
 
 A Thailand-focused desktop web application that renders provinces as interactive 3D environments and overlays flood and earthquake intelligence is technically feasible with Three.js/WebGL and a largely open-data foundation. The central design constraint is not 3D rendering itself; it is **data quality, elevation accuracy, model calibration, licensing, and communicating uncertainty honestly**.

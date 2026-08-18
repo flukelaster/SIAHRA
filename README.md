@@ -80,7 +80,7 @@ The project follows a clean separation between three data classes: **base geospa
 | Layer | Technology |
 |---|---|
 | 3D rendering / client | [Three.js](https://threejs.org), [React 19](https://react.dev), TypeScript, [Vite](https://vite.dev), [Tailwind CSS 4](https://tailwindcss.com) |
-| Edge API | [Cloudflare Workers](https://workers.cloudflare.com), [Durable Objects](https://developers.cloudflare.com/durable-objects/) (live state / fan-out), [R2](https://developers.cloudflare.com/r2/) (immutable geodata artifacts), [KV](https://developers.cloudflare.com/kv/) (slow-changing config) |
+| Edge API | [Cloudflare Workers](https://workers.cloudflare.com), [Durable Objects](https://developers.cloudflare.com/durable-objects/) (live state / fan-out, SQLite-backed), [R2](https://developers.cloudflare.com/r2/) (immutable geodata artifacts) |
 | ETL / geodata pipeline | [GDAL](https://gdal.org)-driven Node/TypeScript scripts ([`tsx`](https://github.com/privatenumber/tsx)), [Turf.js](https://turfjs.org), [Copernicus GLO-30 DEM](https://registry.opendata.aws/copernicus-dem/), [OpenStreetMap](https://www.openstreetmap.org) |
 | Tooling | npm workspaces monorepo, [Wrangler](https://developers.cloudflare.com/workers/wrangler/), [oxlint](https://oxc.rs) |
 
@@ -102,7 +102,6 @@ flowchart LR
 
     subgraph Edge["apps/api — Cloudflare Worker"]
         R[Router] --> DO["Durable Objects<br/>observation cache · flood extent<br/>earthquake feed · radar"]
-        DO --> KV[(KV config)]
     end
 
     subgraph Storage
@@ -118,6 +117,7 @@ flowchart LR
     GISTDA --> Edge
     USGS --> Edge
     DEM --> ETL --> R2
+    DO --> R2
     R2 --> UI
     Edge --> UI
 ```
@@ -232,7 +232,9 @@ This is an attribution list, **not** a claim of authorship or endorsement — th
 
 ## Project status
 
-Phases 1–9 of the implementation plan are complete in local development (terrain/building/flood/earthquake/radar pipelines, the full Worker API, and the 3D client). Production deployment via Cloudflare Workers + R2 is in progress. See [`docs/SIAHRA-implement-plan.md`](docs/SIAHRA-implement-plan.md) for the full research blueprint, data-source inventory and roadmap.
+SIAHRA is deployed on `siahra-radar.co` as two independently released Cloudflare Workers — `siahra-web` (the static SPA and tile proxy) and `siahra-api` (bound to `/api/*`). The hazard layers listed in [Features](#features) above are live: 3D terrain for all 77 provinces, GISTDA flood extent, ThaiWater levels and dams, TMD radar, the earthquake feed and the source-health footer. The Durable-Object-backed API endpoints require a Workers Paid plan — see [`docs/deploy.md`](docs/deploy.md) for the deployment prerequisites.
+
+What comes next — the ordered task list, milestones and the work deliberately deferred — is in [`docs/roadmap.md`](docs/roadmap.md). [`docs/SIAHRA-implement-plan.md`](docs/SIAHRA-implement-plan.md) remains the original research blueprint and data-source inventory; it is not a schedule.
 
 ## Disclaimer
 
