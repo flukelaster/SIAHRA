@@ -1,12 +1,13 @@
+import { parseQuery } from "../query.js";
 import { json } from "../router.js";
 import type { AppEnv } from "../types.js";
 
 /** GET /api/v1/radar/frames?hours=3 */
 export async function handleRadarFrames(request: Request, env: AppEnv): Promise<Response> {
-  const raw = Number(new URL(request.url).searchParams.get("hours") ?? "3");
-  const hours = Number.isFinite(raw) ? Math.min(720, Math.max(1, raw)) : 3;
+  const q = parseQuery(new URL(request.url), { hours: { type: "int", min: 1, max: 720, fallback: 3 } });
+  if (!q.ok) return json({ error: q.error }, { status: 400 });
   try {
-    const data = await env.RADAR.getByName("tmd").getFrames(hours);
+    const data = await env.RADAR.getByName("tmd").getFrames(q.value.hours);
     return json(data, { cacheControl: "public, max-age=60" });
   } catch (err) {
     console.error(JSON.stringify({ level: "error", message: "radar frames failed", error: String(err) }));

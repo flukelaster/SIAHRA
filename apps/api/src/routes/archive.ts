@@ -1,3 +1,4 @@
+import { parseQuery } from "../query.js";
 import { json } from "../router.js";
 import type { AppEnv } from "../types.js";
 
@@ -14,11 +15,13 @@ export async function handleArchiveDays(_req: Request, env: AppEnv): Promise<Res
 
 /** GET /api/v1/archive/snapshot?at=<iso>[&province=NN] — nearest hourly nationwide snapshot. */
 export async function handleArchiveSnapshot(request: Request, env: AppEnv): Promise<Response> {
-  const url = new URL(request.url);
-  const at = url.searchParams.get("at");
-  const province = url.searchParams.get("province");
-  if (!at || !Number.isFinite(Date.parse(at))) return json({ error: "at (ISO-8601) required" }, { status: 400 });
-  if (province !== null && !/^[0-9]{2}$/.test(province)) return json({ error: "Invalid province code" }, { status: 400 });
+  const q = parseQuery(new URL(request.url), {
+    at: { type: "isoInstant" },
+    province: { type: "province" },
+  });
+  if (!q.ok) return json({ error: q.error }, { status: 400 });
+  const { at, province } = q.value;
+  if (at === null) return json({ error: "at (ISO-8601) required" }, { status: 400 });
   try {
     const snap = await env.OBSERVATION_CACHE.getByName("thaiwater").archivedSnapshot(Date.parse(at), province);
     if (!snap) return json({ error: "No snapshot near that time" }, { status: 404, cacheControl: "public, max-age=60" });

@@ -12,7 +12,10 @@ const LATEST_KEY = "latest";
  * Strongly-consistent "latest forecast run" pointer for one province.
  * Deliberately a Durable Object, not KV — a stale flood pointer during a
  * live event is a correctness problem, not a UX nit (see plan Workstream B).
- * Stub for now: no forecast pipeline exists yet to call setLatest().
+ * Not wired to any route right now: the dead `/hazards/latest` endpoint was
+ * removed in E5.2, but the class, its binding and its migrations stay — this
+ * becomes the exposure-run pointer in E10.3 (`/provinces/NN/exposure/latest`),
+ * and dropping a DO class in a migration would destroy whatever it has stored.
  */
 export class ForecastPointerDO extends DurableObject<Env> {
   async setLatest(runId: string, manifestKey: string): Promise<void> {

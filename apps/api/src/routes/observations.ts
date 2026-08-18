@@ -1,32 +1,24 @@
+import { parseQuery } from "../query.js";
+import { json } from "../router.js";
 import type { AppEnv } from "../types.js";
 
-const PROVINCE_RE = /^[0-9]{2}$/;
-
 /**
- * GET /api/v1/observations[?province=NN]
+ * GET /api/v1/observations[?province=NN][&at=<iso>]
  *
  * Direct sensor readings from the ThaiWater/HII telemetry network. Served
  * from a Durable Object cache because the upstream payloads are 2-4 MB.
  */
 export async function handleObservations(request: Request, env: AppEnv): Promise<Response> {
-  const url = new URL(request.url);
-  const province = url.searchParams.get("province");
+  const q = parseQuery(new URL(request.url), {
+    province: { type: "province" },
+    at: { type: "isoInstant" },
+  });
+  if (!q.ok) return json({ error: q.error }, { status: 400 });
 
-  if (province !== null && !PROVINCE_RE.test(province)) {
-    return Response.json(
-      { error: "Invalid province code — expected two digits, e.g. 50" },
-      { status: 400, headers: { "Cache-Control": "no-store" } },
-    );
-  }
-
-  const at = url.searchParams.get("at");
-  if (at !== null && !Number.isFinite(Date.parse(at))) {
-    return Response.json({ error: "Invalid at — expected ISO-8601" }, { status: 400, headers: { "Cache-Control": "no-store" } });
-  }
   const stub = env.OBSERVATION_CACHE.getByName("thaiwater");
 
   try {
-    const data = await stub.getObservations(province, at);
+    const data = await stub.getObservations(q.value.province, q.value.at);
     return Response.json(data, {
       headers: { "Cache-Control": "public, max-age=60, s-maxage=120" },
     });
@@ -34,9 +26,6 @@ export async function handleObservations(request: Request, env: AppEnv): Promise
     console.error(
       JSON.stringify({ level: "error", message: "observations request failed", error: String(err) }),
     );
-    return Response.json(
-      { error: "Observation data unavailable" },
-      { status: 503, headers: { "Cache-Control": "no-store" } },
-    );
+    return json({ error: "Observation data unavailable" }, { status: 503 });
   }
 }

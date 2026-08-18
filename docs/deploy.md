@@ -109,6 +109,18 @@ invocation (ถ้าเจอ tile ตอบ `200 text/html` แปลว่า
 - `TMD_UID`, `TMD_UKEY` เป็น **secret** ล้วน ไม่มี default ใน `vars` และไม่มี fallback ในโค้ดแล้ว
   (`apps/api/src/ingestion/tmd.ts`) — ตั้งด้วย `npx wrangler secret put TMD_UID` / `TMD_UKEY` ตาม §0
   ; ตรวจว่ามีอยู่จริงด้วย `npx wrangler secret list` (ค่าไม่ถูกแสดง แสดงแค่ชื่อ)
+- **TMD มี API สองระบบที่แยกขาดจากกัน — อย่าเอา credential สลับช่องกัน**
+
+  | API | ยืนยันตัวตน | ข้อมูล | SIAHRA ใช้ |
+  |---|---|---|---|
+  | `data.tmd.go.th/api/DailySeismicEvent/v1/` | `uid` + `ukey` (สมัคร `…/api/registerPre.php`) | เหตุการณ์แผ่นดินไหว | ✅ `TMD_UID`/`TMD_UKEY` |
+  | `data.tmd.go.th/nwpapi/v1/` | OAuth Bearer token (สมัคร `…/nwpapi/register`) | พยากรณ์อากาศจากแบบจำลอง | ❌ ยังไม่ใช้ |
+
+  ระบบ OAuth **ไม่ได้มาแทน** ระบบ `uid`/`ukey` — ทั้งคู่ยังให้บริการอยู่คนละชุดข้อมูล ถ้าวันหน้าจะดึง
+  ข้อมูลพยากรณ์จาก `nwpapi` มาแสดง ต้องมาพร้อม `HazardLayerDescriptor` แบบ `probabilistic` และอ้างอิง
+  แบบจำลองที่ยกมาอ้างได้ ตามกฎ data honesty ใน `AGENTS.md` — ห้ามแสดงตัวเลขพยากรณ์ลอย ๆ
+- เรดาร์ฝน (`apps/api/src/ingestion/tmdRadar.ts`) ดึงจาก `weather.tmd.go.th/composite/` ซึ่ง**ไม่ต้อง
+  ยืนยันตัวตน** — ไม่เกี่ยวกับ secret คู่บน
 - `ALLOWED_ORIGINS`: ว่าง = same-origin เท่านั้น — ไม่ต้องตั้ง เพราะ route ของสอง Worker อยู่บน host
   เดียวกัน (`siahra-radar.co`) ตามหัวข้อ 0.1 ; ถ้าวันหน้าย้าย SPA ไปคนละ host ต้องใส่ origin ของ SPA ที่นี่
   **และ** เติม CORS header ใน `apps/api/src/router.ts` ด้วย ไม่ใช่ตั้งค่านี้ตัวเดียว
