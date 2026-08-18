@@ -30,7 +30,7 @@ For flooding, the recommended product should expose several distinct horizons ra
 | Rain/flood nowcast | 0–6 h | Radar extrapolation + current rainfall + gauge response |
 | Short-range flood forecast | 6–72 h | Meteorological forcing + calibrated catchment/hydraulic model |
 | Medium-range basin risk | 3–7 days | Probabilistic rainfall/discharge risk |
-| National outlook | 8–15 days | GloFAS/basin-scale context, lower local confidence |
+| National outlook | multi-day (confirm the current GloFAS horizon) | GloFAS/basin-scale context, lower local confidence |
 | Seasonal context | weeks–months | Hydrologic anomaly/outlook, **not** street-level inundation |
 
 GloFAS publishes daily flood forecasts and longer-range hydrological outlooks ([system description](https://confluence.ecmwf.int/display/CEMS/Global+Flood+Awareness+System)); the exact medium-range horizon it publishes today must be read off the CEMS product pages at the time of use rather than quoted from this audit — the number was not re-verified against a fetchable source when these citations were rewritten. NASA IMERG provides global precipitation estimates every half hour ([IMERG](https://gpm.nasa.gov/data/imerg)). These are useful forcing/context sources, but neither turns a 30 m surface DEM into an operational urban flood model.
@@ -51,7 +51,7 @@ Those estimates assume approximately **5–7 FTE**, access to the source APIs, a
 
 สำหรับ earthquake ควรใช้คำว่า **monitoring / rapid assessment / seismic risk** มากกว่า prediction เพราะ repository เองก็ระบุไว้อย่างถูกต้องแล้วว่า SIAHRA ไม่สามารถทำนายวัน เวลา สถานที่ และขนาดของแผ่นดินไหวในอนาคตได้
 
-สำหรับ flood สามารถทำ forecast หลายระดับตั้งแต่ 0–6 ชั่วโมง, 6–72 ชั่วโมง, 3–7 วัน ไปจนถึง 15 วันในระดับ basin/national outlook โดย GloFAS มี medium-range forecast ถึง 15 วัน และ NASA IMERG มีข้อมูลฝนระดับครึ่งชั่วโมงสำหรับใช้เป็นข้อมูลเสริม
+สำหรับ flood สามารถทำ forecast หลายระดับตั้งแต่ 0–6 ชั่วโมง, 6–72 ชั่วโมง, 3–7 วัน ไปจนถึงระดับ basin/national outlook โดย GloFAS มี medium-range forecast รายวัน — **ตัวเลข lead time ที่แน่นอนต้องไปอ่านจาก CEMS เอง เอกสารนี้ยืนยันไม่ได้** (ดูหัวข้อ Sources ท้ายเอกสาร) — และ NASA IMERG มีข้อมูลฝนระดับครึ่งชั่วโมงสำหรับใช้เป็นข้อมูลเสริม
 
 **คำแนะนำหลัก:** รักษา Three.js renderer ปัจจุบันไว้, เพิ่ม PostGIS + Hyperdrive, แยก ingestion ด้วย Queues, ใช้ Workflows สำหรับ pipeline ที่มีหลายขั้นตอน, ใช้ R2 เป็น geospatial object store, ทำ Durable Objects ต่อสำหรับ real-time fan-out และย้ายงาน simulation/modeling หนักไป compute ภายนอก Cloudflare Workers.
 
@@ -81,7 +81,7 @@ The audit is based on the public `main` branch visible on 17 August 2026. The re
 | Cloudflare Worker | Worker router/API | **Implemented** |
 | Durable Objects | five DO classes/bindings | **Implemented** |
 | R2 binding | `HAZARD_BUCKET` | **Configured** |
-| KV | `CONFIG` namespace | **Configured** |
+| KV | no `kv_namespaces` in either `wrangler.jsonc` | **Missing** |
 | Cron | every minute | **Configured** |
 | Queues | no binding/consumer found | **Missing** |
 | Workflows | no Workflow binding found | **Missing** |
@@ -257,13 +257,21 @@ Every source should have:
   "dataset": "flood-extent-1day",
   "license": "Open Data Common",
   "attribution": "...",
-  "redistributionAllowed": true,
-  "commercialUseReviewed": true,
+  "redistributionAllowed": "unknown",
+  "commercialUseReviewed": "unknown",
   "retrievedAt": "...",
   "sourceUpdatedAt": "...",
-  "termsReviewedAt": "..."
+  "termsReviewedAt": null
 }
 ```
+
+`redistributionAllowed` and `commercialUseReviewed` are tri-state (`"unknown" | "yes" | "no"`), and
+they start at `"unknown"` with `termsReviewedAt: null`. A dataset is only promoted to `"yes"` once a
+human has actually read that dataset's terms and stamped `termsReviewedAt`. This matters because the
+Sources appendix of this very audit lists the Thai agency licence terms — GISTDA's included — as
+**not verified in this pass**: a template that ships `true` by default would let unreviewed material
+be promoted into browser-facing storage on the strength of a placeholder. The publish step should
+refuse anything still `"unknown"` rather than treat it as permitted.
 
 ## Gap analysis and target architecture
 
@@ -496,11 +504,21 @@ CREATE TABLE earthquakes (
   depth_km double precision,
   source_ids jsonb NOT NULL,
   geom geometry(PointZ, 4326) NOT NULL,
-  updated_at timestamptz NOT NULL
+  -- upstream revision time (USGS/EMSC revise magnitude and depth after the fact)
+  updated_at timestamptz NOT NULL,
+  -- when SIAHRA first received this event, and when it last re-fetched it.
+  -- EarthquakeFeedDO already keeps `ingested_at_ms`; migrating without these
+  -- columns would throw that away and leave the history unable to say whether
+  -- an old event came from a live feed or a stale one.
+  first_seen_at timestamptz NOT NULL,
+  fetched_at timestamptz NOT NULL
 );
 
 CREATE INDEX earthquakes_geom_gix
 ON earthquakes USING GIST (geom);
+
+CREATE INDEX earthquakes_fetched_idx
+ON earthquakes (fetched_at DESC);
 
 
 CREATE TABLE flood_extents (
@@ -513,7 +531,13 @@ CREATE TABLE flood_extents (
   source_artifact_id text NOT NULL,
   observed_at timestamptz NOT NULL,
   fetched_at timestamptz NOT NULL,
-  province_code text REFERENCES provinces(code),
+  -- NOT NULL with a sentinel, deliberately. A plain UNIQUE treats every NULL as
+  -- distinct, so an extent that could not be assigned to a province would slip
+  -- past the constraint and be inserted again on every redelivery — the exact
+  -- duplicate this key exists to prevent. Postgres 15+ can express the same
+  -- thing as UNIQUE NULLS NOT DISTINCT; pick one, but do not leave it nullable.
+  province_code text NOT NULL DEFAULT '__unassigned__'
+    REFERENCES provinces(code),
   geom geometry(MultiPolygon, 4326) NOT NULL,
   confidence double precision,
   artifact_key text,
@@ -552,9 +576,19 @@ rendered as "now". Once PostgreSQL becomes the historical source of truth, a sch
 the upstream observation time cannot answer "when did we actually receive this?" — it is not
 reconstructible from `source_payload`, because not every source publishes it. Historical responses
 would then have no honest `fetchedAt` to return, and stale rows would render as current after
-migration. Storing the ingestion time explicitly is also what makes the pipeline-latency targets later
-in this document measurable at all: latency is `fetched_at - observed_at`, and you cannot compute it
-from a column you did not keep.
+migration. Storing the ingestion time explicitly is also what makes the latency targets later in this
+document measurable at all — and the two intervals must not be confused:
+
+| Metric | Formula | What it measures |
+|---|---|---|
+| **Pipeline latency** | `fetched_at - source_published_at` | the part SIAHRA is responsible for; the SLO |
+| **End-to-end age** | `fetched_at - observed_at` | how old the value is to a user; includes upstream delay |
+
+A source that measures at 09:00 and publishes at 09:12 has already spent 12 minutes before SIAHRA can
+see the value. Charging that to the ingestion pipeline would corrupt the processing SLO, so pipeline
+latency is measured from publication time where the source provides one, and only end-to-end age is
+measured from `observed_at`. Where `source_published_at` is null, report end-to-end age and say so —
+do not silently substitute one metric for the other.
 
 ```sql
 CREATE TABLE forecast_runs (
@@ -597,7 +631,22 @@ WHERE ST_DWithin(
 
 ### R2 storage design
 
-I recommend separating raw/private artifacts from browser-facing assets:
+I recommend separating raw/private artifacts from browser-facing assets. Note this is **two buckets,
+and today only one is bound**: both `wrangler.jsonc` files bind `HAZARD_BUCKET` → `siahra-geodata`,
+and nothing binds a raw bucket at all, so the ingestion and Workflow code below cannot write these
+objects until the binding is added:
+
+```jsonc
+// apps/api/wrangler.jsonc — siahra-api only
+"r2_buckets": [
+  { "binding": "HAZARD_BUCKET", "bucket_name": "siahra-geodata" },
+  { "binding": "RAW_BUCKET",    "bucket_name": "siahra-raw" }
+]
+```
+
+Deliberately **not** added to `apps/web/wrangler.jsonc`: the web Worker serves public tiles, and
+binding raw upstream material into the asset deploy unit would put unreviewed, possibly
+non-redistributable source data one code path away from the browser.
 
 ```text
 siahra-raw/
@@ -672,7 +721,7 @@ A key conclusion of this research is that **not every useful Thai government dat
 | **OpenStreetMap** | buildings, roads, waterways, POIs | extracts/OSM services | continuously evolving dataset | ODbL | built environment |
 | **HydroRIVERS / HydroSHEDS** | river networks/catchments | downloadable GIS | static/versioned hydrography | free commercial/noncommercial use, attribution/terms apply | consistent drainage network |
 | **NASA GPM IMERG** | satellite precipitation | NASA services | half-hourly precipitation product | NASA terms | radar/gauge gap filling |
-| **GloFAS / Copernicus EMS** | modeled river discharge/flood probability | Copernicus data services | medium-range forecast daily through 15 days | CEMS terms | national/basin outlook |
+| **GloFAS / Copernicus EMS** | modeled river discharge/flood probability | Copernicus data services | daily medium-range forecast; horizon unverified here — read it off CEMS | CEMS terms | national/basin outlook |
 | **geoBoundaries** | administrative boundaries | downloadable geodata | versioned | CC BY 4.0 | fallback admin boundaries |
 | **Thailand Open Government Data** | numerous government spatial/tabular datasets | Data.go.th | dataset dependent | dataset-specific | discovery/catalog layer |
 
@@ -972,11 +1021,12 @@ NOW                           FUTURE
 ├─ 3–7 d Outlook
 │   basin context; probability only from a cited model
 │
-└─ 8–15 d Outlook
-    strategic signal only
+└─ Multi-day Outlook
+    strategic signal only; horizon set by the
+    GloFAS product actually in use
 ```
 
-Do not simply extend the same bright flood polygon 15 days into the future. The graphic treatment itself should indicate declining certainty.
+Do not simply extend the same bright flood polygon to the end of the outlook window. The graphic treatment itself should indicate declining certainty.
 
 ### Earthquake product definition
 
@@ -1220,23 +1270,55 @@ function FloodSurface({ positions, indices }: FloodSurfaceProps) {
   );
 }
 
-export function HazardCanvas(props: FloodSurfaceProps) {
-  return (
-    <Canvas
-      camera={{ position: [0, -5000, 3000], near: 1, far: 100_000 }}
-      dpr={[1, 2]}
-      gl={{ antialias: true, powerPreference: "high-performance" }}
-    >
-      <ambientLight intensity={0.5} />
-      <directionalLight position={[2000, -3000, 5000]} intensity={2} />
+```
 
-      <FloodSurface {...props} />
-    </Canvas>
-  );
+**Do not mount this behind its own `<Canvas>`.** A second `<Canvas>` creates a second WebGLRenderer,
+scene and camera: it would burn another WebGL context, and — worse — its camera and world transform
+would be nothing to do with `Map3DCanvas`, so the flood surface would drift out of alignment with the
+terrain the moment the user pans, zooms or switches province. There is one scene graph, and this
+geometry belongs in it:
+
+```ts
+// the flood layer is a node in the existing scene, not a parallel renderer
+import * as THREE from "three";
+
+export function attachFloodSurface(world: THREE.Group): {
+  update(positions: Float32Array, indices: Uint32Array): void;
+  dispose(): void;
+} {
+  const material = new THREE.MeshPhysicalMaterial({
+    transparent: true, opacity: 0.65, roughness: 0.2, metalness: 0,
+  });
+  const mesh = new THREE.Mesh(new THREE.BufferGeometry(), material);
+  // added to the georeferenced world group, so it inherits the same AOI origin
+  // and vertical exaggeration as the terrain and stays aligned for free
+  world.add(mesh);
+
+  return {
+    update(positions, indices) {
+      const next = new THREE.BufferGeometry();
+      next.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+      next.setIndex(new THREE.BufferAttribute(indices, 1));
+      next.computeVertexNormals();
+      // same leak rule as the R3F version: the superseded geometry owns GPU
+      // buffers that nothing else will free
+      mesh.geometry.dispose();
+      mesh.geometry = next;
+    },
+    dispose() {
+      world.remove(mesh);
+      mesh.geometry.dispose();
+      material.dispose();
+    },
+  };
 }
 ```
 
-But I would **not replace `setupScene.ts` with this architecture immediately**. Treat it as a pattern for new modular visualization features.
+If R3F is ever used here, it has to render **into the existing renderer and camera** rather than
+mounting its own `<Canvas>`. That is the whole reason this document recommends against an R3F
+migration: I would **not replace `setupScene.ts` with this architecture immediately**. Treat the
+component style above as a pattern for genuinely self-contained future modules — ones that do not
+have to stay registered to the terrain.
 
 ### Resilient WebSocket client
 
@@ -1819,7 +1901,7 @@ NASA IMERG        precipitation
 GloFAS            basin flood outlook
 ```
 
-Copernicus GLO-30 มีความละเอียดประมาณ 30 เมตรระดับโลก. ESA WorldCover ประมาณ 10 เมตรและใช้ CC BY 4.0. NASA IMERG ให้ precipitation estimate ทุกครึ่งชั่วโมง. GloFAS มี medium-range flood forecast ถึง 15 วันในปัจจุบัน.
+Copernicus GLO-30 มีความละเอียดประมาณ 30 เมตรระดับโลก. ESA WorldCover ประมาณ 10 เมตรและใช้ CC BY 4.0. NASA IMERG ให้ precipitation estimate ทุกครึ่งชั่วโมง. GloFAS มี medium-range flood forecast รายวัน (lead time ที่แน่นอนยังไม่ได้ verify ในรอบนี้ — ดูหัวข้อ Sources).
 
 แต่ **30 m DEM ไม่ควรถูกใช้เพื่ออ้างความแม่นยำระดับถนนใน Bangkok flood depth**. หากจะทำ operational urban flood simulation จริง ต้องหา bare-earth DTM/LiDAR ที่ละเอียดกว่า รวม drainage, canal, road/embankment height, culvert และ river geometry.
 
