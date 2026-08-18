@@ -114,9 +114,9 @@ while IFS= read -r seg; do
     esac
   fi
   case "$sub" in
-    create) reason="เปิด PR ต้องให้ผู้ใช้ตัดสินใจก่อนเสมอ (/implement ขั้นที่ 5) — อนุมัติที่นี่ถ้าผู้ใช้บอกให้เปิดแล้ว"; break ;;
-    merge)  reason="agent ไม่ merge PR เอง — ผู้ใช้เป็นคนกดเอง"; break ;;
-    ready)  reason="การเปลี่ยน draft → ready เท่ากับส่งเข้ารีวิวจริง ต้องให้ผู้ใช้ยืนยัน"; break ;;
+    create) reason="Opening a PR is always the user's call (/implement step 5) — approve here if they already said to open it"; break ;;
+    merge)  reason="Agents do not merge PRs — the user does that themselves"; break ;;
+    ready)  reason="Marking a draft ready sends it into real review — needs the user's confirmation"; break ;;
   esac
 
   # `git push` reaching main. Two ways that happens, and the literal-argument
@@ -127,14 +127,14 @@ while IFS= read -r seg; do
   #      never appears in the command
   if is_git_push "$seg"; then
     if printf '%s' "$seg" | grep -Eq '(\bmain\b|:main\b)'; then
-      reason="ห้าม push ตรงเข้า main — แตกสาขาแล้วเปิด PR (ruleset ฝั่ง GitHub ก็จะปฏิเสธอยู่ดี)"
+      reason="Never push straight to main — branch and open a PR (the GitHub ruleset rejects it anyway)"
       break
     fi
     # Resolve the branch we are actually on. Fail closed: if git cannot answer
     # (not a repo, detached HEAD), guard rather than wave it through.
     branch=$(git -C "$(git_target_dir "$seg")" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
     if [ "$branch" = "main" ] || [ -z "$branch" ]; then
-      reason="อยู่บนสาขา ${branch:-<ไม่ทราบ>} — \`git push\` เปล่า ๆ จะยิงเข้า main ตรง ๆ ให้แตกสาขาแล้วเปิด PR แทน"
+      reason="On branch ${branch:-<unknown>} — a bare \`git push\` would go straight to main; branch and open a PR instead"
       break
     fi
   fi
