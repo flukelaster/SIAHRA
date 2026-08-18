@@ -492,12 +492,18 @@ CREATE TABLE observations (
   unit text NOT NULL,
   quality_code text,
   source_payload jsonb,
-  -- Idempotency without a usable observation time: a surrogate PK plus a
-  -- uniqueness key that tolerates the null. An undated reading dedupes on the
-  -- reading itself rather than silently collapsing every undated value for a
-  -- station into one row.
+  -- Identity of the READING, never of the fetch. The upstream reading id when
+  -- ThaiWater supplies one; otherwise a digest over the reading's own content
+  -- (station, variable, observed_at, value, unit, quality_code).
+  --
+  -- fetched_at must NOT appear here: consecutive polls return the same reading
+  -- with a new receipt time, so a key containing it never conflicts and every
+  -- refresh appends a duplicate — repeating points in the timeline and
+  -- inflating historical aggregates. The digest makes an undated reading
+  -- dedupe on what it actually says, which is the only stable thing about it.
+  reading_key text NOT NULL,
   CONSTRAINT observations_identity_uniq
-    UNIQUE NULLS NOT DISTINCT (station_id, variable, observed_at, fetched_at)
+    UNIQUE (station_id, variable, reading_key)
 );
 
 -- NULLS LAST so undated readings never sort as the most recent
@@ -506,8 +512,21 @@ ON observations (observed_at DESC NULLS LAST);
 
 CREATE INDEX observations_fetched_idx
 ON observations (fetched_at DESC);
+```
 
+Re-ingesting the same reading updates its receipt metadata and nothing else —
+the measured value is immutable, and `fetched_at` only moves forward:
 
+```sql
+INSERT INTO observations (
+  station_id, variable, reading_key, observed_at,
+  source_published_at, fetched_at, value, unit, quality_code, source_payload
+) VALUES (...)
+ON CONFLICT (station_id, variable, reading_key) DO UPDATE SET
+  fetched_at = GREATEST(observations.fetched_at, EXCLUDED.fetched_at);
+```
+
+```sql
 CREATE TABLE earthquakes (
   id text PRIMARY KEY,
   origin_at timestamptz NOT NULL,
@@ -1478,12 +1497,16 @@ export function connectHazardStream(
     socket.addEventListener("message", (event) => {
       // any frame, heartbeat included, proves the connection is still alive
       armHeartbeatDeadline();
-      // ...and a delivered frame is what "stable" means, so this is where the
-      // backoff resets
-      retryMs = 1_000;
 
       try {
         onMessage(JSON.parse(event.data));
+        // Only here. A frame that arrives but fails to parse — or whose
+        // handler throws — is a protocol failure, and the catch below closes
+        // the socket. Resetting before this point would schedule every one of
+        // those reconnects at one second and hammer the API for as long as the
+        // server keeps sending bad frames. The backoff resets once a frame has
+        // been received AND successfully handled, not merely received.
+        retryMs = 1_000;
       } catch (err) {
         // Never swallow this. A malformed payload, a protocol change, or a
         // throw inside onMessage all mean live updates have stopped being
