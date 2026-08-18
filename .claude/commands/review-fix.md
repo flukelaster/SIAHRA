@@ -50,6 +50,8 @@ query($o:String!,$r:String!,$n:Int!,$c:String){
 
 มีของต้องแก้ → `Agent(senior-se)` (ส่ง finding ทั้งชุด) → `Agent(qa-verifier)` → **แยกทางตาม `verdict`**:
 - `pass` → commit → **push ครั้งเดียว** → เก็บ sha ไว้ใช้ข้อ 4
+  commit message ต้องเป็น**ภาษาอังกฤษ** (subject + body) เหมือนทุก commit ในรีโปนี้ เช็คก่อน push:
+  `git log -1 --format='%s%n%b' | LC_ALL=C.UTF-8 grep -Pq '[\x{0E00}-\x{0E7F}]'` เจอแล้วแก้ด้วย `git commit --amend`
 - `fail` → ส่ง findings กลับให้ senior-se แก้ (ไม่เกิน 2 รอบ) แล้วให้ QA ตรวจใหม่ ; ครบ 2 รอบยัง fail → **หยุด ไม่ commit ไม่ push ไม่ resolve thread** แล้วรายงานผู้ใช้
 - `blocked` → หยุดทันที บอกว่าต้องทำอะไรถึงตรวจต่อได้ ไม่ commit ไม่ push
 
