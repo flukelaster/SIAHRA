@@ -132,25 +132,29 @@ Do not turn framework migration into a prerequisite for shipping.
 
 ### Current Cloudflare implementation
 
-The current `wrangler.jsonc` is already modern:
+There is **no single combined `wrangler.jsonc`**. SIAHRA deploys as two independent Workers with one
+config each, and every recommendation below has to name which deploy unit it lands in:
 
 ```text
-Worker
-├─ Static Assets → ../web/dist
-├─ KV → CONFIG
-├─ R2 → HAZARD_BUCKET
-├─ Durable Objects
-│  ├─ EARTHQUAKE_FEED
-│  ├─ FORECAST_POINTER
-│  ├─ OBSERVATION_CACHE
-│  ├─ FLOOD_EXTENT
-│  └─ RADAR
-└─ Cron → * * * * *
+apps/web/wrangler.jsonc — "siahra-web"        apps/api/wrangler.jsonc — "siahra-api"
+├─ main → worker/index.ts (R2 tile reads)     ├─ main → src/index.ts
+├─ Static Assets → ./dist (SPA fallback)      ├─ R2 → HAZARD_BUCKET
+├─ R2 → HAZARD_BUCKET                         ├─ Durable Objects
+└─ Custom Domain → siahra-radar.co (all       │  ├─ EARTHQUAKE_FEED
+   paths; this Worker is the origin)          │  ├─ FORECAST_POINTER
+                                              │  ├─ OBSERVATION_CACHE
+                                              │  ├─ FLOOD_EXTENT
+                                              │  └─ RADAR
+                                              ├─ Cron → * * * * *
+                                              └─ Route → siahra-radar.co/api/*
+                                                 (runs before the origin)
 ```
 
-The current compatibility date is `2026-08-16`, static assets use SPA fallback, and `/api/*` is configured to invoke the Worker first.
+Both use compatibility date `2026-08-16`; `siahra-api` additionally sets `nodejs_compat`. Neither config
+binds a KV namespace — there is no `CONFIG` binding in the repository today, so anything proposed here
+that wants one is proposing a new binding, not reusing an existing one.
 
-What is conspicuously absent from the same configuration is:
+What is absent from **both** configurations is:
 
 ```text
 Hyperdrive
@@ -158,7 +162,18 @@ Queues
 Workflows
 ```
 
-That makes these additions low-risk architecturally: they complement rather than replace the existing Worker/DO approach.
+Where each belongs, by deploy unit:
+
+| Addition | Deploy unit | Why |
+|---|---|---|
+| Hyperdrive | `siahra-api` | only the API queries the database |
+| Queues (producer + consumer) | `siahra-api` | ingestion already lives beside the cron trigger and the DOs |
+| Workflows | `siahra-api` | orchestrates ingestion/ETL, not asset serving |
+| (unchanged) | `siahra-web` | keep it assets + tile reads; adding data bindings here re-couples the two deploys |
+
+That makes these additions low-risk architecturally: they complement rather than replace the existing
+Worker/DO approach — **provided they go into `siahra-api` only**. Putting a data binding in
+`siahra-web` would undo the split that lets a UI release ship without restarting the Durable Objects.
 
 ### WebSocket audit
 
@@ -452,7 +467,13 @@ ON stations USING GIST (geom);
 
 CREATE TABLE observations (
   station_id text NOT NULL REFERENCES stations(id),
+  -- when the instrument/agency says the value was measured
   observed_at timestamptz NOT NULL,
+  -- when the upstream source published it (null when the source does not say)
+  source_published_at timestamptz,
+  -- when SIAHRA successfully received it. NOT NULL: a row cannot exist
+  -- without a successful fetch, and this is what `fetchedAt` is rendered from.
+  fetched_at timestamptz NOT NULL,
   variable text NOT NULL,
   value double precision,
   unit text NOT NULL,
@@ -463,6 +484,9 @@ CREATE TABLE observations (
 
 CREATE INDEX observations_time_idx
 ON observations (observed_at DESC);
+
+CREATE INDEX observations_fetched_idx
+ON observations (fetched_at DESC);
 
 
 CREATE TABLE earthquakes (
@@ -482,12 +506,20 @@ ON earthquakes USING GIST (geom);
 CREATE TABLE flood_extents (
   id bigserial PRIMARY KEY,
   source text NOT NULL,
+  -- stable identifier of the upstream artifact this row came from
+  -- (GISTDA scene/product id, or a digest of the fetched artifact).
+  -- Queue delivery is at-least-once, so this is what makes a redelivery
+  -- an update instead of a duplicate polygon.
+  source_artifact_id text NOT NULL,
   observed_at timestamptz NOT NULL,
+  fetched_at timestamptz NOT NULL,
   province_code text REFERENCES provinces(code),
   geom geometry(MultiPolygon, 4326) NOT NULL,
   confidence double precision,
   artifact_key text,
-  provenance jsonb NOT NULL
+  provenance jsonb NOT NULL,
+  CONSTRAINT flood_extents_source_artifact_uniq
+    UNIQUE (source, source_artifact_id, province_code)
 );
 
 CREATE INDEX flood_extents_geom_gix
@@ -495,8 +527,36 @@ ON flood_extents USING GIST (geom);
 
 CREATE INDEX flood_extents_time_idx
 ON flood_extents (observed_at DESC);
+```
 
+The queue consumer must therefore upsert rather than insert, so that a retry or redelivery of the same
+GISTDA extent overwrites the existing row instead of adding a second polygon that would be drawn and
+counted twice in every spatial summary:
 
+```sql
+INSERT INTO flood_extents (
+  source, source_artifact_id, observed_at, fetched_at,
+  province_code, geom, confidence, artifact_key, provenance
+) VALUES (...)
+ON CONFLICT (source, source_artifact_id, province_code) DO UPDATE SET
+  geom       = EXCLUDED.geom,
+  confidence = EXCLUDED.confidence,
+  fetched_at = EXCLUDED.fetched_at,
+  provenance = EXCLUDED.provenance;
+```
+
+### Why every table carries both `observed_at` and `fetched_at`
+
+`AGENTS.md` requires the UI to show when a value is from, and requires `fetchedAt: null` never to be
+rendered as "now". Once PostgreSQL becomes the historical source of truth, a schema that records only
+the upstream observation time cannot answer "when did we actually receive this?" — it is not
+reconstructible from `source_payload`, because not every source publishes it. Historical responses
+would then have no honest `fetchedAt` to return, and stale rows would render as current after
+migration. Storing the ingestion time explicitly is also what makes the pipeline-latency targets later
+in this document measurable at all: latency is `fetched_at - observed_at`, and you cannot compute it
+from a column you did not keep.
+
+```sql
 CREATE TABLE forecast_runs (
   id uuid PRIMARY KEY,
   model text NOT NULL,
@@ -1118,7 +1178,7 @@ For **new isolated layers**, an R3F component could look like:
 
 ```tsx
 import { Canvas } from "@react-three/fiber";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 
 interface FloodSurfaceProps {
@@ -1140,6 +1200,13 @@ function FloodSurface({ positions, indices }: FloodSurfaceProps) {
 
     return g;
   }, [positions, indices]);
+
+  // The geometry is constructed by hand and passed in as a prop, so R3F does
+  // not own it and will not dispose it. Timeline/forecast playback changes
+  // `positions`/`indices` on every frame step, which builds a new geometry each
+  // time — without this cleanup every superseded instance keeps its GPU buffers
+  // alive, which is exactly the render-loop leak this roadmap exists to avoid.
+  useEffect(() => () => geometry.dispose(), [geometry]);
 
   return (
     <mesh geometry={geometry}>
@@ -1192,19 +1259,33 @@ export function connectHazardStream(
 
     socket.addEventListener("open", () => {
       retryMs = 1_000;
+      onStatus({ state: "live" });
     });
 
     socket.addEventListener("message", (event) => {
       try {
         onMessage(JSON.parse(event.data));
-      } catch {
-        console.warn("Invalid hazard-stream message");
+      } catch (err) {
+        // Never swallow this. A malformed payload, a protocol change, or a
+        // throw inside onMessage all mean live updates have stopped being
+        // applied — and the UI would otherwise keep showing the last hazard
+        // values as if they were healthy. Report the degraded state, then
+        // close so the reconnect/backoff path below takes over.
+        onStatus({
+          state: "degraded",
+          reason: "invalid-message",
+          error: String(err),
+        });
+        socket?.close();
       }
     });
 
     socket.addEventListener("close", () => {
       if (stopped) return;
 
+      // Reconnecting is not "healthy" — the caller has to be able to dim the
+      // layer and keep the last-good timestamp visible while we back off.
+      onStatus({ state: "reconnecting", retryInMs: retryMs });
       timer = window.setTimeout(connect, retryMs);
       retryMs = Math.min(retryMs * 2, 30_000);
     });
@@ -1230,73 +1311,71 @@ export function connectHazardStream(
 
 ### Cloudflare Worker + Hyperdrive endpoint
 
-Illustrative architecture:
+This must be registered as a **route in the existing table**, not as a second `fetch` entry handler.
+`createRouter` in `apps/api/src/router.ts` is where `originAllowed` and `checkLimit` are applied; a
+standalone `export default { fetch }` would answer the request before either runs and expose an
+unauthenticated, unthrottled spatial query straight to the database:
 
 ```ts
 import postgres from "postgres";
+import { json, type Route } from "./router.js";
 
-interface Env {
-  HYPERDRIVE: Hyperdrive;
-}
-
-export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+// registered in the route table in src/index.ts, so the same-origin guard and
+// the rate limiter in createRouter() run before this handler is ever reached
+export const earthquakesRoute: Route = {
+  method: "GET",
+  pattern: /^\/api\/v1\/earthquakes$/,
+  // spatial queries are dearer than a cache read — give them their own budget
+  limit: { perMinute: 60 },
+  limitScope: "spatial",
+  handler: async (request, env) => {
     const url = new URL(request.url);
+    const province = url.searchParams.get("province");
 
-    if (request.method === "GET" &&
-        url.pathname === "/api/v1/earthquakes") {
-      const province = url.searchParams.get("province");
-
-      if (!province) {
-        return Response.json(
-          { error: "province is required" },
-          { status: 400 },
-        );
-      }
-
-      const sql = postgres(env.HYPERDRIVE.connectionString, {
-        max: 5,
-        prepare: false,
-      });
-
-      try {
-        const rows = await sql`
-          SELECT
-            e.id,
-            e.origin_at,
-            e.magnitude,
-            e.depth_km,
-            ST_X(e.geom::geometry) AS lon,
-            ST_Y(e.geom::geometry) AS lat
-          FROM earthquakes e
-          JOIN provinces p
-            ON p.code = ${province}
-          WHERE ST_Intersects(e.geom, p.geom)
-            AND e.origin_at >= now() - interval '7 days'
-          ORDER BY e.origin_at DESC
-          LIMIT 250
-        `;
-
-        return Response.json(
-          { data: rows },
-          {
-            headers: {
-              "Cache-Control":
-                "public, max-age=30, s-maxage=60",
-            },
-          },
-        );
-      } finally {
-        await sql.end();
-      }
+    if (!province) {
+      return json({ error: "province is required" }, { status: 400 });
     }
 
-    return new Response("Not found", { status: 404 });
+    const sql = postgres(env.HYPERDRIVE.connectionString, {
+      max: 5,
+      prepare: false,
+    });
+
+    try {
+      const rows = await sql`
+        SELECT
+          e.id,
+          e.origin_at,
+          e.magnitude,
+          e.depth_km,
+          ST_X(e.geom::geometry) AS lon,
+          ST_Y(e.geom::geometry) AS lat
+        FROM earthquakes e
+        JOIN provinces p
+          ON p.code = ${province}
+        WHERE ST_Intersects(e.geom, p.geom)
+          AND e.origin_at >= now() - interval '7 days'
+        ORDER BY e.origin_at DESC
+        LIMIT 250
+      `;
+
+      return json(
+        { data: rows },
+        { cacheControl: "public, max-age=30, s-maxage=60" },
+      );
+    } finally {
+      await sql.end();
+    }
   },
 };
 ```
 
-Hyperdrive is the Cloudflare-native bridge recommended here rather than exposing the database directly to browsers.
+`AppEnv` gains the `HYPERDRIVE: Hyperdrive` binding, and `src/index.ts` adds `earthquakesRoute` to the
+array it passes to `createRouter`. The 404 fall-through, the same-origin 403 and the 429 all stay in
+`createRouter` where they already are — a new endpoint should never re-implement them.
+
+Hyperdrive is the Cloudflare-native bridge recommended here rather than exposing the database directly
+to browsers. It is a binding on **`siahra-api` only** (see the deploy-unit table above).
 
 ## Implementation roadmap, operations, and naming
 
