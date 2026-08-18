@@ -20,11 +20,15 @@ cd apps/web && npx tsc -b
 cd apps/api && npx tsc --noEmit
 cd apps/etl && npx tsc --noEmit
 ```
-ถ้า diff แตะ `apps/web/` เพิ่ม:
+แล้วรัน **job `Build` ให้ครบทุกรอบ ไม่ว่า diff จะแตะอะไร** — `Build` ใน `ci.yml` รันเสมอ และมันไม่ได้มีแค่ vite build:
 ```
 npm run build -w apps/web
+cd apps/web && npx wrangler deploy --dry-run --outdir=/tmp/siahra-web
+cd apps/api && npx wrangler deploy --dry-run --outdir=/tmp/siahra-api
 ```
 แล้วเช็คลิมิต asset แบบเดียวกับ CI: ไฟล์ใน `apps/web/dist` เกิน 20,000 ไฟล์ หรือมีไฟล์เดี่ยว > 25 MB = fail
+
+(ข้ามสอง dry-run ไม่ได้ แม้จะเป็นงานฝั่ง api หรือแก้ config ล้วน — binding/route/env ที่พังจะผ่าน QA แล้วไปตายบน CI พอดี)
 
 ## 2. Visual acceptance
 ทำเมื่อ diff แตะ `apps/web/index.html`, `src/App.tsx`, `src/main.tsx`, `src/index.css`, `src/branding.ts`, `src/components/**`, `src/scene/**`, `public/*`

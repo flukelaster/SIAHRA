@@ -31,10 +31,15 @@ query($o:String!,$r:String!,$n:Int!,$c:String){
 - **P1/P2** → แก้
 - **P3** → ไม่แก้โค้ด แต่ยังต้องปิด thread ตามข้อ 4
 
-## 3. แก้ทั้งชุดในรอบเดียว
-`Agent(senior-se)` (ส่ง finding ทั้งชุด) → `Agent(qa-verifier)` → commit → **push ครั้งเดียว** → เก็บ sha ไว้ใช้ข้อ 4
+## 3. แก้ทั้งชุดในรอบเดียว — commit/push **เฉพาะเมื่อ QA เขียว**
+`Agent(senior-se)` (ส่ง finding ทั้งชุด) → `Agent(qa-verifier)` → **แยกทางตาม `verdict`**:
+- `pass` → commit → **push ครั้งเดียว** → เก็บ sha ไว้ใช้ข้อ 4
+- `fail` → ส่ง findings กลับให้ senior-se แก้ (ไม่เกิน 2 รอบ) แล้วให้ QA ตรวจใหม่ ; ครบ 2 รอบยัง fail → **หยุด ไม่ commit ไม่ push ไม่ resolve thread** แล้วรายงานผู้ใช้
+- `blocked` → หยุดทันที บอกว่าต้องทำอะไรถึงตรวจต่อได้ ไม่ commit ไม่ push
 
-## 4. ปิดทุก thread — react → reply → resolve (ครบสามอย่างเสมอ ทำหลัง push เท่านั้น)
+ห้าม push งานที่ QA ยังไม่รับรอง — มันจะจุด CI/Codex รอบใหม่ แล้วเผลอไป resolve thread เดิมราวกับแก้สำเร็จ
+
+## 4. ปิดทุก thread — react → reply → resolve (ครบสามอย่างเสมอ ทำหลัง push ที่ QA รับรองแล้วเท่านั้น)
 ```bash
 # 4.1 react 👍
 gh api -X POST repos/<owner>/<repo>/pulls/comments/<comment_id>/reactions -f content=+1
