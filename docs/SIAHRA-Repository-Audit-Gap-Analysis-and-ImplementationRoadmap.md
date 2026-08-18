@@ -452,11 +452,21 @@ CREATE TABLE provinces (
   code text PRIMARY KEY,
   name_th text NOT NULL,
   name_en text NOT NULL,
+  -- MultiPolygon, so the seed MUST normalise. Every one of the 77
+  -- apps/web/public/aoi/*/boundary.geojson files is a bare `Polygon`, so a
+  -- direct ST_GeomFromGeoJSON insert rejects all of them — and then every
+  -- spatial join in this document has no province rows to join against.
   geom geometry(MultiPolygon, 4326) NOT NULL
 );
 
 CREATE INDEX provinces_geom_gix
 ON provinces USING GIST (geom);
+
+-- seeding from the repository's own boundaries
+INSERT INTO provinces (code, name_th, name_en, geom)
+VALUES ($1, $2, $3, ST_Multi(ST_GeomFromGeoJSON($4)))
+ON CONFLICT (code) DO UPDATE SET
+  geom = EXCLUDED.geom;
 
 
 CREATE TABLE stations (
@@ -620,6 +630,18 @@ CREATE TABLE flood_extents (
   confidence double precision,
   artifact_key text,
   provenance jsonb NOT NULL,
+  -- The rest of FloodExtentFeatureProps. The popup, the flood card and the
+  -- province summary all read these, and none of them can be recomputed from
+  -- geometry: dropping them would leave the migrated API unable to serve its
+  -- own contract or total the displayed area and affected houses.
+  tambon_th text,
+  amphoe_th text,
+  province_th text,
+  flood_area_rai double precision,
+  houses integer,
+  -- lossless copy of the upstream properties, so a field added to
+  -- FloodExtentFeatureProps later is not lost by rows written before it
+  canonical_props jsonb NOT NULL,
   -- Identity is the upstream artifact + feature, and nothing else.
   -- province_code is DERIVED metadata: an extent may arrive unassigned and be
   -- assigned later, or have a wrong code corrected. If it were part of the key
@@ -823,7 +845,23 @@ siahra-geodata/
     datasets/{dataset_version}.json
 ```
 
-R2 is appropriate for these immutable artifacts, and Cloudflare documents serving R2 through custom domains with Cloudflare caching available in front of the objects.
+R2 is appropriate for these immutable artifacts, and Cloudflare documents serving R2 through custom
+domains with Cloudflare caching available in front of the objects.
+
+**None of these prefixes is reachable from a browser today, and that is a prerequisite, not a
+detail.** `apps/web/worker/index.ts` maps exactly one pattern to R2 —
+`/aoi/{province}/{layer}/{z}/{x}_{y}.bin` — the API has no generic artifact route, and no R2 custom
+domain is provisioned anywhere in the repository. A request for one of the PMTiles or forecast paths
+above therefore falls through to the static-asset handler and returns the SPA shell rather than the
+object. Pick one before uploading anything under these prefixes:
+
+- **A Worker route** (`/artifacts/*` on `siahra-web`, beside the existing tile route) that forwards
+  to R2 and **must honour `Range`** — PMTiles is byte-range retrieval, so a handler that ignores
+  `Range` returns whole archives and breaks the format's whole point. Keeps one origin and one cache
+  policy.
+- **An R2 custom domain**, which serves the bucket directly with Cloudflare caching in front. Cheaper
+  in Worker invocations, but it is a second hostname: document it, and remember the same-origin
+  assumption in `apps/api/src/router.ts` covers only the main host.
 
 PMTiles is particularly attractive for static/slow-changing vector layers because it retrieves selected tile ranges from a single archive using HTTP Range Requests and is designed for S3-compatible object storage.
 
@@ -1109,9 +1147,17 @@ data-honesty rules decide how it may be published:
   the invented forecast number `AGENTS.md` forbids.
 - The legend must state the inputs and that the layer is a derived approximation, and `methodologyUrl`
   must point at the derivation.
-- Promoting this output to `probabilistic` requires a validated, citable model and published skill
-  metrics first — not a rename. Until then the wording stays "illustrative", not "risk" or "nowcast",
-  both of which read to users as a forecast.
+- It cannot become `probabilistic` by being validated. That class is defined in
+  `packages/shared-types/src/hazard-layer.ts` as *"a named, cited, third-party probabilistic model"*,
+  and validating an in-house heuristic does not make it third-party. An internally developed forecast
+  that earns a real probability therefore has **no valid descriptor today** — a gap in the contract,
+  not a labelling choice.
+
+  Closing it is a `packages/shared-types` change and must be made there first, with every api/web/etl
+  consumer updated in the same change: either widen `probabilistic` to mean "a named model with
+  published skill metrics, whoever built it" and carry the operator in the descriptor, or add a
+  distinct class for in-house validated models. Until that contract change lands, the wording stays
+  "illustrative" — not "risk" and not "nowcast", both of which read to users as a forecast.
 
 **Tier B — basin forecast**
 
@@ -1449,8 +1495,18 @@ have to stay registered to the terrain.
 ### Resilient WebSocket client
 
 ```ts
+export type HazardStreamStatus =
+  | { state: "live" }
+  | { state: "reconnecting"; retryInMs: number }
+  | { state: "degraded"; reason: "invalid-message"; error: string }
+  | { state: "degraded"; reason: "heartbeat-timeout" };
+
 export function connectHazardStream(
   onMessage: (message: unknown) => void,
+  // Required, not optional: every path below reports through it, and a caller
+  // that cannot see "degraded" would keep rendering stale hazard values as
+  // though they were live.
+  onStatus: (status: HazardStreamStatus) => void,
 ): () => void {
   let socket: WebSocket | undefined;
   let stopped = false;
@@ -1594,6 +1650,12 @@ export const earthquakesRoute: Route = {
           e.origin_at,
           e.magnitude,
           e.depth_km,
+          e.tsunami,
+          e.status,
+          -- without this the response cannot populate the layer descriptor's
+          -- `fetchedAt`, and the UI cannot tell a stale feed from an old event
+          -- that was fetched a moment ago
+          e.fetched_at,
           ST_X(e.geom::geometry) AS lon,
           ST_Y(e.geom::geometry) AS lat
         FROM active_earthquakes e
@@ -1606,7 +1668,19 @@ export const earthquakesRoute: Route = {
       `;
 
       return json(
-        { data: rows },
+        {
+          data: rows,
+          // the freshness contract travels with the data, never inferred
+          // client-side: null here would mean "never fetched", so an empty
+          // result set reports the layer's own last successful fetch
+          layer: {
+            id: "earthquakes",
+            epistemicClass: "observed",
+            liveOrStatic: "live",
+            fetchedAt: rows[0]?.fetched_at ?? null,
+            sourceIds: ["usgs", "emsc", "tmd"],
+          },
+        },
         { cacheControl: "public, max-age=30, s-maxage=60" },
       );
     } finally {
