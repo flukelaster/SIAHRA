@@ -33,7 +33,7 @@ description: Feature loop for SIAHRA — senior-se implements, qa-verifier gates
 `Agent(docs-sync)` — ให้ diff ทั้งหมดของสาขานี้
 
 ## 4. Commit
-commit เดียว (ข้อความ**ไทยได้**) ครอบทั้งโค้ดและเอกสาร แล้ว **หยุด**
+commit เดียวครอบทั้งโค้ดและเอกสาร **ข้อความเป็นภาษาอังกฤษ** (subject + body) แล้ว **หยุด**
 
 ## 5. ถามก่อนเปิด PR — บังคับ
 ใช้ `AskUserQuestion`: "เปิด PR เลยไหม?"
