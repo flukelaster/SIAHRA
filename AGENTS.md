@@ -17,7 +17,7 @@
 
 ## Running it
 - `npm run dev` (root) = vite :5173 + wrangler :8787 (in a worktree, ports come from `.env.worktree`) — vite serves the SPA and proxies `/api` to wrangler; **`apps/web/dist` is no longer needed** (build only to deploy web or to check the asset bundle size: `npm run build -w apps/web`)
-- Checks: `npx tsc -b` in apps/web, `npx tsc --noEmit` in apps/api and apps/etl, `npx oxlint src` in apps/web, and `npm test` at the root (= `npm run test -w apps/api && npm run test -w apps/web`; vitest, api tests run in workerd via `@cloudflare/vitest-pool-workers`, web tests are pure modules in `environment: "node"`) — **no CI job runs `npm test` yet**, so it only fails locally
+- Checks: `npx tsc -b` in apps/web, `npx tsc --noEmit` in apps/api and apps/etl, `npx tsc -p test/tsconfig.json --noEmit` in apps/api (the build tsconfig includes only `src`, so without this the vitest sources are never type-checked), `npx oxlint src` in apps/web, and `npm test` at the root (= `npm run test -w apps/api && npm run test -w apps/web`; vitest, api tests run in workerd via `@cloudflare/vitest-pool-workers`, web tests are pure modules in `environment: "node"`) — `ci.yml` runs all of these; `Test` is a job on every PR but is **not yet a required check**, which is a deliberate owner action once it has proven stable
 - See it for real: `playwright-cli -s=<session> open http://localhost:5173` then `screenshot` (wheel zoom does not work headless — use the on-screen zoom buttons or drag); `window.__siahraHandles` is available in dev to drive the camera
 - cron does not fire under `wrangler dev` — every DO schedules its own alarm; trigger by hand at `GET /__scheduled?cron=*+*+*+*+*`
 
@@ -26,7 +26,7 @@
 
 ## Git workflow (enforced by a GitHub ruleset — `.github/rulesets/main.json`)
 - **Never push straight to `main`**, however small or urgent — branch, then open a PR, even when the user says "push" (unless they explicitly override in that moment); the ruleset has no bypass actors, so a direct push is rejected anyway
-- `main` is mergeable once every status check passes: **Lint / TypeScript / Build** (`.github/workflows/ci.yml` — the same `tsc`/`oxlint` commands as "Checks" above; there is no `Test` job, so `npm test` is a local check only); never make a path-filtered job a required check (a PR that does not touch those paths would wait forever)
+- `main` is mergeable once every status check passes: **Lint / TypeScript / Build** (`.github/workflows/ci.yml` — the same commands as "Checks" above). `ci.yml` also runs a **`Test`** job on every PR, deliberately not yet in the required set: promoting it means editing `.github/rulesets/main.json` and running `scripts/apply-branch-rules.sh`; never make a path-filtered job a required check (a PR that does not touch those paths would wait forever)
 - The "English PRs" and "screenshot for UI changes" rules **still apply, but no CI job enforces them any more** (`pr-rules.yml` was removed because it burned Actions minutes) — they are checked by `/implement` before it opens a PR, and by you when you open one by hand
 - **PR text and commit messages must be entirely in English** (subject and body) — check before you push:
   `printf '%s' "$TITLE$BODY" | LC_ALL=C.UTF-8 grep -Pq '[\x{0E00}-\x{0E7F}]'` (the PR) and

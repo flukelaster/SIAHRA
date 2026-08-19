@@ -3,13 +3,19 @@ name: CI
 # One workflow, on every push to `main` and every pull request.
 #
 #   Lint ───────┐
-#   TypeScript ─┼─ independent, always run → the three required status checks
-#   Build ──────┘  (see .github/rulesets/main.json)
+#   TypeScript ─┼─ independent, always run
+#   Build ──────┤  Lint / TypeScript / Build are the three required status checks
+#   Test ───────┘  (see .github/rulesets/main.json)
 #
-# There is no test matrix yet — SIAHRA has no unit tests. When tests land, add a
-# `Test` job here and (only if it always runs) to the ruleset's required checks;
-# a path-filtered job must NOT be a required check, or PRs that don't touch it
-# wait forever.
+# `Test` runs on every PR but is NOT yet a required check — promoting it is a
+# deliberate action by the repository owner once it has proven stable, done by
+# editing .github/rulesets/main.json and running scripts/apply-branch-rules.sh.
+# Whatever is added there must always run: a path-filtered job must NOT be a
+# required check, or a PR that does not touch those paths waits forever.
+#
+# No job here installs a browser. The vitest suites are pure modules plus
+# Durable Objects under workerd; the visual pass is local, driven by
+# qa-verifier against a running dev server.
 
 on:
   push:
@@ -38,6 +44,23 @@ jobs:
       - name: oxlint apps/web
         run: npx oxlint src
         working-directory: apps/web
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # Root `test` runs both workspaces: apps/api under workerd via
+      # @cloudflare/vitest-pool-workers, apps/web as pure modules in a node
+      # environment. Neither needs a dev server, a browser or the network.
+      - name: npm test
+        run: npm test
 
   typecheck:
     name: TypeScript
