@@ -247,8 +247,34 @@ else in the code path prunes these objects.
 
 ## 8. Rolling back a bad deploy
 
-The two Workers deploy and roll back **independently** (`docs/deploy.md` §0.1). Roll back only the
-one you broke.
+`deploy.yml` now smoke-checks every release and rolls back on its own; this section is the manual
+lever for when you need it anyway.
+
+**What the pipeline does for you.** After `deploy-web`, it asserts `/` and a real tile both answer
+200. After `deploy-api`, it asserts `/api/v1/health` answers 200 and that `thaiwater`, `earthquakes`,
+`gistda-flood` and `tmd-radar` are all present in `sources[].id`. Two deliberate non-assertions:
+
+- it checks a **subset**, never a count — E10.3 added `exposure-illustrative` as a fifth source, and
+  an exact-count assertion would have failed every deploy from that day and rolled back healthy
+  releases;
+- it does **not** gate on `ok`. `ok` is false whenever any source carries a `lastError`, including
+  the unset TMD credential this project runs with today. A degraded source is the honest-degradation
+  path working, not a bad deploy.
+
+**Contract releases are both-or-neither.** A release touching `packages/shared-types/` ships one
+contract across both Workers, so they deploy serialized web → api and, on any failure, roll back
+together in reverse order — api first. The direction is not cosmetic: a new web bundle is written to
+tolerate the old payload, so new-web-against-old-api degrades, while old-web-against-new-api is the
+pairing that throws (E3.3's `delayed` reaching a bundle with no case for it is the worked example).
+There is a bounded window between the two deploys where production runs new web against old api. That
+window is the cost of the ordering, and it is the safe direction.
+
+That forward-compatibility premise is the one thing no CI step can check. **When a change touches
+`packages/shared-types/`, confirm by hand before merging that the new web bundle renders correctly
+against the currently deployed API payload** — an unknown enum value must fall back, not throw.
+
+The two Workers otherwise deploy and roll back **independently** (`docs/deploy.md` §0.1). Roll back
+only the one you broke.
 
 ```bash
 cd apps/api        # or apps/web

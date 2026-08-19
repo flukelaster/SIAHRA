@@ -4,6 +4,27 @@ name: Deploy
 # that Lint/TypeScript/Build passed) and deploys only the Worker(s) whose
 # files actually changed — same split as `npm run deploy:web`/`deploy:api`
 # in docs/deploy.md, just no longer something a human has to remember to run.
+#
+# Two paths, selected by `changes`:
+#
+#   per-Worker (the common case) — only the changed unit deploys, smoke-checks
+#     itself, and rolls itself back on failure. The other unit is untouched.
+#
+#   contract release (the diff touches `packages/shared-types/`) — one contract
+#     ships across BOTH units, so they are serialized web → api and rolled back
+#     together, api first. Rolling back only the failing unit would leave
+#     production on a mismatched pair, which is the outage this path exists to
+#     prevent: an API emitting a value the deployed web bundle has no case for
+#     (E3.3's `delayed` is the worked example) crashes the panel that renders it.
+#
+# Order matters in both directions. Deploy web first: the new bundle is written
+# to accept the old payload as well as the new, so the window between the two
+# deploys is new-web-against-old-api, which degrades. Roll back api first, for
+# the same reason in reverse — old-web-against-new-api is the crashing pair.
+#
+# The forward-compatibility premise (a new web bundle tolerates the old payload)
+# cannot be asserted by any step here; it lives on the release checklist in
+# docs/ops.md, which is where a human can actually check it.
 
 on:
   push:
@@ -24,6 +45,7 @@ jobs:
     outputs:
       web: ${{ steps.filter.outputs.web }}
       api: ${{ steps.filter.outputs.api }}
+      contract: ${{ steps.filter.outputs.contract }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -39,10 +61,50 @@ jobs:
           if echo "$changed" | grep -qE '^(apps/api/|packages/shared-types/)'; then
             echo "api=true" >> "$GITHUB_OUTPUT"
           fi
+          # The strict path needs the shared-types path itself, not just both
+          # flags: a release touching apps/web/ AND apps/api/ with no contract
+          # change also sets both, and belongs on the per-Worker path.
+          if echo "$changed" | grep -qE '^packages/shared-types/'; then
+            echo "contract=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Both units' current deployment ids are captured BEFORE either deploy runs.
+  # On a contract release the rollback may have to revert the unit that did not
+  # fail, and by then its "previous" version is the one this release replaced.
+  previous:
+    name: Capture current deployments
+    needs: changes
+    if: needs.changes.outputs.web == 'true' || needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      web: ${{ steps.ids.outputs.web }}
+      api: ${{ steps.ids.outputs.api }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - id: ids
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          # `wrangler deployments list` prints the newest last; take its id.
+          # A brand-new Worker has none — leave the output empty and let the
+          # rollback step skip rather than fail on a missing id.
+          for unit in web api; do
+            id=$(npx wrangler deployments list --config "apps/$unit/wrangler.jsonc" 2>/dev/null \
+              | grep -oE '^Deployment ID:[[:space:]]*[0-9a-f-]+' | tail -1 | awk '{print $NF}' || true)
+            echo "$unit previous deployment: ${id:-<none>}"
+            echo "$unit=$id" >> "$GITHUB_OUTPUT"
+          done
 
   deploy-web:
     name: Deploy web
-    needs: changes
+    needs: [changes, previous]
     if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -63,10 +125,41 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
+      - name: Smoke check web
+        run: |
+          set -euo pipefail
+          curl -fsS -o /dev/null -w 'index: %{http_code}\n' https://siahra-radar.co/
+          # A tile proves the R2 route and the asset fallthrough, not just that
+          # something answers on the domain.
+          curl -fsS -I -o /dev/null -w 'tile: %{http_code}\n' \
+            https://siahra-radar.co/aoi/10/manifest.json
+
+      # Per-Worker path only. On a contract release the shared rollback below
+      # owns both units, and rolling web back here would run it out of order.
+      - name: Roll back web
+        if: failure() && needs.changes.outputs.contract != 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PREVIOUS: ${{ needs.previous.outputs.web }}
+        run: |
+          if [ -z "$PREVIOUS" ]; then
+            echo "no previous deployment id captured — nothing to roll back to" >&2
+            exit 1
+          fi
+          npx wrangler rollback "$PREVIOUS" --config apps/web/wrangler.jsonc \
+            --message "automated rollback: smoke check failed for ${{ github.sha }}"
+
   deploy-api:
     name: Deploy api
-    needs: changes
-    if: needs.changes.outputs.api == 'true'
+    # `needs: deploy-web` orders the pair on a contract release. The explicit
+    # result check is what keeps an api-only release working: a skipped job
+    # propagates as skipped to everything that needs it, so without this an
+    # api-only merge would silently never deploy at all.
+    needs: [changes, previous, deploy-web]
+    if: >-
+      !cancelled() && needs.changes.outputs.api == 'true'
+      && (needs.deploy-web.result == 'success' || needs.deploy-web.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:
@@ -83,3 +176,87 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Smoke check api
+        run: |
+          set -euo pipefail
+          curl -fsS https://siahra-radar.co/api/v1/health -o health.json \
+            -w 'health: %{http_code}\n'
+          # Assert the required ids are a SUBSET of what /health reports, never
+          # a count: E10.3 added a fifth source, and an exact-count assertion
+          # would fail every deploy after that and roll back a healthy release.
+          jq -e '
+            ([.sources[].id] | sort) as $have
+            | ["thaiwater","earthquakes","gistda-flood","tmd-radar"]
+            | all(. as $need | $have | index($need) != null)
+          ' health.json > /dev/null
+          echo "required source ids present"
+          # Deliberately NOT gated on `.ok`: a source being degraded is the
+          # honest-degradation path working, not a bad deploy. `ok` is false
+          # whenever any source carries a lastError — including the unset TMD
+          # credential — so gating on it would roll back correct releases.
+          jq -r '"ok=\(.ok) worst=\(.worst)"' health.json
+
+      - name: Roll back api
+        if: failure() && needs.changes.outputs.contract != 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PREVIOUS: ${{ needs.previous.outputs.api }}
+        run: |
+          if [ -z "$PREVIOUS" ]; then
+            echo "no previous deployment id captured — nothing to roll back to" >&2
+            exit 1
+          fi
+          npx wrangler rollback "$PREVIOUS" --config apps/api/wrangler.jsonc \
+            --message "automated rollback: smoke check failed for ${{ github.sha }}"
+
+  # Contract releases only. One contract shipped across both units, so a failure
+  # in either leaves production on a mismatched pair — rolling back just the
+  # failing one is what turns a bad deploy into a crash. Reverse order, api
+  # first: old-web-against-new-api is the pairing that throws, so the API must
+  # go back before the web bundle it no longer matches.
+  rollback-contract:
+    name: Roll back both Workers
+    needs: [changes, previous, deploy-web, deploy-api]
+    if: >-
+      !cancelled() && needs.changes.outputs.contract == 'true'
+      && (needs.deploy-web.result == 'failure' || needs.deploy-api.result == 'failure')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Roll back api, then web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PREV_API: ${{ needs.previous.outputs.api }}
+          PREV_WEB: ${{ needs.previous.outputs.web }}
+          MSG: "automated rollback: contract release ${{ github.sha }} failed its smoke check"
+        run: |
+          set -uo pipefail
+          rc=0
+          # api first, then web. Each is attempted even if the other fails —
+          # stopping halfway is the mismatched state this job exists to leave.
+          for unit in api web; do
+            case "$unit" in
+              api) prev="$PREV_API" ;;
+              web) prev="$PREV_WEB" ;;
+            esac
+            if [ -z "$prev" ]; then
+              echo "::error::no previous deployment id for $unit — cannot roll it back"
+              rc=1
+              continue
+            fi
+            echo "rolling $unit back to $prev"
+            if ! npx wrangler rollback "$prev" --config "apps/$unit/wrangler.jsonc" --message "$MSG"; then
+              echo "::error::rollback failed for $unit — production may be on a mismatched pair"
+              rc=1
+            fi
+          done
+          exit "$rc"
