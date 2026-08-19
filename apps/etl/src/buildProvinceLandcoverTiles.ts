@@ -3,15 +3,20 @@ import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import { execa } from "execa";
-import type { LandcoverTileLevel, LandcoverTilePyramid, TerrainTilePyramid } from "@siahra/shared-types";
+import {
+  SOURCES,
+  type LandcoverTileLevel,
+  type LandcoverTilePyramid,
+  type TerrainTilePyramid,
+} from "@siahra/shared-types";
 import type { AoiDefinition } from "./aoi.js";
 import { TILES_ROOT } from "./buildProvinceTerrainTiles.js";
 
 const WORK_DIR = path.resolve(import.meta.dirname, "../data/work");
 const RAW_DIR = path.resolve(import.meta.dirname, "../data/raw/worldcover");
 const WC_BASE = "https://esa-worldcover.s3.eu-central-1.amazonaws.com/v200/2021/map";
-export const WORLDCOVER_ATTRIBUTION =
-  "© ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium (CC BY 4.0)";
+/** เครดิตมาจากทะเบียนกลางใน shared-types แหล่งเดียว จะได้ไม่มีสองสำนวนให้เพี้ยนกัน */
+export const WORLDCOVER_ATTRIBUTION = SOURCES.worldcover.attributionText;
 const NODATA = 0;
 
 /** WorldCover tiles are 3°×3°, named by their SW corner (N15E099 covers 15–18N, 99–102E). */

@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import type { AoiManifest, TerrainTileLevel, TerrainTilePyramid } from "@siahra/shared-types";
+import type { AoiManifest, SourceId, TerrainTileLevel, TerrainTilePyramid } from "@siahra/shared-types";
 import type { LocalProjection } from "./localProjection";
 import {
   DEFAULT_IMAGERY_PROVIDER,
@@ -168,6 +168,10 @@ export class TerrainTileTree {
 
   get attribution(): string {
     return this.provider.attribution;
+  }
+
+  get imagerySourceId(): SourceId {
+    return this.provider.sourceId;
   }
 
   private exists(z: number, x: number, y: number): boolean {

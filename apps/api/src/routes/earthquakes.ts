@@ -1,4 +1,3 @@
-import type { EarthquakeRecentResponse } from "@siahra/shared-types";
 import { parseQuery } from "../query.js";
 import { json } from "../router.js";
 import type { AppEnv } from "../types.js";
@@ -19,8 +18,7 @@ export async function handleEarthquakesRecent(request: Request, env: AppEnv): Pr
   if (!q.ok) return json({ error: q.error }, { status: 400 });
 
   const stub = env.EARTHQUAKE_FEED.getByName("global");
-  const events = await stub.getRecent(q.value.limit, q.value.minMag);
-  const body: EarthquakeRecentResponse = { asOf: new Date().toISOString(), events };
+  const body = await stub.getRecentResponse(q.value.limit, q.value.minMag);
   return json(body, { cacheControl: "public, max-age=10, s-maxage=20" });
 }
 

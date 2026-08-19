@@ -1,4 +1,4 @@
-import type { SourceHealth, SourceStatus } from "@siahra/shared-types";
+import { SOURCES, type SourceHealth, type SourceStatus } from "@siahra/shared-types";
 import type { ApiHealthState } from "../../hooks/useApiHealth";
 import { formatAge } from "../../lib/time";
 
@@ -22,9 +22,20 @@ function statusLabel(s: SourceStatus): string {
   return HEALTH_META[s.health].label;
 }
 
+/**
+ * ชื่อแหล่งข้อมูลมาจากทะเบียนกลาง (`SOURCES`) — แต่ api กับ web ถูก deploy แยกกัน
+ * ถ้า api รุ่นใหม่ส่ง id ที่ web รุ่นเก่ายังไม่รู้จัก ให้ตกกลับไปใช้ป้ายที่ติดมากับ
+ * ข้อมูล แทนที่จะพังทั้งแถบ
+ */
+function sourceLabel(s: SourceStatus): string {
+  return SOURCES[s.id]?.nameTh ?? s.labelTh;
+}
+
 function tooltip(s: SourceStatus): string {
-  const base = `${s.labelTh}: ${statusLabel(s)} · ${ageLabel(s.fetchedAt)}`;
-  return s.lastError ? `${base}\n${s.lastError}` : base;
+  const agency = SOURCES[s.id]?.agency;
+  const base = `${sourceLabel(s)}: ${statusLabel(s)} · ${ageLabel(s.fetchedAt)}`;
+  const withAgency = agency ? `${base}\n${agency}` : base;
+  return s.lastError ? `${withAgency}\n${s.lastError}` : withAgency;
 }
 
 /** null = ยังไม่เคยดึงสำเร็จ → formatAge คืนข้อความ "ยังไม่เคยได้รับข้อมูล" ไม่ใช่เวลา */
@@ -66,7 +77,7 @@ export function SourceStatusBar({ state, compact = false }: { state: ApiHealthSt
         return (
           <span key={s.id} className="flex items-center gap-1.5 whitespace-nowrap" title={tooltip(s)}>
             <span className={`h-2 w-2 shrink-0 rounded-full ${meta.dot}`} aria-hidden="true" />
-            <span className="text-[var(--color-fg)]">{s.labelTh}</span>
+            <span className="text-[var(--color-fg)]">{sourceLabel(s)}</span>
             <span className={s.health === "ok" ? "text-[var(--color-fg-subtle)]" : "text-[var(--color-risk-medium)]"}>
               {s.health === "ok" ? `อัปเดต ${ageLabel(s.fetchedAt)}` : label}
               {s.health !== "ok" && s.fetchedAt ? ` · ล่าสุด ${ageLabel(s.fetchedAt)}` : ""}

@@ -1,5 +1,12 @@
 import { DurableObject } from "cloudflare:workers";
-import type { EarthquakeEvent, EqWsMessage, SourceStatus } from "@siahra/shared-types";
+import {
+  SOURCES,
+  type EarthquakeEvent,
+  type EarthquakeRecentResponse,
+  type EqWsMessage,
+  type HazardLayerDescriptor,
+  type SourceStatus,
+} from "@siahra/shared-types";
 import type { Bbox } from "../ingestion/usgs.js";
 import { backfillUsgsEvents, fetchUsgsEvents } from "../ingestion/usgs.js";
 import { fetchEmscEvents } from "../ingestion/emsc.js";
@@ -302,6 +309,37 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
     return rows.map(rowToEvent);
   }
 
+  /**
+   * Descriptor for everything this DO serves — the three timestamps kept apart:
+   * observedAt = origin time ของแผ่นดินไหวที่ใหม่ที่สุดที่เราถืออยู่,
+   * publishedAt = เวลาที่ต้นทางแก้ไข/เผยแพร่ระเบียนล่าสุด (ฟิลด์ `updated` ของฟีด),
+   * fetchedAt = เวลาที่ poll สำเร็จครั้งล่าสุด — null เมื่อยังไม่เคยสำเร็จเลย
+   */
+  private async layer(): Promise<HazardLayerDescriptor> {
+    const poll = (await this.ctx.storage.get<PollStatus>("lastPoll")) ?? null;
+    const row = this.ctx.storage.sql
+      .exec<{ newest: number | null; published: number | null }>(
+        "SELECT MAX(time_ms) AS newest, MAX(updated_ms) AS published FROM events",
+      )
+      .toArray()[0];
+    return {
+      id: "earthquake-events",
+      epistemicClass: "observed",
+      liveOrStatic: "live",
+      observedAt: row?.newest ? new Date(row.newest).toISOString() : undefined,
+      publishedAt: row?.published ? new Date(row.published).toISOString() : null,
+      fetchedAt: poll?.at ?? null,
+      staleAfterSeconds: 5 * 60,
+      sourceIds: ["earthquakes"],
+    };
+  }
+
+  /** Backs GET /api/v1/earthquakes/recent — events plus their descriptor. */
+  async getRecentResponse(limit = 100, minMag: number | null = null): Promise<EarthquakeRecentResponse> {
+    const events = await this.getRecent(limit, minMag);
+    return { asOf: new Date().toISOString(), layer: await this.layer(), events };
+  }
+
   /** Backs GET /api/v1/health — one SourceStatus per upstream feed. */
   async status(): Promise<SourceStatus[]> {
     const poll = (await this.ctx.storage.get<PollStatus>("lastPoll")) ?? null;
@@ -325,7 +363,8 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
     return [
       {
         id: "earthquakes",
-        labelTh: "แผ่นดินไหว (USGS / EMSC / TMD)",
+        labelTh: SOURCES.earthquakes.nameTh,
+        labelEn: SOURCES.earthquakes.nameEn,
         health,
         fetchedAt: poll?.at ?? null,
         latestObservedAt: newest ? new Date(newest).toISOString() : null,
@@ -373,6 +412,7 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
     const snapshot: EqWsMessage = {
       type: "snapshot",
       asOf: new Date().toISOString(),
+      layer: await this.layer(),
       events: rows.map(rowToEvent),
     };
     // Snapshot must be sent before any event.* message reaches this specific

@@ -1,4 +1,4 @@
-import type { HealthResponse, SourceStatus } from "@siahra/shared-types";
+import { SOURCES, type HealthResponse, type SourceId, type SourceStatus } from "@siahra/shared-types";
 import { rejectedLastHour } from "../rateLimit.js";
 import { json } from "../router.js";
 import type { AppEnv } from "../types.js";
@@ -14,24 +14,18 @@ export async function handleHealth(_request: Request, env: AppEnv): Promise<Resp
     env.OBSERVATION_CACHE.getByName("thaiwater")
       .status()
       .then((s) => [s])
-      .catch((err: unknown) => [
-        unknownStatus("thaiwater", "ThaiWater (สสน.)", String(err)),
-      ]),
+      .catch((err: unknown) => [unknownStatus("thaiwater", String(err))]),
     env.EARTHQUAKE_FEED.getByName("global")
       .status()
-      .catch((err: unknown) => [
-        unknownStatus("earthquakes", "แผ่นดินไหว (USGS/EMSC/TMD)", String(err)),
-      ]),
+      .catch((err: unknown) => [unknownStatus("earthquakes", String(err))]),
     env.FLOOD_EXTENT.getByName("gistda")
       .status()
       .then((s) => [s])
-      .catch((err: unknown) => [
-        unknownStatus("gistda-flood", "น้ำท่วมจากภาพดาวเทียม (GISTDA)", String(err)),
-      ]),
+      .catch((err: unknown) => [unknownStatus("gistda-flood", String(err))]),
     env.RADAR.getByName("tmd")
       .status()
       .then((s) => [s])
-      .catch((err: unknown) => [unknownStatus("tmd-radar", "เรดาร์ฝน (กรมอุตุนิยมวิทยา)", String(err))]),
+      .catch((err: unknown) => [unknownStatus("tmd-radar", String(err))]),
   ];
   const sources = (await Promise.all(collectors)).flat();
   const body: HealthResponse = {
@@ -43,10 +37,12 @@ export async function handleHealth(_request: Request, env: AppEnv): Promise<Resp
   return json(body, { cacheControl: "public, max-age=15" });
 }
 
-function unknownStatus(id: string, labelTh: string, error: string): SourceStatus {
+/** id ถูกบังคับเป็น SourceId เพื่อไม่ให้ /health โผล่ชื่อแหล่งที่ layer ไหนอ้างไม่ได้ */
+function unknownStatus(id: SourceId, error: string): SourceStatus {
   return {
     id,
-    labelTh,
+    labelTh: SOURCES[id].nameTh,
+    labelEn: SOURCES[id].nameEn,
     health: "unknown",
     fetchedAt: null,
     latestObservedAt: null,

@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import type { RadarFramesResponse, SourceStatus } from "@siahra/shared-types";
+import { SOURCES, type RadarFramesResponse, type SourceStatus } from "@siahra/shared-types";
 import {
   RADAR_BOUNDS,
   RADAR_SIZE,
@@ -83,13 +83,16 @@ export class RadarDO extends DurableObject<Env> {
   private async refresh(): Promise<boolean> {
     const nowMs = Date.now();
     this.writeMeta("lastAttemptAt", new Date(nowMs).toISOString());
-    let slots;
+    let index;
     try {
-      slots = await fetchRadarIndex();
+      index = await fetchRadarIndex();
     } catch (err) {
       this.writeMeta("lastError", String(err).slice(0, 200));
       return false;
     }
+    const slots = index.slots;
+    // ต้นทางบอกเวลาเผยแพร่มาบ้างไม่บอกบ้าง — ไม่บอกคือ null ไม่ใช่เวลาเดิมที่ค้างอยู่
+    this.writeMeta("publishedAt", index.publishedAt);
     let added = 0;
     for (const slot of slots) {
       const have = this.ctx.storage.sql.exec<FrameRow>("SELECT key FROM frames WHERE ts_ms = ?", slot.tsMs).toArray()[0];
@@ -133,6 +136,7 @@ export class RadarDO extends DurableObject<Env> {
         epistemicClass: "observed",
         liveOrStatic: "live",
         observedAt: newest,
+        publishedAt: this.readMeta("publishedAt"),
         fetchedAt,
         staleAfterSeconds: STALE_AFTER_MS / 1000,
         sourceIds: ["tmd-radar"],
@@ -162,7 +166,8 @@ export class RadarDO extends DurableObject<Env> {
     const health = !fetchedAt ? (lastError ? "down" : "unknown") : age > STALE_AFTER_MS ? "stale" : lastError ? "degraded" : "ok";
     return {
       id: "tmd-radar",
-      labelTh: "เรดาร์ฝน (กรมอุตุนิยมวิทยา)",
+      labelTh: SOURCES["tmd-radar"].nameTh,
+      labelEn: SOURCES["tmd-radar"].nameEn,
       health,
       fetchedAt,
       latestObservedAt: newest ? new Date(newest).toISOString() : null,

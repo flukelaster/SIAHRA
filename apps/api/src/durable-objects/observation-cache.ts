@@ -1,17 +1,17 @@
 import { DurableObject } from "cloudflare:workers";
-import type {
-  DamObservation,
-  DamsResponse,
-  HazardLayerDescriptor,
-  ObservationsResponse,
-  RainfallObservation,
-  SourceStatus,
-  WaterLevelHistoryPoint,
-  WaterLevelHistoryResponse,
-  WaterLevelObservation,
+import {
+  SOURCES,
+  type DamObservation,
+  type DamsResponse,
+  type HazardLayerDescriptor,
+  type ObservationsResponse,
+  type RainfallObservation,
+  type SourceStatus,
+  type WaterLevelHistoryPoint,
+  type WaterLevelHistoryResponse,
+  type WaterLevelObservation,
 } from "@siahra/shared-types";
 import {
-  THAIWATER_ATTRIBUTION,
   fetchDams,
   fetchRainfall,
   fetchWaterLevel,
@@ -654,6 +654,7 @@ export class ObservationCacheDO extends DurableObject<Env> {
         epistemicClass: "observed",
         liveOrStatic: "live",
         observedAt: points.length ? points[points.length - 1].t : undefined,
+        publishedAt: null,
         fetchedAt: meta ? new Date(meta.fetched_ms).toISOString() : null,
         staleAfterSeconds: STALE_AFTER_MS / 1000,
         sourceIds: ["thaiwater"],
@@ -715,6 +716,7 @@ export class ObservationCacheDO extends DurableObject<Env> {
         epistemicClass: "observed",
         liveOrStatic: "live",
         observedAt: newest,
+        publishedAt: null,
         fetchedAt: this.readMeta("damsFetchedAt"),
         staleAfterSeconds: 3 * 60 * 60,
         sourceIds: ["thaiwater"],
@@ -751,7 +753,8 @@ export class ObservationCacheDO extends DurableObject<Env> {
           : "ok";
     return {
       id: "thaiwater",
-      labelTh: "สถานีตรวจวัดน้ำ/ฝน (ThaiWater สสน.)",
+      labelTh: SOURCES.thaiwater.nameTh,
+      labelEn: SOURCES.thaiwater.nameEn,
       health,
       fetchedAt,
       latestObservedAt: latest,
@@ -897,6 +900,8 @@ export class ObservationCacheDO extends DurableObject<Env> {
       epistemicClass: "observed",
       liveOrStatic: "live",
       observedAt: observedTimes.length ? observedTimes[observedTimes.length - 1] : undefined,
+      // ThaiWater ส่งมาแต่เวลาที่ตรวจวัด ไม่มีเวลาเผยแพร่ของชุดข้อมูล → null ตามจริง
+      publishedAt: null,
       fetchedAt,
       staleAfterSeconds: STALE_AFTER_MS / 1000,
       sourceIds: ["thaiwater"],
@@ -918,7 +923,7 @@ export class ObservationCacheDO extends DurableObject<Env> {
         latestObservedAt: observedTimes.length ? observedTimes[observedTimes.length - 1] : null,
         // Null when we have never pulled successfully — never faked as "now".
         fetchedAt,
-        sourceAttribution: THAIWATER_ATTRIBUTION,
+        sourceAttribution: SOURCES.thaiwater.attributionText,
       },
       rainfall,
       waterlevel,

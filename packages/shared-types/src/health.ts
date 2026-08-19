@@ -1,3 +1,5 @@
+import type { SourceId } from "./sources.js";
+
 /**
  * Operational status of every upstream source, surfaced next to the map (see
  * plan: "source freshness and model health next to the hazard map"). Nothing
@@ -6,9 +8,11 @@
 export type SourceHealth = "ok" | "stale" | "degraded" | "down" | "unknown";
 
 export interface SourceStatus {
-  id: string;
-  /** Human label (Thai). */
+  /** Same id a layer's `sourceIds` uses — the join is checked by tsc. */
+  id: SourceId;
+  /** Human label (Thai), from SOURCES so the wire text cannot drift. */
   labelTh: string;
+  labelEn: string;
   health: SourceHealth;
   /** When our backend last successfully pulled from the source. */
   fetchedAt: string | null;

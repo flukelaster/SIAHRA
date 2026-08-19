@@ -1,11 +1,12 @@
 import { DurableObject } from "cloudflare:workers";
-import type {
-  FloodExtentFeature,
-  FloodExtentProvinceSummary,
-  FloodExtentResponse,
-  FloodExtentSummaryResponse,
-  HazardLayerDescriptor,
-  SourceStatus,
+import {
+  SOURCES,
+  type FloodExtentFeature,
+  type FloodExtentProvinceSummary,
+  type FloodExtentResponse,
+  type FloodExtentSummaryResponse,
+  type HazardLayerDescriptor,
+  type SourceStatus,
 } from "@siahra/shared-types";
 import { fetchGistdaFloodExtent, type FetchOptions } from "../ingestion/gistda.js";
 import { keys as archiveKeys, putJsonGz } from "../archive.js";
@@ -171,9 +172,9 @@ export class FloodExtentDO extends DurableObject<Env> {
   private async refresh(options?: FetchOptions): Promise<boolean> {
     const nowMs = Date.now();
     this.writeMeta("lastAttemptAt", new Date(nowMs).toISOString());
-    let features;
+    let scene;
     try {
-      features = await fetchGistdaFloodExtent(options);
+      scene = await fetchGistdaFloodExtent(options);
     } catch (err) {
       // นับ backoff จากเวลาที่ "ล้มจริง" ไม่ใช่เวลาที่เริ่มยิง ไม่งั้นเวลาที่ใช้
       // ระหว่างรอ (ต้นทางค้าง/retry) จะไปกินโควตาการรอจนลองใหม่เร็วกว่าที่ตั้งไว้
@@ -195,6 +196,10 @@ export class FloodExtentDO extends DurableObject<Env> {
       await this.armAlarmAt(failedAtMs + waitMs);
       return false;
     }
+    const features = scene.features;
+    // GISTDA ไม่ได้เผยแพร่ "เวลาที่เผยแพร่ฉาก" มาด้วยเลย (ดูเหตุผลที่วัดไว้ใน
+    // ingestion/gistda.ts) — เขียนทับด้วย null เพื่อลบแถว meta ที่เคยเก็บค่าผิดไว้
+    this.writeMeta("publishedAt", scene.publishedAt);
     // Upsert: new ids get first_seen = now, known ids just bump last_seen.
     for (const f of features) {
       this.ctx.storage.sql.exec(
@@ -247,10 +252,13 @@ export class FloodExtentDO extends DurableObject<Env> {
       id: "gistda-flood-extent",
       epistemicClass: "observed",
       liveOrStatic: "live",
+      // อ่านค่าจาก meta ไม่ได้ เพราะ DO ที่รันอยู่ก่อนแก้อาจยังมีค่าเก่าค้างจนกว่า
+      // จะรีเฟรชรอบถัดไป — ต้นทางไม่มีเวลาเผยแพร่ ก็ต้องเป็น null ตั้งแต่วินาทีแรก
+      publishedAt: null,
       fetchedAt: retrievedAt,
       staleAfterSeconds: STALE_AFTER_MS / 1000,
       methodologyUrl: "https://opendata.gistda.or.th/dataset/floodcheck",
-      sourceIds: ["gistda-wfs-flooding_vis"],
+      sourceIds: ["gistda-flood"],
     };
   }
 
@@ -337,7 +345,8 @@ export class FloodExtentDO extends DurableObject<Env> {
           : "ok";
     return {
       id: "gistda-flood",
-      labelTh: "น้ำท่วมจากภาพดาวเทียม (GISTDA)",
+      labelTh: SOURCES["gistda-flood"].nameTh,
+      labelEn: SOURCES["gistda-flood"].nameEn,
       health,
       fetchedAt: retrievedAt,
       latestObservedAt: null,

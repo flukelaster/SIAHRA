@@ -7,6 +7,7 @@ import type {
   FloodExtentResponse,
   ObservationsResponse,
   RadarFramesResponse,
+  SourceId,
 } from "@siahra/shared-types";
 import { buildBoundaryOutline, type BoundaryOutlineResult } from "../../scene/BoundaryOutline";
 import { buildBuildingLayer } from "../../scene/BuildingLayer";
@@ -61,7 +62,7 @@ export interface MapInfo {
   nativeCellSizeM: number | null;
   buildingCount: number;
   coverage: "full-aoi" | "urban-core";
-  imagery: { attribution: string; zoom: number; loaded: number; total: number } | null;
+  imagery: { sourceId: SourceId; attribution: string; zoom: number; loaded: number; total: number } | null;
   stationCount: number;
   hazardCount: number;
   earthquakeCount: number;
@@ -315,7 +316,7 @@ export function Map3DCanvas({
           buildingCount: buildingTiles?.count ?? manifest.buildings?.count ?? 0,
           coverage: buildingTiles ? "full-aoi" : (manifest.buildings?.coverage ?? "full-aoi"),
           imagery: tree
-            ? { attribution: tree.attribution, zoom: -1, loaded: 0, total: 0 }
+            ? { sourceId: tree.imagerySourceId, attribution: tree.attribution, zoom: -1, loaded: 0, total: 0 }
             : null,
           stationCount: 0,
           hazardCount: 0,
@@ -396,6 +397,7 @@ export function Map3DCanvas({
             setImageryProgress(null);
             publishInfo({
               imagery: {
+                sourceId: plan.provider.sourceId,
                 attribution: plan.provider.attribution,
                 zoom: plan.zoom,
                 loaded: result.loadedTiles,

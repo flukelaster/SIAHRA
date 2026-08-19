@@ -16,9 +16,6 @@ const UA = "siahra-api/0.0.0 (observation ingestion)";
 /** ThaiWater's dam arrays mix live rows with years-old ones; only these count. */
 const DAM_MAX_AGE_MS = 48 * 60 * 60 * 1000;
 
-export const THAIWATER_ATTRIBUTION =
-  "ข้อมูลตรวจวัดจากคลังข้อมูลน้ำแห่งชาติ (ThaiWater) สถาบันสารสนเทศทรัพยากรน้ำ (สสน.)";
-
 /** Upstream shapes are loosely typed — every field is treated as possibly absent. */
 interface LocalizedName {
   th?: string | null;
