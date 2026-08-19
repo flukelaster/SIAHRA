@@ -12,6 +12,7 @@ import { backfillUsgsEvents, fetchUsgsEvents } from "../ingestion/usgs.js";
 import { fetchEmscEvents } from "../ingestion/emsc.js";
 import { fetchTmdEvents, TMD_MISSING_CREDENTIALS, tmdCredentials } from "../ingestion/tmd.js";
 import { findCorroboratingCluster, type StoredEventRow } from "../ingestion/normalize.js";
+import { deriveSourceHealth } from "../sourceHealth.js";
 
 const RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const BACKFILL_DAYS = 30;
@@ -19,13 +20,21 @@ const BACKFILL_MIN_MAG = 2.5;
 const EMSC_LOOKBACK_MS = 70 * 60 * 1000; // trailing ~70 min window per 1-min cron tick
 const CORROBORATION_LOOKBACK_MS = 2 * 60 * 60 * 1000; // only recent rows can corroborate
 const POLL_INTERVAL_MS = 60 * 1000;
+/**
+ * ต้นทางที่ poll ทุกครั้ง — `down` คือ "ล้มเหลวครบทุกตัวในรายการนี้" จึงต้องนับ
+ * จากความยาวของรายการ ไม่ใช่เลข 3 ที่ฝังไว้ (เพิ่ม/ลดฟีดแล้วเกณฑ์ต้องขยับตาม)
+ */
+const EQ_FEEDS = ["usgs", "emsc", "tmd"] as const;
 
 /** Outcome of the last cron poll, kept for /health. */
 interface PollStatus {
   at: string;
   created: number;
   updated: number;
+  /** จำนวน "เหตุการณ์" ที่พิจารณาในรอบนั้น ไม่ใช่จำนวนฟีด */
   polled: number;
+  /** จำนวนฟีดที่พยายามดึงในรอบนั้น — ใช้เทียบกับ errors.length เพื่อตัดสิน `down` */
+  feeds?: number;
   errors: string[];
 }
 
@@ -284,6 +293,7 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
       created,
       updated,
       polled: candidates.length,
+      feeds: EQ_FEEDS.length,
       errors: feedErrors,
     };
     await this.ctx.storage.put("lastPoll", status);
@@ -351,15 +361,23 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
         .toArray()[0]?.t ?? null;
     const now = Date.now();
     const staleAfterSeconds = 5 * 60; // cron runs every minute
-    const health = !poll
-      ? "unknown"
-      : now - Date.parse(poll.at) > staleAfterSeconds * 1000
-        ? "stale"
-        : poll.errors.length === 3
-          ? "down"
-          : poll.errors.length > 0
-            ? "degraded"
-            : "ok";
+    // เรกคอร์ดที่บันทึกไว้ก่อนมีฟิลด์ feeds ให้ถือว่าเป็นชุดฟีดปัจจุบัน
+    const feeds = poll?.feeds ?? EQ_FEEDS.length;
+    const health = deriveSourceHealth({
+      nowMs: now,
+      fetchedAt: poll?.at ?? null,
+      lastError: poll?.errors.length ? poll.errors.join("; ") : null,
+      latestObservedAt: newest ? new Date(newest).toISOString() : null,
+      staleAfterSeconds,
+      /**
+       * แผ่นดินไหวไม่มีคาบการตรวจวัด — `latestObservedAt` คือเวลาที่แผ่นดินไหว
+       * "เกิด" วันที่ไม่มีแผ่นดินไหวคือวันที่ปกติ ไม่ใช่ฟีดค้าง จึงตัดสิน
+       * `delayed` ไม่ได้เลย และการทำเป็นตัดสินคือการกุความล้มเหลวขึ้นมาเอง
+       */
+      observedLagSeconds: null,
+      allFeedsFailed: (poll?.errors.length ?? 0) >= feeds,
+    });
+    const alarmAtMs = await this.ctx.storage.getAlarm();
     return [
       {
         id: "earthquakes",
@@ -377,6 +395,8 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
           lastUpdated: poll?.updated ?? null,
         },
         staleAfterSeconds,
+        observedLagSeconds: null,
+        nextAttemptAt: alarmAtMs === null ? null : new Date(alarmAtMs).toISOString(),
       },
     ];
   }

@@ -17,6 +17,7 @@ import {
   fetchWaterLevel,
   fetchWaterLevelHistory,
 } from "../ingestion/thaiwater.js";
+import { deriveSourceHealth } from "../sourceHealth.js";
 import { UpstreamQueue } from "../upstream/limiter.js";
 import {
   addDays,
@@ -40,6 +41,18 @@ import {
 const TTL_MS = 5 * 60 * 1000;
 /** After this long without a successful pull the data is flagged stale. */
 const STALE_AFTER_MS = 15 * 60 * 1000;
+/**
+ * เพดานอายุของ "ค่าตรวจวัดใหม่สุด" ก่อนถือว่า `delayed` (ดึงสำเร็จ แต่ต้นทางยัง
+ * ไม่ปล่อยรอบใหม่) — วัดจริงจาก /api/v1/observations ทั่วประเทศ 2026-08-19:
+ * ฝนตกกริดรายชั่วโมงเป็นหลัก (สถานี 2,413 ตัวอยู่ที่ 00:00 และ 1,581 ตัวที่ 01:00)
+ * ระดับน้ำส่วนใหญ่รายชั่วโมง มีบางส่วนรายงานทุก 10 นาที และหน่วงการเผยแพร่ ~17 นาที
+ * → 2 ชม. = สองรอบรายชั่วโมง เผื่อพลาดการเผยแพร่หนึ่งรอบโดยยังไม่ตีว่าผิดปกติ
+ *
+ * ค่านี้เทียบกับ MAX(observed_at) ของสถานีทั้งหมด (~5,900 ตัว) จึงถูกครอบด้วย
+ * สถานีที่สดที่สุด — `delayed` ของ thaiwater จะจุดก็ต่อเมื่อต้นทางเงียบเกือบทั้งระบบ
+ * ไม่ใช่เมื่อสถานีบางส่วนค้าง
+ */
+const OBSERVED_LAG_MS = 2 * 60 * 60 * 1000;
 /** Failed refreshes back off: 1 min, 2, 4 … capped at 10 min. */
 const RETRY_MIN_MS = 60 * 1000;
 const RETRY_MAX_MS = 10 * 60 * 1000;
@@ -741,16 +754,17 @@ export class ObservationCacheDO extends DurableObject<Env> {
           "SELECT MAX(observed_at) AS t FROM (SELECT observed_at FROM rainfall UNION ALL SELECT observed_at FROM waterlevel)",
         )
         .toArray()[0]?.t ?? null;
-    const age = fetchedAt ? nowMs - Date.parse(fetchedAt) : Infinity;
-    const health = !fetchedAt
-      ? lastError
-        ? "down"
-        : "unknown"
-      : age > STALE_AFTER_MS
-        ? "stale"
-        : lastError || this.upstream.pausedUntilMs
-          ? "degraded"
-          : "ok";
+    const health = deriveSourceHealth({
+      nowMs,
+      fetchedAt,
+      lastError,
+      latestObservedAt: latest,
+      staleAfterSeconds: STALE_AFTER_MS / 1000,
+      observedLagSeconds: OBSERVED_LAG_MS / 1000,
+      // pausedUntilMs คืน 0 เมื่อไม่ได้ถูกพัก (ไม่ใช่ null)
+      extraDegraded: this.upstream.pausedUntilMs > 0,
+    });
+    const alarmAtMs = await this.ctx.storage.getAlarm();
     return {
       id: "thaiwater",
       labelTh: SOURCES.thaiwater.nameTh,
@@ -774,6 +788,8 @@ export class ObservationCacheDO extends DurableObject<Env> {
         archiveError: this.readMeta("archiveError"),
       },
       staleAfterSeconds: STALE_AFTER_MS / 1000,
+      observedLagSeconds: OBSERVED_LAG_MS / 1000,
+      nextAttemptAt: alarmAtMs === null ? null : new Date(alarmAtMs).toISOString(),
     };
   }
 

@@ -79,6 +79,79 @@ Notes:
 - `at` on `/api/v1/archive/snapshot` is **required**; a missing `at` answers `400`. On
   `/api/v1/observations` it is optional (absent = latest).
 
+## Freshness states (`/api/v1/health`)
+
+Every live source reports one `health` value. The point of the list is that **"we could not fetch"
+and "the source has not published anything new" are different failures** — collapsing them into one
+colour makes the status bar useless.
+
+| State | Means | Decided by |
+|---|---|---|
+| `ok` | Last fetch succeeded and the newest observation is inside the source's cadence | — |
+| `delayed` | **The fetch succeeded** and we hold a real observation, but `latestObservedAt` is older than `observedLagSeconds` — the upstream simply has not published a newer reading | `now - latestObservedAt > observedLagSeconds` |
+| `stale` | No *successful* fetch for longer than `staleAfterSeconds`, **and no error either** — we simply have not fetched (a missed alarm/cron), which says nothing about the upstream | `now - fetchedAt > staleAfterSeconds` and `lastError` empty |
+| `degraded` | The last round partially failed (`lastError` non-empty), or our upstream queue is paused by its circuit breaker; the data we hold is still served | `lastError` / paused |
+| `down` | Every upstream feed of that source failed; or we have never fetched successfully and the last attempt errored; or an error is standing **and** the last successful fetch is older than `staleAfterSeconds` (failing repeatedly with nothing fresh to show = dead, not merely old) | see below |
+| `unknown` | No attempt has ever produced a result to judge — `fetchedAt` is `null` and there is no error either | — |
+
+The ladder is evaluated in one place (`apps/api/src/sourceHealth.ts`), and **failure is judged before
+age**, in this order: `unknown`/`down` (never fetched) → `down` (all feeds failed) → `down` (error
+standing *and* the last success is past `staleAfterSeconds`) → `degraded` (error standing, last
+success still recent) → `stale` (past `staleAfterSeconds`, no error) → `delayed` → `ok`.
+Ordering age first would let a source that has been failing for hours report the milder `stale`, and
+the `down`/`degraded` branches below it would become unreachable — which is why `stale` now means
+strictly "no error, we just have not fetched".
+
+So a source is only ever `delayed` when the most recent fetch actually succeeded **and** we hold an
+observation to be late about. A successful fetch that left us with no observation at all (e.g. the
+radar index arrived but no frame image could be downloaded) is `degraded`, never `delayed`: we have
+no evidence the upstream is behind, and blaming it would be exactly the conflation this list exists
+to prevent.
+
+`fetchedAt: null` means **no fetch has ever succeeded**. It is never rendered as a time, and never as
+"now"; the UI shows "ยังไม่เคยได้รับข้อมูล".
+
+### `observedLagSeconds` per source
+
+The threshold is taken from each source's *real* observed cadence, not from one global number — a
+threshold that is too tight makes every source look delayed, which is as dishonest as hiding
+staleness. `null` means the source has no expected observation cadence, so `delayed` cannot be
+decided for it at all and never fires.
+
+| Source | `observedLagSeconds` | Where the number comes from |
+|---|---|---|
+| `thaiwater` | `7200` (2 h) | Measured nationwide on 2026-08-19: rainfall reports on an hourly grid (2,413 stations at 00:00, 1,581 at 01:00), water level mostly hourly with some 10-minute reporters, publication lag ≈17 min. Two hourly cycles tolerate one missed publication. **Caveat:** `latestObservedAt` is `MAX()` over ~5,900 stations, so it is dominated by the freshest reporter — `delayed` fires on a near-total upstream outage, not on partial staleness, and `ok` does **not** mean every station is current. |
+| `tmd-radar` | `5400` (90 min) | The composite is produced on a 15-minute grid (:00/:15/:30/:45). Measured on the running API, 2026-08-19: `/api/v1/radar/frames?hours=24` returned 53 frames spanning 17.0 h, gaps between consecutive frames `{15 min: 47, 30 min: 2, 45 min: 2, 165 min: 1}`, and the newest frame was 47.6 min behind wall clock. 90 min clears both the routine publication lag and the largest *recurring* gap (45 min) with headroom; the single 165-min gap was a real publication outage, which this threshold correctly reports as `delayed`. It is also the value the code already compared against frame age. |
+| `earthquakes` | `null` | `latestObservedAt` is when an earthquake *happened*. A quiet day is a normal day, not a stalled feed — marking it `delayed` would be inventing a failure that no observation supports. |
+| `gistda-flood` | `null` | GISTDA publishes no acquisition or observation time with the flood scene (E3.2), so there is no cadence to compare against. Guessing one would be a fabricated timestamp. |
+
+`staleAfterSeconds` is the separate fetch-side budget: thaiwater 900 s (refresh every 5 min),
+tmd-radar 900 s (refresh 5 min, retry 1 min → three missed rounds), gistda-flood 10800 s (refresh
+every 30 min), earthquakes 300 s (cron every minute).
+
+### `down`, `ok` and `worst`
+
+- `earthquakes` is `down` only when **every** feed it polls failed in that round — the count comes
+  from the feed list (`EQ_FEEDS`), never a hardcoded number, so adding a fourth feed moves the
+  threshold with it. One failed feed (today: TMD, whose credentials are deliberately unset) is
+  `degraded`, and the reason stays visible in `lastError`.
+- `nextAttemptAt` is read from the Durable Object's **real alarm**. No alarm scheduled → `null`; it
+  is never derived from `fetchedAt + refresh interval`, which would be an invented time. For
+  `gistda-flood` the alarm can be scheduled *earlier* than the failure backoff allows an attempt (an
+  early wake-up only re-arms the alarm, it does not call the upstream), so the reported value is the
+  later of the alarm and that backoff wall — the time an attempt will actually be made.
+- `HealthResponse.ok` is `healthOk()` in `apps/api/src/routes/health.ts`:
+  `sources.every(health ∈ {ok, delayed} && !lastError)`. It is therefore **false** whenever any
+  source is `down`, `unknown`, `degraded` or `stale` — silence is not health, and neither is "we have
+  not managed to fetch for longer than this source's own budget". The `!lastError` half is
+  deliberately redundant: it keeps `ok` false for any source that is actively failing even if the
+  ladder above it is ever reordered. `delayed` keeps `ok` true because the fetch is working and the
+  data on screen is real, carrying its own age.
+- `HealthResponse.worst` is the worst state across all sources, ranked
+  `ok < delayed < stale < degraded < unknown < down` (`HEALTH_SEVERITY` in
+  `packages/shared-types/src/health.ts`, so api and web cannot rank them differently). An empty
+  source list is `unknown`, not `ok`.
+
 ## Removed endpoints
 
 | Endpoint | Status | Note |

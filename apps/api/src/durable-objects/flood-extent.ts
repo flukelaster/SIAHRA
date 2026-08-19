@@ -10,6 +10,7 @@ import {
 } from "@siahra/shared-types";
 import { fetchGistdaFloodExtent, type FetchOptions } from "../ingestion/gistda.js";
 import { keys as archiveKeys, putJsonGz } from "../archive.js";
+import { deriveSourceHealth } from "../sourceHealth.js";
 
 /** GISTDA re-interprets scenes irregularly; half-hourly polling is plenty. */
 const REFRESH_MS = 30 * 60 * 1000;
@@ -333,16 +334,24 @@ export class FloodExtentDO extends DurableObject<Env> {
   async status(): Promise<SourceStatus> {
     const retrievedAt = this.readMeta("retrievedAt");
     const lastError = this.readMeta("lastError");
-    const age = retrievedAt ? Date.now() - Date.parse(retrievedAt) : Infinity;
-    const health = !retrievedAt
-      ? lastError
-        ? "down"
-        : "unknown"
-      : age > STALE_AFTER_MS
-        ? "stale"
-        : lastError
-          ? "degraded"
-          : "ok";
+    const health = deriveSourceHealth({
+      nowMs: Date.now(),
+      fetchedAt: retrievedAt,
+      lastError,
+      latestObservedAt: null,
+      staleAfterSeconds: STALE_AFTER_MS / 1000,
+      // GISTDA ไม่ส่งเวลาถ่ายภาพ/เวลาตรวจวัดมากับฉากน้ำท่วมเลย (E3.2) จึงไม่มี
+      // คาบตรวจวัดให้เทียบ — ตัดสิน `delayed` ไม่ได้ ห้ามเดาเป็นตัวเลขใด ๆ
+      observedLagSeconds: null,
+    });
+    /**
+     * นัดลองใหม่ต้องอ่านจาก alarm จริง แต่ alarm ของ DO นี้อาจถูกตั้งไว้ "เร็วกว่า"
+     * กำแพง backoff (nextAttemptAt) ได้ — รอบที่ตื่นก่อนกำหนดจะไม่ยิงต้นทาง แค่
+     * ตั้งนาฬิกาใหม่ ดังนั้นเวลาที่จะมีการ "พยายามดึงจริง" คือค่าที่ช้ากว่าของสองตัว
+     * ไม่มี alarm = ไม่มีนัดหมาย → null (ห้ามเดาจากคาบรีเฟรช)
+     */
+    const alarmAtMs = await this.ctx.storage.getAlarm();
+    const attemptAtMs = alarmAtMs === null ? null : Math.max(alarmAtMs, this.nextAttemptMs());
     return {
       id: "gistda-flood",
       labelTh: SOURCES["gistda-flood"].nameTh,
@@ -355,9 +364,10 @@ export class FloodExtentDO extends DurableObject<Env> {
       detail: {
         features: Number(this.readMeta("featureCount") ?? "0"),
         consecutiveFailures: this.failureCount(),
-        nextAttemptAt: this.readMeta("nextAttemptAt"),
       },
       staleAfterSeconds: STALE_AFTER_MS / 1000,
+      observedLagSeconds: null,
+      nextAttemptAt: attemptAtMs === null ? null : new Date(attemptAtMs).toISOString(),
     };
   }
 }

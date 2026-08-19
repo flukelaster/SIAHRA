@@ -1,5 +1,11 @@
 import { exports as workerExports } from "cloudflare:workers";
-import { LIVE_SOURCE_IDS, SOURCE_IDS, type HazardLayerDescriptor, type HealthResponse } from "@siahra/shared-types";
+import {
+  LIVE_SOURCE_IDS,
+  SOURCE_IDS,
+  worstHealth,
+  type HazardLayerDescriptor,
+  type HealthResponse,
+} from "@siahra/shared-types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
@@ -106,6 +112,22 @@ describe("/api/v1/health", () => {
     const ids = new Set(body.sources.map((s) => s.id));
     for (const id of LIVE_SOURCE_IDS) expect([...ids], `แหล่ง live ที่ไม่มีใน /health: ${id}`).toContain(id);
     expectIsoOrNull(body.serverTime, "serverTime");
+  });
+
+  /**
+   * E3.3: ความเงียบไม่ใช่ความแข็งแรง — ในเทสนี้เน็ตถูกตัด ทุก DO จึงเย็นสนิท
+   * (`unknown`) และ `ok` ต้องเป็นเท็จ ไม่ใช่ true เพราะ "ยังไม่มีใครบ่น"
+   */
+  it("ok เป็นเท็จเมื่อมีแหล่งใด down หรือ unknown และ worst ตรงกับสถานะที่แย่ที่สุด", async () => {
+    const res = await call("/api/v1/health");
+    const body = (await res.json()) as HealthResponse;
+    expect(body.sources.some((s) => s.health === "down" || s.health === "unknown")).toBe(true);
+    expect(body.ok).toBe(false);
+    expect(body.worst).toBe(worstHealth(body.sources.map((s) => s.health)));
+    for (const s of body.sources) {
+      expectIsoOrNull(s.nextAttemptAt, `${s.id}.nextAttemptAt`);
+      expect(typeof s.observedLagSeconds === "number" || s.observedLagSeconds === null).toBe(true);
+    }
   });
 });
 

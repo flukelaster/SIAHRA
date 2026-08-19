@@ -97,6 +97,9 @@ export default function App() {
   const floodExtent = useFloodExtent(provinceCode);
   const thaiwater = sourceStatus(apiHealth.health, "thaiwater");
   // Stale/failed station data is drawn dimmed so nobody reads an old reading as current.
+  // เงื่อนไข `!== "ok"` ครอบ `delayed` ด้วยโดยตั้งใจ (E3.3): ต้นทางตอบปกติแต่ค่า
+  // ตรวจวัดล่าสุดเก่ากว่าคาบที่ควรเป็น ก็ยังเป็นค่าเก่าที่ห้ามอ่านว่าเป็นปัจจุบัน
+  // และรูปแบบนี้ยัง fail-safe กับสถานะใหม่ที่จะเพิ่มเข้ามาในอนาคต
   const observationsStale =
     apiHealth.apiDown || (thaiwater !== null && thaiwater.health !== "ok");
   const aoiId = aoiIdForProvince(provinceCode);

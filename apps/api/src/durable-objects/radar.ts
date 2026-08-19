@@ -6,10 +6,24 @@ import {
   fetchRadarFrame,
   fetchRadarIndex,
 } from "../ingestion/tmdRadar.js";
+import { deriveSourceHealth } from "../sourceHealth.js";
 
 const REFRESH_MS = 5 * 60 * 1000;
 const RETRY_MS = 60 * 1000;
-const STALE_AFTER_MS = 90 * 60 * 1000;
+/**
+ * เพดานอายุของ "เฟรมใหม่สุด" ก่อนถือว่า `delayed` — ต้นทางผลิตเฟรมทุก 15 นาที
+ * (วัดจริง 2026-08-19: ดัชนีเป็นกริด :00/:15/:30/:45 และมี 90 เฟรมใน 24 ชม.
+ * จาก 96 ช่อง คือหายเป็นครั้งคราว) และเผยแพร่ช้ากว่าเวลาเฟรมราว 40 นาที
+ * 90 นาที = ค่าที่โค้ดเดิมใช้เทียบกับอายุเฟรมอยู่แล้ว ครอบคลุมช่องที่หายติดกัน
+ * สองสามช่องโดยไม่แจ้งเตือนผิด — งานนี้เพียงเรียกมันด้วยชื่อที่ตรงความหมาย
+ */
+const OBSERVED_LAG_MS = 90 * 60 * 1000;
+/**
+ * เพดานของ "รอบดึงที่สำเร็จ" (คนละเรื่องกับอายุเฟรม) — รีเฟรชทุก 5 นาที ลองใหม่
+ * ทุก 1 นาทีเมื่อพลาด ดังนั้นเงียบเกิน 15 นาที = พลาดสามรอบติด ถือว่า `stale`
+ */
+const FETCH_STALE_AFTER_MS = 15 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
 /** Frames older than this are dropped from R2 and the index. */
 const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const R2_PREFIX = "radar/tmd-composite/";
@@ -138,7 +152,7 @@ export class RadarDO extends DurableObject<Env> {
         observedAt: newest,
         publishedAt: this.readMeta("publishedAt"),
         fetchedAt,
-        staleAfterSeconds: STALE_AFTER_MS / 1000,
+        staleAfterSeconds: OBSERVED_LAG_MS / 1000,
         sourceIds: ["tmd-radar"],
       },
       bounds: RADAR_BOUNDS,
@@ -160,21 +174,37 @@ export class RadarDO extends DurableObject<Env> {
   async status(): Promise<SourceStatus> {
     const fetchedAt = this.readMeta("fetchedAt");
     const lastError = this.readMeta("lastError");
+    const nowMs = Date.now();
     const newest = this.ctx.storage.sql.exec<{ t: number | null }>("SELECT MAX(ts_ms) AS t FROM frames").toArray()[0]?.t ?? null;
-    const count = this.ctx.storage.sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM frames").toArray()[0]?.n ?? 0;
-    const age = newest ? Date.now() - newest : Infinity;
-    const health = !fetchedAt ? (lastError ? "down" : "unknown") : age > STALE_AFTER_MS ? "stale" : lastError ? "degraded" : "ok";
+    // frames24h ต้องนับเฉพาะเฟรมที่อยู่ใน 24 ชม.จริง ๆ — ตารางเก็บย้อนหลัง 30 วัน
+    // การนับทั้งตารางเคยทำให้ตัวเลขนี้โตขึ้นเรื่อย ๆ ทั้งที่เรดาร์หยุดส่งไปแล้ว
+    const count =
+      this.ctx.storage.sql
+        .exec<{ n: number }>("SELECT COUNT(*) AS n FROM frames WHERE ts_ms >= ?", nowMs - DAY_MS)
+        .toArray()[0]?.n ?? 0;
+    const latestObservedAt = newest ? new Date(newest).toISOString() : null;
+    const health = deriveSourceHealth({
+      nowMs,
+      fetchedAt,
+      lastError,
+      latestObservedAt,
+      staleAfterSeconds: FETCH_STALE_AFTER_MS / 1000,
+      observedLagSeconds: OBSERVED_LAG_MS / 1000,
+    });
+    const alarmAtMs = await this.ctx.storage.getAlarm();
     return {
       id: "tmd-radar",
       labelTh: SOURCES["tmd-radar"].nameTh,
       labelEn: SOURCES["tmd-radar"].nameEn,
       health,
       fetchedAt,
-      latestObservedAt: newest ? new Date(newest).toISOString() : null,
+      latestObservedAt,
       lastAttemptAt: this.readMeta("lastAttemptAt"),
       lastError,
       detail: { frames24h: count },
-      staleAfterSeconds: STALE_AFTER_MS / 1000,
+      staleAfterSeconds: FETCH_STALE_AFTER_MS / 1000,
+      observedLagSeconds: OBSERVED_LAG_MS / 1000,
+      nextAttemptAt: alarmAtMs === null ? null : new Date(alarmAtMs).toISOString(),
     };
   }
 }
