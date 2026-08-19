@@ -327,6 +327,11 @@ export const th = {
   "quake.note":
     "ข้อมูลตรวจวัดจริงจาก USGS และ EMSC — เป็นเหตุการณ์ที่ตรวจพบแล้ว ไม่ใช่การพยากรณ์",
   "quake.asOf": " · ข้อมูล ณ {time}",
+  "quake.nearest.inside": "ในเขต{province}",
+  "quake.nearest.distance": "ห่างจาก{province} ≈ {n} กม.",
+  "quake.nearest.unknown": "ยังไม่ได้คำนวณจังหวัดใกล้เคียง",
+  "quake.nearest.note": "ระยะเชิงเรขาคณิตถึงขอบเขตจังหวัด (ขอบเขตจาก OpenStreetMap ซึ่งครอบคลุมพื้นที่ทะเลอาณาเขตด้วย จุดกลางทะเลจึงอาจอยู่ \"ในเขต\" จังหวัดชายฝั่งได้) ไม่ใช่แบบจำลองแรงสั่นสะเทือน",
+  "quake.eventPage": "หน้าเหตุการณ์ที่ต้นทาง",
   "quake.asOfWithAge": "{time} ({age})",
 
   // ── กล่องข้อมูลบนแผนที่ ───────────────────────────────────────────────
@@ -352,6 +357,7 @@ export const th = {
   "popup.quakeTitle": "แผ่นดินไหว M{mag}",
   "popup.depth": "ความลึก",
   "popup.localTime": "เวลา (ท้องถิ่น)",
+  "popup.nearestProvinces": "จังหวัดใกล้เคียง",
   "popup.source": "แหล่งข้อมูล",
   "popup.status": "สถานะ",
   "popup.statusAutomatic": "ตรวจพบอัตโนมัติ ยังไม่ตรวจสอบ",

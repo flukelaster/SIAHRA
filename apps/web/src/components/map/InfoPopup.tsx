@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { ExternalLink, X } from "lucide-react";
 import { useState } from "react";
 import type { PickResult } from "../../scene/picking";
 import { useStationHistory } from "../../hooks/useStationHistory";
@@ -6,6 +6,7 @@ import { Sparkline } from "../hazard/Sparkline";
 import { formatNumber } from "../../lib/number";
 import { formatDateTime } from "../../lib/time";
 import { damDisplayName } from "../../lib/damName";
+import { nearestProvinceLabel } from "../../lib/nearestProvince";
 import { useLang } from "../../i18n/context";
 import type { Lang, MessageKey, TFunction } from "../../i18n";
 
@@ -201,6 +202,36 @@ export function InfoPopup({ pick, onClose }: { pick: PickResult; onClose: () => 
               v={pick.event.status === "automatic" ? t("popup.statusAutomatic") : t("popup.statusReviewed")}
             />
           </div>
+          {/* จังหวัดใกล้เคียงมาจากระยะถึงขอบเขตจังหวัดที่คิดไว้ตอน ingest —
+              ระเบียนที่ยังไม่มีค่านี้ต้องบอกตรง ๆ ว่ายังไม่ได้คำนวณ ไม่ใช่เงียบ */}
+          <div className="mt-2 border-t border-white/10 pt-1.5">
+            <p className="text-[11px] text-[var(--color-fg-subtle)]">{t("popup.nearestProvinces")}</p>
+            {pick.event.nearest && pick.event.nearest.length > 0 ? (
+              <ul className="mt-0.5 flex flex-col gap-0.5">
+                {pick.event.nearest.map((n) => (
+                  <li key={n.provinceCode} className="text-[11px] text-[var(--color-fg)]">
+                    {nearestProvinceLabel(t, lang, n)}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-0.5 text-[11px] text-[var(--color-fg-muted)]">
+                {t("quake.nearest.unknown")}
+              </p>
+            )}
+            <p className="mt-1 text-[10px] text-[var(--color-fg-subtle)]">{t("quake.nearest.note")}</p>
+          </div>
+          {pick.event.url ? (
+            <a
+              href={pick.event.url}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-[var(--color-accent)] hover:underline"
+            >
+              <ExternalLink size={11} aria-hidden="true" />
+              {t("quake.eventPage")}
+            </a>
+          ) : null}
         </>
       ) : null}
       {pick.kind === "ground" ? (

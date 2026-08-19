@@ -334,6 +334,11 @@ export const en: Record<keyof typeof th, string> = {
   "quake.note":
     "Measured data from USGS and EMSC — events that have already been detected, not a forecast",
   "quake.asOf": " · data as of {time}",
+  "quake.nearest.inside": "within {province}",
+  "quake.nearest.distance": "≈ {n} km from {province}",
+  "quake.nearest.unknown": "nearest province not computed yet",
+  "quake.nearest.note": "Geometric distance to the province boundary (OpenStreetMap admin boundaries, which include territorial waters — so an offshore point can fall \"within\" a coastal province) — not a shaking model",
+  "quake.eventPage": "Event page at the source",
   "quake.asOfWithAge": "{time} ({age})",
 
   // ── Map popup ─────────────────────────────────────────────────────────
@@ -359,6 +364,7 @@ export const en: Record<keyof typeof th, string> = {
   "popup.quakeTitle": "Earthquake M{mag}",
   "popup.depth": "Depth",
   "popup.localTime": "Time (local)",
+  "popup.nearestProvinces": "Nearest provinces",
   "popup.source": "Source",
   "popup.status": "Status",
   "popup.statusAutomatic": "Detected automatically, not reviewed",

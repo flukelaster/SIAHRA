@@ -1,7 +1,8 @@
-import { Activity, AlertTriangle, Waves } from "lucide-react";
+import { Activity, AlertTriangle, ExternalLink, Waves } from "lucide-react";
 import type { EarthquakeEvent } from "@siahra/shared-types";
 import type { EarthquakeFeedState, FeedStatus } from "../../hooks/useEarthquakeFeed";
 import { neverReceived, formatAge, formatFetchedAt } from "../../lib/time";
+import { nearestProvinceLabel } from "../../lib/nearestProvince";
 import { Panel } from "../ui/Panel";
 import { useLang } from "../../i18n/context";
 import type { Lang, MessageKey, TFunction } from "../../i18n";
@@ -28,6 +29,12 @@ function magnitudeColor(mag: number | null): string {
 }
 
 function EventRow({ event, lang, t }: { event: EarthquakeEvent; lang: Lang; t: TFunction }) {
+  /**
+   * ระยะถึง **ขอบเขตจังหวัด** ที่ฝั่ง API คิดไว้ตอน ingest — 0 เมื่ออยู่ในเขต
+   * เหตุการณ์ที่ยังไม่มีค่านี้ (ระเบียนก่อน E10.6) จะไม่มีบรรทัดนี้เลย ดีกว่า
+   * เดาชื่อจังหวัดจากข้อความ `place` ของต้นทาง
+   */
+  const nearest = nearestProvinceLabel(t, lang, event.nearest?.[0]);
   return (
     <li className="flex items-start gap-2.5 border-t border-[var(--color-border)] py-2 first:border-t-0">
       <span
@@ -39,6 +46,28 @@ function EventRow({ event, lang, t }: { event: EarthquakeEvent; lang: Lang; t: T
         <p className="truncate text-xs text-[var(--color-fg)]" title={event.place ?? undefined}>
           {event.place ?? t("quake.unknownPlace")}
         </p>
+        {/*
+          ลิงก์ต้นทางต้องอยู่นอกเงื่อนไข `nearest` — แถวที่มีมาก่อน E10.6 และยังไม่ถูก
+          backfill จะไม่มี `nearest` แต่ยังมี `url` อยู่ ถ้าซ้อนไว้ข้างในผู้ใช้จะเข้าถึง
+          หน้าเหตุการณ์ต้นทางไม่ได้เลยด้วยเหตุผลที่ไม่เกี่ยวกันเลย
+        */}
+        {nearest || event.url ? (
+          <p className="flex items-center gap-1 text-[11px] text-[var(--color-fg-muted)]">
+            {nearest ? <span className="truncate">{nearest}</span> : null}
+            {event.url ? (
+              <a
+                href={event.url}
+                target="_blank"
+                rel="noreferrer noopener"
+                title={t("quake.eventPage")}
+                aria-label={t("quake.eventPage")}
+                className="shrink-0 text-[var(--color-fg-subtle)] hover:text-[var(--color-accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]"
+              >
+                <ExternalLink size={11} aria-hidden="true" />
+              </a>
+            ) : null}
+          </p>
+        ) : null}
         <p className="flex flex-wrap items-center gap-x-1.5 text-[11px] text-[var(--color-fg-subtle)]">
           <span>{event.magType ?? t("quake.unknownMagType")}</span>
           <span aria-hidden="true">·</span>
@@ -131,6 +160,12 @@ export function EarthquakeLiveCard({ feed }: { feed: EarthquakeFeedState }) {
         <p className="flex items-start gap-1.5 rounded-lg bg-[var(--color-bg-elevated)] px-2.5 py-2 text-[11px] text-[var(--color-fg-muted)]">
           <Activity size={13} className="mt-0.5 shrink-0 text-[var(--color-fg-subtle)]" aria-hidden="true" />
           {t("quake.note")}
+          {/*
+            คำอธิบายว่าระยะทางนี้คืออะไร ต้องเป็นข้อความที่ "มองเห็นได้" ไม่ใช่ tooltip:
+            บนมือถือไม่มี hover และคนที่ไม่เอาเมาส์ไปวางก็ไม่เคยเห็นเลย เนื้อหาที่บอกว่า
+            ตัวเลขนี้ไม่ใช่แบบจำลองแรงสั่นสะเทือน คือสิ่งที่กันไม่ให้อ่านผิดตั้งแต่แรก
+          */}
+          {events.some((e) => e.nearest && e.nearest.length > 0) ? ` ${t("quake.nearest.note")}` : ""}
           {/* ความซื่อสัตย์ต่อข้อมูล: asOf มาจากต้นทางเท่านั้น ตอนสายหลุดจึงยังเป็น
               เวลาเดิม + อายุที่เพิ่มขึ้น ไม่ใช่ "เมื่อสักครู่" ของนาฬิกาเครื่องผู้ใช้ */}
           {t("quake.asOf", {

@@ -10,7 +10,8 @@
     "build:tiles": "tsx src/buildTerrainTiles.ts",
     "build:building-tiles": "tsx src/buildBuildingTiles.ts",
     "build:feature-tiles": "tsx src/buildFeatureTiles.ts",
-    "build:landcover-tiles": "tsx src/buildLandcoverTiles.ts"
+    "build:landcover-tiles": "tsx src/buildLandcoverTiles.ts",
+    "build:province-rings": "tsx src/buildProvinceRings.ts"
   },
   "dependencies": {
     "@siahra/shared-types": "*",

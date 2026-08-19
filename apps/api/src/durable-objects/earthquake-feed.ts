@@ -13,6 +13,7 @@ import { backfillUsgsEvents, fetchUsgsEvents } from "../ingestion/usgs.js";
 import { fetchEmscEvents } from "../ingestion/emsc.js";
 import { fetchTmdEvents, TMD_MISSING_CREDENTIALS, tmdCredentials } from "../ingestion/tmd.js";
 import { findCorroboratingCluster, type StoredEventRow } from "../ingestion/normalize.js";
+import { nearestProvincesForPoint } from "../geo/provinceRings.js";
 import { deriveSourceHealth } from "../sourceHealth.js";
 import { errorText, logError } from "../log.js";
 
@@ -27,6 +28,8 @@ const POLL_INTERVAL_MS = 60 * 1000;
  * ช้าไปไม่กี่มิลลิวินาทีจะ "ยังไม่ถึงกำหนด" แล้วเลื่อน poll ไปอีกหนึ่งคาบ heartbeat
  */
 const POLL_DUE_SLACK_MS = 5 * 1000;
+/** เพดานการเติม `nearest` ย้อนหลังต่อหนึ่งรอบ poll (ดู `backfillNearest`) */
+const BACKFILL_NEAREST_PER_POLL = 200;
 /**
  * ต้นทางที่ poll ทุกครั้ง — `down` คือ "ล้มเหลวครบทุกตัวในรายการนี้" จึงต้องนับ
  * จากความยาวของรายการ ไม่ใช่เลข 3 ที่ฝังไว้ (เพิ่ม/ลดฟีดแล้วเกณฑ์ต้องขยับตาม)
@@ -63,6 +66,8 @@ interface EventRow extends Record<string, SqlStorageValue> {
   url: string | null;
   raw_json: string;
   ingested_at_ms: number;
+  /** JSON ของ `NearestProvince[]` — NULL คือระเบียนก่อน E10.6 ที่ยังไม่ถูก backfill */
+  nearest: string | null;
 }
 
 interface CorroborationRow extends Record<string, SqlStorageValue> {
@@ -75,7 +80,22 @@ interface CorroborationRow extends Record<string, SqlStorageValue> {
   time_ms: number;
 }
 
+/**
+ * `nearest` ที่อ่านไม่ออกต้องกลายเป็น "ไม่มีข้อมูลจังหวัดใกล้เคียง" (ฟิลด์หายไป)
+ * ไม่ใช่ throw — การโยนตรงนี้จะทำให้ `getRecent()` พังทั้งชุดเพราะระเบียนเดียว
+ */
+function parseNearest(value: string | null): EarthquakeEvent["nearest"] {
+  if (!value) return undefined;
+  try {
+    const parsed = JSON.parse(value) as EarthquakeEvent["nearest"];
+    return Array.isArray(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function rowToEvent(row: EventRow): EarthquakeEvent {
+  const nearest = parseNearest(row.nearest);
   return {
     id: row.id,
     clusterId: row.cluster_id,
@@ -91,6 +111,7 @@ function rowToEvent(row: EventRow): EarthquakeEvent {
     status: row.status as EarthquakeEvent["status"],
     tsunami: row.tsunami === 1,
     url: row.url,
+    ...(nearest ? { nearest } : {}),
   };
 }
 
@@ -128,11 +149,25 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
           tsunami INTEGER DEFAULT 0,
           url TEXT,
           raw_json TEXT NOT NULL,
-          ingested_at_ms INTEGER NOT NULL
+          ingested_at_ms INTEGER NOT NULL,
+          nearest TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_events_cluster ON events(cluster_id);
         CREATE INDEX IF NOT EXISTS idx_events_time ON events(time_ms DESC);
       `);
+      /**
+       * E10.6 — เพิ่มคอลัมน์ `nearest` ให้ DO ที่สร้างตารางไว้ก่อนหน้า
+       * **ห้ามสร้างตารางใหม่**: เหตุการณ์ที่เก็บไว้คือข้อมูลที่ต้นทางไม่ย้อนให้อีก
+       * ตารางที่สร้างสด ๆ ข้างบนมีคอลัมน์นี้แล้ว ตัวยามจึงทำให้เส้นทางทั้งสอง
+       * จบที่สคีมาเดียวกันและรันซ้ำกี่ครั้งก็ไม่พัง
+       */
+      const hasNearest = ctx.storage.sql
+        .exec<{ name: string }>("PRAGMA table_info(events)")
+        .toArray()
+        .some((c) => c.name === "nearest");
+      if (!hasNearest) {
+        ctx.storage.sql.exec("ALTER TABLE events ADD COLUMN nearest TEXT");
+      }
     });
     /**
      * ตอบ "ping" ด้วย "pong" ที่ชั้น runtime — ไคลเอนต์ที่อยากพิสูจน์ว่าสายยังดี
@@ -207,6 +242,34 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
     return this.pollInflight;
   }
 
+  /**
+   * ระเบียนที่บันทึกไว้ก่อน E10.6 ได้ `nearest` ในรอบ poll ถัดไป — เติมค่าลงแถวเดิม
+   * ด้วย UPDATE เท่านั้น **ไม่แตะจำนวนแถว ไม่สร้างตารางใหม่** (พิกัดที่เก็บไว้คือ
+   * ข้อมูลจริงของเหตุการณ์ ไม่ได้ดึงจากต้นทางใหม่)
+   *
+   * จำกัดจำนวนต่อรอบไว้ เพราะการเติมย้อนหลังทั้งคลังในรอบเดียวคือการกิน CPU ของ
+   * รอบ poll นั้นทั้งก้อน — ที่เหลือตกไปรอบถัดไป (poll ทุกนาที)
+   */
+  private backfillNearest(limit = BACKFILL_NEAREST_PER_POLL): number {
+    const rows = this.ctx.storage.sql
+      .exec<{ id: string; lat: number; lon: number }>(
+        // `IS NULL` อย่างเดียวไม่พอ: แถวที่ `nearest` ไม่ใช่ NULL แต่พังจนอ่านไม่ออก
+        // (JSON เสีย หรือไม่ใช่ array) จะไม่ถูกหยิบมาซ่อมอีกเลย แล้วค้างแสดงว่า
+        // "ยังไม่ได้คำนวณ" ตลอดไป — ทั้งที่ของจริงคือคำนวณไว้แล้วแต่เก็บพัง
+        "SELECT id, lat, lon FROM events WHERE nearest IS NULL OR json_valid(nearest) = 0 LIMIT ?",
+        limit,
+      )
+      .toArray();
+    for (const row of rows) {
+      this.ctx.storage.sql.exec(
+        "UPDATE events SET nearest = ? WHERE id = ?",
+        JSON.stringify(nearestProvincesForPoint(row.lon, row.lat)),
+        row.id,
+      );
+    }
+    return rows.length;
+  }
+
   private async pollOnce(): Promise<{ created: number; updated: number; polled: number }> {
     const bbox = this.resolveBbox();
     const nowMs = Date.now();
@@ -264,6 +327,8 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
     // TMD (the Thai national network) is listed last only so that its events
     // corroborate into clusters already seeded by the global feeds; all four
     // sources share the same dedupe path below.
+    this.backfillNearest();
+
     const candidates = [...seededEvents, ...usgsEvents, ...emscEvents, ...tmdFeedEvents];
     let created = 0;
     let updated = 0;
@@ -278,21 +343,50 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
         const prevUpdatedMs = existing[0].updated_ms;
         const candidateUpdatedMs = Date.parse(candidate.updated);
         if (candidateUpdatedMs > prevUpdatedMs) {
+          /**
+           * รอบแก้ไขของต้นทางคือรอบที่ **จุดศูนย์กลางย้าย** ได้จริง (solution
+           * อัตโนมัติถูกทบทวนแล้วเลื่อนได้หลายสิบกิโลเมตร) ถ้าเก็บ lat/lon เดิมไว้
+           * แล้วยก `nearest` เดิมมาใช้ต่อ ระเบียนจะอ้างจังหวัดของตำแหน่งที่ต้นทาง
+           * ไม่ได้รายงานแล้ว — พิกัดกับระยะถึงจังหวัดจึงต้องขยับไปด้วยกันเสมอ
+           */
+          const moved = candidate.lat !== existing[0].lat || candidate.lon !== existing[0].lon;
+          const nextNearest = moved
+            ? nearestProvincesForPoint(candidate.lon, candidate.lat)
+            : parseNearest(existing[0].nearest);
           this.ctx.storage.sql.exec(
-            `UPDATE events SET mag=?, mag_type=?, place=?, depth_km=?, updated_ms=?, status=?, tsunami=?, url=?, raw_json=? WHERE id=?`,
+            `UPDATE events SET mag=?, mag_type=?, place=?, lat=?, lon=?, depth_km=?, updated_ms=?, status=?, tsunami=?, url=?, raw_json=?, nearest=? WHERE id=?`,
             candidate.mag,
             candidate.magType,
             candidate.place,
+            candidate.lat,
+            candidate.lon,
             candidate.depthKm,
             candidateUpdatedMs,
             candidate.status,
             candidate.tsunami ? 1 : 0,
             candidate.url,
             JSON.stringify(candidate),
+            nextNearest ? JSON.stringify(nextNearest) : null,
             candidate.id,
           );
           updated++;
-          messages.push({ type: "event.updated", event: { ...candidate, clusterId: existing[0].cluster_id } });
+          /**
+           * ฝั่งเว็บแทนที่ทั้งอ็อบเจกต์เมื่อได้ `event.updated` — ถ้าไม่แนบ `nearest`
+           * ไปด้วย ไคลเอนต์ที่เห็นจังหวัดใกล้เคียงอยู่แล้วจะ "ลืม" ไป (ฟีดต้นทาง
+           * ไม่มีฟิลด์นี้) และค่าที่แนบต้องเป็นค่าของพิกัดในเฟรมนี้ ไม่ใช่ของเดิม
+           */
+          messages.push({
+            type: "event.updated",
+            event: {
+              ...candidate,
+              // cluster ถูกตรึงไว้ตั้งแต่ตอน ingest ครั้งแรกโดยตั้งใจ: มันคือ "เหตุการณ์
+              // เดียวกันที่หลายแหล่งรายงาน" ซึ่งตัดสินจาก id/เวลา/แหล่ง ไม่ใช่จากพิกัด
+              // ต่อให้ต้นทางย้ายศูนย์กลางไปหลายสิบกิโลเมตร มันก็ยังเป็นเหตุการณ์เดิม
+              // การจับกลุ่มใหม่ทุกครั้งที่พิกัดขยับจะทำให้ประวัติการจับคู่ไม่นิ่ง
+              clusterId: existing[0].cluster_id,
+              ...(nextNearest ? { nearest: nextNearest } : {}),
+            },
+          });
         }
         continue;
       }
@@ -309,10 +403,15 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
 
       const corroboratedClusterId = findCorroboratingCluster(candidate, recentRows);
       const clusterId = corroboratedClusterId ?? candidate.id;
+      /**
+       * ระยะถึงขอบเขตจังหวัดคิดครั้งเดียวตรงนี้ แล้วเก็บลงระเบียน — คำขอฝั่ง
+       * ผู้ใช้จึงไม่ต้องจ่ายค่าคิดเรขาคณิตเลย (ดู `nearestProvinces`)
+       */
+      const nearest = nearestProvincesForPoint(candidate.lon, candidate.lat);
 
       this.ctx.storage.sql.exec(
-        `INSERT INTO events (id, cluster_id, source, source_id, mag, mag_type, place, lat, lon, depth_km, time_ms, updated_ms, status, tsunami, url, raw_json, ingested_at_ms)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO events (id, cluster_id, source, source_id, mag, mag_type, place, lat, lon, depth_km, time_ms, updated_ms, status, tsunami, url, raw_json, ingested_at_ms, nearest)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         candidate.id,
         clusterId,
         candidate.sources[0],
@@ -330,9 +429,10 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
         candidate.url,
         JSON.stringify(candidate),
         nowMs,
+        JSON.stringify(nearest),
       );
       created++;
-      messages.push({ type: "event.created", event: { ...candidate, clusterId } });
+      messages.push({ type: "event.created", event: { ...candidate, clusterId, nearest } });
     }
 
     this.ctx.storage.sql.exec("DELETE FROM events WHERE time_ms < ?", nowMs - RETENTION_MS);
