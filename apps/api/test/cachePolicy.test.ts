@@ -67,6 +67,8 @@ describe("frozenArtifact", () => {
     "exposure/runs/9f2c1ab34de56780.json",
     "exposure/runs/9f2c1ab3-4de5-6789-abcd-ef0123456789.json", // UUID-shaped runId
     "exposure/runs/run-9f2c1ab34de56780.json", // มีคำนำหน้า
+    // รูปคีย์จริงของ E10.3: `{runId}.json.gz` (ไบต์ที่เก็บเป็น gzip)
+    "exposure/runs/20260819T090000Z-9f2c1ab34de56780.json.gz",
   ])("รับคีย์ที่มี hash อยู่ในคีย์: %s", (key) => {
     expect(cachePolicy.frozenArtifact(key).value).toBe("public, max-age=31536000, immutable");
   });

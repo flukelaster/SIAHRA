@@ -97,6 +97,13 @@ export const en: Record<keyof typeof th, string> = {
   "health.unknown": "Not known yet",
   "health.downNeverFetched": "Source not responding (no data ever received)",
   "health.delayedWithAge": "{label} (latest reading {age})",
+  /**
+   * For a source we COMPUTE rather than fetch (`exposure-illustrative`),
+   * `latestObservedAt` is when we last produced a run — not when a station was
+   * read. Calling that a "reading" would understate the true observation age.
+   */
+  "health.delayedNoRun": "No new computed run",
+  "health.delayedWithRunAge": "{label} (last run {age})",
   "health.tooltip.fetched": " · retrieved successfully {age}",
   "health.tooltip.line": "{source}: {status}{fetched}",
   "status.apiDown": "Cannot reach the API",

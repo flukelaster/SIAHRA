@@ -66,3 +66,44 @@ describe("ชื่อแหล่งข้อมูลมาจากทะเ�
     expect(sourceLabel(unknown, lang)).toBe(lang === "th" ? unknown.labelTh : unknown.labelEn);
   });
 });
+
+/**
+ * `exposure-illustrative` เป็นแหล่งที่เราคำนวณเอง `latestObservedAt` ของมันคือ
+ * `run.computedAt` ไม่ใช่เวลาที่สถานีไหนถูกอ่านค่า (เวลาตรวจวัดจริงอยู่ใน
+ * `detail.runObservedAt` และเก่ากว่าเสมอ) ป้าย delayed ของมันจึงต้องไม่พูดคำว่า
+ * "ค่าล่าสุด"/"latest reading" — ไม่งั้นหน้าจอบอกอายุค่าตรวจวัดต่ำกว่าความจริง
+ */
+const exposureDelayed: SourceStatus = {
+  id: "exposure-illustrative",
+  labelTh: "ระดับการเผชิญน้ำ (ภาพประกอบ) — คำนวณเอง",
+  labelEn: "Flood exposure (illustrative) — computed here",
+  health: "delayed",
+  fetchedAt: "2026-08-19T15:59:06.000Z",
+  latestObservedAt: "2026-08-19T15:59:06.000Z",
+  lastAttemptAt: "2026-08-19T15:59:06.000Z",
+  lastError: null,
+  detail: { runId: "20260819T155906Z-9f2c1ab34de56780", runObservedAt: "2026-08-19T15:40:00.000Z", stations: 5454 },
+  staleAfterSeconds: 3600,
+  observedLagSeconds: 1800,
+  nextAttemptAt: null,
+};
+
+describe("แหล่งที่คำนวณเอง: ป้าย delayed ต้องไม่เรียกเวลาคำนวณว่า 'ค่าล่าสุด'", () => {
+  it("ภาษาไทยพูดถึง 'รอบ' ไม่ใช่ 'ค่าล่าสุด'", () => {
+    const label = statusLabel(exposureDelayed, "th", th);
+    expect(label).toContain("รอบ");
+    expect(label).not.toContain("ค่าล่าสุด");
+  });
+
+  it("ภาษาอังกฤษพูดถึง run ไม่ใช่ reading", () => {
+    const label = statusLabel(exposureDelayed, "en", en);
+    expect(label).toMatch(/run/i);
+    expect(label).not.toMatch(/reading/i);
+  });
+
+  it("แหล่งที่ไปดึงมาจริงยังใช้ป้าย 'ค่าล่าสุด' เหมือนเดิม", () => {
+    const radarDelayed: SourceStatus = { ...radarDegraded, health: "delayed" };
+    expect(statusLabel(radarDelayed, "th", th)).toContain("ค่าล่าสุด");
+    expect(statusLabel(radarDelayed, "en", en)).toMatch(/latest reading/i);
+  });
+});

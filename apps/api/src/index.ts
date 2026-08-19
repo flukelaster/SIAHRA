@@ -1,6 +1,7 @@
 import { createRouter, type Route } from "./router.js";
 import { runScheduledTick } from "./scheduledTick.js";
 import { handleEarthquakesLive, handleEarthquakesRecent } from "./routes/earthquakes.js";
+import { handleExposureRun, handleProvinceExposureLatest } from "./routes/exposure.js";
 import { handleFloodExtentSummary, handleProvinceFloodExtent } from "./routes/flood.js";
 import { handleHealth } from "./routes/health.js";
 import { handleObservations } from "./routes/observations.js";
@@ -50,6 +51,24 @@ export const routes: Route[] = [
     pattern: /^\/api\/v1\/provinces\/([0-9]{2})\/flood-extent$/,
     handler: (_req, env, [province]) => handleProvinceFloodExtent(province, env),
     limit: { perMinute: 300 },
+  },
+  {
+    method: "GET",
+    pattern: /^\/api\/v1\/provinces\/([0-9]{2})\/exposure\/latest$/,
+    handler: (_req, env, [province]) => handleProvinceExposureLatest(province, env),
+    limit: { perMinute: 300 },
+  },
+  {
+    // รูปของ runId ถูกบังคับตั้งแต่ในตารางเส้นทาง (`YYYYMMDDTHHMMSSZ-<16 hex>`)
+    // ขยะจึงกลายเป็น 404 ของ router และไม่มี input ของผู้ใช้เดินไปถึงคีย์ R2
+    method: "GET",
+    pattern: /^\/api\/v1\/exposure\/runs\/([0-9]{8}T[0-9]{6}Z-[0-9a-f]{16})$/,
+    handler: (_req, env, [runId]) => handleExposureRun(runId, env),
+    // 120/นาที สูงกว่า `/archive/snapshot` (60/นาที) ทั้งที่ทั้งคู่อ่าน R2 หนึ่งก้อน
+    // ต่อคำขอ เพราะก้อนนี้เล็กกว่ามาก: run ทั้งประเทศเก็บเป็น gzip ~103 KB (ดิบ 1.29 MB)
+    // และเป็น artefact แช่แข็งที่ CDN แคชได้หนึ่งปี คำขอที่ถึง origin จริงจึงมีน้อย
+    limit: { perMinute: 120 },
+    limitScope: "exposure-run",
   },
 ];
 

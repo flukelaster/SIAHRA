@@ -132,6 +132,7 @@ refresh, so they cannot double-fetch.
 | `RadarDO` | `tmd-radar` | 5 min | 1 min | 900 (15 min) | 5400 (90 min) | frames 30 days |
 | `FloodExtentDO` | `gistda-flood` | 30 min | 5 → 10 → 20 → 30 min (±15 % jitter on the alarm; the in-round fetch retry uses ±25 %) | 10800 (3 h) | `null` (no upstream cadence) | features 30 days |
 | `EarthquakeFeedDO` | `earthquakes` | 1 min | next tick (1 min) | 300 (5 min) | `null` (quakes have no cadence) | events 30 days |
+| `ObservationCacheDO` (exposure) | `exposure-illustrative` | on every ThaiWater refresh (~5 min) | with that refresh | 3600 (1 h) | 1800 (30 min) | runs kept indefinitely (see §6) |
 
 Side cadences inside `ObservationCacheDO`: dams every 30 min (5 min pause after a failure so a broken
 feed is not hammered), station history at most every 10 min per station, one nationwide R2 snapshot
@@ -163,6 +164,7 @@ If `nextAttemptAt` is `null` for a source, no alarm is scheduled — the next cr
 | `archive/dams/{YYYY-MM-DD}.json.gz` | `ObservationCacheDO`, daily | Dam observations for that day |
 | `archive/flood/{retrieval time, ISO with `:` and `.` replaced by `-`}.json.gz` | `FloodExtentDO`, when the scene changes | One GISTDA scene, keyed by retrieval time |
 | `archive/index/{YYYY-MM-DD}.json` | `ObservationCacheDO` | Which of the above exist for that day — backs `/api/v1/archive/days` |
+| `exposure/runs/{runId}.json.gz` | `ObservationCacheDO`, after a refresh whose result changed | One immutable flood-exposure run (E10.3), gzip JSON — **write-once, never rewritten** |
 | `radar/tmd-composite/{frame time, ISO with `:` and `.` replaced by `-`}.png` | `RadarDO`, per new frame | One TMD composite frame, pruned after 30 days |
 | `aoi/{PP}/{terrain,buildings,features,landcover}/{z}/{x}_{y}.bin` | uploaded by `scripts/upload-tiles.sh` | Terrain and feature tiles served by **siahra-web**, not the API |
 
@@ -175,6 +177,41 @@ npx wrangler r2 object get siahra-geodata "archive/index/$(TZ=Asia/Bangkok date 
 Archive objects are append-only history. **Never delete or rewrite them to "clean up" a bad round** —
 a wrong archived value is data; a missing one is a hole nothing can reconstruct.
 
+### 6.1 Flood-exposure runs: how many, and why they are kept
+
+`exposure/runs/{runId}.json.gz` is the citable artefact behind
+`GET /api/v1/exposure/runs/{runId}`, so it is written **once** and never rewritten — the endpoint
+serves it `immutable` for a year, and a rewritten object would silently change what somebody already
+quoted.
+
+A new run is published whenever **any exposed field changes** — a level, any `factors.*` value, or
+any station `observedAt` — not only when the level set changes. The artefact carries the per-station
+measurements and their observation times, so publishing only on a level change would leave
+`/exposure/latest` serving the previous measurements with the previous `observedAt`, possibly for
+hours, while presenting itself as current. That is stale data rendered as fresh, which this project
+does not do. The cost of that decision, stated plainly:
+
+| | |
+|---|---|
+| Runs per day | ≈288 (one per successful ThaiWater refresh, ~5 min apart) |
+| Objects per year | ≈105,000 JSON objects (~100× what a level-change-only rule would write) |
+| Size each | **measured 2026-08-19 through the real write path** (run `20260819T161910Z`, 5,454 stations): 1,289,810 bytes of JSON → **102,609 bytes stored** (7.96 %, 12.6×). Take that number, not a `gzip -9` figure from the same JSON: `CompressionStream("gzip")` in the Workers runtime compresses at its default level, and the ~92 KB you get from `gzip -9` on the command line is ~10 % smaller than what actually lands in R2. |
+| Storage growth | ≈29.6 MB/day, **≈10.8 GB (10.0 GiB) after a year**, growing linearly. Raw it would have been ≈371 MB/day and ≈136 GB, so gzip buys a factor of 12.6 — but it does **not** buy a free ride: this lands *on* R2's 10 GB free storage line at about the twelve-month mark. Assume the bucket leaves the free tier inside year one and budget for paid storage or a lifecycle rule (below) before it does. |
+| Stored bytes | gzip. The key ends `.json.gz` for that reason — `wrangler r2 object get … --file -` gives you a gzip stream, not JSON. The API decompresses on read, so `GET /api/v1/exposure/runs/{runId}` still answers plain JSON to a plain `curl` |
+| R2 writes per refresh | **at most one** — an unchanged refresh writes nothing, because the run id is derived from the run's content |
+| Runs while ThaiWater is down | still ≈288/day. `factors.freeboardTrendMPerH` is measured over a 3 h window that slides with the clock, so points drop out of the window on their own and the content changes even with no new upstream data. The published trend is the one actually computed, so this is honest, not a bug — but the object count does **not** fall during an outage |
+| Retention | **indefinite.** That is what makes `/api/v1/exposure/runs/{runId}` citable after the fact |
+
+```bash
+npx wrangler r2 object list siahra-geodata --prefix "exposure/runs/" | wc -l   # object count today
+```
+
+**If the bucket ever has to shrink, the lever is an R2 lifecycle rule on the `exposure/runs/` prefix**
+(dashboard → R2 → bucket → Settings → Object lifecycle rules, or `wrangler r2 bucket lifecycle add`),
+not a code change and not an ad-hoc delete: expiring old runs is a deliberate, stated policy change,
+and any run id already published in a report stops resolving on the day the rule takes effect. Nothing
+else in the code path prunes these objects.
+
 ## 7. Known degradation modes that are not bugs
 
 - **TMD seismic credentials unset** → `earthquakes` is `degraded` with `lastError: "TMD credentials
@@ -186,6 +223,25 @@ a wrong archived value is data; a missing one is a hole nothing can reconstruct.
   ~100k DO rows written per day. There is no code fix; the account needs **Workers Paid** ($5/month),
   which Durable Objects require anyway (`docs/deploy.md` §0). Confirm from `wrangler tail`: the errors
   come from the DO call, not from the route.
+- **No new exposure run for 30 minutes** → `exposure-illustrative` is `delayed`, and this one **is
+  worth looking at: it means our own refresh loop stopped producing runs**, not that the upstream went
+  quiet. A run is published after *every* successful refresh — `inputs.thaiwaterFetchedAt` is part of
+  the hashed content, so the content always differs — therefore no new run means no successful
+  refresh. Look at the DO alarm, not at ThaiWater: check `nextAttemptAt` for
+  `exposure-illustrative` and for `thaiwater` on `/api/v1/health` (`null` = nothing scheduled; the
+  next cron tick re-arms it), then `npx wrangler tail siahra-api` for the refresh. Force one with
+  `curl -s .../api/v1/observations > /dev/null` (§5). Past an hour the same silence escalates to
+  `stale`. Note that `latestObservedAt` for this source is `run.computedAt` — the age of the
+  *measurements* is `detail.runObservedAt`, normally 17–77 min older, and it being old is normal.
+  A *failed* publish looks different again: `lastError` is populated (R2 or the run pointer) and the
+  source goes `degraded`/`down`, which also flips `/api/v1/health` `ok` to `false`. The refresh alarm
+  keeps its schedule in every one of these cases — the publish runs inside the refresh but can never
+  take the alarm down with it (`finally` at all three `refreshOnce()` call sites).
+- **`exposure-illustrative` reads `ok` while `thaiwater` is failing** → expected, and read both rows
+  together. The exposure source only reports **its own** publish failures in `lastError`; an upstream
+  outage reaches it indirectly, through `fetchedAt` ageing past `staleAfterSeconds` (1 h). ThaiWater
+  failing for 45 min therefore shows on the `thaiwater` row first — that is the row to act on — while
+  exposure is still serving the last honestly-computed run.
 - **Radar frames skipped** → `detail.skippedFrames > 0` with a `lastError` naming the files. TMD's
   24-slot ring buffer occasionally serves a truncated PNG; the good frames of that round are kept.
 

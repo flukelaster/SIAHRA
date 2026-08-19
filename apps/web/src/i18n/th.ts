@@ -92,6 +92,13 @@ export const th = {
   "health.unknown": "ยังไม่ทราบ",
   "health.downNeverFetched": "ต้นทางไม่ตอบสนอง (ยังไม่เคยได้ข้อมูล)",
   "health.delayedWithAge": "{label} (ค่าล่าสุด {age})",
+  /**
+   * แหล่งที่ "เราคำนวณเอง" (`exposure-illustrative`) — `latestObservedAt` ของมันคือ
+   * เวลาที่เราคำนวณ run ล่าสุด ไม่ใช่เวลาที่สถานีไหนถูกอ่านค่า เรียกมันว่า
+   * "ค่าล่าสุด" จะทำให้อายุของค่าตรวจวัดจริงดูใหม่กว่าความเป็นจริง
+   */
+  "health.delayedNoRun": "ยังไม่มีรอบคำนวณใหม่",
+  "health.delayedWithRunAge": "{label} (รอบล่าสุด {age})",
   "health.tooltip.fetched": " · ดึงข้อมูลสำเร็จ {age}",
   "health.tooltip.line": "{source}: {status}{fetched}",
   "status.apiDown": "เชื่อมต่อ API ไม่ได้",

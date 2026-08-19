@@ -45,6 +45,8 @@ edit in that table.
 | `/api/v1/earthquakes/live` | GET (WS) | 10 | 5 | per route | WebSocket upgrades: a handful per session at most, so a reconnect storm is capped |
 | `/api/v1/flood-extent/summary` | GET | 300 | default | per route | Nationwide totals, cached |
 | `/api/v1/provinces/{NN}/flood-extent` | GET | 300 | default | per route | Called for the selected province; kept high so a user browsing provinces quickly is never rate-limited into an empty layer |
+| `/api/v1/provinces/{NN}/exposure/latest` | GET | 300 | default | per route | The current flood-exposure run scoped to one province; same reasoning as flood-extent |
+| `/api/v1/exposure/runs/{runId}` | GET | 120 | default | shared `exposure-run` | Reads one immutable R2 object per call; one shared bucket across all run ids |
 | `/api/v1/radar/frames` | GET | 300 | default | per route | Frame index for the last N hours |
 | `/api/v1/radar/frame/{tsMs}.png` | GET | 600 | default | shared `radar-frame` | An animation loop pulls one image per frame; one shared bucket across all frames |
 
@@ -77,6 +79,8 @@ Two rules are enforced by `json()` in `apps/api/src/router.ts` rather than by ea
 | `/api/v1/earthquakes/live` | — | WebSocket upgrade; no cache headers |
 | `/api/v1/flood-extent/summary` | `floodExtent(retrievedAt)` | `public, max-age=300, s-maxage=600`, or `no-store` when nothing has ever been retrieved |
 | `/api/v1/provinces/{NN}/flood-extent` | `floodExtent(retrievedAt)` | as above |
+| `/api/v1/provinces/{NN}/exposure/latest` | `observations` | `public, max-age=60, s-maxage=120` |
+| `/api/v1/exposure/runs/{runId}` | `frozenArtifact(key)` | `public, max-age=31536000, immutable` — the key contains the run's content hash, so it can never change |
 | `/api/v1/radar/frames` | `radarFrames` | `public, max-age=60` |
 | `/api/v1/radar/frame/{tsMs}.png` | `radarFrame` | `public, max-age=86400, immutable` |
 | any 4xx / 5xx | `noStore` | `no-store` |
@@ -214,6 +218,7 @@ decided for it at all and never fires.
 | `thaiwater` | `7200` (2 h) | Measured nationwide on 2026-08-19: rainfall reports on an hourly grid (2,413 stations at 00:00, 1,581 at 01:00), water level mostly hourly with some 10-minute reporters, publication lag ≈17 min. Two hourly cycles tolerate one missed publication. **Caveat:** `latestObservedAt` is `MAX()` over ~5,900 stations, so it is dominated by the freshest reporter — `delayed` fires on a near-total upstream outage, not on partial staleness, and `ok` does **not** mean every station is current. |
 | `tmd-radar` | `5400` (90 min) | The composite is produced on a 15-minute grid (:00/:15/:30/:45). Measured on the running API, 2026-08-19: `/api/v1/radar/frames?hours=24` returned 53 frames spanning 17.0 h, gaps between consecutive frames `{15 min: 47, 30 min: 2, 45 min: 2, 165 min: 1}`, and the newest frame was 47.6 min behind wall clock. 90 min clears both the routine publication lag and the largest *recurring* gap (45 min) with headroom; the single 165-min gap was a real publication outage, which this threshold correctly reports as `delayed`. It is also the value the code already compared against frame age. |
 | `earthquakes` | `null` | `latestObservedAt` is when an earthquake *happened*. A quiet day is a normal day, not a stalled feed — marking it `delayed` would be inventing a failure that no observation supports. |
+| `exposure-illustrative` | `1800` (30 min) | Not an upstream feed: it is the run this API computes from ThaiWater after every refresh. `latestObservedAt` is **`run.computedAt` of the latest published run — when we computed it, not when any station was read.** A run is published on *every* successful refresh (`inputs.thaiwaterFetchedAt` is inside the hashed content, so the content always differs), so 30 minutes without a new one means **our** refresh loop stopped producing runs — a missed alarm or cron tick — not that the upstream went quiet. The newest station observation actually inside that run is reported separately as `detail.runObservedAt`, and it is normally 17–77 min older than `latestObservedAt`; read that one, not this one, for observation age. A *failed* publish is a different state and shows as `lastError` (`degraded`/`down`). `staleAfterSeconds` is deliberately **larger** (3600) than this: the health ladder checks `stale` before `delayed`, so equal budgets would make `delayed` unreachable — silence for 30 min reads as "the run loop slipped", silence past an hour as "our side stopped fetching altogether". |
 | `gistda-flood` | `null` | GISTDA publishes no acquisition or observation time with the flood scene (E3.2), so there is no cadence to compare against. Guessing one would be a fabricated timestamp. |
 
 `staleAfterSeconds` is the separate fetch-side budget: thaiwater 900 s (refresh every 5 min),

@@ -7,3 +7,4 @@ export * from "./health.js";
 export * from "./flood.js";
 export * from "./radar.js";
 export * from "./exposure.js";
+export * from "./provinces.js";

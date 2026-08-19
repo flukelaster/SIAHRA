@@ -29,6 +29,11 @@ const DATA_ROUTES: { path: string; mayFail503?: boolean }[] = [
   { path: "/api/v1/dams" },
   { path: "/api/v1/flood-extent/summary" },
   { path: "/api/v1/provinces/50/flood-extent" },
+  // exposure: DO ที่ยังเย็นไม่มี run ให้ชี้ จึงตอบ 503 อย่างซื่อสัตย์ (ไม่ใช่ run ว่าง
+  // ที่ดูเหมือนของจริง) — mayFail503 จึงจำเป็น และเมื่อวันหนึ่งมีเทสที่อุ่น DO ก่อน
+  // ข้อบังคับทั้งชุดในไฟล์นี้ (sourceIds ⊆ /health, ห้ามเวลาปลอม, fetchedAt null ตอนเย็น)
+  // จะเริ่มบังคับกับเส้นทางนี้ทันทีโดยไม่ต้องแก้อะไร
+  { path: "/api/v1/provinces/50/exposure/latest", mayFail503: true },
   { path: "/api/v1/radar/frames?hours=1" },
   { path: "/api/v1/stations/1/history?hours=24", mayFail503: true },
   { path: "/api/v1/earthquakes/recent?limit=5" },

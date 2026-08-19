@@ -133,3 +133,27 @@ export interface FloodExposureRun {
   /** Sorted by `stationId`. Empty is a valid run, not an error. */
   stations: StationExposure[];
 }
+
+/**
+ * One published run, scoped to a single province for
+ * `GET /api/v1/provinces/{NN}/exposure/latest` (E10.3).
+ *
+ * Everything except `stations` and `layer.observedAt` is copied verbatim from
+ * the nationwide run the province view was cut out of — `runId` above all, so
+ * the same artefact can be re-read whole through `/api/v1/exposure/runs/{runId}`
+ * and the scoping checked by anyone.
+ *
+ * The membership test is `StationExposure.provinceCode === scopedToProvinceCode`
+ * AND NOTHING ELSE: not the live station table (that would scope a historical
+ * run by today's stations) and not geometry. Stations whose `provinceCode` is
+ * `null` are in no province view at all; they are only in the nationwide run.
+ */
+export interface ProvinceExposureResponse extends FloodExposureRun {
+  /** The province code the stations were filtered on. */
+  scopedToProvinceCode: string;
+  /**
+   * How many stations the nationwide run held, so a reader can see that this
+   * view is a subset and how large a subset — never a hidden filter.
+   */
+  nationwideStationCount: number;
+}

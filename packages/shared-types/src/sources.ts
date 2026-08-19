@@ -13,6 +13,7 @@ export type SourceId =
   | "earthquakes"
   | "gistda-flood"
   | "tmd-radar"
+  | "exposure-illustrative"
   | "copernicus-dem"
   | "osm"
   | "worldcover"
@@ -91,6 +92,21 @@ export const SOURCES: Record<SourceId, SourceDescriptor> = {
     licenseUrl: "https://data.tmd.go.th",
     attributionText:
       "เรดาร์ตรวจอากาศ กรมอุตุนิยมวิทยา (TMD) — ข้อมูลจาก data.tmd.go.th; กรมอุตุนิยมวิทยาไม่ได้รับรองหรือมีส่วนเกี่ยวข้องกับโครงการนี้",
+    kind: "live",
+  },
+  "exposure-illustrative": {
+    id: "exposure-illustrative",
+    nameTh: "ระดับการเผชิญน้ำ (ภาพประกอบ) — คำนวณเอง",
+    nameEn: "Flood exposure (illustrative) — computed here",
+    // ไม่ใช่ฟีดของหน่วยงานใด: เป็นผลลัพธ์ที่โปรเจกต์นี้คำนวณเองจากค่าตรวจวัดของ
+    // ThaiWater ตามตารางเกณฑ์ที่ประกาศไว้ จึงต้องระบุผู้คำนวณเป็นตัวเอง
+    // ห้ามยกเครดิต/ความรับผิดให้ สสน. ในสิ่งที่ สสน. ไม่ได้เผยแพร่
+    agency: "SIAHRA (โครงการนี้) — คำนวณจากค่าตรวจวัดของ ThaiWater (สสน.)",
+    homepageUrl: "https://siahra-radar.co/methodology/flood-exposure",
+    licenseName: "MIT (โค้ดและผลลัพธ์ของโครงการ) — ข้อมูลตั้งต้นเป็นของ ThaiWater",
+    licenseUrl: "https://github.com/flukelaster/SIAHRA/blob/main/LICENSE",
+    attributionText:
+      "ระดับการเผชิญน้ำ (ภาพประกอบ) คำนวณโดย SIAHRA จากค่าตรวจวัดของคลังข้อมูลน้ำแห่งชาติ (ThaiWater) ตามวิธีใน docs/methodology/flood-exposure.md — เป็นการจัดอันดับค่าที่วัดได้แล้ว ไม่ใช่การพยากรณ์",
     kind: "live",
   },
   "copernicus-dem": {

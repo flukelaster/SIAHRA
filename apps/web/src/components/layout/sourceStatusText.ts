@@ -47,12 +47,23 @@ export function healthMeta(health: SourceHealth): { dot: string; labelKey: Messa
   return HEALTH_META[health] ?? HEALTH_META.unknown;
 }
 
+/**
+ * แหล่งที่ **เราคำนวณเอง** ไม่ได้ไปดึงมาจากใคร — `latestObservedAt` ของมันคือเวลาที่
+ * เราคำนวณ run ล่าสุด (`run.computedAt`) ไม่ใช่เวลาที่สถานีไหนถูกอ่านค่า วัดจริงบน
+ * เครื่อง prod: `latestObservedAt` เท่ากับ `fetchedAt` เป๊ะ ขณะที่เวลาตรวจวัดใหม่สุด
+ * ที่อยู่ใน run นั้น (`detail.runObservedAt`) เก่ากว่า 19 นาที ป้ายว่า "ค่าล่าสุด"
+ * จึงบอกอายุของค่าตรวจวัดต่ำกว่าความจริงเสมอ แหล่งกลุ่มนี้จึงได้ป้ายของตัวเอง
+ * ("รอบล่าสุด") แถบสถานะยังอ่านแค่ `health`/`lastError` ตามเดิม ไม่แตะ `detail`
+ */
+const COMPUTED_SOURCES = new Set<string>(["exposure-illustrative"]);
+
 export function statusLabel(s: SourceStatus, lang: Lang, t: TFunction): string {
   if (s.health === "down" && !s.fetchedAt) return t("health.downNeverFetched");
   // delayed = การดึง "สำเร็จ" ตัวเลขที่ผิดปกติคืออายุของค่าตรวจวัด ไม่ใช่อายุการดึง
   if (s.health === "delayed") {
-    return t("health.delayedWithAge", {
-      label: t("health.delayed"),
+    const computed = COMPUTED_SOURCES.has(s.id);
+    return t(computed ? "health.delayedWithRunAge" : "health.delayedWithAge", {
+      label: t(computed ? "health.delayedNoRun" : "health.delayed"),
       age: ageLabel(lang, s.latestObservedAt),
     });
   }

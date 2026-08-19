@@ -18,6 +18,13 @@ import {
   fetchWaterLevelHistory,
 } from "../ingestion/thaiwater.js";
 import { shortReason } from "../ingestion/errors.js";
+import { DEFAULT_EXPOSURE_THRESHOLDS, computeExposure } from "../exposure/compute.js";
+import type { StationHourlyLevels } from "../exposure/compute.js";
+import {
+  EXPOSURE_POINTER_NAME,
+  exposureRunKey,
+  runContentHash,
+} from "../exposure/publish.js";
 import { deriveSourceHealth } from "../sourceHealth.js";
 import { UpstreamQueue } from "../upstream/limiter.js";
 import {
@@ -77,6 +84,31 @@ const DAMS_TTL_MS = 30 * 60 * 1000;
  * payload ผิดรูปไม่ใช่อาการชั่วคราว การยิงรัวจึงได้แต่รูปเดิม เว้นระยะไว้ 5 นาที
  */
 const DAMS_RETRY_MS = 5 * 60 * 1000;
+/**
+ * งบเวลาของแหล่ง `exposure-illustrative` บน /health — 30 นาทีตาม E10.3
+ *
+ * `staleAfterSeconds` วัดจาก **การดึง ThaiWater** (ไม่มีอินพุตใหม่ = ไม่มีอะไรให้
+ * คำนวณ) ส่วน `observedLagSeconds` วัดจาก **เวลาที่คำนวณ run ล่าสุด** ที่เผยแพร่ไป
+ * — ครบ 30 นาทีแล้วยังไม่มี run ใหม่ = `delayed`
+ *
+ * **งบสองตัวนี้เท่ากันไม่ได้** และนี่คือเหตุผลที่ `staleAfterSeconds` เป็นหนึ่งชั่วโมง
+ * ไม่ใช่ครึ่งชั่วโมง: `deriveSourceHealth` ตัดสิน `stale` (ดึงไม่ทันงบ) **ก่อน**
+ * `delayed` เสมอ และในทางปฏิบัติ "ไม่มี run ใหม่ 30 นาที" กับ "ไม่มีรอบดึงสำเร็จ
+ * 30 นาที" คือเหตุการณ์เดียวกัน (เพราะ `fetchedAt` อยู่ในเนื้อหาที่ใช้คิด `runId`
+ * รอบที่ดึงสำเร็จจึงได้ run ใหม่เสมอ) ถ้าตั้งงบเท่ากัน สาขา `delayed` จะไม่มีวัน
+ * ถูกใช้เลย เส้นแบ่งที่ตั้งใจจึงเป็น: เงียบ 30 นาที = "ยังไม่มีอะไรใหม่ให้จัดอันดับ"
+ * (`delayed`) เงียบเกินหนึ่งชั่วโมง = "ฝั่งเราหยุดดึงไปแล้วจริง ๆ" (`stale`)
+ *
+ * ทำไม `latestObservedAt` ของแหล่งนี้จึงเป็น `run.computedAt` ไม่ใช่เวลาตรวจวัด
+ * ใหม่สุดในตัว run: เวลาตรวจวัดของ ThaiWater แกว่งอยู่ราว 17–77 นาทีตามปกติ
+ * (ดูตาราง `observedLagSeconds` ใน docs/api.md) ถ้าเอาค่านั้นมาเทียบกับงบ 30 นาที
+ * แหล่งนี้จะขึ้น `delayed` เกือบตลอดทุกชั่วโมงทั้งที่ทุกอย่างทำงานปกติ — เตือนหมาป่า
+ * จนไม่มีใครเชื่อแถบสถานะอีก สิ่งที่งบ 30 นาทีนี้ตั้งใจวัดคือ "ยังมี run ใหม่ออกมา
+ * อยู่ไหม" ดังนั้นตัวเลขที่ต้องเทียบคือเวลาของ run เอง ส่วนเวลาตรวจวัดรายสถานี
+ * ยังอยู่ครบใน artefact ทุกก้อน (`stations[].observedAt` และ `layer.observedAt`)
+ */
+const EXPOSURE_STALE_AFTER_MS = 60 * 60 * 1000;
+const EXPOSURE_RUN_LAG_MS = 30 * 60 * 1000;
 
 /**
  * Durable Object SQLite caps bound parameters per statement (100), and each
@@ -200,9 +232,21 @@ export class ObservationCacheDO extends DurableObject<Env> {
 
   private refreshOnce(nowMs: number): Promise<void> {
     if (!this.inflight) {
-      this.inflight = this.refresh(nowMs).finally(() => {
-        this.inflight = null;
-      });
+      /**
+       * exposure run ถูกคำนวณ "ต่อท้ายรอบ refresh" ที่ผู้เรียกทุกคนใช้ร่วมกัน —
+       * ผู้เรียกหลายรายในรอบเดียวจึงได้ promise ก้อนเดียวกัน = **เขียน R2
+       * ได้ไม่เกินหนึ่งครั้งต่อหนึ่งรอบ refresh** (AC ของ E10.3)
+       *
+       * `publishExposure` ถูกออกแบบให้ **ไม่มีวัน reject** (ดูตัวมันเอง) ดังนั้น
+       * การเขียน R2 ที่ล้มเหลวจะไม่ลาก refresh ลงไปด้วย และไม่มีทางกิน
+       * `armAlarm()` ของผู้เรียก — แต่ผู้เรียกทั้งสามจุดก็ยังเรียก `armAlarm()`
+       * จาก `finally` อยู่ดี เพราะการมี alarm ค้างไว้สำคัญกว่าเหตุผลที่รอบนี้พัง
+       */
+      this.inflight = this.refresh(nowMs)
+        .then(() => this.publishExposure(nowMs))
+        .finally(() => {
+          this.inflight = null;
+        });
     }
     return this.inflight;
   }
@@ -210,8 +254,14 @@ export class ObservationCacheDO extends DurableObject<Env> {
   /** Cron/alarm entry point: refresh if due, and (re)arm the alarm. */
   async ensureFresh(): Promise<void> {
     const nowMs = Date.now();
-    if (!this.isFresh(nowMs)) await this.refreshOnce(nowMs);
-    await this.armAlarm();
+    // นัดครั้งถัดไปต้องถูกตั้งเสมอ แม้รอบนี้จะพัง — ถ้า refresh (หรือการเผยแพร่
+    // exposure ที่ต่อท้ายมัน) โยนออกมาแล้วข้าม armAlarm() ไป DO จะไม่มีนัด
+    // เหลืออยู่เลย และค่าตรวจวัดทั้งชุดจะหยุดอัปเดต ไม่ใช่แค่ exposure
+    try {
+      if (!this.isFresh(nowMs)) await this.refreshOnce(nowMs);
+    } finally {
+      await this.armAlarm();
+    }
     this.ctx.waitUntil(this.archiveTick().catch((err: unknown) => {
       this.writeMeta("archiveError", String(err).slice(0, 200));
     }));
@@ -229,9 +279,14 @@ export class ObservationCacheDO extends DurableObject<Env> {
   }
 
   async alarm(): Promise<void> {
-    await this.refreshOnce(Date.now());
-    // The alarm just fired, so getAlarm() is null and armAlarm() sets the next one.
-    await this.armAlarm();
+    try {
+      await this.refreshOnce(Date.now());
+    } finally {
+      // The alarm just fired, so getAlarm() is null and armAlarm() sets the next
+      // one — from `finally`, so a failed refresh or a rejected R2 publish can
+      // never leave this DO with no alarm scheduled (E10.3).
+      await this.armAlarm();
+    }
     // Archive work never blocks the refresh cadence.
     this.ctx.waitUntil(this.archiveTick().catch((err: unknown) => {
       this.writeMeta("archiveError", String(err).slice(0, 200));
@@ -762,6 +817,155 @@ export class ObservationCacheDO extends DurableObject<Env> {
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // Illustrative flood exposure (E10.3)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * ประวัติระดับน้ำรายชั่วโมงในหน้าต่างย้อนหลังของ run — ใช้ตาราง `hourly_levels`
+   * ตารางเดียว **โดยตั้งใจ** เพราะมันเก็บค่าเป็น MSL เสมอ ส่วน `waterlevel_history`
+   * เก็บค่าตามที่ต้นทางส่งมา ซึ่งบางสถานีเป็นระดับท้องถิ่น (ดู `history_meta.datum`)
+   * การเอาสองหน่วยมาต่อกันในสถานีเดียวจะได้ "อัตราการเปลี่ยน" ที่ไม่มีความหมาย
+   */
+  private exposureHistory(nowMs: number, windowH: number): StationHourlyLevels[] {
+    const rows = this.ctx.storage.sql
+      .exec<{ station_id: number; ts_ms: number; value_msl: number | null }>(
+        "SELECT station_id, ts_ms, value_msl FROM hourly_levels WHERE ts_ms >= ? ORDER BY station_id, ts_ms",
+        nowMs - windowH * 60 * 60 * 1000,
+      )
+      .toArray();
+    const byStation = new Map<number, WaterLevelHistoryPoint[]>();
+    for (const r of rows) {
+      const points = byStation.get(r.station_id) ?? [];
+      points.push({ t: new Date(r.ts_ms).toISOString(), value: r.value_msl, discharge: null });
+      byStation.set(r.station_id, points);
+    }
+    return [...byStation.entries()].map(([stationId, points]) => ({ stationId, points }));
+  }
+
+  /**
+   * คำนวณ run ทั่วประเทศหนึ่งชุดแล้วเผยแพร่ ถ้า **อะไรก็ตามที่เปิดเผยเปลี่ยน**
+   *
+   * เมธอดนี้ **ไม่มีวัน reject** — ทุกความล้มเหลวถูกเก็บลง `exposureError` แล้ว
+   * ไปโผล่ที่ /api/v1/health (แหล่ง `exposure-illustrative`) เพราะมันวิ่งอยู่บน
+   * เส้นทางเดียวกับการ refresh ค่าตรวจวัด: ถ้ามันโยนออกไป การตั้งนัด alarm
+   * ครั้งถัดไปจะถูกข้าม แล้ว "การเขียน R2 พลาดครั้งเดียว" จะหยุดการดึงค่าตรวจวัด
+   * ทั้งระบบ (cron ใน production กลบอาการนี้ไว้ แต่ `wrangler dev` ไม่มี cron)
+   */
+  private async publishExposure(nowMs: number): Promise<void> {
+    try {
+      this.writeMeta("exposureLastAttemptAt", new Date(nowMs).toISOString());
+      const rainfall = this.ctx.storage.sql
+        .exec<StationRow>("SELECT payload FROM rainfall")
+        .toArray()
+        .map((r) => JSON.parse(r.payload) as RainfallObservation);
+      const waterlevel = this.ctx.storage.sql
+        .exec<StationRow>("SELECT payload FROM waterlevel")
+        .toArray()
+        .map((r) => JSON.parse(r.payload) as WaterLevelObservation);
+      const run = computeExposure(
+        // `fetchedAt` คง null ไว้ตามจริง — run ที่ยังไม่เคยดึงต้นทางสำเร็จก็บอกว่าไม่เคย
+        { rainfall, waterlevel, fetchedAt: this.readMeta("fetchedAt") },
+        this.exposureHistory(nowMs, DEFAULT_EXPOSURE_THRESHOLDS.historyWindowH),
+        DEFAULT_EXPOSURE_THRESHOLDS,
+        new Date(nowMs),
+      );
+      const hash = runContentHash(run.runId);
+      // เนื้อหาเท่าเดิมทุกไบต์ = ไม่มีอะไรใหม่ให้เผยแพร่ ไม่เขียน R2 ไม่ขยับตัวชี้
+      if (hash !== null && hash === this.readMeta("exposureContentHash")) {
+        this.writeMeta("exposureError", null);
+        return;
+      }
+      const key = exposureRunKey(run.runId);
+      /**
+       * `exposure/runs/{runId}.json.gz` เขียนครั้งเดียวตลอดกาล: ถ้าคีย์นี้มีอยู่แล้ว
+       * (เนื้อหาเปลี่ยนภายในวินาทีเดียวกันจนได้ `runId` ซ้ำ) เราปล่อยของเดิมไว้
+       * ไม่เขียนทับ เพราะมันถูกเสิร์ฟแบบ immutable ไปแล้ว — ตัวชี้ยังถูกอัปเดต
+       * ให้ชี้ไปที่ run นั้นตามปกติ
+       *
+       * เก็บเป็น gzip ด้วย `putJsonGz` เหมือนคลังถาวรก้อนอื่น: run ทั้งประเทศ
+       * (5,454 สถานี) วัดผ่านเส้นทางเขียนจริงได้ 1,289,810 ไบต์ → 102,609 ไบต์
+       * (7.96% เล็กลง 12.6 เท่า) การเก็บดิบคือจ่ายค่า R2 สิบสองเท่าโดยไม่ได้อะไรคืน
+       * (`putJsonGz` log `bytes` ของไบต์ที่เขียนจริงให้เอง)
+       */
+      const existing = await this.env.HAZARD_BUCKET.head(key);
+      if (!existing) {
+        await putJsonGz(this.env.HAZARD_BUCKET, key, run);
+        logInfo("exposure run published", { key, stations: run.stations.length });
+      } else {
+        logWarn("exposure run key already exists — not overwritten", { key });
+      }
+      await this.env.FORECAST_POINTER.getByName(EXPOSURE_POINTER_NAME).setLatest(run.runId, key);
+      this.writeMeta("exposureContentHash", hash);
+      this.writeMeta("exposureRunId", run.runId);
+      this.writeMeta("exposureRunAt", run.computedAt);
+      this.writeMeta("exposureObservedAt", run.layer.observedAt ?? null);
+      this.writeMeta("exposureStationCount", String(run.stations.length));
+      this.writeMeta("exposureError", null);
+    } catch (err) {
+      // `exposureContentHash` ถูกปล่อยไว้เท่าเดิมโดยตั้งใจ รอบถัดไปจึงเห็นว่า
+      // เนื้อหาต่างจากที่เผยแพร่สำเร็จล่าสุด แล้วลองใหม่เอง
+      this.writeMeta("exposureError", errorText(err, 200));
+      logError("exposure publish failed", { error: errorText(err) });
+    }
+  }
+
+  /**
+   * Backs the `exposure-illustrative` entry in GET /api/v1/health
+   *
+   * เป็นแหล่งที่ **เราคำนวณเอง** ไม่ใช่ฟีดที่ไปดึงมา บันไดสุขภาพจึงถูกป้อนแบบนี้:
+   * - `fetchedAt` = เวลาที่ดึง ThaiWater สำเร็จล่าสุด (อินพุตของการคำนวณ) —
+   *   ไม่มีอินพุตใหม่ ก็ไม่มีทางมี run ใหม่
+   * - `latestObservedAt` = **`computedAt` ของ run ที่เผยแพร่ล่าสุด ไม่ใช่เวลาตรวจวัด**
+   *   ครบ 30 นาทีแล้วยังไม่ขยับ = `delayed` ซึ่งอ่านว่า "รอบคำนวณฝั่งเราหยุดเดิน"
+   *   ไม่ใช่ "ต้นทางเงียบ" — เพราะ `inputs.thaiwaterFetchedAt` อยู่ในเนื้อหาที่เอาไป
+   *   แฮช ทุกรอบที่ดึง ThaiWater สำเร็จจึงได้ run ใหม่เสมอ
+   *
+   *   เวลาตรวจวัดจริงของ run อยู่ที่ `detail.runObservedAt` ต่างหาก และมันเก่ากว่า
+   *   `computedAt` เป็นปกติ (วัดได้ ~19 นาทีในชั่วโมงที่ปกติดี) การเอามันมาเป็น
+   *   `latestObservedAt` จึงถูกปฏิเสธ — อายุค่าตรวจวัดของ ThaiWater แกว่ง 17–77 นาที
+   *   อยู่แล้ว ซึ่งจะทำให้แหล่งนี้ขึ้น `delayed` เกือบตลอดทุกชั่วโมงโดยไม่มีอะไรผิด
+   * - `lastError` = ความล้มเหลวของการเผยแพร่ครั้งล่าสุด (R2 หรือตัวชี้) ซึ่งทำให้
+   *   เป็น `degraded`/`down` และทำให้ `/health` ตอบ `ok: false` — ไม่ใช่ความเงียบ
+   */
+  async exposureStatus(): Promise<SourceStatus> {
+    const nowMs = Date.now();
+    const fetchedAt = this.readMeta("fetchedAt");
+    const lastError = this.readMeta("exposureError");
+    // = `computedAt` ของ run ล่าสุดที่เผยแพร่สำเร็จ (เหตุผลอยู่ที่ EXPOSURE_RUN_LAG_MS)
+    const latestObservedAt = this.readMeta("exposureRunAt");
+    const health = deriveSourceHealth({
+      nowMs,
+      fetchedAt,
+      lastError,
+      latestObservedAt,
+      staleAfterSeconds: EXPOSURE_STALE_AFTER_MS / 1000,
+      observedLagSeconds: EXPOSURE_RUN_LAG_MS / 1000,
+    });
+    const alarmAtMs = await this.ctx.storage.getAlarm();
+    return {
+      id: "exposure-illustrative",
+      labelTh: SOURCES["exposure-illustrative"].nameTh,
+      labelEn: SOURCES["exposure-illustrative"].nameEn,
+      health,
+      fetchedAt,
+      latestObservedAt,
+      lastAttemptAt: this.readMeta("exposureLastAttemptAt"),
+      lastError,
+      detail: {
+        runId: this.readMeta("exposureRunId"),
+        // เวลาตรวจวัดใหม่สุดที่อยู่ใน run นั้น — แยกจาก latestObservedAt ข้างบน
+        // ซึ่งเป็นเวลาที่คำนวณ run
+        runObservedAt: this.readMeta("exposureObservedAt"),
+        stations: Number(this.readMeta("exposureStationCount") ?? "0"),
+        historyWindowH: DEFAULT_EXPOSURE_THRESHOLDS.historyWindowH,
+      },
+      staleAfterSeconds: EXPOSURE_STALE_AFTER_MS / 1000,
+      observedLagSeconds: EXPOSURE_RUN_LAG_MS / 1000,
+      nextAttemptAt: alarmAtMs === null ? null : new Date(alarmAtMs).toISOString(),
+    };
+  }
+
   /** Backs GET /api/v1/health. */
   async status(): Promise<SourceStatus> {
     const nowMs = Date.now();
@@ -836,8 +1040,13 @@ export class ObservationCacheDO extends DurableObject<Env> {
   async getObservations(province?: string | null, atIso?: string | null): Promise<ObservationsResponse> {
     const nowMs = Date.now();
     if (!this.isFresh(nowMs)) {
-      await this.refreshOnce(nowMs);
-      void this.armAlarm();
+      // เช่นเดียวกับอีกสองจุด: `armAlarm()` อยู่ใน finally และถูก await จริง
+      // (เดิมเป็น `void` ลอย ๆ ข้อผิดพลาดของมันจึงหายไปเงียบ ๆ)
+      try {
+        await this.refreshOnce(nowMs);
+      } finally {
+        await this.armAlarm();
+      }
     }
     // Viewing a province: make sure its stations' history is warm for the
     // timeline. Runs in the background; never blocks the response.

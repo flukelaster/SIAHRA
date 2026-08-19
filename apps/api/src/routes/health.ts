@@ -33,6 +33,13 @@ export async function handleHealth(_request: Request, env: AppEnv): Promise<Resp
       .status()
       .then((s) => [s])
       .catch((err: unknown) => [unknownStatus("tmd-radar", String(err))]),
+    // ชั้นที่เราคำนวณเอง (E10.3) — อยู่ใน DO เดียวกับค่าตรวจวัด เพราะมันคือ
+    // ผลลัพธ์ของรอบ refresh เดียวกัน แต่รายงานเป็นแหล่งของตัวเอง: การเผยแพร่
+    // ที่ล้มเหลวต้องมองเห็นได้ ไม่ใช่ถูกกลบไว้ใต้สถานะของ ThaiWater
+    env.OBSERVATION_CACHE.getByName("thaiwater")
+      .exposureStatus()
+      .then((s) => [s])
+      .catch((err: unknown) => [unknownStatus("exposure-illustrative", String(err))]),
   ];
   const sources = (await Promise.all(collectors)).flat();
   const body: HealthResponse = {
