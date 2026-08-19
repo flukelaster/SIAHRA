@@ -31,7 +31,9 @@ function inline(text: string, keyPrefix: string): ReactNode[] {
     } else if (token.startsWith("**")) {
       out.push(
         <strong key={key} className="font-semibold text-[var(--color-fg)]">
-          {token.slice(2, -2)}
+          {/* วนซ้ำเข้าไปข้างใน เพราะเอกสารเขียน **ตัวหนาที่มี `โค้ด` อยู่ข้างใน** อยู่บ่อย
+              ถ้าไม่วน backtick จะโผล่มาเป็นตัวอักษรจริงบนหน้า */}
+          {inline(token.slice(2, -2), `${key}b`)}
         </strong>,
       );
     } else {
@@ -68,6 +70,8 @@ export function renderMarkdown(source: string): ReactNode[] {
   const blocks: ReactNode[] = [];
   let paragraph: string[] = [];
   let list: { ordered: boolean; items: string[] } | null = null;
+  // แถวของตาราง Markdown ที่กำลังสะสมอยู่ (แต่ละแถวถูกแยกเป็นเซลล์แล้ว)
+  let table: string[][] | null = null;
   let key = 0;
 
   const flushParagraph = () => {
@@ -102,13 +106,66 @@ export function renderMarkdown(source: string): ReactNode[] {
     list = null;
   };
 
+  /**
+   * ตาราง Markdown — เอกสาร `flood-exposure.md` ประกาศตารางเกณฑ์เป็นตาราง และถ้า
+   * ไม่รองรับ บรรทัด `| ... |` จะกลายเป็นย่อหน้าที่อ่านไม่ออก แถวแรกเป็นหัวตาราง
+   * เมื่อแถวถัดมาเป็นเส้นคั่น (`---`) ตามไวยากรณ์ปกติ
+   */
+  const flushTable = () => {
+    if (!table) return;
+    const rows = table;
+    table = null;
+    const hasHeader = rows.length >= 2 && rows[1].every((c) => /^:?-{3,}:?$/.test(c.trim()));
+    const head = hasHeader ? rows[0] : null;
+    const body = hasHeader ? rows.slice(2) : rows;
+    const cellClass = "border border-white/10 px-2.5 py-1.5 align-top";
+    blocks.push(
+      <div key={`t${key}`} className="my-3 overflow-x-auto">
+        <table className="w-full border-collapse text-[12px] text-[var(--color-fg-muted)]">
+          {head ? (
+            <thead>
+              <tr>
+                {head.map((cell, idx) => (
+                  <th key={idx} className={`${cellClass} text-left font-semibold text-[var(--color-fg)]`}>
+                    {inline(cell, `th${key}-${idx}`)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+          ) : null}
+          <tbody>
+            {body.map((row, r) => (
+              <tr key={r}>
+                {row.map((cell, c) => (
+                  <td key={c} className={cellClass}>
+                    {inline(cell, `td${key}-${r}-${c}`)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>,
+    );
+    key++;
+  };
+
   for (const raw of lines) {
     const line = raw.trimEnd();
     if (line.trim() === "") {
       flushParagraph();
       flushList();
+      flushTable();
       continue;
     }
+    if (/^\|.*\|$/.test(line.trim())) {
+      flushParagraph();
+      flushList();
+      table ??= [];
+      table.push(line.trim().slice(1, -1).split("|").map((c) => c.trim()));
+      continue;
+    }
+    flushTable();
     const heading = /^(#{1,3})\s+(.*)$/.exec(line);
     if (heading) {
       flushParagraph();
@@ -149,5 +206,6 @@ export function renderMarkdown(source: string): ReactNode[] {
   }
   flushParagraph();
   flushList();
+  flushTable();
   return blocks;
 }

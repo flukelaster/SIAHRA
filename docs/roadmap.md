@@ -674,8 +674,18 @@ surfaced on `/health` (`lastError`, source `exposure-illustrative`) so it can ne
 - Touches: new `apps/web/src/hooks/useFloodExposure.ts`, `scene/hazardOverlay.ts` (station levels draped as halos **gated by the lowland R channel**, so only low ground lights up), `terrainMaterial.ts` (the E3.5 illustrative treatment plus a level ramp), `MapLegend.tsx` row (illustrative badge, input list, methodology link, `computedAt` age), `usePermalink.ts` (`layers` += `exposure`), i18n keys th/en — Thai label `"พื้นที่ลุ่มต่ำที่ขณะนี้มีฝนหนัก/น้ำสูงในบริเวณใกล้เคียง (ภาพประกอบ)"`, Thai note `"คำนวณเองจากภูมิประเทศ + ค่าตรวจวัดจริง ไม่ใช่การพยากรณ์ ไม่ใช่ความน่าจะเป็น"`
 - Depends: E10.3, E3.5, E3.4, E7.1, E9.1
 - Size: L — the hook, overlay, shader and legend have to land together to be checkable
-- Risk: none identified
+- Risk: `low` is two different states in one word — see the note below
 - Issue: _(not yet filed)_
+
+**`low` means two things, and the renderer must not merge them.** E10.2 fixes the contract so that a
+station whose factors are *all* `null` gets `level: "low"` — the same word as a station that was
+measured and landed in the lowest band (`docs/methodology/flood-exposure.md` §ขั้นตอนการคำนวณ item 3
+says so explicitly). A "no usable factor at all" station is a station nobody measured, not a safe one,
+and drawing it with the safe colour is exactly the silent-disappearance failure AGENTS.md forbids.
+The two are already distinguishable from the run alone — *no factor produced a band* (in practice
+every `factors.*` is `null`, and a non-finite value produces no band either) — so this is a
+rendering and legend decision, not a contract change: do **not** add a level or a flag to
+`packages/shared-types/src/exposure.ts` for it.
 
 1. The layer is off by default; the toggle and the permalink round-trip.
 2. A screenshot shows the treatment as distinct from GISTDA observed and from plain lowland.
@@ -684,6 +694,7 @@ surfaced on `/health` (`lastError`, source `exposure-illustrative`) so it can ne
 5. With a `terrain.bin` checksum mismatch (E9.1 `terrainIntegrity: "mismatch"`) the exposure layer is suppressed along with the lowland channel it is gated on, and the legend says why — it never drapes over an unverified DEM.
 6. Frame-time delta ≤1 ms.
 7. The forbidden-word grep over the touched files is clean.
+8. A station for which no factor produced a band is drawn and labelled distinctly from a measured `low` station (no data ≠ safe), and the legend names both states; screenshot in the PR.
 
 #### E10.5 — Radar term as an input (optional)
 - Touches: new `apps/api/src/exposure/radarTrend.ts` (decode the last three TMD PNGs, sample at station locations, class 0–3 via a documented lookup table), a methodology update, tests

@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { ArrowLeft } from "lucide-react";
+import floodExposureMd from "../../../../docs/methodology/flood-exposure.md?raw";
 import lowlandMd from "../../../../docs/methodology/lowland.md?raw";
 import { BRAND } from "../branding";
 import { renderMarkdown } from "../lib/markdown";
@@ -14,7 +15,7 @@ import type { MessageKey } from "../i18n";
  * GitHub) ตามการตัดสินใจใน docs/roadmap.md §4 เอกสารถูก import แบบ `?raw` จึงมี
  * แหล่งความจริงเดียว: ไฟล์ใน `docs/` ที่รีวิวใน PR เป็นตัวเดียวกับที่ผู้ใช้อ่าน
  *
- * เพิ่มเอกสารใหม่ = เพิ่มหนึ่งบรรทัดใน `DOCS` (E10.1 จะเพิ่ม flood-exposure.md)
+ * เพิ่มเอกสารใหม่ = เพิ่มหนึ่งบรรทัดใน `DOCS` (E10.1 เพิ่ม flood-exposure.md แล้ว)
  *
  * **ภาษา (E7.1):** ตัวหน้า (หัวเรื่อง ปุ่มย้อนกลับ ข้อความไม่พบเอกสาร) แปลตามภาษา
  * ที่เลือก แต่ **ตัวเอกสารเองยังเป็นภาษาไทยเสมอ** เพราะ `docs/methodology/*.md`
@@ -24,6 +25,7 @@ import type { MessageKey } from "../i18n";
  */
 const DOCS: Record<string, { titleKey: MessageKey; source: string }> = {
   lowland: { titleKey: "methodology.doc.lowland", source: lowlandMd },
+  "flood-exposure": { titleKey: "methodology.doc.floodExposure", source: floodExposureMd },
 };
 
 export default function MethodologyPage({ slug }: { slug: string }) {

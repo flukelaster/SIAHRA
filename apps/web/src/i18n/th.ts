@@ -393,6 +393,7 @@ export const th = {
   "methodology.loading": "กำลังโหลดเอกสาร...",
   "methodology.back": "กลับไปที่แผนที่ {brand}",
   "methodology.doc.lowland": "พื้นที่ลุ่มต่ำ (ภาพประกอบ)",
+  "methodology.doc.floodExposure": "ระดับการเผชิญน้ำ (ภาพประกอบ)",
   "methodology.notFoundTitle": "ไม่พบเอกสารนี้",
   "methodology.notFound": "ไม่พบเอกสาร",
   "methodology.notFoundBody": "ยังไม่มีเอกสารวิธีคำนวณชื่อ",

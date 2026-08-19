@@ -401,6 +401,7 @@ export const en: Record<keyof typeof th, string> = {
   "methodology.loading": "Loading the document…",
   "methodology.back": "Back to the {brand} map",
   "methodology.doc.lowland": "Low-lying areas (illustrative)",
+  "methodology.doc.floodExposure": "Flood exposure (illustrative)",
   "methodology.notFoundTitle": "No such document",
   "methodology.notFound": "Document not found",
   "methodology.notFoundBody": "There is no methodology document called",

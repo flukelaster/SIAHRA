@@ -6,3 +6,4 @@ export * from "./observations.js";
 export * from "./health.js";
 export * from "./flood.js";
 export * from "./radar.js";
+export * from "./exposure.js";
