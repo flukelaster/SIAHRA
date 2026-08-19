@@ -1,6 +1,16 @@
-import { Gauge, Layers } from "lucide-react";
+import { ExternalLink, Gauge, Layers } from "lucide-react";
 import type { QualityLevel, QualityMode } from "../../scene/quality";
 import type { MapLayers } from "./Map3DCanvas";
+import type { LayerDescriptors } from "../../hooks/useLayerDescriptors";
+import { useNow } from "../../hooks/useNow";
+import { describeLayerFreshness } from "../../lib/layerFreshness";
+import {
+  ILLUSTRATIVE_HATCH_ANGLE_DEG,
+  ILLUSTRATIVE_HATCH_DUTY,
+  ILLUSTRATIVE_HATCH_PERIOD_PX,
+  ILLUSTRATIVE_RIM_WIDTH_PX,
+  illustrativeCss,
+} from "../../lib/illustrativeStyle";
 
 const SITUATION_LEVELS = [
   { label: "ปกติ", color: "#22c55e" },
@@ -15,6 +25,51 @@ const RAIN_BANDS = [
   { label: "35–90 มม.", color: "#f97316" },
   { label: "> 90 มม.", color: "#ef4444" },
 ];
+
+/**
+ * สัญลักษณ์ของชั้น "ภาพประกอบ" — ลายเส้นทแยงชุดเดียวกับที่ shader วาดลงบน
+ * ภูมิประเทศ (สี มุม และสัดส่วนเส้นมาจาก `lib/illustrativeStyle.ts` ที่ทั้งสองฝั่ง
+ * อ่านร่วมกัน) เพื่อให้สัญลักษณ์ตรงกับสิ่งที่เห็นบนแผนที่จริง ๆ
+ */
+function IllustrativeSwatch() {
+  // viewBox 20×12 บนกล่องขนาด 20×12 CSS px → 1 หน่วย = 1 px พอดี ระยะห่างลายจึง
+  // เท่ากับที่ shader วาดบนแผนที่จริง (ค่าเดียวกัน คูณ pixelRatio ฝั่ง GPU)
+  //
+  // ห้ามใส่ preserveAspectRatio="none" ที่นี่: มันจะยืด pattern ตามกล่องเงียบ ๆ
+  // ถ้าวันหน้าขนาดกล่องเปลี่ยน คาบลายบน swatch จะเลิกตรงกับที่ shader วาด ทั้งที่
+  // ทั้งคู่ยังอ่านค่าคงที่ตัวเดียวกันอยู่ — คือ drift แบบที่ illustrativeStyle.ts
+  // เตือนไว้ในหัวไฟล์พอดี ค่า default (`xMidYMid meet`) รักษาสัดส่วนไว้ให้เอง
+  const period = ILLUSTRATIVE_HATCH_PERIOD_PX;
+  const stroke = period * ILLUSTRATIVE_HATCH_DUTY;
+  const rim = ILLUSTRATIVE_RIM_WIDTH_PX;
+  return (
+    <svg className="h-3 w-5 rounded-sm" viewBox="0 0 20 12" aria-hidden="true">
+      <defs>
+        <pattern
+          id="siahra-illustrative-hatch"
+          width={period}
+          height={period}
+          patternUnits="userSpaceOnUse"
+          patternTransform={`rotate(${ILLUSTRATIVE_HATCH_ANGLE_DEG})`}
+        >
+          <rect width={period} height={period} fill={illustrativeCss("dark")} />
+          <rect width={stroke} height={period} fill={illustrativeCss("light")} />
+        </pattern>
+      </defs>
+      <rect width="20" height="12" fill="url(#siahra-illustrative-hatch)" />
+      {/* เส้นขอบเข้ม = สัญญาณเดียวกับที่ shader วาดรอบแปลง (แปลงเล็กจะเหลือแค่ขอบ) */}
+      <rect
+        x={rim / 2}
+        y={rim / 2}
+        width={20 - rim}
+        height={12 - rim}
+        fill="none"
+        stroke={illustrativeCss("rim")}
+        strokeWidth={rim}
+      />
+    </svg>
+  );
+}
 
 const LAYER_ROWS: {
   key: keyof MapLayers;
@@ -59,12 +114,7 @@ const LAYER_ROWS: {
     key: "lowland",
     label: "พื้นที่ลุ่มต่ำ",
     note: "ประมาณจากความสูงภูมิประเทศ ไม่ใช่การพยากรณ์น้ำท่วม",
-    swatch: (
-      <span
-        className="h-3 w-5 rounded-sm"
-        style={{ background: "linear-gradient(90deg,#0d52d9,#4db8ff)" }}
-      />
-    ),
+    swatch: <IllustrativeSwatch />,
   },
   {
     key: "hazard",
@@ -156,19 +206,63 @@ function LegendRow({ label, color, shape = "circle" }: { label: string; color: s
 
 const QUALITY_LABEL: Record<QualityLevel, string> = { high: "สูง", balanced: "สมดุล", low: "ประหยัด" };
 
+/**
+ * ป้ายชนิดความรู้ + บรรทัดเวลาของชั้นข้อมูลหนึ่งแถว
+ *
+ * อายุข้อมูลคำนวณจาก `nowMs` ที่ส่งเข้ามา (นาฬิกาเดินจาก `useNow`) ทุกครั้งที่
+ * เรนเดอร์ ไม่ได้เก็บไว้ที่ไหนและไม่ได้มาจาก API — และ `fetchedAt: null` จะถูกแปลง
+ * เป็นข้อความตามชนิดของชั้น ไม่ใช่เวลาปัจจุบัน (ดู `lib/layerFreshness.ts`)
+ */
+function LayerMeta({ entry, nowMs }: { entry: NonNullable<LayerDescriptors[keyof MapLayers]>; nowMs: number }) {
+  const { descriptor } = entry;
+  const f = describeLayerFreshness(descriptor, entry.health, nowMs);
+  return (
+    <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+      <span
+        className={`rounded px-1 py-px text-[9px] leading-[1.35] ring-1 ring-inset ${f.badge.className}`}
+        title={f.badge.title}
+      >
+        {f.badge.label}
+      </span>
+      <span
+        className={`text-[10px] ${f.amber ? "text-[var(--color-risk-medium)]" : "text-[var(--color-fg-subtle)]"}`}
+      >
+        {f.timeText}
+        {f.statusText ? ` · ${f.statusText}` : ""}
+      </span>
+      {descriptor.methodologyUrl ? (
+        <a
+          href={descriptor.methodologyUrl}
+          target="_blank"
+          rel="noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="inline-flex items-center gap-0.5 text-[10px] text-[var(--color-accent)] hover:underline"
+        >
+          วิธีคำนวณ
+          <ExternalLink size={9} aria-hidden="true" />
+        </a>
+      ) : null}
+    </span>
+  );
+}
+
 export function MapLegend({
   layers,
   onToggle,
+  descriptors,
   quality,
   qualityLevel,
   onQualityChange,
 }: {
   layers: MapLayers;
   onToggle: (key: keyof MapLayers, value: boolean) => void;
+  /** `HazardLayerDescriptor` ต่อชั้น (useLayerDescriptors) — ไม่มี = ไม่ใช่ข้อมูล */
+  descriptors: LayerDescriptors;
   quality: QualityMode;
   qualityLevel: QualityLevel;
   onQualityChange: (q: QualityMode) => void;
 }) {
+  const nowMs = useNow();
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
@@ -177,7 +271,9 @@ export function MapLegend({
       </div>
 
       <ul className="flex flex-col gap-1">
-        {LAYER_ROWS.map((row) => (
+        {LAYER_ROWS.map((row) => {
+          const entry = descriptors[row.key];
+          return (
           <li key={row.key}>
             <label className="flex cursor-pointer items-start gap-2 rounded-lg px-1.5 py-1 hover:bg-white/5">
               <input
@@ -192,10 +288,12 @@ export function MapLegend({
               <span className="min-w-0 leading-tight">
                 <span className="block text-xs text-[var(--color-fg)]">{row.label}</span>
                 <span className="block text-[10px] text-[var(--color-fg-subtle)]">{row.note}</span>
+                {entry ? <LayerMeta entry={entry} nowMs={nowMs} /> : null}
               </span>
             </label>
           </li>
-        ))}
+          );
+        })}
       </ul>
 
       <div className="h-px bg-white/8" />

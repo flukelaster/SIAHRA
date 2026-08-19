@@ -2,6 +2,7 @@ import type { ObservationsResponse } from "@siahra/shared-types";
 import type { Province } from "../../data/types";
 import { ApiStatusFooter } from "./ApiStatusFooter";
 import type { MapLayers } from "./Map3DCanvas";
+import type { LayerDescriptors } from "../../hooks/useLayerDescriptors";
 import type { QualityLevel, QualityMode } from "../../scene/quality";
 import { MapLegend } from "./MapLegend";
 import { ProvinceSelector } from "./ProvinceSelector";
@@ -14,6 +15,7 @@ export function Sidebar({
   observations,
   layers,
   onToggleLayer,
+  descriptors,
   quality,
   qualityLevel,
   onQualityChange,
@@ -26,6 +28,7 @@ export function Sidebar({
   observations: ObservationsResponse | null;
   layers: MapLayers;
   onToggleLayer: (key: keyof MapLayers, value: boolean) => void;
+  descriptors: LayerDescriptors;
   quality: QualityMode;
   qualityLevel: QualityLevel;
   onQualityChange: (q: QualityMode) => void;
@@ -45,6 +48,7 @@ export function Sidebar({
         <MapLegend
           layers={layers}
           onToggle={onToggleLayer}
+          descriptors={descriptors}
           quality={quality}
           qualityLevel={qualityLevel}
           onQualityChange={onQualityChange}

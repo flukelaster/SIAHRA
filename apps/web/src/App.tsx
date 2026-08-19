@@ -10,6 +10,7 @@ import { TopBar, type SearchPlace } from "./components/layout/TopBar";
 import { PROVINCES } from "./data/provinces";
 import { aoiIdForProvince } from "./data/types";
 import { useApiHealth, sourceStatus } from "./hooks/useApiHealth";
+import { useLayerDescriptors } from "./hooks/useLayerDescriptors";
 import { useEarthquakeFeed } from "./hooks/useEarthquakeFeed";
 import { useDams } from "./hooks/useDams";
 import { useFloodExtent } from "./hooks/useFloodExtent";
@@ -103,6 +104,15 @@ export default function App() {
   const observationsStale =
     apiHealth.apiDown || (thaiwater !== null && thaiwater.health !== "ok");
   const aoiId = aoiIdForProvince(provinceCode);
+  // ป้ายชนิดความรู้ + เวลาของแต่ละชั้นใน legend มาจาก descriptor ที่ backend ประกาศ
+  // (หรือจาก data/staticLayerDescriptors.ts สำหรับชั้นคงที่) — อายุคำนวณตอนเรนเดอร์
+  const layerDescriptors = useLayerDescriptors({
+    observations,
+    radar,
+    floodExtent,
+    dams,
+    health: apiHealth.health,
+  });
 
   const toggleLayer = useCallback((key: keyof MapLayers, value: boolean) => {
     setLayers((l) => ({ ...l, [key]: value }));
@@ -271,6 +281,7 @@ export default function App() {
                   <MapLegend
                     layers={layers}
                     onToggle={toggleLayer}
+                    descriptors={layerDescriptors}
                     quality={quality}
                     qualityLevel={qualityLevel}
                     onQualityChange={setQuality}
@@ -316,6 +327,7 @@ export default function App() {
             observations={observations.data}
             layers={layers}
             onToggleLayer={toggleLayer}
+            descriptors={layerDescriptors}
             quality={quality}
             qualityLevel={qualityLevel}
             onQualityChange={setQuality}

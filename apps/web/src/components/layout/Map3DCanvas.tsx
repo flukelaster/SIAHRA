@@ -37,6 +37,7 @@ import { buildTerrainMesh, type TerrainField } from "../../scene/TerrainMesh";
 import { createTerrainSharedUniforms } from "../../scene/terrainMaterial";
 import { TerrainTileTree, type TerrainTileStats } from "../../scene/TerrainTiles";
 import { formatNumber } from "../../lib/number";
+import { ILLUSTRATIVE_HATCH_PERIOD_PX } from "../../lib/illustrativeStyle";
 
 export interface MapLayers {
   imagery: boolean;
@@ -359,6 +360,11 @@ export function Map3DCanvas({
             1,
             THREE.MathUtils.smoothstep(d, 0.12, 0.45),
           );
+          // ลายเส้นของชั้น "ภาพประกอบ" วัดเป็นพิกเซลบนจอ จึงต้องคูณ pixelRatio
+          // ที่ preset คุณภาพเปลี่ยนได้ตลอด (scene/quality.ts) ให้ระยะห่างบนจอ
+          // เท่ากับสัญลักษณ์ใน legend เสมอ
+          terrain.material.uniforms.uHatchPx.value =
+            ILLUSTRATIVE_HATCH_PERIOD_PX * h.renderer.getPixelRatio();
           if (heavy) {
             const all: CSS2DObject[] = [];
             const collect = (g: THREE.Object3D | null | undefined) =>
