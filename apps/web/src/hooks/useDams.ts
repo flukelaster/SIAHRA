@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import type { DamsResponse } from "@siahra/shared-types";
+import { errorMessage, type ErrorMessage } from "../lib/errorMessage";
 
 export interface DamsState {
   data: DamsResponse | null;
   loading: boolean;
-  error: string | null;
+  /** คีย์หรือข้อความดิบ — แปลตอนเรนเดอร์ ไม่ใช่ตอนที่ fetch ล้มเหลว */
+  error: ErrorMessage | null;
 }
 
 const REFRESH_MS = 15 * 60 * 1000;
@@ -27,7 +29,7 @@ export function useDams(provinceCode: string | null): DamsState {
         timer = window.setTimeout(load, REFRESH_MS);
       } catch (err) {
         if (cancelled || controller.signal.aborted) return;
-        setState((s) => ({ ...s, loading: false, error: err instanceof Error ? err.message : "โหลดไม่สำเร็จ" }));
+        setState((s) => ({ ...s, loading: false, error: errorMessage(err, "error.loadFailed") }));
         timer = window.setTimeout(load, 15000);
       }
     };

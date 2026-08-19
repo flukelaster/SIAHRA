@@ -3,6 +3,8 @@ import type { QualityLevel, QualityMode } from "../../scene/quality";
 import type { MapLayers } from "./Map3DCanvas";
 import type { LayerDescriptors } from "../../hooks/useLayerDescriptors";
 import { useNow } from "../../hooks/useNow";
+import { useLang } from "../../i18n/context";
+import type { Lang, MessageKey, TFunction } from "../../i18n";
 import { describeLayerFreshness } from "../../lib/layerFreshness";
 import {
   ILLUSTRATIVE_HATCH_ANGLE_DEG,
@@ -12,18 +14,18 @@ import {
   illustrativeCss,
 } from "../../lib/illustrativeStyle";
 
-const SITUATION_LEVELS = [
-  { label: "ปกติ", color: "#22c55e" },
-  { label: "น้ำมาก", color: "#f97316" },
-  { label: "ล้นตลิ่ง", color: "#ef4444" },
-  { label: "น้ำน้อย", color: "#fcd34d" },
+const SITUATION_LEVELS: { key: MessageKey; color: string }[] = [
+  { key: "situation.3", color: "#22c55e" },
+  { key: "situation.4", color: "#f97316" },
+  { key: "situation.5", color: "#ef4444" },
+  { key: "situation.2", color: "#fcd34d" },
 ];
 
-const RAIN_BANDS = [
-  { label: "< 10 มม.", color: "#38bdf8" },
-  { label: "10–35 มม.", color: "#eab308" },
-  { label: "35–90 มม.", color: "#f97316" },
-  { label: "> 90 มม.", color: "#ef4444" },
+const RAIN_BANDS: { key: MessageKey; color: string }[] = [
+  { key: "legend.rain.band1", color: "#38bdf8" },
+  { key: "legend.rain.band2", color: "#eab308" },
+  { key: "legend.rain.band3", color: "#f97316" },
+  { key: "legend.rain.band4", color: "#ef4444" },
 ];
 
 /**
@@ -73,14 +75,14 @@ function IllustrativeSwatch() {
 
 const LAYER_ROWS: {
   key: keyof MapLayers;
-  label: string;
-  note: string;
+  labelKey: MessageKey;
+  noteKey: MessageKey;
   swatch: React.ReactNode;
 }[] = [
   {
     key: "imagery",
-    label: "ภาพดาวเทียม",
-    note: "พื้นผิวจริงจากภาพถ่ายดาวเทียม",
+    labelKey: "legend.layer.imagery",
+    noteKey: "legend.layer.imagery.note",
     swatch: (
       <span
         className="h-3 w-5 rounded-sm"
@@ -90,8 +92,8 @@ const LAYER_ROWS: {
   },
   {
     key: "radar",
-    label: "เรดาร์ฝน (กรมอุตุนิยมวิทยา)",
-    note: "ภาพสะท้อนเรดาร์ 3 ชม. ล่าสุด เล่นวนซ้ำ · ตรวจวัดจริง",
+    labelKey: "legend.layer.radar",
+    noteKey: "legend.layer.radar.note",
     swatch: (
       <span
         className="h-3 w-5 rounded-sm"
@@ -101,8 +103,8 @@ const LAYER_ROWS: {
   },
   {
     key: "floodExtent",
-    label: "น้ำท่วมจากภาพดาวเทียม (GISTDA)",
-    note: "ตรวจพบจากภาพถ่ายดาวเทียมชุดล่าสุด · ไม่ใช่การพยากรณ์",
+    labelKey: "legend.layer.floodExtent",
+    noteKey: "legend.layer.floodExtent.note",
     swatch: (
       <span
         className="h-3 w-5 rounded-sm"
@@ -112,14 +114,14 @@ const LAYER_ROWS: {
   },
   {
     key: "lowland",
-    label: "พื้นที่ลุ่มต่ำ",
-    note: "ประมาณจากความสูงภูมิประเทศ ไม่ใช่การพยากรณ์น้ำท่วม",
+    labelKey: "legend.layer.lowland",
+    noteKey: "legend.layer.lowland.note",
     swatch: <IllustrativeSwatch />,
   },
   {
     key: "hazard",
-    label: "บริเวณสถานีเตือนภัย",
-    note: "รัศมีรอบสถานีที่ตรวจพบฝนหนัก/น้ำมาก (ตรวจวัดจริง)",
+    labelKey: "legend.layer.hazard",
+    noteKey: "legend.layer.hazard.note",
     swatch: (
       <span
         className="h-3 w-5 rounded-sm"
@@ -129,8 +131,8 @@ const LAYER_ROWS: {
   },
   {
     key: "stations",
-    label: "สถานีตรวจวัด",
-    note: "จุดกลม = ระดับน้ำ · ข้าวหลามตัด = น้ำฝน",
+    labelKey: "legend.layer.stations",
+    noteKey: "legend.layer.stations.note",
     swatch: (
       <span className="flex items-center gap-1">
         <span className="h-2.5 w-2.5 rounded-full border border-white/80 bg-[#22c55e]" />
@@ -140,8 +142,8 @@ const LAYER_ROWS: {
   },
   {
     key: "water",
-    label: "แม่น้ำ / คลอง / แหล่งน้ำ (OSM)",
-    note: "ผิวน้ำ 3 มิติ วางตามระดับภูมิประเทศ",
+    labelKey: "legend.layer.water",
+    noteKey: "legend.layer.water.note",
     swatch: (
       <span
         className="h-3 w-5 rounded-sm"
@@ -151,8 +153,8 @@ const LAYER_ROWS: {
   },
   {
     key: "roads",
-    label: "ถนนสายหลัก (OSM)",
-    note: "มอเตอร์เวย์ / ทางหลวง / ถนนสายรอง",
+    labelKey: "legend.layer.roads",
+    noteKey: "legend.layer.roads.note",
     swatch: (
       <span
         className="h-3 w-5 rounded-sm"
@@ -162,14 +164,14 @@ const LAYER_ROWS: {
   },
   {
     key: "dams",
-    label: "เขื่อน / อ่างเก็บน้ำ",
-    note: "% ความจุที่รายงาน (ThaiWater)",
+    labelKey: "legend.layer.dams",
+    noteKey: "legend.layer.dams.note",
     swatch: <span className="h-3 w-3 rounded-sm border border-white/80 bg-[#38bdf8]" />,
   },
   {
     key: "sunlight",
-    label: "แสงอาทิตย์ตามเวลาจริง",
-    note: "ตำแหน่งดวงอาทิตย์/ท้องฟ้าตามเวลาปัจจุบันหรือเวลาบนไทม์ไลน์",
+    labelKey: "legend.layer.sunlight",
+    noteKey: "legend.layer.sunlight.note",
     swatch: (
       <span
         className="h-3 w-5 rounded-sm"
@@ -179,17 +181,27 @@ const LAYER_ROWS: {
   },
   {
     key: "trees",
-    label: "ต้นไม้ (ESA WorldCover)",
-    note: "ป่า/สวนจากแผนที่สิ่งปกคลุมดิน 10 ม. แสดงเมื่อซูมใกล้",
+    labelKey: "legend.layer.trees",
+    noteKey: "legend.layer.trees.note",
     swatch: <span className="h-3 w-5 rounded-sm" style={{ background: "linear-gradient(90deg,#2c4f1f,#6f9a3c)" }} />,
   },
   {
     key: "buildings",
-    label: "อาคาร 3 มิติ (OSM)",
-    note: "ทั้งจังหวัด · มองไกลแสดงเฉพาะอาคารใหญ่/สูง",
+    labelKey: "legend.layer.buildings",
+    noteKey: "legend.layer.buildings.note",
     swatch: <span className="h-3 w-5 rounded-sm bg-[#d6d9de]" />,
   },
 ];
+
+/**
+ * ลิงก์ไปหน้า `/methodology/...` พร้อม `?lang=` ปัจจุบัน — หน้านั้นเป็นคนละ route
+ * ที่ไม่ได้ mount `usePermalinkSync` จึงอ่านภาษาได้จาก query string เท่านั้น
+ * (หรือจาก localStorage ถ้าผู้ใช้เคยกดสลับเอง)
+ */
+function methodologyHref(url: string, lang: Lang): string {
+  if (lang === "th" || url.includes("lang=")) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}lang=${lang}`;
+}
 
 function LegendRow({ label, color, shape = "circle" }: { label: string; color: string; shape?: "circle" | "diamond" }) {
   return (
@@ -204,7 +216,11 @@ function LegendRow({ label, color, shape = "circle" }: { label: string; color: s
   );
 }
 
-const QUALITY_LABEL: Record<QualityLevel, string> = { high: "สูง", balanced: "สมดุล", low: "ประหยัด" };
+const QUALITY_LABEL: Record<QualityLevel, MessageKey> = {
+  high: "quality.high",
+  balanced: "quality.balanced",
+  low: "quality.low",
+};
 
 /**
  * ป้ายชนิดความรู้ + บรรทัดเวลาของชั้นข้อมูลหนึ่งแถว
@@ -213,9 +229,19 @@ const QUALITY_LABEL: Record<QualityLevel, string> = { high: "สูง", balance
  * เรนเดอร์ ไม่ได้เก็บไว้ที่ไหนและไม่ได้มาจาก API — และ `fetchedAt: null` จะถูกแปลง
  * เป็นข้อความตามชนิดของชั้น ไม่ใช่เวลาปัจจุบัน (ดู `lib/layerFreshness.ts`)
  */
-function LayerMeta({ entry, nowMs }: { entry: NonNullable<LayerDescriptors[keyof MapLayers]>; nowMs: number }) {
+function LayerMeta({
+  entry,
+  nowMs,
+  lang,
+  t,
+}: {
+  entry: NonNullable<LayerDescriptors[keyof MapLayers]>;
+  nowMs: number;
+  lang: Lang;
+  t: TFunction;
+}) {
   const { descriptor } = entry;
-  const f = describeLayerFreshness(descriptor, entry.health, nowMs);
+  const f = describeLayerFreshness(descriptor, entry.health, nowMs, lang, t);
   return (
     <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
       <span
@@ -232,13 +258,15 @@ function LayerMeta({ entry, nowMs }: { entry: NonNullable<LayerDescriptors[keyof
       </span>
       {descriptor.methodologyUrl ? (
         <a
-          href={descriptor.methodologyUrl}
+          // พาภาษาปัจจุบันไปด้วย ไม่งั้นคนที่มาด้วย ?lang=en แต่ไม่เคยกดปุ่มสลับ
+          // (จึงไม่มีค่าใน localStorage) จะไปเจอหน้าเอกสารเป็นภาษาไทย
+          href={methodologyHref(descriptor.methodologyUrl, lang)}
           target="_blank"
           rel="noreferrer"
           onClick={(e) => e.stopPropagation()}
           className="inline-flex items-center gap-0.5 text-[10px] text-[var(--color-accent)] hover:underline"
         >
-          วิธีคำนวณ
+          {t("freshness.methodology")}
           <ExternalLink size={9} aria-hidden="true" />
         </a>
       ) : null}
@@ -263,11 +291,12 @@ export function MapLegend({
   onQualityChange: (q: QualityMode) => void;
 }) {
   const nowMs = useNow();
+  const { lang, t } = useLang();
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
         <Layers size={14} className="text-[var(--color-accent)]" aria-hidden="true" />
-        <p className="text-xs font-semibold text-[var(--color-fg)]">ชั้นข้อมูลและสัญลักษณ์</p>
+        <p className="text-xs font-semibold text-[var(--color-fg)]">{t("legend.title")}</p>
       </div>
 
       <ul className="flex flex-col gap-1">
@@ -286,9 +315,9 @@ export function MapLegend({
                 {row.swatch}
               </span>
               <span className="min-w-0 leading-tight">
-                <span className="block text-xs text-[var(--color-fg)]">{row.label}</span>
-                <span className="block text-[10px] text-[var(--color-fg-subtle)]">{row.note}</span>
-                {entry ? <LayerMeta entry={entry} nowMs={nowMs} /> : null}
+                <span className="block text-xs text-[var(--color-fg)]">{t(row.labelKey)}</span>
+                <span className="block text-[10px] text-[var(--color-fg-subtle)]">{t(row.noteKey)}</span>
+                {entry ? <LayerMeta entry={entry} nowMs={nowMs} lang={lang} t={t} /> : null}
               </span>
             </label>
           </li>
@@ -300,9 +329,9 @@ export function MapLegend({
 
       <div className="flex items-center justify-between gap-2">
         <span className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--color-fg-subtle)]">
-          <Gauge size={12} aria-hidden="true" /> คุณภาพภาพ
+          <Gauge size={12} aria-hidden="true" /> {t("quality.label")}
           <span className="text-[var(--color-fg-muted)]">
-            {quality === "auto" ? `(อัตโนมัติ: ${QUALITY_LABEL[qualityLevel]})` : ""}
+            {quality === "auto" ? t("quality.autoWith", { level: t(QUALITY_LABEL[qualityLevel]) }) : ""}
           </span>
         </span>
         <div className="flex rounded-md bg-white/5 p-0.5">
@@ -316,7 +345,7 @@ export function MapLegend({
                 quality === q ? "bg-[var(--color-accent)] text-white" : "text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
               }`}
             >
-              {q === "auto" ? "อัตโนมัติ" : q === "high" ? "สูง" : "ประหยัด"}
+              {t(q === "auto" ? "quality.auto" : q === "high" ? "quality.high" : "quality.low")}
             </button>
           ))}
         </div>
@@ -326,20 +355,20 @@ export function MapLegend({
 
       <div className="flex flex-col gap-1.5">
         <p className="text-[11px] font-medium text-[var(--color-fg-subtle)]">
-          สถานีวัดระดับน้ำ (เกณฑ์ ThaiWater)
+          {t("legend.waterlevelScale")}
         </p>
         <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
           {SITUATION_LEVELS.map((l) => (
-            <LegendRow key={l.label} {...l} />
+            <LegendRow key={l.key} label={t(l.key)} color={l.color} />
           ))}
         </div>
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <p className="text-[11px] font-medium text-[var(--color-fg-subtle)]">ฝนสะสม 24 ชม.</p>
+        <p className="text-[11px] font-medium text-[var(--color-fg-subtle)]">{t("legend.rainScale")}</p>
         <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
           {RAIN_BANDS.map((l) => (
-            <LegendRow key={l.label} {...l} shape="diamond" />
+            <LegendRow key={l.key} label={t(l.key)} color={l.color} shape="diamond" />
           ))}
         </div>
       </div>
@@ -347,14 +376,14 @@ export function MapLegend({
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center gap-2 text-xs text-[var(--color-fg-muted)]">
           <span className="h-0.5 w-5 rounded bg-white shadow-[0_0_6px_rgba(255,255,255,0.8)]" aria-hidden="true" />
-          ขอบเขตจังหวัด
+          {t("legend.provinceBoundary")}
         </div>
         <div className="flex items-center gap-2 text-xs text-[var(--color-fg-muted)]">
           <span
             className="h-3 w-3 rounded-full border-2 border-red-400/80 shadow-[0_0_0_2px_rgba(239,68,68,0.25)]"
             aria-hidden="true"
           />
-          แผ่นดินไหวที่ตรวจพบ (30 วัน)
+          {t("legend.earthquakes")}
         </div>
       </div>
     </div>

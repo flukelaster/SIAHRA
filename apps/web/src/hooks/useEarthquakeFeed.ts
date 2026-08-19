@@ -1,6 +1,7 @@
 import { useEffect, useReducer, useRef } from "react";
 import { WS_HEARTBEAT_LEGACY_WATCHDOG_MS, WS_HEARTBEAT_WATCHDOG_MS } from "@siahra/shared-types";
 import type { EarthquakeRecentResponse, EqWsMessage } from "@siahra/shared-types";
+import { errorMessage } from "../lib/errorMessage";
 import { nextReconnectDelayMs } from "../lib/feed/backoff";
 import { feedReducer, initialFeedState } from "../lib/feed/reducer";
 import type { EarthquakeFeedState, FeedStatus } from "../lib/feed/reducer";
@@ -77,7 +78,7 @@ export function useEarthquakeFeed(): EarthquakeFeedState {
         if (cancelled) return;
         dispatch({
           type: "poll.error",
-          message: err instanceof Error ? err.message : "ไม่สามารถเชื่อมต่อข้อมูลแผ่นดินไหว",
+          message: errorMessage(err, "error.earthquakeFeed"),
         });
       }
     };

@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { useT } from "../../i18n/context";
 
 export interface SheetTab {
   key: string;
@@ -22,6 +23,7 @@ export function MobileSheet({
   onOpenChange: (open: boolean) => void;
   height: number;
 }) {
+  const t = useT();
   const [active, setActive] = useState(tabs[0]?.key ?? "");
   const current = tabs.find((t) => t.key === active) ?? tabs[0];
   return (
@@ -50,7 +52,7 @@ export function MobileSheet({
         <button
           type="button"
           onClick={() => onOpenChange(!open)}
-          aria-label={open ? "ย่อแผง" : "ขยายแผง"}
+          aria-label={open ? t("sheet.collapse") : t("sheet.expand")}
           className="ml-auto flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-[var(--color-fg-muted)] hover:bg-white/8"
         >
           {open ? <ChevronDown size={14} /> : <ChevronUp size={14} />}

@@ -2,7 +2,10 @@ import { Camera, Check, Link2, Search } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { BRAND } from "../../branding";
 import { BrandMark } from "./BrandMark";
+import { LanguageToggle } from "./LanguageToggle";
 import type { Province } from "../../data/types";
+import { useLang } from "../../i18n/context";
+import type { MessageKey } from "../../i18n";
 
 /** Something the search box can jump to besides a province. */
 export interface SearchPlace {
@@ -34,6 +37,7 @@ export function TopBar({
   onSnapshot: () => void;
   height: number;
 }) {
+  const { lang, t } = useLang();
   const [copied, setCopied] = useState(false);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -47,14 +51,24 @@ export function TopBar({
     const prov: Match[] = provinces
       .filter((p) => p.nameTh.includes(raw) || p.nameEn.toLowerCase().includes(q))
       .slice(0, 5)
-      .map((p) => ({ key: `p:${p.code}`, label: p.nameTh, sub: `จังหวัด · ${p.nameEn}`, run: () => onSelectProvince(p.code) }));
-    const KIND: Record<SearchPlace["kind"], string> = { amphoe: "อำเภอ/เขต", station: "สถานีตรวจวัด", dam: "เขื่อน/อ่างเก็บน้ำ" };
+      .map((p) => ({
+        key: `p:${p.code}`,
+        // ชื่อจังหวัดมาจาก data/provinces.ts ที่มีทั้ง nameTh/nameEn อยู่แล้ว
+        label: lang === "th" ? p.nameTh : p.nameEn,
+        sub: `${t("topbar.kind.province")} · ${lang === "th" ? p.nameEn : p.nameTh}`,
+        run: () => onSelectProvince(p.code),
+      }));
+    const KIND: Record<SearchPlace["kind"], MessageKey> = {
+      amphoe: "topbar.kind.amphoe",
+      station: "topbar.kind.station",
+      dam: "topbar.kind.dam",
+    };
     const pl: Match[] = places
       .filter((pl) => pl.label.includes(raw) || pl.sub.includes(raw))
       .slice(0, 8)
-      .map((pl) => ({ key: pl.key, label: pl.label, sub: `${KIND[pl.kind]} · ${pl.sub}`, run: () => onSelectPlace(pl) }));
+      .map((pl) => ({ key: pl.key, label: pl.label, sub: `${t(KIND[pl.kind])} · ${pl.sub}`, run: () => onSelectPlace(pl) }));
     return [...prov, ...pl].slice(0, 10);
-  }, [query, provinces, places, onSelectProvince, onSelectPlace]);
+  }, [query, provinces, places, onSelectProvince, onSelectPlace, lang, t]);
 
   const choose = (m: Match) => {
     m.run();
@@ -76,7 +90,7 @@ export function TopBar({
           >
             {BRAND.name}
           </h1>
-          <p className="text-[11px] text-[var(--color-fg-muted)]">{BRAND.taglineTh}</p>
+          <p className="text-[11px] text-[var(--color-fg-muted)]">{t("brand.tagline")}</p>
         </div>
       </div>
 
@@ -102,8 +116,8 @@ export function TopBar({
               if (e.key === "Enter" && matches.length > 0) choose(matches[0]);
               if (e.key === "Escape") setOpen(false);
             }}
-            placeholder="ค้นหาจังหวัด อำเภอ สถานี เขื่อน..."
-            aria-label="ค้นหาจังหวัด อำเภอ สถานี หรือเขื่อน"
+            placeholder={t("topbar.searchPlaceholder")}
+            aria-label={t("topbar.searchAria")}
             className="w-full rounded-lg border border-white/10 bg-white/5 py-1.5 pr-3 pl-9 text-sm text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)] focus:bg-white/8 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]"
           />
         </label>
@@ -137,23 +151,25 @@ export function TopBar({
             setCopied(ok);
             window.setTimeout(() => setCopied(false), 1800);
           }}
-          title="คัดลอกลิงก์มุมมองนี้"
-          aria-label="คัดลอกลิงก์มุมมองนี้"
+          title={t("topbar.shareTitle")}
+          aria-label={t("topbar.shareTitle")}
           className="flex h-8 items-center gap-1.5 rounded-lg border border-white/10 px-2.5 text-xs text-[var(--color-fg-muted)] transition-colors hover:border-white/25 hover:text-[var(--color-fg)]"
         >
           {copied ? <Check size={14} className="text-[var(--color-success)]" /> : <Link2 size={14} />}
-          {copied ? "คัดลอกแล้ว" : "แชร์"}
+          {copied ? t("topbar.copied") : t("topbar.share")}
         </button>
         <button
           type="button"
           onClick={onSnapshot}
-          title="บันทึกภาพแผนที่"
-          aria-label="บันทึกภาพแผนที่"
+          title={t("topbar.snapshotTitle")}
+          aria-label={t("topbar.snapshotTitle")}
           className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-[var(--color-fg-muted)] transition-colors hover:border-white/25 hover:text-[var(--color-fg)]"
         >
           <Camera size={14} />
         </button>
       </div>
+
+      <LanguageToggle compact={compact} />
 
       <a
         href="https://www.thaiwater.net/"
@@ -161,7 +177,7 @@ export function TopBar({
         rel="noreferrer noopener"
         className={`shrink-0 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-[var(--color-fg-muted)] transition-colors duration-150 hover:border-white/25 hover:text-[var(--color-fg)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] ${compact ? "hidden" : ""}`}
       >
-        แหล่งข้อมูล
+        {t("topbar.sources")}
       </a>
     </header>
   );

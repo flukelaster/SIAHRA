@@ -15,11 +15,11 @@ export function readPermalink(): PermalinkState {
  * timeline position.
  */
 export function usePermalinkSync(state: PermalinkInput) {
-  const { provinceCode, pose, exaggeration, layers, atIso } = state;
+  const { provinceCode, pose, exaggeration, layers, atIso, lang } = state;
   const timer = useRef<number | null>(null);
   const serialized = useMemo(
-    () => serialisePermalink({ provinceCode, pose, exaggeration, layers, atIso }),
-    [provinceCode, pose, exaggeration, layers, atIso],
+    () => serialisePermalink({ provinceCode, pose, exaggeration, layers, atIso, lang }),
+    [provinceCode, pose, exaggeration, layers, atIso, lang],
   );
 
   useEffect(() => {

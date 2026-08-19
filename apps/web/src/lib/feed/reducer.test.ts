@@ -115,9 +115,9 @@ describe("feedReducer — degraded paths", () => {
   });
 
   it("a failed poll keeps the last known events and asOf visible", () => {
-    const failed = feedReducer(live, { type: "poll.error", message: "HTTP 503" });
+    const failed = feedReducer(live, { type: "poll.error", message: { raw: "HTTP 503" } });
     expect(failed.status).toBe("error");
-    expect(failed.error).toBe("HTTP 503");
+    expect(failed.error).toEqual({ raw: "HTTP 503" });
     expect(failed.events).toHaveLength(1);
     expect(failed.asOf).toBe(live.asOf);
   });

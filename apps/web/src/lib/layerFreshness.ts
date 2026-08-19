@@ -16,14 +16,19 @@
  *      - probabilistic    → ยังไม่มีชั้นแบบนี้ในระบบ แต่ต้องมีข้อความรองรับไว้
  *    การใช้ "ยังไม่เคยได้รับข้อมูล" กับ static-reference จะเป็นการกล่าวหาว่าดึงพลาด
  *    ทั้งที่ความจริงคือไม่เคยจดเวลาไว้ — คนละเรื่องกัน
+ *
+ * ทั้งสองข้อต้องเป็นจริงในทั้งสองภาษา ข้อความจึงอยู่ใน `i18n/{th,en}.ts` และไฟล์นี้
+ * ถือแค่ "คีย์ไหนคู่กับสถานะไหน" (ดูเทสใน `i18n/catalog.test.ts` ที่กันไม่ให้
+ * delayed กับ stale กลายเป็นข้อความเดียวกัน)
  */
 import type { EpistemicClass, HazardLayerDescriptor, SourceHealth } from "@siahra/shared-types";
-import { formatAge, formatTime, NEVER_RECEIVED_TH } from "./time";
+import type { Lang, MessageKey, TFunction } from "../i18n";
+import { formatAge, formatTime } from "./time";
 
 export interface EpistemicBadge {
-  label: string;
-  /** คำอธิบายเต็มสำหรับ `title` */
-  title: string;
+  labelKey: MessageKey;
+  /** คีย์ของคำอธิบายเต็มสำหรับ `title` */
+  titleKey: MessageKey;
   /** คลาส Tailwind ของชิป */
   className: string;
 }
@@ -34,25 +39,25 @@ export interface EpistemicBadge {
  */
 export const EPISTEMIC_BADGE: Record<EpistemicClass, EpistemicBadge> = {
   observed: {
-    label: "ตรวจวัดจริง",
-    title: "ค่าที่เครื่องมือตรวจวัด/ดาวเทียมรายงานมาโดยตรง",
+    labelKey: "badge.observed",
+    titleKey: "badge.observed.title",
     className: "bg-[var(--color-success)]/15 text-[#7ee2a8] ring-[var(--color-success)]/35",
   },
   "static-reference": {
-    label: "ข้อมูลอ้างอิงคงที่",
-    title: "ชุดข้อมูลอ้างอิงที่ฝังมากับแผนที่ ไม่ได้อัปเดตแบบเรียลไทม์",
+    labelKey: "badge.staticReference",
+    titleKey: "badge.staticReference.title",
     className: "bg-white/8 text-[var(--color-fg-muted)] ring-white/15",
   },
   illustrative: {
-    label: "ภาพประกอบ",
-    title: "เราคำนวณเองจากภูมิประเทศเพื่อประกอบการอ่านแผนที่ ไม่ใช่การตรวจวัดและไม่ใช่การพยากรณ์",
+    labelKey: "badge.illustrative",
+    titleKey: "badge.illustrative.title",
     className: "bg-[#8b5cf6]/18 text-[#c4b0f5] ring-[#8b5cf6]/40",
   },
   probabilistic: {
     // ยังไม่มีชั้นชนิดนี้ในระบบ (ดู D-1 ใน docs/roadmap.md) — มีไว้ให้ tsc บังคับว่า
     // ครบทุกชนิด ถ้าวันหนึ่งมีชั้นแบบนี้จริงจะได้ไม่หลุดออกไปโดยไม่มีป้าย
-    label: "แบบจำลองภายนอกที่อ้างอิงได้",
-    title: "ผลจากแบบจำลองของหน่วยงานภายนอกที่ระบุที่มาได้ ไม่ใช่การคำนวณของโครงการนี้",
+    labelKey: "badge.probabilistic",
+    titleKey: "badge.probabilistic.title",
     className: "bg-[var(--color-risk-low)]/15 text-[var(--color-risk-low)] ring-[var(--color-risk-low)]/35",
   },
 };
@@ -63,29 +68,50 @@ export const EPISTEMIC_BADGE: Record<EpistemicClass, EpistemicBadge> = {
  * คือการบิดเบือนว่าข้อมูลนั้นมาจากไหน
  */
 export const UNKNOWN_BADGE: EpistemicBadge = {
-  label: "ไม่ทราบชนิดข้อมูล",
-  title: "แอปรุ่นนี้ยังไม่รู้จักชนิดของชั้นข้อมูลนี้",
+  labelKey: "badge.unknown",
+  titleKey: "badge.unknown.title",
   className: "bg-white/8 text-[var(--color-fg-subtle)] ring-white/15",
 };
 
-/** ข้อความแทน `fetchedAt: null` เลือกตามชนิดของชั้นข้อมูล (ห้ามคืนเป็นเวลา) */
-export function missingFetchedAtText(kind: EpistemicClass): string {
+/** คีย์ข้อความแทน `fetchedAt: null` เลือกตามชนิดของชั้นข้อมูล (ห้ามคืนเป็นเวลา) */
+export function missingFetchedAtKey(kind: EpistemicClass): MessageKey {
   switch (kind) {
     case "observed":
-      return NEVER_RECEIVED_TH;
+      return "freshness.missing.observed";
     case "static-reference":
-      return "ไม่ได้บันทึกเวลาที่ดึงข้อมูล";
+      return "freshness.missing.staticReference";
     case "illustrative":
-      return "คำนวณจากภูมิประเทศ ไม่มีการดึงข้อมูลรายครั้ง";
+      return "freshness.missing.illustrative";
     case "probabilistic":
-      return "ยังไม่เคยได้รับผลจากแบบจำลอง";
+      return "freshness.missing.probabilistic";
   }
   // ชนิดที่ยังไม่รู้จัก: บอกว่าไม่ทราบเวลา ห้ามเดาเป็นเวลาใด ๆ
-  return "ไม่ทราบเวลาที่ดึงข้อมูล";
+  return "freshness.missing.unknown";
+}
+
+/** คีย์ข้อความของสถานะแหล่งข้อมูล — `null` = ปกติ ไม่ต้องพูดอะไรเพิ่ม */
+export function healthStatusKey(health: SourceHealth | null): MessageKey | null {
+  switch (health) {
+    case null:
+    case "ok":
+      return null;
+    case "delayed":
+      return "health.delayed";
+    case "down":
+      return "health.down";
+    case "degraded":
+      return "health.degraded";
+    case "stale":
+      return "health.stale";
+    default:
+      // api รุ่นใหม่อาจส่งสถานะที่บันเดิลนี้ยังไม่รู้จัก — แถวจะเป็นสีเหลือง
+      // อยู่แล้ว จึงต้องบอกเหตุผลด้วย ไม่ใช่เหลืองเฉย ๆ โดยไม่มีคำอธิบาย
+      return "freshness.status.unknown";
+  }
 }
 
 export interface LayerFreshness {
-  badge: EpistemicBadge;
+  badge: { label: string; title: string; className: string };
   /** บรรทัดเวลาที่ประกอบเสร็จแล้ว เช่น "ตรวจวัด 14:30 · ดึงข้อมูล 5 นาทีที่แล้ว" */
   timeText: string;
   /** true = แสดงบรรทัดเวลาเป็นสีเหลืองอำพัน (ข้อมูลค้าง/ดึงไม่สำเร็จ) */
@@ -114,36 +140,32 @@ export function describeLayerFreshness(
   descriptor: HazardLayerDescriptor,
   health: SourceHealth | null,
   nowMs: number,
+  lang: Lang,
+  t: TFunction,
 ): LayerFreshness {
   const parts: string[] = [];
-  if (descriptor.observedAt) parts.push(`ตรวจวัด ${formatTime(descriptor.observedAt)}`);
+  if (descriptor.observedAt) {
+    parts.push(t("freshness.observedAt", { time: formatTime(lang, descriptor.observedAt) }));
+  }
   parts.push(
     descriptor.fetchedAt
-      ? `ดึงข้อมูล ${formatAge(descriptor.fetchedAt, nowMs)}`
-      : missingFetchedAtText(descriptor.epistemicClass),
+      ? t("freshness.fetchedAt", { age: formatAge(lang, descriptor.fetchedAt, nowMs) })
+      : t(missingFetchedAtKey(descriptor.epistemicClass)),
   );
 
   const stale = isStale(descriptor, nowMs);
   const unhealthy = health !== null && health !== "ok";
-  const statusText =
-    health === "delayed"
-      ? "ต้นทางยังไม่ส่งค่าใหม่"
-      : health === "down"
-        ? "ดึงข้อมูลไม่ได้"
-        : health === "degraded"
-          ? "บางแหล่งล้มเหลว"
-          : health === "stale"
-            ? "ข้อมูลค้าง"
-            : // api รุ่นใหม่อาจส่งสถานะที่บันเดิลนี้ยังไม่รู้จัก — แถวจะเป็นสีเหลือง
-              // อยู่แล้ว จึงต้องบอกเหตุผลด้วย ไม่ใช่เหลืองเฉย ๆ โดยไม่มีคำอธิบาย
-              health !== null && health !== "ok"
-              ? "ยังไม่ทราบสถานะแหล่งข้อมูล"
-              : null;
+  const statusKey = healthStatusKey(health);
+  const badge = EPISTEMIC_BADGE[descriptor.epistemicClass] ?? UNKNOWN_BADGE;
 
   return {
-    badge: EPISTEMIC_BADGE[descriptor.epistemicClass] ?? UNKNOWN_BADGE,
+    badge: {
+      label: t(badge.labelKey),
+      title: t(badge.titleKey),
+      className: badge.className,
+    },
     timeText: parts.join(" · "),
     amber: stale || unhealthy,
-    statusText,
+    statusText: statusKey ? t(statusKey) : null,
   };
 }

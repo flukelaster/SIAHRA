@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { AoiManifest, EarthquakeEvent } from "@siahra/shared-types";
 import { makeLabel } from "./labels";
+import type { TFunction } from "../i18n";
 import { createLocalProjection } from "./localProjection";
 
 const PULSE_PERIOD_S = 3.2;
@@ -22,6 +23,8 @@ export function buildEarthquakeMarkers(
   manifest: AoiManifest,
   events: EarthquakeEvent[],
   sampleGround: (x: number, z: number) => number,
+  /** ตัวแปลของภาษาที่กำลังแสดง — ป้ายบนฉากถูกสร้างใหม่ทุกครั้งที่สลับภาษา */
+  t: TFunction,
 ): EarthquakeMarkerResult {
   const proj = createLocalProjection(manifest);
   const group = new THREE.Group();
@@ -77,8 +80,8 @@ export function buildEarthquakeMarkers(
     }
 
     const label = makeLabel(
-      `แผ่นดินไหว M${mag.toFixed(1)}`,
-      ev.status === "automatic" ? "ตรวจพบ · ยังไม่ตรวจสอบ" : "ตรวจพบ · ตรวจสอบแล้ว",
+      t("scene.quakeLabel", { mag: mag.toFixed(1) }),
+      ev.status === "automatic" ? t("scene.quakeAutomatic") : t("scene.quakeReviewed"),
       mag >= 5 ? "severe" : "warning",
       new THREE.Vector3(x, groundY, z),
       200 + mag * 10,

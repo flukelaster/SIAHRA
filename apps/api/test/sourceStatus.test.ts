@@ -131,15 +131,21 @@ describe("RadarDO.status()", () => {
   });
 
   it("nextAttemptAt มาจาก alarm จริง — ไม่มี alarm = null ไม่ใช่เวลาที่เดาขึ้นมา", async () => {
-    freeze();
+    // ห้าม freeze() ในเทสนี้: ตัวจับเวลาปลอมของ vitest คุมได้แค่ฝั่งเทส ส่วน
+    // ตัวตั้งเวลาของ Durable Object เดินด้วยนาฬิกาจริงของ workerd เสมอ ถ้าตั้ง
+    // alarm ด้วยเวลาที่อิง T0 ซึ่งเป็นค่าคงที่ในโค้ด พอเวลาจริงเดินผ่าน T0 ไปแล้ว
+    // alarm นั้นจะกลายเป็นอดีต → ยิงทันที → alarm() ตั้งรอบใหม่ตามเวลาจริงทับ →
+    // เทสอ่านได้คนละค่า เทสแบบนั้นเขียวเฉพาะช่วงสั้น ๆ ของวันที่เขียนมันเท่านั้น
+    // (docs/testing.md ข้อ "ห้าม assert กับข้อมูลที่ผูกกับนาฬิกาจริง")
     const stub = env.RADAR.getByName("radar-alarm");
     const before = await runInDurableObject(stub, (instance) => instance.status());
     expect(before.nextAttemptAt).toBeNull();
+    const alarmAtMs = Date.now() + 5 * MIN;
     const after = await runInDurableObject(stub, async (instance, ctx) => {
-      await ctx.storage.setAlarm(T0 + 5 * MIN);
+      await ctx.storage.setAlarm(alarmAtMs);
       return instance.status();
     });
-    expect(after.nextAttemptAt).toBe(iso(5 * MIN));
+    expect(after.nextAttemptAt).toBe(new Date(alarmAtMs).toISOString());
     await runInDurableObject(stub, (_i, ctx) => ctx.storage.deleteAlarm());
   });
 });

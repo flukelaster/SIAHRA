@@ -37,6 +37,9 @@ import { buildTerrainMesh, type TerrainField } from "../../scene/TerrainMesh";
 import { createTerrainSharedUniforms } from "../../scene/terrainMaterial";
 import { TerrainTileTree, type TerrainTileStats } from "../../scene/TerrainTiles";
 import { formatNumber } from "../../lib/number";
+import { useLang } from "../../i18n/context";
+import type { MessageKey } from "../../i18n";
+import { errorMessage, resolveError, type ErrorMessage } from "../../lib/errorMessage";
 import { ILLUSTRATIVE_HATCH_PERIOD_PX } from "../../lib/illustrativeStyle";
 
 export interface MapLayers {
@@ -80,11 +83,15 @@ export interface MapApi {
   captureImage: (footer: string) => Promise<Blob | null>;
 }
 
+/**
+ * สถานะการโหลดเก็บเป็น "คีย์" ไม่ใช่ข้อความที่แปลแล้ว — ไม่อย่างนั้นข้อความที่ตั้ง
+ * ตอนเริ่มโหลดจะค้างเป็นภาษาเดิมเมื่อผู้ใช้กดสลับภาษาระหว่างที่ฉากยังโหลดอยู่
+ */
 type LoadState =
-  | { status: "loading"; label: string; progress?: number }
+  | { status: "loading"; labelKey: MessageKey; progress?: number }
   | { status: "ready" }
   | { status: "not-built" }
-  | { status: "error"; message: string };
+  | { status: "error"; message: ErrorMessage };
 
 const MAX_STATION_LABELS = 10;
 
@@ -130,10 +137,11 @@ export function Map3DCanvas({
   onSceneReady?: (handles: SceneHandles | null) => void;
   onInfo?: (info: MapInfo | null) => void;
 }) {
+  const { lang, t } = useLang();
   const containerRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<LoadState>({
     status: "loading",
-    label: "กำลังโหลดข้อมูลภูมิประเทศ...",
+    labelKey: "scene.loadingTerrain",
   });
   const [imageryProgress, setImageryProgress] = useState<number | null>(null);
   const [tileStats, setTileStats] = useState<TerrainTileStats | null>(null);
@@ -428,12 +436,12 @@ export function Map3DCanvas({
         // Legacy urban-core footprints only when the province has no
         // building tile pyramid (tiles stream on their own).
         if (!buildingTiles) {
-          setState({ status: "loading", label: "กำลังสร้างอาคาร...", progress: 0 });
+          setState({ status: "loading", labelKey: "scene.buildingBuild", progress: 0 });
           const buildings = await buildBuildingLayer(manifest, terrain.sample, (done, total) => {
             if (cancelled) return;
             setState({
               status: "loading",
-              label: "กำลังสร้างอาคาร...",
+              labelKey: "scene.buildingBuild",
               progress: total > 0 ? Math.round((done / total) * 100) : 0,
             });
           });
@@ -453,7 +461,7 @@ export function Map3DCanvas({
         }
         setState({
           status: "error",
-          message: err instanceof Error ? err.message : "โหลดแผนที่ 3 มิติไม่สำเร็จ",
+          message: errorMessage(err, "scene.loadError"),
         });
       }
     })();
@@ -550,6 +558,10 @@ export function Map3DCanvas({
     const labels = new THREE.Group();
     labels.name = "station-labels";
     const proj = terrain.projection;
+    // ชื่อสถานีมาจากต้นทาง (nameTh/nameEn) — เลือกฟิลด์ตามภาษา ไม่ได้แปลเอง
+    const stationLabel = (st: { nameTh: string | null; nameEn: string | null; id: number }) =>
+      (lang === "th" ? (st.nameTh ?? st.nameEn) : (st.nameEn ?? st.nameTh)) ??
+      t("water.stationFallback", { id: st.id });
     const candidates: { lon: number; lat: number; title: string; sub: string; tone: "warning" | "severe"; rank: number }[] = [];
     for (const w of observations.waterlevel) {
       const lvl = w.situationLevel ?? 0;
@@ -559,8 +571,11 @@ export function Map3DCanvas({
         candidates.push({
           lon: w.station.lon,
           lat: w.station.lat,
-          title: w.station.nameTh ?? `สถานี ${w.station.id}`,
-          sub: w.freeboardM <= 0 ? `สูงกว่าตลิ่ง ${Math.abs(w.freeboardM).toFixed(2)} ม. (ค่าย้อนหลัง)` : `ต่ำกว่าตลิ่ง ${w.freeboardM.toFixed(2)} ม. (ค่าย้อนหลัง)`,
+          title: stationLabel(w.station),
+          sub:
+            w.freeboardM <= 0
+              ? t("scene.aboveBankHistorical", { n: Math.abs(w.freeboardM).toFixed(2) })
+              : t("scene.belowBankHistorical", { n: w.freeboardM.toFixed(2) }),
           tone: w.freeboardM <= 0 ? "severe" : "warning",
           rank: w.freeboardM <= 0 ? 100 : 60,
         });
@@ -570,8 +585,8 @@ export function Map3DCanvas({
       candidates.push({
         lon: w.station.lon,
         lat: w.station.lat,
-        title: w.station.nameTh ?? `สถานี ${w.station.id}`,
-        sub: lvl >= 5 ? "ล้นตลิ่ง (ตรวจวัดจริง)" : "น้ำมาก (ตรวจวัดจริง)",
+        title: stationLabel(w.station),
+        sub: lvl >= 5 ? t("scene.overflowObserved") : t("scene.highWaterObserved"),
         tone: lvl >= 5 ? "severe" : "warning",
         rank: lvl >= 5 ? 100 : 60,
       });
@@ -582,8 +597,8 @@ export function Map3DCanvas({
       candidates.push({
         lon: r.station.lon,
         lat: r.station.lat,
-        title: r.station.nameTh ?? `สถานี ${r.station.id}`,
-        sub: `ฝน 24 ชม. ${mm.toFixed(0)} มม.`,
+        title: stationLabel(r.station),
+        sub: t("scene.rain24h", { n: mm.toFixed(0) }),
         tone: mm >= 90 ? "severe" : "warning",
         rank: mm,
       });
@@ -620,7 +635,7 @@ export function Map3DCanvas({
       const [x, z] = proj.lonLatToLocal(acc.lon / acc.n, acc.lat / acc.n);
       if (!proj.insideGrid(x, z)) continue;
       // Bangkok's districts are เขต, everywhere else อำเภอ.
-      const prefix = manifest.provinceCode === "10" ? "เขต" : "อ.";
+      const prefix = t(manifest.provinceCode === "10" ? "province.prefix.khet" : "province.prefix.amphoe");
       const display = /^(อ\.|เขต|อำเภอ)/.test(name) ? name : `${prefix}${name}`;
       labels.add(
         makePlaceLabel(display, new THREE.Vector3(x, terrain.sample(x, z) + 20, z), -100 + acc.n),
@@ -635,7 +650,7 @@ export function Map3DCanvas({
     );
     publishInfo({ stationCount: result.visibleCount, hazardCount: haloCount });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [observations, state.status]);
+  }, [observations, state.status, lang, t]);
 
   // Earthquake epicentres inside the province.
   useEffect(() => {
@@ -648,7 +663,7 @@ export function Map3DCanvas({
       quakesRef.current.dispose();
       quakesRef.current = null;
     }
-    const result = buildEarthquakeMarkers(loaded.manifest, earthquakes, loaded.terrain.sample);
+    const result = buildEarthquakeMarkers(loaded.manifest, earthquakes, loaded.terrain.sample, t);
     if (result.count > 0) {
       handles.world.add(result.group);
       const untick = handles.addTicker(result.tick);
@@ -663,7 +678,7 @@ export function Map3DCanvas({
     }
     publishInfo({ earthquakeCount: result.count });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [earthquakes, state.status]);
+  }, [earthquakes, state.status, t]);
 
   // Popup follows its 3D anchor: projected every frame onto the container
   // (kept out of CSS2DRenderer so it always paints above the map labels).
@@ -731,7 +746,7 @@ export function Map3DCanvas({
       damsRef.current = null;
     }
     if (dams.length === 0) return;
-    const result = buildDamMarkers(loaded.manifest, dams, loaded.terrain.sample, handles.viewportHeightPx());
+    const result = buildDamMarkers(loaded.manifest, dams, loaded.terrain.sample, handles.viewportHeightPx(), lang, t);
     result.applyExaggeration(handles.getExaggeration());
     result.dots.visible = layers.dams;
     result.labels.visible = layers.dams;
@@ -739,7 +754,7 @@ export function Map3DCanvas({
     handles.world.add(result.labels);
     damsRef.current = result;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dams, state.status]);
+  }, [dams, state.status, lang, t]);
 
   // GISTDA satellite flood extent -> shader mask + tambon labels.
   useEffect(() => {
@@ -780,8 +795,10 @@ export function Map3DCanvas({
       if (!proj.insideGrid(x, z)) continue;
       labels.add(
         makeLabel(
-          tambonTh ?? "พื้นที่น้ำท่วม",
-          floodAreaRai !== null ? `น้ำท่วม ${formatNumber(Math.round(floodAreaRai))} ไร่ (ภาพดาวเทียม)` : "น้ำท่วม (ภาพดาวเทียม)",
+          tambonTh ?? t("scene.floodArea"),
+          floodAreaRai !== null
+            ? t("scene.floodAreaRai", { n: formatNumber(lang, Math.round(floodAreaRai)) })
+            : t("scene.floodPlain"),
           "info",
           new THREE.Vector3(x, loaded.terrain.sample(x, z) + 30, z),
           40 + (floodAreaRai ?? 0) / 1000,
@@ -792,7 +809,7 @@ export function Map3DCanvas({
     labels.visible = layers.floodExtent;
     floodLabelsRef.current = labels;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [floodExtent, state.status]);
+  }, [floodExtent, state.status, lang, t]);
 
   useEffect(() => {
     const handles = sceneRef.current;
@@ -864,7 +881,7 @@ export function Map3DCanvas({
           <p className="text-xs text-white/90">
             {state.status === "loading" ? (
               <>
-                {state.label}
+                {t(state.labelKey)}
                 {typeof state.progress === "number" ? (
                   <span className="tabular-nums text-white/60"> {state.progress}%</span>
                 ) : null}
@@ -873,12 +890,12 @@ export function Map3DCanvas({
             {state.status === "loading" && imageryProgress !== null ? " · " : ""}
             {imageryProgress !== null ? (
               <>
-                กำลังโหลดภาพดาวเทียม{" "}
+                {t("scene.loadingImagery")}{" "}
                 <span className="tabular-nums text-white/60">{imageryProgress}%</span>
               </>
             ) : null}
             {state.status !== "loading" && imageryProgress === null && tileStats?.visible === 0
-              ? "กำลังโหลดภูมิประเทศความละเอียดสูง..."
+              ? t("scene.loadingHiRes")
               : null}
           </p>
         </div>
@@ -887,10 +904,10 @@ export function Map3DCanvas({
       {state.status === "not-built" ? (
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 px-8 text-center">
           <p className="text-sm text-[var(--color-fg-muted)]">
-            ยังไม่ได้ประมวลผลภูมิประเทศของจังหวัดนี้
+            {t("scene.notBuiltTitle")}
           </p>
           <p className="text-xs text-[var(--color-fg-subtle)]">
-            ข้อมูลตรวจวัดยังแสดงตามปกติในแผงด้านข้าง
+            {t("scene.notBuiltBody")}
           </p>
         </div>
       ) : null}
@@ -898,7 +915,7 @@ export function Map3DCanvas({
       {state.status === "error" ? (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <p className="max-w-sm rounded-xl border border-red-400/30 bg-black/80 px-4 py-3 text-center text-sm text-red-300 backdrop-blur-md">
-            {state.message}
+            {resolveError(t, state.message)}
           </p>
         </div>
       ) : null}

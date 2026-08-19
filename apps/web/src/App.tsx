@@ -31,6 +31,8 @@ import { BRAND, DATA_ATTRIBUTION_TH } from "./branding";
 import type { CameraPose } from "./scene/setupScene";
 import type { QualityLevel, QualityMode } from "./scene/quality";
 import { formatFullDateTime } from "./lib/time";
+import { damDisplayName } from "./lib/damName";
+import { useLang } from "./i18n/context";
 
 const DEFAULT_PROVINCE_CODE = "10"; // Bangkok
 
@@ -63,6 +65,7 @@ const DEFAULT_LAYERS: MapLayers = {
 const INITIAL = readPermalink();
 
 export default function App() {
+  const { lang, t } = useLang();
   const [provinceCode, setProvinceCode] = useState(INITIAL.provinceCode ?? DEFAULT_PROVINCE_CODE);
   const [layers, setLayers] = useState<MapLayers>(() => {
     if (!INITIAL.layers) return DEFAULT_LAYERS;
@@ -90,6 +93,8 @@ export default function App() {
     () => PROVINCES.find((p) => p.code === provinceCode) ?? PROVINCES[0],
     [provinceCode],
   );
+  /** ชื่อจังหวัดมาจาก data/provinces.ts ที่มีทั้งสองภาษาอยู่แล้ว */
+  const provinceName = lang === "th" ? province.nameTh : province.nameEn;
   const observations = useObservations(provinceCode, atIso);
   const dams = useDams(provinceCode);
   const radar = useRadar(layers.radar);
@@ -118,7 +123,9 @@ export default function App() {
     setLayers((l) => ({ ...l, [key]: value }));
   }, []);
 
-  usePermalinkSync({ provinceCode, pose, exaggeration, layers: { ...layers }, atIso });
+  // `lang` ต้องอยู่ในสถานะที่ sync ลง URL ด้วย ไม่งั้นการเปิดลิงก์ `?lang=en`
+  // แล้วปล่อยไว้ 400 มิลลิวินาที จะถูก replaceState เขียนทับจนพารามิเตอร์หายไป
+  usePermalinkSync({ provinceCode, pose, exaggeration, layers: { ...layers }, atIso, lang });
 
   const selectProvince = useCallback((code: string) => {
     initialPoseRef.current = null;
@@ -145,18 +152,32 @@ export default function App() {
         const key = `s:${st.nameTh ?? st.id}:${st.lon.toFixed(4)}:${st.lat.toFixed(4)}`;
         if (st.nameTh && !seen.has(key)) {
           seen.add(key);
-          out.push({ key, label: st.nameTh, sub: st.amphoeNameTh ?? province.nameTh, kind: "station", lon: st.lon, lat: st.lat });
+          out.push({ key, label: st.nameTh, sub: st.amphoeNameTh ?? provinceName, kind: "station", lon: st.lon, lat: st.lat });
         }
       }
       for (const [name, a] of byAmphoe) {
-        out.push({ key: `a:${name}`, label: (provinceCode === "10" ? "เขต" : "อ.") + name, sub: province.nameTh, kind: "amphoe", lon: a.lon / a.n, lat: a.lat / a.n });
+        out.push({
+          key: `a:${name}`,
+          label: t(provinceCode === "10" ? "province.prefix.khet" : "province.prefix.amphoe") + name,
+          sub: provinceName,
+          kind: "amphoe",
+          lon: a.lon / a.n,
+          lat: a.lat / a.n,
+        });
       }
     }
     for (const d of dams.data?.dams ?? []) {
-      out.push({ key: `d:${d.id}`, label: (d.kind === "large" ? "เขื่อน" : "") + (d.nameTh ?? d.nameEn ?? `#${d.id}`), sub: d.basinNameTh ?? province.nameTh, kind: "dam", lon: d.lon, lat: d.lat });
+      out.push({
+        key: `d:${d.id}`,
+        label: damDisplayName(d, lang, t),
+        sub: d.basinNameTh ?? provinceName,
+        kind: "dam",
+        lon: d.lon,
+        lat: d.lat,
+      });
     }
     return out;
-  }, [observations.data, dams.data, province.nameTh, provinceCode]);
+  }, [observations.data, dams.data, provinceName, provinceCode, lang, t]);
 
   const selectPlace = useCallback((pl: SearchPlace) => {
     const dist = pl.kind === "amphoe" ? 12000 : 4000;
@@ -176,8 +197,12 @@ export default function App() {
     const api = mapApiRef.current;
     if (!api) return;
     // เวลาที่กดบันทึกภาพ (ไม่ใช่เวลาที่ดึงข้อมูล) — ตรึงเป็นเวลาไทยเช่นกัน
-    const stamp = formatFullDateTime(Date.now());
-    const footer = `${BRAND.name} · จังหวัด${province.nameTh} · ${stamp}${atIso ? ` · ค่าย้อนหลัง ${formatFullDateTime(atIso)}` : ""} · ${DATA_ATTRIBUTION_TH} · ภาพดาวเทียม Esri`;
+    const stamp = formatFullDateTime(lang, Date.now());
+    // DATA_ATTRIBUTION_TH เป็นบรรทัดเครดิตของหน่วยงานต้นทาง จึงคงไว้ตามที่เผยแพร่
+    // ทั้งสองภาษา — ส่วนที่เหลือของ footer เดินตามภาษาที่กำลังแสดง
+    const footer = `${BRAND.name} · ${t("viewport.province", { name: provinceName })} · ${stamp}${
+      atIso ? ` · ${t("attribution.snapshotHistorical", { time: formatFullDateTime(lang, atIso) })}` : ""
+    } · ${DATA_ATTRIBUTION_TH} · ${t("attribution.imageryEsri")}`;
     const blob = await api.captureImage(footer);
     if (!blob) return;
     const url = URL.createObjectURL(blob);
@@ -186,7 +211,7 @@ export default function App() {
     a.download = `siahra-${province.nameEn.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}.png`;
     a.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 5000);
-  }, [province, atIso]);
+  }, [province, provinceName, atIso, lang, t]);
 
   const viewport = useViewport();
   const compact = viewport.compact;
@@ -215,7 +240,7 @@ export default function App() {
     <div className="relative h-screen w-screen overflow-hidden bg-[var(--color-bg)]">
       <MapViewport
         aoiId={aoiId}
-        provinceLabel={province.nameTh}
+        provinceLabel={provinceName}
         observations={observations.data}
         earthquakes={earthquakes.events}
         floodExtent={floodExtent.data}
@@ -269,14 +294,14 @@ export default function App() {
             tabs={[
               {
                 key: "province",
-                label: "จังหวัด",
+                label: t("sheet.tab.province"),
                 content: (
                   <ProvinceSelector provinces={PROVINCES} selected={province} onSelect={(p) => selectProvince(p.code)} />
                 ),
               },
               {
                 key: "layers",
-                label: "ชั้นข้อมูล",
+                label: t("sheet.tab.layers"),
                 content: (
                   <MapLegend
                     layers={layers}
@@ -288,10 +313,10 @@ export default function App() {
                   />
                 ),
               },
-              { key: "flood", label: "น้ำท่วม", content: <FloodExtentCard state={floodExtent} /> },
+              { key: "flood", label: t("sheet.tab.flood"), content: <FloodExtentCard state={floodExtent} /> },
               {
                 key: "water",
-                label: "ระดับน้ำ",
+                label: t("sheet.tab.water"),
                 content: (
                   <WaterLevelCard
                     stations={observations.data?.waterlevel ?? []}
@@ -304,7 +329,7 @@ export default function App() {
               },
               {
                 key: "rain",
-                label: "ฝน",
+                label: t("sheet.tab.rain"),
                 content: (
                   <RainfallCard
                     stations={observations.data?.rainfall ?? []}
@@ -313,8 +338,8 @@ export default function App() {
                   />
                 ),
               },
-              { key: "dams", label: "เขื่อน", content: <DamCard state={dams} /> },
-              { key: "quake", label: "แผ่นดินไหว", content: <EarthquakeLiveCard feed={earthquakes} /> },
+              { key: "dams", label: t("sheet.tab.dams"), content: <DamCard state={dams} /> },
+              { key: "quake", label: t("sheet.tab.quake"), content: <EarthquakeLiveCard feed={earthquakes} /> },
             ]}
           />
         </>

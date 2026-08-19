@@ -1,4 +1,5 @@
 import type { EarthquakeEvent, EqWsMessage } from "@siahra/shared-types";
+import type { ErrorMessage } from "../errorMessage";
 
 /**
  * สถานะและ reducer ของฟีดแผ่นดินไหว — โมดูลบริสุทธิ์ล้วน (ไม่มี WebSocket, ไม่มี timer,
@@ -16,7 +17,8 @@ export interface EarthquakeFeedState {
   status: FeedStatus;
   /** เวลาที่ต้นทางบอกว่าเป็นข้อมูล ณ ตอนไหน — null = ยังไม่เคยได้รับข้อมูลเลย */
   asOf: string | null;
-  error: string | null;
+  /** คีย์หรือข้อความดิบ — แปลตอนเรนเดอร์ ข้อความที่แปลแล้วจะค้างภาษาเดิมเมื่อสลับภาษา */
+  error: ErrorMessage | null;
   /** จำนวนเฟรมที่ parse ไม่ได้ นับไว้เพื่อแสดงบน UI แทนที่จะทิ้งเงียบ ๆ */
   parseErrors: number;
   /** จำนวนครั้งที่สายหลุดติดกัน ใช้คำนวณ backoff และรีเซ็ตเมื่อได้ snapshot */
@@ -29,7 +31,7 @@ export type FeedAction =
   | { type: "ws.closed" }
   | { type: "ws.watchdog" }
   | { type: "poll.success"; asOf: string; events: EarthquakeEvent[] }
-  | { type: "poll.error"; message: string };
+  | { type: "poll.error"; message: ErrorMessage };
 
 export const initialFeedState: EarthquakeFeedState = {
   events: [],

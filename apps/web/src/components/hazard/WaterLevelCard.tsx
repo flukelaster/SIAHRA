@@ -4,21 +4,44 @@ import type { SituationLevel, WaterLevelObservation } from "@siahra/shared-types
 import { useStationHistory } from "../../hooks/useStationHistory";
 import { Panel } from "../ui/Panel";
 import { Sparkline } from "./Sparkline";
-import { NEVER_RECEIVED_TH, formatFetchedAt } from "../../lib/time";
+import { neverReceived, formatFetchedAt } from "../../lib/time";
+import { useLang } from "../../i18n/context";
+import type { Lang, MessageKey, TFunction } from "../../i18n";
+import { resolveError } from "../../lib/errorMessage";
 
 /**
  * ThaiWater's own published situation levels. This app displays the source's
  * classification verbatim — it does not compute or reinterpret risk.
  */
-const SITUATION_META: Record<SituationLevel, { label: string; cls: string; dot: string }> = {
-  1: { label: "น้ำน้อยวิกฤต", cls: "text-red-300", dot: "bg-red-300" },
-  2: { label: "น้ำน้อย", cls: "text-amber-300", dot: "bg-amber-300" },
-  3: { label: "ปกติ", cls: "text-[var(--color-success)]", dot: "bg-[var(--color-success)]" },
-  4: { label: "น้ำมาก", cls: "text-[var(--color-risk-high)]", dot: "bg-[var(--color-risk-high)]" },
-  5: { label: "ล้นตลิ่ง", cls: "text-[var(--color-risk-extreme)]", dot: "bg-[var(--color-risk-extreme)]" },
+const SITUATION_META: Record<SituationLevel, { labelKey: MessageKey; cls: string; dot: string }> = {
+  1: { labelKey: "situation.1", cls: "text-red-300", dot: "bg-red-300" },
+  2: { labelKey: "situation.2", cls: "text-amber-300", dot: "bg-amber-300" },
+  3: { labelKey: "situation.3", cls: "text-[var(--color-success)]", dot: "bg-[var(--color-success)]" },
+  4: { labelKey: "situation.4", cls: "text-[var(--color-risk-high)]", dot: "bg-[var(--color-risk-high)]" },
+  5: { labelKey: "situation.5", cls: "text-[var(--color-risk-extreme)]", dot: "bg-[var(--color-risk-extreme)]" },
 };
 
-function StationRow({ obs, historical }: { obs: WaterLevelObservation; historical: boolean }) {
+/** ชื่อสถานีที่ต้นทางให้มา — ไม่ใช่ข้อความ UI จึงเลือกฟิลด์ตามภาษา ไม่ได้แปลเอง */
+function stationName(
+  station: { nameTh: string | null; nameEn: string | null; id: number },
+  lang: Lang,
+  t: TFunction,
+): string {
+  const name = lang === "th" ? (station.nameTh ?? station.nameEn) : (station.nameEn ?? station.nameTh);
+  return name ?? t("water.stationFallback", { id: station.id });
+}
+
+function StationRow({
+  obs,
+  historical,
+  lang,
+  t,
+}: {
+  obs: WaterLevelObservation;
+  historical: boolean;
+  lang: Lang;
+  t: TFunction;
+}) {
   const meta = obs.situationLevel ? SITUATION_META[obs.situationLevel] : null;
   const [open, setOpen] = useState(false);
   const history = useStationHistory(obs.station.id, open);
@@ -32,14 +55,14 @@ function StationRow({ obs, historical }: { obs: WaterLevelObservation; historica
     >
       <div className="min-w-0 flex-1">
         <p className="truncate text-xs text-[var(--color-fg)]">
-          {obs.station.nameTh ?? obs.station.nameEn ?? `สถานี ${obs.station.id}`}
+          {stationName(obs.station, lang, t)}
         </p>
         <p className="flex flex-wrap items-center gap-x-1.5 text-[11px] text-[var(--color-fg-subtle)]">
           {obs.station.amphoeNameTh ? <span>{obs.station.amphoeNameTh}</span> : null}
           {obs.waterlevelMsl !== null ? (
             <>
               <span aria-hidden="true">·</span>
-              <span className="tabular-nums">{obs.waterlevelMsl.toFixed(2)} ม.รทก.</span>
+              <span className="tabular-nums">{`${obs.waterlevelMsl.toFixed(2)} ${t("unit.msl")}`}</span>
             </>
           ) : null}
           {obs.freeboardM !== null ? (
@@ -51,8 +74,8 @@ function StationRow({ obs, historical }: { obs: WaterLevelObservation; historica
                 }`}
               >
                 {obs.freeboardM <= 0
-                  ? `สูงกว่าตลิ่ง ${Math.abs(obs.freeboardM).toFixed(2)} ม.`
-                  : `ต่ำกว่าตลิ่ง ${obs.freeboardM.toFixed(2)} ม.`}
+                  ? t("water.aboveBank", { n: Math.abs(obs.freeboardM).toFixed(2), unit: t("unit.m") })
+                  : t("water.belowBank", { n: obs.freeboardM.toFixed(2), unit: t("unit.m") })}
               </span>
             </>
           ) : null}
@@ -61,10 +84,10 @@ function StationRow({ obs, historical }: { obs: WaterLevelObservation; historica
       {meta ? (
         <span className={`flex shrink-0 items-center gap-1 text-[11px] ${meta.cls}`}>
           <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} aria-hidden="true" />
-          {meta.label}
+          {t(meta.labelKey)}
         </span>
       ) : historical ? (
-        <span className="shrink-0 text-[10px] text-[var(--color-fg-subtle)]">ค่าย้อนหลัง</span>
+        <span className="shrink-0 text-[10px] text-[var(--color-fg-subtle)]">{t("water.historicalChip")}</span>
       ) : null}
       {open ? <ChevronUp size={12} className="mt-0.5 shrink-0 text-[var(--color-fg-subtle)]" /> : <ChevronDown size={12} className="mt-0.5 shrink-0 text-[var(--color-fg-subtle)]" />}
     </button>
@@ -73,7 +96,7 @@ function StationRow({ obs, historical }: { obs: WaterLevelObservation; historica
         {history.loading ? (
           <div className="h-16 animate-pulse rounded bg-white/8" />
         ) : history.error ? (
-          <p className="text-[11px] text-[var(--color-danger)]">{history.error}</p>
+          <p className="text-[11px] text-[var(--color-danger)]">{resolveError(t, history.error)}</p>
         ) : history.data ? (
           <>
             <Sparkline
@@ -81,7 +104,15 @@ function StationRow({ obs, historical }: { obs: WaterLevelObservation; historica
               bankMsl={history.data.datum === "msl" ? obs.minBankMsl : null}
             />
             <p className="text-[10px] text-[var(--color-fg-subtle)]">
-              72 ชม. ล่าสุด · {history.data.datum === "msl" ? "ม.รทก." : history.data.datum === "local" ? "ม. (ระดับอ้างอิงสถานี)" : "ม."} · ค่าตรวจวัดจริง 10 นาที/จุด
+              {t("water.history.caption", {
+                datum: t(
+                  history.data.datum === "msl"
+                    ? "water.datum.msl"
+                    : history.data.datum === "local"
+                      ? "water.datum.local"
+                      : "water.datum.unknown",
+                ),
+              })}
             </p>
           </>
         ) : null}
@@ -105,6 +136,7 @@ export function WaterLevelCard({
   /** True while the timeline is scrubbed into the past (no situation levels). */
   historical?: boolean;
 }) {
+  const { lang, t } = useLang();
   // Most critical first: overflowing/high stations, then least freeboard.
   const ranked = [...stations].sort((a, b) => {
     const sl = (b.situationLevel ?? 0) - (a.situationLevel ?? 0);
@@ -115,22 +147,22 @@ export function WaterLevelCard({
 
   return (
     <Panel
-      title="ระดับน้ำที่ตรวจวัดได้"
+      title={t("water.title")}
       icon={<Waves size={16} className="text-[var(--color-accent)]" aria-hidden="true" />}
       headerAction={
         <span className="text-[11px] text-[var(--color-fg-muted)]">
-          {loading ? "กำลังโหลด..." : `${stations.length} สถานี`}
+          {loading ? t("common.loading") : `${stations.length} ${t("unit.stations")}`}
         </span>
       }
     >
       <div className="flex flex-col gap-3">
         {historical ? (
           <p className="rounded-lg bg-[var(--color-risk-medium)]/10 px-2.5 py-2 text-xs text-[var(--color-risk-medium)]">
-            กำลังดูค่าย้อนหลัง — สีจุดบนแผนที่คิดจากระยะต่ำกว่าตลิ่ง (ThaiWater ไม่เผยแพร่ระดับสถานการณ์ย้อนหลัง)
+            {t("water.historicalNote")}
           </p>
         ) : overflowing > 0 ? (
           <p className="rounded-lg bg-[var(--color-risk-high)]/10 px-2.5 py-2 text-xs text-[var(--color-risk-high)]">
-            มี {overflowing} สถานีอยู่ในเกณฑ์น้ำมากหรือล้นตลิ่ง
+            {t("water.overflowing", { n: overflowing })}
           </p>
         ) : null}
 
@@ -143,22 +175,25 @@ export function WaterLevelCard({
         ) : ranked.length > 0 ? (
           <ul className="max-h-64 overflow-y-auto pr-0.5">
             {ranked.slice(0, 20).map((s) => (
-              <StationRow key={s.station.id} obs={s} historical={historical} />
+              <StationRow key={s.station.id} obs={s} historical={historical} lang={lang} t={t} />
             ))}
           </ul>
         ) : (
           <p className="rounded-lg bg-[var(--color-bg-elevated)] px-2.5 py-3 text-center text-xs text-[var(--color-fg-muted)]">
-            ไม่มีสถานีวัดระดับน้ำในจังหวัดนี้
+            {t("water.none")}
           </p>
         )}
 
         <p className="flex items-start gap-1.5 rounded-lg bg-[var(--color-bg-elevated)] px-2.5 py-2 text-[11px] text-[var(--color-fg-muted)]">
           <Info size={13} className="mt-0.5 shrink-0 text-[var(--color-fg-subtle)]" aria-hidden="true" />
-          ค่าที่แสดงเป็นการตรวจวัดจริงจากสถานีโทรมาตร ไม่ใช่การพยากรณ์
+          {t("water.note")}
+          {/* attribution มาจาก API (ข้อความเครดิตของต้นทาง) — แสดงตามที่ได้มา ไม่แปล */}
           {attribution ? ` · ${attribution}` : ""}
-          {/* NEVER_RECEIVED_TH already reads "ยังไม่เคยได้รับข้อมูล", so the "ข้อมูล" prefix
-              would repeat the word; prefix it only when there is a real timestamp to label. */}
-          {observedAt ? ` · ข้อมูล ${formatFetchedAt(observedAt)}` : ` · ${NEVER_RECEIVED_TH}`}
+          {/* `neverReceived` อ่านว่า "ยังไม่เคยได้รับข้อมูล" อยู่แล้ว การเติมคำว่า
+              "ข้อมูล" นำหน้าจึงซ้ำ — ใส่คำนำหน้าเฉพาะตอนที่มีเวลาจริงให้กำกับ */}
+          {observedAt
+            ? t("water.observedAt", { time: formatFetchedAt(lang, observedAt) })
+            : ` · ${neverReceived(lang)}`}
         </p>
       </div>
     </Panel>

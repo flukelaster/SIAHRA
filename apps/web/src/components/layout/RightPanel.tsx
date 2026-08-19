@@ -7,6 +7,8 @@ import { DamCard } from "../hazard/DamCard";
 import { FloodExtentCard } from "../hazard/FloodExtentCard";
 import { RainfallCard } from "../hazard/RainfallCard";
 import { WaterLevelCard } from "../hazard/WaterLevelCard";
+import { useT } from "../../i18n/context";
+import { resolveError } from "../../lib/errorMessage";
 
 /** Right dock: floating observation cards over the map. */
 export function RightPanel({
@@ -26,6 +28,7 @@ export function RightPanel({
   width: number;
   top: number;
 }) {
+  const t = useT();
   const { data, loading, error } = observations;
 
   return (
@@ -40,9 +43,9 @@ export function RightPanel({
             aria-hidden="true"
           />
           <span>
-            {error}
+            {resolveError(t, error)}
             <br />
-            <span className="text-[var(--color-fg-muted)]">กำลังลองเชื่อมต่อใหม่อัตโนมัติ...</span>
+            <span className="text-[var(--color-fg-muted)]">{t("common.reconnecting")}</span>
           </span>
         </div>
       ) : null}

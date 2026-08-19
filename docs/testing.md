@@ -59,6 +59,15 @@ Two rules that keep the suite honest:
    a frozen date that is compared against the real clock is a test that fails on a future Tuesday for
    no reason.
 
+   **`vi.useFakeTimers()` does not reach the Durable Object alarm.** Fake timers replace the clock in
+   the *test's* isolate; `ctx.storage.setAlarm()` is scheduled by workerd against the real one. Pass a
+   frozen constant to `setAlarm()` and the moment real time walks past it the alarm is already due, so
+   it fires immediately, the handler re-arms at the real now, and the assertion reads that instead.
+   This actually happened: a `nextAttemptAt` test froze the clock at `2026-08-19T12:00Z` and armed at
+   `T0 + 5 min`, so it was green for the five minutes after it was written and red for ever after.
+   Derive alarm times from `Date.now()` at run time, and keep fake timers for pure functions that take
+   an explicit `nowMs`.
+
 ## The fixtures
 
 All six upstreams share **one** fixture directory, `apps/api/test/fixtures/`. Do not create a second

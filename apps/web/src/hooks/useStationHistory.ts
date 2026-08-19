@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import type { WaterLevelHistoryResponse } from "@siahra/shared-types";
+import { errorMessage, type ErrorMessage } from "../lib/errorMessage";
 
 export interface StationHistoryState {
   data: WaterLevelHistoryResponse | null;
   loading: boolean;
-  error: string | null;
+  error: ErrorMessage | null;
 }
 
 /** 72 h water-level series for one station; only fetched while `enabled`. */
@@ -23,7 +24,7 @@ export function useStationHistory(stationId: number | null, enabled: boolean, ho
         if (!cancelled) setState({ data, loading: false, error: null });
       } catch (err) {
         if (!cancelled && !controller.signal.aborted)
-          setState({ data: null, loading: false, error: err instanceof Error ? err.message : "โหลดไม่สำเร็จ" });
+          setState({ data: null, loading: false, error: errorMessage(err, "error.loadFailed") });
       }
     })();
     return () => {

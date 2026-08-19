@@ -1,15 +1,22 @@
 import { Activity, AlertTriangle, Waves } from "lucide-react";
 import type { EarthquakeEvent } from "@siahra/shared-types";
 import type { EarthquakeFeedState, FeedStatus } from "../../hooks/useEarthquakeFeed";
-import { NEVER_RECEIVED_TH, formatAge, formatFetchedAt } from "../../lib/time";
+import { neverReceived, formatAge, formatFetchedAt } from "../../lib/time";
 import { Panel } from "../ui/Panel";
+import { useLang } from "../../i18n/context";
+import type { Lang, MessageKey, TFunction } from "../../i18n";
+import { resolveError } from "../../lib/errorMessage";
 
-const STATUS_META: Record<FeedStatus, { label: string; dot: string; text: string }> = {
-  connecting: { label: "กำลังเชื่อมต่อ", dot: "bg-slate-400", text: "text-[var(--color-fg-muted)]" },
-  live: { label: "เรียลไทม์", dot: "bg-[var(--color-success)]", text: "text-[var(--color-success)]" },
-  polling: { label: "ดึงข้อมูลเป็นช่วง", dot: "bg-amber-400", text: "text-amber-400" },
-  reconnecting: { label: "สายหลุด กำลังต่อใหม่", dot: "bg-amber-400 animate-pulse", text: "text-amber-400" },
-  error: { label: "เชื่อมต่อไม่ได้", dot: "bg-[var(--color-danger)]", text: "text-[var(--color-danger)]" },
+const STATUS_META: Record<FeedStatus, { labelKey: MessageKey; dot: string; text: string }> = {
+  connecting: { labelKey: "quake.conn.connecting", dot: "bg-slate-400", text: "text-[var(--color-fg-muted)]" },
+  live: { labelKey: "quake.conn.live", dot: "bg-[var(--color-success)]", text: "text-[var(--color-success)]" },
+  polling: { labelKey: "quake.conn.polling", dot: "bg-amber-400", text: "text-amber-400" },
+  reconnecting: {
+    labelKey: "quake.conn.reconnecting",
+    dot: "bg-amber-400 animate-pulse",
+    text: "text-amber-400",
+  },
+  error: { labelKey: "quake.conn.error", dot: "bg-[var(--color-danger)]", text: "text-[var(--color-danger)]" },
 };
 
 function magnitudeColor(mag: number | null): string {
@@ -20,7 +27,7 @@ function magnitudeColor(mag: number | null): string {
   return "text-[var(--color-risk-low)]";
 }
 
-function EventRow({ event }: { event: EarthquakeEvent }) {
+function EventRow({ event, lang, t }: { event: EarthquakeEvent; lang: Lang; t: TFunction }) {
   return (
     <li className="flex items-start gap-2.5 border-t border-[var(--color-border)] py-2 first:border-t-0">
       <span
@@ -30,21 +37,21 @@ function EventRow({ event }: { event: EarthquakeEvent }) {
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-xs text-[var(--color-fg)]" title={event.place ?? undefined}>
-          {event.place ?? "ไม่ระบุตำแหน่ง"}
+          {event.place ?? t("quake.unknownPlace")}
         </p>
         <p className="flex flex-wrap items-center gap-x-1.5 text-[11px] text-[var(--color-fg-subtle)]">
-          <span>{event.magType ?? "ไม่ระบุมาตรา"}</span>
+          <span>{event.magType ?? t("quake.unknownMagType")}</span>
           <span aria-hidden="true">·</span>
-          <span>ลึก {event.depthKm?.toFixed(0) ?? "—"} กม.</span>
+          <span>{t("quake.depth", { n: event.depthKm?.toFixed(0) ?? "—", unit: t("unit.km") })}</span>
           <span aria-hidden="true">·</span>
-          <span>{formatAge(event.time)}</span>
+          <span>{formatAge(lang, event.time)}</span>
           {/* Automatic detections are unreviewed — must not look identical
               to human-reviewed solutions (see docs/ui-copy-rules.md). */}
           {event.status === "automatic" ? (
-            <span className="rounded bg-amber-500/15 px-1 text-amber-400">ยังไม่ตรวจสอบ</span>
+            <span className="rounded bg-amber-500/15 px-1 text-amber-400">{t("quake.unreviewed")}</span>
           ) : (
             <span className="rounded bg-[var(--color-success)]/15 px-1 text-[var(--color-success)]">
-              ตรวจสอบแล้ว
+              {t("quake.reviewed")}
             </span>
           )}
         </p>
@@ -57,6 +64,7 @@ function EventRow({ event }: { event: EarthquakeEvent }) {
 }
 
 export function EarthquakeLiveCard({ feed }: { feed: EarthquakeFeedState }) {
+  const { lang, t } = useLang();
   const { events, status, asOf, error, parseErrors } = feed;
   const meta = STATUS_META[status];
   const strongest = events.reduce<EarthquakeEvent | null>(
@@ -66,12 +74,12 @@ export function EarthquakeLiveCard({ feed }: { feed: EarthquakeFeedState }) {
 
   return (
     <Panel
-      title="แผ่นดินไหวที่ตรวจวัดได้"
+      title={t("quake.title")}
       icon={<Waves size={16} className="text-[var(--color-accent)]" aria-hidden="true" />}
       headerAction={
         <span className={`flex items-center gap-1.5 text-[11px] ${meta.text}`}>
           <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} aria-hidden="true" />
-          {meta.label}
+          {t(meta.labelKey)}
         </span>
       }
     >
@@ -79,12 +87,12 @@ export function EarthquakeLiveCard({ feed }: { feed: EarthquakeFeedState }) {
         <div className="flex items-center gap-3">
           <div>
             {/* Backfill + retention window is 30 days (see EarthquakeFeedDO). */}
-            <p className="text-xs text-[var(--color-fg-muted)]">เหตุการณ์ 30 วันล่าสุด</p>
+            <p className="text-xs text-[var(--color-fg-muted)]">{t("quake.events30d")}</p>
             <p className="text-2xl font-bold tabular-nums text-[var(--color-fg)]">{events.length}</p>
           </div>
           {strongest ? (
             <div className="border-l border-[var(--color-border)] pl-3">
-              <p className="text-xs text-[var(--color-fg-muted)]">ขนาดสูงสุด</p>
+              <p className="text-xs text-[var(--color-fg-muted)]">{t("quake.maxMag")}</p>
               <p className={`text-2xl font-bold tabular-nums ${magnitudeColor(strongest.mag)}`}>
                 {strongest.mag?.toFixed(1) ?? "—"}
               </p>
@@ -95,37 +103,44 @@ export function EarthquakeLiveCard({ feed }: { feed: EarthquakeFeedState }) {
         {error ? (
           <p className="flex items-start gap-1.5 rounded-lg bg-[var(--color-danger)]/10 px-2.5 py-2 text-xs text-[var(--color-danger)]">
             <AlertTriangle size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
-            {error}
+            {resolveError(t, error)}
           </p>
         ) : null}
 
         {parseErrors > 0 ? (
           <p className="flex items-start gap-1.5 rounded-lg bg-amber-500/10 px-2.5 py-2 text-[11px] text-amber-400">
             <AlertTriangle size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
-            ข้อความจากฟีดอ่านไม่ได้ {parseErrors} รายการ — อาจมีเหตุการณ์ที่ยังไม่ได้แสดง
+            {t("quake.parseErrors", { n: parseErrors })}
           </p>
         ) : null}
 
         {events.length > 0 ? (
           <ul className="max-h-72 overflow-y-auto pr-0.5">
             {events.slice(0, 25).map((e) => (
-              <EventRow key={e.id} event={e} />
+              <EventRow key={e.id} event={e} lang={lang} t={t} />
             ))}
           </ul>
         ) : (
           !error && (
             <p className="rounded-lg bg-[var(--color-bg-elevated)] px-2.5 py-3 text-center text-xs text-[var(--color-fg-muted)]">
-              ไม่พบเหตุการณ์ในพื้นที่เฝ้าระวังช่วงเวลานี้
+              {t("quake.none")}
             </p>
           )
         )}
 
         <p className="flex items-start gap-1.5 rounded-lg bg-[var(--color-bg-elevated)] px-2.5 py-2 text-[11px] text-[var(--color-fg-muted)]">
           <Activity size={13} className="mt-0.5 shrink-0 text-[var(--color-fg-subtle)]" aria-hidden="true" />
-          ข้อมูลตรวจวัดจริงจาก USGS และ EMSC — เป็นเหตุการณ์ที่ตรวจพบแล้ว ไม่ใช่การพยากรณ์
+          {t("quake.note")}
           {/* ความซื่อสัตย์ต่อข้อมูล: asOf มาจากต้นทางเท่านั้น ตอนสายหลุดจึงยังเป็น
               เวลาเดิม + อายุที่เพิ่มขึ้น ไม่ใช่ "เมื่อสักครู่" ของนาฬิกาเครื่องผู้ใช้ */}
-          {` · ข้อมูล ณ ${asOf ? `${formatFetchedAt(asOf)} (${formatAge(asOf)})` : NEVER_RECEIVED_TH}`}
+          {t("quake.asOf", {
+            time: asOf
+              ? t("quake.asOfWithAge", {
+                  time: formatFetchedAt(lang, asOf),
+                  age: formatAge(lang, asOf),
+                })
+              : neverReceived(lang),
+          })}
         </p>
       </div>
     </Panel>

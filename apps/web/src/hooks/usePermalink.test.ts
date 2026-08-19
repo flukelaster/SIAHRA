@@ -9,6 +9,7 @@ describe("permalink round-trip", () => {
       exaggeration: 1.6,
       layers: { terrain: true, water: true, buildings: false },
       atIso: "2026-08-18T09:00:00.000Z",
+      lang: "th",
     });
 
     // ทุกคีย์ต้องอยู่ในสตริงจริง ไม่ใช่แค่ parse กลับมาได้
@@ -24,6 +25,7 @@ describe("permalink round-trip", () => {
       exaggeration: 1.6,
       layers: ["terrain", "water"],
       atIso: "2026-08-18T09:00:00.000Z",
+      lang: null,
     });
   });
 
@@ -34,6 +36,7 @@ describe("permalink round-trip", () => {
       exaggeration: 1,
       layers: { terrain: true },
       atIso: null,
+      lang: "th",
     });
     expect(search).toBe("?p=50");
     expect(parsePermalink(search).exaggeration).toBeNull();
@@ -46,6 +49,7 @@ describe("permalink round-trip", () => {
       exaggeration: 1,
       layers: { terrain: true, water: true },
       atIso: null,
+      lang: "th",
     });
     expect(search).not.toContain("layers=");
     expect(parsePermalink(search).layers).toBeNull();
@@ -61,6 +65,7 @@ describe("permalink round-trip", () => {
       exaggeration: 1,
       layers: { terrain: false, water: false },
       atIso: null,
+      lang: "th",
     });
     expect(search).toContain("layers=");
     expect(parsePermalink(search).layers).toBeNull();
@@ -73,6 +78,7 @@ describe("permalink round-trip", () => {
       exaggeration: 1,
       layers: {},
       atIso: null,
+      lang: "th",
     });
     expect(parsePermalink(search).pose).toEqual({
       position: [1200, 801, -400],
@@ -105,6 +111,7 @@ describe("parsePermalink rejects junk", () => {
       exaggeration: null,
       layers: null,
       atIso: null,
+      lang: null,
     });
   });
 });

@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import App from "./App";
+import { useT } from "./i18n/context";
 
 /**
  * ตัวเลือกหน้าตาม path — แอปนี้มีสองหน้าเท่านั้น: แผนที่ กับ `/methodology`
@@ -17,10 +18,11 @@ function methodologySlug(pathname: string): string {
 }
 
 export function Root() {
+  const t = useT();
   const path = window.location.pathname;
   if (!path.startsWith("/methodology")) return <App />;
   return (
-    <Suspense fallback={<div className="p-8 text-sm text-[var(--color-fg-muted)]">กำลังโหลดเอกสาร...</div>}>
+    <Suspense fallback={<div className="p-8 text-sm text-[var(--color-fg-muted)]">{t("methodology.loading")}</div>}>
       <MethodologyPage slug={methodologySlug(path)} />
     </Suspense>
   );
