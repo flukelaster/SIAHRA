@@ -2,6 +2,7 @@ import { noStore, type CachePolicy } from "./cachePolicy.js";
 import { checkLimit, clientKey, originAllowed, type Limit } from "./rateLimit.js";
 import { withSecurityHeaders } from "./securityHeaders.js";
 import type { AppEnv } from "./types.js";
+import { errorText, logError } from "./log.js";
 
 /**
  * Tiny pattern router: keeps index.ts a declarative table instead of a
@@ -120,9 +121,7 @@ export function createRouter(routes: Route[]) {
       try {
         return await route.handler(request, env, m.slice(1), ctx);
       } catch (err) {
-        console.error(
-          JSON.stringify({ level: "error", message: "unhandled route error", path: pathname, error: String(err) }),
-        );
+        logError("unhandled route error", { path: pathname, error: errorText(err) });
         return json({ error: "Internal error" }, { status: 500 });
       }
     }

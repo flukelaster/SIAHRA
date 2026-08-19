@@ -50,3 +50,28 @@ export function truncatedPngFrame(): ArrayBuffer {
   const full = new Uint8Array(validPngFrame());
   return full.slice(0, Math.floor(full.length / 2)).buffer;
 }
+
+/**
+ * ดัชนีเรดาร์รูปแบบเดียวกับ `RADAR_LIST_TEXT` แต่ประทับเวลาให้ใกล้ปัจจุบัน — ใช้
+ * กับเทสที่วัด `health` ของ RadarDO ซึ่งขึ้นกับ *อายุ* ของเฟรม ไม่ใช่แค่รูปร่าง
+ * ของบรรทัด (ดัชนีตรึงเวลาจะกลายเป็น `delayed` ทันทีที่เวลาผ่านไป)
+ *
+ * อยู่ในไฟล์ fixture เดียวกันโดยตั้งใจ: รูปแบบบรรทัดของต้นทางถูกเขียนไว้ที่เดียว
+ * ถ้า TMD เปลี่ยนรูปแบบ ต้องแก้จุดเดียวแล้วเทสทุกไฟล์ขยับตาม
+ */
+export const RADAR_DEFAULT_SLOTS: { offsetMin: number; file: string }[] = [
+  { offsetMin: 30, file: "zr0022.png" },
+  { offsetMin: 15, file: "zr0023.png" },
+];
+
+export function radarListAt(nowMs: number, slots = RADAR_DEFAULT_SLOTS): string {
+  const slotTime = (offsetMin: number) =>
+    new Date(Math.floor((nowMs - offsetMin * 60_000) / 900_000) * 900_000)
+      .toISOString()
+      .slice(0, 16)
+      .replace("T", " ");
+  return [
+    ...slots.map((s) => `background_THA.png "${slotTime(s.offsetMin)}" overlay=topo_THA.png,${s.file},map_THA_province.png`),
+    "",
+  ].join("\n");
+}

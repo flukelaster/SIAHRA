@@ -11,6 +11,7 @@ import {
 import { fetchGistdaFloodExtent, type FetchOptions } from "../ingestion/gistda.js";
 import { keys as archiveKeys, putJsonGz } from "../archive.js";
 import { deriveSourceHealth } from "../sourceHealth.js";
+import { errorText, logError, logInfo, logWarn } from "../log.js";
 
 /** GISTDA re-interprets scenes irregularly; half-hourly polling is plenty. */
 const REFRESH_MS = 30 * 60 * 1000;
@@ -185,15 +186,11 @@ export class FloodExtentDO extends DurableObject<Env> {
       this.writeMeta("lastError", String(err).slice(0, 300));
       this.writeMeta("failureCount", String(failures));
       this.writeMeta("nextAttemptAt", new Date(failedAtMs + waitMs).toISOString());
-      console.error(
-        JSON.stringify({
-          level: "error",
-          message: "gistda flood fetch failed",
-          error: String(err),
-          consecutiveFailures: failures,
-          retryInSeconds: Math.round(waitMs / 1000),
-        }),
-      );
+      logError("gistda flood fetch failed", {
+        error: errorText(err),
+        consecutiveFailures: failures,
+        retryInSeconds: Math.round(waitMs / 1000),
+      });
       await this.armAlarmAt(failedAtMs + waitMs);
       return false;
     }
@@ -229,7 +226,7 @@ export class FloodExtentDO extends DurableObject<Env> {
           featureCount: features.length,
           features: features.map((f) => ({ type: "Feature", id: f.id, properties: f.props, geometry: f.geometry })),
         }).catch((err: unknown) =>
-          console.error(JSON.stringify({ level: "warn", message: "flood archive failed", error: String(err) })),
+          logWarn("flood archive failed", { error: errorText(err) }),
         ),
       );
       this.writeMeta("sceneHash", sceneHash);
@@ -242,9 +239,7 @@ export class FloodExtentDO extends DurableObject<Env> {
     // สำเร็จแล้วต้อง "ทับ" alarm ชั่วคราว/backoff ที่ตั้งไว้ตอนยังไม่รู้ผล
     // ไม่งั้นจะไปยิงต้นทางซ้ำใน 5 นาทีทั้งที่เพิ่งได้ข้อมูลสดมา
     await this.ctx.storage.setAlarm(Date.now() + REFRESH_MS);
-    console.log(
-      JSON.stringify({ level: "info", message: "gistda flood refreshed", features: features.length }),
-    );
+    logInfo("gistda flood refreshed", { features: features.length });
     return true;
   }
 

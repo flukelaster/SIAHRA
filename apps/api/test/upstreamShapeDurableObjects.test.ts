@@ -7,7 +7,7 @@ import gistdaFixture from "./fixtures/gistda-wfs.json";
 import damFixture from "./fixtures/thaiwater-analyst-dam.json";
 import rainFixture from "./fixtures/thaiwater-rain24h.json";
 import waterFixture from "./fixtures/thaiwater-waterlevel-load.json";
-import { truncatedPngFrame, validPngFrame } from "./fixtures/text";
+import { radarListAt, truncatedPngFrame, validPngFrame } from "./fixtures/text";
 
 /**
  * E4.3 AC 3 / E4.4 AC 2–4 — สิ่งที่ต้องพิสูจน์ไม่ใช่ "schema ปฏิเสธของเสีย" แต่คือ
@@ -237,18 +237,7 @@ describe("RadarDO: เฟรมเสียถูกข้าม นับไว
    */
   const NOW_MS = Date.now();
   /** ดัชนีที่มีเวลาใกล้ปัจจุบัน เพื่อไม่ให้ health ไปตกที่ delayed ด้วยเรื่องอายุเฟรม */
-  function radarList(nowMs: number): string {
-    const slotTime = (offsetMin: number) =>
-      new Date(Math.floor((nowMs - offsetMin * 60_000) / 900_000) * 900_000)
-        .toISOString()
-        .slice(0, 16)
-        .replace("T", " ");
-    return [
-      `background_THA.png "${slotTime(30)}" overlay=topo_THA.png,zr0022.png,map_THA_province.png`,
-      `background_THA.png "${slotTime(15)}" overlay=topo_THA.png,zr0023.png,map_THA_province.png`,
-      "",
-    ].join("\n");
-  }
+  const radarList = (nowMs: number) => radarListAt(nowMs);
 
   const listRoute = (nowMs: number): FetchRoute => (url) =>
     url.includes("images_composite.list") ? new Response(radarList(nowMs)) : null;

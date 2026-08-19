@@ -33,6 +33,7 @@ import {
   type ArchiveDayIndex,
   type WaterlevelDayFile,
 } from "../archive.js";
+import { errorText, logError, logInfo, logWarn } from "../log.js";
 
 /**
  * Upstream responses are 2-4 MB covering ~5,500 stations nationwide, so they
@@ -234,7 +235,7 @@ export class ObservationCacheDO extends DurableObject<Env> {
     // Archive work never blocks the refresh cadence.
     this.ctx.waitUntil(this.archiveTick().catch((err: unknown) => {
       this.writeMeta("archiveError", String(err).slice(0, 200));
-      console.error(JSON.stringify({ level: "error", message: "archive tick failed", error: String(err) }));
+      logError("archive tick failed", { error: errorText(err) });
     }));
   }
 
@@ -360,7 +361,7 @@ export class ObservationCacheDO extends DurableObject<Env> {
     idx.dams = dayDams.length > 0;
     idx.generatedAt = new Date().toISOString();
     await putJson(this.env.HAZARD_BUCKET, archiveKeys.index(day), idx);
-    console.log(JSON.stringify({ level: "info", message: "archived day", day, provinces: written.length, dams: dayDams.length }));
+    logInfo("archived day", { day, provinces: written.length, dams: dayDams.length });
   }
 
   /** Province-day archive file with a 1 h SQLite cache (null when absent). */
@@ -432,16 +433,12 @@ export class ObservationCacheDO extends DurableObject<Env> {
     const [rainfall, waterlevel] = await Promise.all([
       this.upstream.run(() => fetchRainfall(), 0).catch((err: unknown) => {
         errors.push(shortReason(err));
-        console.error(
-          JSON.stringify({ level: "error", message: "thaiwater rain fetch failed", error: String(err) }),
-        );
+        logError("thaiwater rain fetch failed", { error: errorText(err) });
         return null;
       }),
       this.upstream.run(() => fetchWaterLevel(), 0).catch((err: unknown) => {
         errors.push(shortReason(err));
-        console.error(
-          JSON.stringify({ level: "error", message: "thaiwater waterlevel fetch failed", error: String(err) }),
-        );
+        logError("thaiwater waterlevel fetch failed", { error: errorText(err) });
         return null;
       }),
     ]);
@@ -473,14 +470,10 @@ export class ObservationCacheDO extends DurableObject<Env> {
       const failures = Number(this.readMeta("consecutiveFailures") ?? "0") + 1;
       this.writeMeta("consecutiveFailures", String(failures));
     }
-    console.log(
-      JSON.stringify({
-        level: "info",
-        message: "observation cache refreshed",
-        rainfall: rainfall?.length ?? "failed",
-        waterlevel: waterlevel?.length ?? "failed",
-      }),
-    );
+    logInfo("observation cache refreshed", {
+      rainfall: rainfall?.length ?? "failed",
+      waterlevel: waterlevel?.length ?? "failed",
+    });
   }
 
   /**
@@ -629,7 +622,7 @@ export class ObservationCacheDO extends DurableObject<Env> {
       await Promise.all(
         rows.map((r) =>
           this.pullHistory(r.station_id, nowMs, (r.situation_level ?? 0) >= 4 ? 2 : 6).catch((err: unknown) => {
-            console.error(JSON.stringify({ level: "warn", message: "history pull failed", stationId: r.station_id, error: String(err) }));
+            logWarn("history pull failed", { stationId: r.station_id, error: errorText(err) });
           }),
         ),
       );
@@ -732,7 +725,7 @@ export class ObservationCacheDO extends DurableObject<Env> {
           this.writeMeta("damsError", String(err).slice(0, 200));
           // แถวเขื่อนเดิมยังอยู่ครบ (ไม่มีคำสั่ง DELETE ถูกรัน) และความล้มเหลว
           // ไปโผล่ที่ lastError ของ /health ด้านล่าง แทนที่จะหายไปใน log เฉย ๆ
-          console.error(JSON.stringify({ level: "error", message: "thaiwater dams fetch failed", error: String(err) }));
+          logError("thaiwater dams fetch failed", { error: errorText(err) });
         }
       })().finally(() => {
         this.damsInflight = null;

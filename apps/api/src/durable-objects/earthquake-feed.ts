@@ -13,6 +13,7 @@ import { fetchEmscEvents } from "../ingestion/emsc.js";
 import { fetchTmdEvents, TMD_MISSING_CREDENTIALS, tmdCredentials } from "../ingestion/tmd.js";
 import { findCorroboratingCluster, type StoredEventRow } from "../ingestion/normalize.js";
 import { deriveSourceHealth } from "../sourceHealth.js";
+import { errorText, logError } from "../log.js";
 
 const RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const BACKFILL_DAYS = 30;
@@ -137,7 +138,7 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
 
   async alarm(): Promise<void> {
     await this.pollAndBroadcast().catch((err: unknown) => {
-      console.error(JSON.stringify({ level: "error", message: "alarm poll failed", error: String(err) }));
+      logError("alarm poll failed", { error: errorText(err) });
     });
     await this.armAlarm();
   }
@@ -167,9 +168,7 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
       ) === 0;
     const seededEvents = isEmpty
       ? await backfillUsgsEvents(bbox, BACKFILL_DAYS, BACKFILL_MIN_MAG).catch((err: unknown) => {
-          console.error(
-            JSON.stringify({ level: "error", message: "usgs backfill failed", error: String(err) }),
-          );
+          logError("usgs backfill failed", { error: errorText(err) });
           return [] as EarthquakeEvent[];
         })
       : [];
@@ -183,12 +182,12 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
      */
     const tmdEvents = async (): Promise<EarthquakeEvent[]> => {
       if (!tmdCredentials(this.env)) {
-        console.error(JSON.stringify({ level: "error", message: "tmd poll skipped", error: TMD_MISSING_CREDENTIALS }));
+        logError("tmd poll skipped", { error: TMD_MISSING_CREDENTIALS });
         feedErrors.push(TMD_MISSING_CREDENTIALS);
         return [];
       }
       return fetchTmdEvents(bbox, this.env, nowMs).catch((err: unknown) => {
-        console.error(JSON.stringify({ level: "error", message: "tmd poll failed", error: String(err) }));
+        logError("tmd poll failed", { error: errorText(err) });
         feedErrors.push(`tmd: ${String(err).slice(0, 120)}`);
         return [] as EarthquakeEvent[];
       });
@@ -196,12 +195,12 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
 
     const [usgsEvents, emscEvents, tmdFeedEvents] = await Promise.all([
       fetchUsgsEvents(bbox).catch((err: unknown) => {
-        console.error(JSON.stringify({ level: "error", message: "usgs poll failed", error: String(err) }));
+        logError("usgs poll failed", { error: errorText(err) });
         feedErrors.push(`usgs: ${String(err).slice(0, 120)}`);
         return [] as EarthquakeEvent[];
       }),
       fetchEmscEvents(bbox, nowMs - EMSC_LOOKBACK_MS).catch((err) => {
-        console.error(JSON.stringify({ level: "error", message: "emsc poll failed", error: String(err) }));
+        logError("emsc poll failed", { error: errorText(err) });
         feedErrors.push(`emsc: ${String(err).slice(0, 120)}`);
         return [] as EarthquakeEvent[];
       }),
@@ -409,7 +408,7 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
         try {
           ws.send(payload);
         } catch (err) {
-          console.error(JSON.stringify({ level: "error", message: "ws send failed", error: String(err) }));
+          logError("ws send failed", { error: errorText(err) });
         }
       }
     }

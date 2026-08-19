@@ -4,6 +4,8 @@
  * for water levels, hourly nationwide snapshots, daily dam files and one
  * file per GISTDA flood scene. Days are Bangkok days (+07:00).
  */
+import { logInfo } from "./log.js";
+
 export const BKK_OFFSET_MS = 7 * 60 * 60 * 1000;
 
 export function bangkokDay(ms: number): string {
@@ -36,11 +38,17 @@ async function gunzip(body: ReadableStream<Uint8Array>): Promise<string> {
   return new Response(body.pipeThrough(new DecompressionStream("gzip"))).text();
 }
 
+/**
+ * ทุกการเขียนลง R2 ออก log หนึ่งบรรทัดพร้อม `key` และ `bytes` (E5.3) — คลังถาวร
+ * ไม่มีทางตรวจย้อนหลังได้ว่ารอบไหนเขียนอะไรไปบ้างถ้าไม่มีสองค่านี้ และ `bytes`
+ * คือสัญญาณเดียวที่จับได้ว่าไฟล์ "ว่างแต่เขียนสำเร็จ" (ต้นทางหาย แต่ archive ยังเดิน)
+ */
 export async function putJsonGz(bucket: R2Bucket, key: string, value: unknown): Promise<void> {
   const body = await gzip(JSON.stringify(value));
   await bucket.put(key, body, {
     httpMetadata: { contentType: "application/json", contentEncoding: "gzip" },
   });
+  logInfo("r2 put", { key, bytes: body.byteLength, encoding: "gzip" });
 }
 
 export async function getJsonGz<T>(bucket: R2Bucket, key: string): Promise<T | null> {
@@ -50,7 +58,9 @@ export async function getJsonGz<T>(bucket: R2Bucket, key: string): Promise<T | n
 }
 
 export async function putJson(bucket: R2Bucket, key: string, value: unknown): Promise<void> {
-  await bucket.put(key, JSON.stringify(value), { httpMetadata: { contentType: "application/json" } });
+  const body = JSON.stringify(value);
+  await bucket.put(key, body, { httpMetadata: { contentType: "application/json" } });
+  logInfo("r2 put", { key, bytes: new TextEncoder().encode(body).byteLength });
 }
 export async function getJson<T>(bucket: R2Bucket, key: string): Promise<T | null> {
   const obj = await bucket.get(key);

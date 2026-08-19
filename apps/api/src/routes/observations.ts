@@ -2,6 +2,7 @@ import { parseQuery } from "../query.js";
 import * as cachePolicy from "../cachePolicy.js";
 import { json } from "../router.js";
 import type { AppEnv } from "../types.js";
+import { errorText, logError } from "../log.js";
 
 /**
  * GET /api/v1/observations[?province=NN][&at=<iso>]
@@ -22,9 +23,7 @@ export async function handleObservations(request: Request, env: AppEnv): Promise
     const data = await stub.getObservations(q.value.province, q.value.at);
     return json(data, { cache: cachePolicy.observations });
   } catch (err) {
-    console.error(
-      JSON.stringify({ level: "error", message: "observations request failed", error: String(err) }),
-    );
+    logError("observations request failed", { error: errorText(err) });
     return json({ error: "Observation data unavailable" }, { status: 503 });
   }
 }

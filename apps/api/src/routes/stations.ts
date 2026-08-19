@@ -2,6 +2,7 @@ import { parseQuery } from "../query.js";
 import * as cachePolicy from "../cachePolicy.js";
 import { json } from "../router.js";
 import type { AppEnv } from "../types.js";
+import { errorText, logError } from "../log.js";
 
 /** GET /api/v1/stations/{id}/history?hours=72 — ThaiWater water-level time series. */
 export async function handleStationHistory(id: string, request: Request, env: AppEnv): Promise<Response> {
@@ -14,7 +15,7 @@ export async function handleStationHistory(id: string, request: Request, env: Ap
     const data = await stub.getHistory(stationId, q.value.hours);
     return json(data, { cache: cachePolicy.history });
   } catch (err) {
-    console.error(JSON.stringify({ level: "error", message: "station history failed", error: String(err) }));
+    logError("station history failed", { error: errorText(err) });
     return json({ error: "History unavailable" }, { status: 503 });
   }
 }
@@ -28,7 +29,7 @@ export async function handleDams(request: Request, env: AppEnv): Promise<Respons
     const data = await stub.getDams(q.value.province);
     return json(data, { cache: cachePolicy.slowMoving });
   } catch (err) {
-    console.error(JSON.stringify({ level: "error", message: "dams failed", error: String(err) }));
+    logError("dams failed", { error: errorText(err) });
     return json({ error: "Dam data unavailable" }, { status: 503 });
   }
 }

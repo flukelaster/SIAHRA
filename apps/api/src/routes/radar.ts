@@ -2,6 +2,7 @@ import { parseQuery } from "../query.js";
 import * as cachePolicy from "../cachePolicy.js";
 import { json } from "../router.js";
 import type { AppEnv } from "../types.js";
+import { errorText, logError } from "../log.js";
 
 /** GET /api/v1/radar/frames?hours=3 */
 export async function handleRadarFrames(request: Request, env: AppEnv): Promise<Response> {
@@ -11,7 +12,7 @@ export async function handleRadarFrames(request: Request, env: AppEnv): Promise<
     const data = await env.RADAR.getByName("tmd").getFrames(q.value.hours);
     return json(data, { cache: cachePolicy.radarFrames });
   } catch (err) {
-    console.error(JSON.stringify({ level: "error", message: "radar frames failed", error: String(err) }));
+    logError("radar frames failed", { error: errorText(err) });
     return json({ error: "Radar unavailable" }, { status: 503 });
   }
 }

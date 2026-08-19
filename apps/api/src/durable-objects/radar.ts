@@ -7,6 +7,7 @@ import {
   fetchRadarIndex,
 } from "../ingestion/tmdRadar.js";
 import { deriveSourceHealth } from "../sourceHealth.js";
+import { errorText, logInfo, logWarn } from "../log.js";
 
 const REFRESH_MS = 5 * 60 * 1000;
 const RETRY_MS = 60 * 1000;
@@ -123,12 +124,13 @@ export class RadarDO extends DurableObject<Env> {
         const png = await fetchRadarFrame(slot.file);
         const key = `${R2_PREFIX}${new Date(slot.tsMs).toISOString().replace(/[:.]/g, "-")}.png`;
         await this.env.HAZARD_BUCKET.put(key, png, { httpMetadata: { contentType: "image/png" } });
+        logInfo("r2 put", { key, bytes: png.byteLength, tsMs: slot.tsMs });
         this.ctx.storage.sql.exec("INSERT OR REPLACE INTO frames (ts_ms, key) VALUES (?, ?)", slot.tsMs, key);
         added++;
       } catch (err) {
         skipped.push(slot.file);
         skippedDetail.push(`${slot.file} (${String(err)})`);
-        console.error(JSON.stringify({ level: "warn", message: "radar frame skipped", file: slot.file, error: String(err) }));
+        logWarn("radar frame skipped", { file: slot.file, error: errorText(err) });
       }
     }
     // Prune old frames from both the index and R2.
@@ -150,7 +152,7 @@ export class RadarDO extends DurableObject<Env> {
         ? null
         : `radar frames skipped (${skipped.length}/${slots.length}): ${skippedDetail.join("; ")}`.slice(0, 200),
     );
-    if (added > 0) console.log(JSON.stringify({ level: "info", message: "radar frames added", added }));
+    if (added > 0) logInfo("radar frames added", { added });
     return true;
   }
 

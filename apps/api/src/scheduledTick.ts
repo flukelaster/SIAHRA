@@ -7,6 +7,7 @@
  * `Promise.allSettled` with its own timeout, and every source produces exactly
  * one structured log line per tick, whatever happened to it.
  */
+import { logRecord } from "./log.js";
 
 /** A source refresh: an id for the log line and the thunk that does the work. */
 export interface SourceTask {
@@ -39,7 +40,7 @@ export interface ScheduledTickOptions {
 const DEFAULT_TIMEOUT_MS = 25_000;
 
 const defaultLog = (line: Record<string, unknown>) => {
-  console.log(JSON.stringify(line));
+  logRecord(line);
 };
 
 /**
