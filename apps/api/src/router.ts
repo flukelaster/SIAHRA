@@ -1,4 +1,6 @@
+import { noStore, type CachePolicy } from "./cachePolicy.js";
 import { checkLimit, clientKey, originAllowed, type Limit } from "./rateLimit.js";
+import { withSecurityHeaders } from "./securityHeaders.js";
 import type { AppEnv } from "./types.js";
 
 /**
@@ -30,17 +32,28 @@ export interface Route {
 
 const DEFAULT_LIMIT: Limit = { perMinute: 300 };
 
+/**
+ * คำตอบ JSON ทุกอันของ API ออกทางนี้ทางเดียว — นโยบายแคชจึงเป็น "ชื่อ" จาก
+ * cachePolicy.ts ไม่ใช่ string ที่พิมพ์ซ้ำในแต่ละ route (E4.6) ส่วนเฮดเดอร์ความปลอดภัย
+ * ไม่ได้ใส่ที่นี่ แต่ใส่ที่ทางออกของ router ทีเดียว เพื่อให้คำตอบที่ไม่ใช่ JSON
+ * (ภาพเรดาร์ PNG, 426 ของ WebSocket) ได้ชุดเดียวกันโดยไม่ต้องจำ
+ */
 export const json = (
   body: unknown,
-  init: { status?: number; cacheControl?: string; headers?: Record<string, string> } = {},
-): Response =>
-  Response.json(body, {
-    status: init.status ?? 200,
+  init: { status?: number; cache?: CachePolicy; headers?: Record<string, string> } = {},
+): Response => {
+  const status = init.status ?? 200;
+  // 4xx/5xx เป็น no-store เสมอ แม้ route จะขอนโยบายอื่นมา: คำตอบที่ผิดพลาดถูก CDN
+  // เก็บไว้แจกต่อ = ความล้มเหลวชั่วคราวกลายเป็นความล้มเหลวค้าง
+  const cache = status >= 400 ? noStore : (init.cache ?? noStore);
+  return Response.json(body, {
+    status,
     headers: {
-      "Cache-Control": init.cacheControl ?? "no-store",
+      "Cache-Control": cache.value,
       ...(init.headers ?? {}),
     },
   });
+};
 
 /**
  * The `Allow` value for a path: every method its routes declare, plus HEAD
@@ -124,7 +137,9 @@ export function createRouter(routes: Route[]) {
   };
 
   return async (request: Request, env: AppEnv, ctx: ExecutionContext): Promise<Response> => {
-    const res = await dispatch(request, env, ctx);
+    // เฮดเดอร์ความปลอดภัยใส่ที่ทางออกเดียวของ router — route ใหม่จึงลืมไม่ได้
+    // (การ upgrade เป็น WebSocket ถูกส่งผ่านโดยไม่แตะ ดู securityHeaders.ts)
+    const res = withSecurityHeaders(await dispatch(request, env, ctx));
     return request.method === "HEAD" ? withoutBody(res) : res;
   };
 }

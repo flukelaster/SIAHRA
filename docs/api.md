@@ -52,6 +52,46 @@ A rejected request answers `429 {"error":"Too many requests","retryAfterSeconds"
 `Retry-After: N`. `/api/v1/health` reports how many 429s this isolate issued in the last hour under
 `api.rateLimited429LastHour`.
 
+## Cache policy
+
+Every `Cache-Control` value the API sends comes from one named policy in
+`apps/api/src/cachePolicy.ts` (E4.6) — the route handlers reference a name, never a literal, so
+`grep -rn "Cache-Control" apps/api/src/routes` finds nothing but the one PNG response that has to
+build its headers by hand.
+
+Two rules are enforced by `json()` in `apps/api/src/router.ts` rather than by each route:
+
+- **every 4xx and 5xx is `no-store`**, whatever policy the handler asked for — a cached `503`
+  would keep serving "the upstream is down" long after it came back
+- a route that names no policy gets `noStore`
+
+| Endpoint | Policy | `Cache-Control` |
+|---|---|---|
+| `/api/v1/health` | `health` | `public, max-age=15` |
+| `/api/v1/observations` | `observations` | `public, max-age=60, s-maxage=120` |
+| `/api/v1/dams` | `slowMoving` | `public, max-age=300` |
+| `/api/v1/stations/{id}/history` | `history` | `public, max-age=120` |
+| `/api/v1/archive/days` | `slowMoving` | `public, max-age=300` |
+| `/api/v1/archive/snapshot` | `archivedSnapshot` | `public, max-age=3600` |
+| `/api/v1/earthquakes/recent` | `realtime` | `public, max-age=10, s-maxage=20` |
+| `/api/v1/earthquakes/live` | — | WebSocket upgrade; no cache headers |
+| `/api/v1/flood-extent/summary` | `floodExtent(retrievedAt)` | `public, max-age=300, s-maxage=600`, or `no-store` when nothing has ever been retrieved |
+| `/api/v1/provinces/{NN}/flood-extent` | `floodExtent(retrievedAt)` | as above |
+| `/api/v1/radar/frames` | `radarFrames` | `public, max-age=60` |
+| `/api/v1/radar/frame/{tsMs}.png` | `radarFrame` | `public, max-age=86400, immutable` |
+| any 4xx / 5xx | `noStore` | `no-store` |
+
+`stale-while-revalidate` was considered for the observations response (roadmap E4.6 sketches it) and
+**deliberately left out**: the UI renders "updated N minutes ago" from the payload's own `fetchedAt`,
+so an edge serving a stale copy the browser believes is fresh would put a number on screen that does
+not match reality. Every 2xx value here is unchanged from before the refactor; the one deliberate
+change is the archive **404**, which dropped `public, max-age=60` for `no-store` — caching a
+"no snapshot near that time" answer turns a transient miss into a permanent one for that client.
+
+`frozenArtifact` (`public, max-age=31536000, immutable`) exists in the module but is not used by any
+route yet — it is reserved for E10.3's exposure-run artefacts. It refuses any key that is not
+content-addressed, because marking a re-writable key immutable would strand users on a year-old copy.
+
 ## Input rules
 
 All query parameters are validated by the shared `parseQuery()` helper (`apps/api/src/query.ts`).

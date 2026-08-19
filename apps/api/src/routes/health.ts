@@ -6,6 +6,7 @@ import {
   type SourceStatus,
 } from "@siahra/shared-types";
 import { rejectedLastHour } from "../rateLimit.js";
+import * as cachePolicy from "../cachePolicy.js";
 import { json } from "../router.js";
 import type { AppEnv } from "../types.js";
 
@@ -41,7 +42,7 @@ export async function handleHealth(_request: Request, env: AppEnv): Promise<Resp
     sources,
     api: { rateLimited429LastHour: rejectedLastHour() },
   };
-  return json(body, { cacheControl: "public, max-age=15" });
+  return json(body, { cache: cachePolicy.health });
 }
 
 /**

@@ -23,6 +23,47 @@ const TILE_PATH = /^\/aoi\/(\d{2})\/(terrain|buildings|features|landcover)\/(\d+
  */
 const TILE_CACHE_CONTROL = "public, max-age=31536000, immutable";
 
+/**
+ * The host-level half of public/_headers, for the responses this Worker
+ * produces itself (E4.2). `_headers` is applied by the static-asset layer, and
+ * a tile read out of R2 never goes through it — without this a `.bin` tile
+ * would come back with no HSTS and no nosniff. The values are duplicated on
+ * purpose: one file is configuration read by Cloudflare, the other is code, and
+ * no import can span the two. Keep them in step (docs/security.md).
+ */
+const SHARED_SECURITY_HEADERS: Readonly<Record<string, string>> = {
+  // max-age only — no includeSubDomains, no preload (docs/roadmap.md §4).
+  "Strict-Transport-Security": "max-age=31536000",
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "X-Frame-Options": "DENY",
+  "Permissions-Policy":
+    "accelerometer=(), camera=(), display-capture=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), usb=()",
+};
+
+/**
+ * A tile or an error string is never a document, so nothing may be loaded from
+ * it at all.
+ */
+const NON_DOCUMENT_CSP = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'";
+
+/**
+ * `set`, never `append`: two Content-Security-Policy headers on one response
+ * are *intersected* by the browser, so a duplicate is not cosmetic — it
+ * silently narrows the policy.
+ *
+ * Only responses this Worker constructed itself are passed in (the R2 tile and
+ * its 404/405), so their headers are still mutable and nothing has to be
+ * rebuilt. Asset-layer responses are deliberately *not* passed through here:
+ * they already carry public/_headers, and a second CSP is exactly the
+ * intersection problem above.
+ */
+function withSecurityHeaders(res: Response): Response {
+  for (const [name, value] of Object.entries(SHARED_SECURITY_HEADERS)) res.headers.set(name, value);
+  res.headers.set("Content-Security-Policy", NON_DOCUMENT_CSP);
+  return res;
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
@@ -34,10 +75,17 @@ export default {
     // reaches this Worker, so the tracked manifests and overviews under /aoi/
     // are usually served without ever getting here. This branch is the
     // fallthrough for the requests that do.
+    // Handed back untouched on purpose: asset responses already carry the
+    // headers from public/_headers, and stamping a second
+    // Content-Security-Policy here would make the browser *intersect* the two —
+    // a silently narrower policy, plus a second copy of the policy string free
+    // to drift from the one Cloudflare actually reads.
     if (!tile) return env.ASSETS.fetch(request);
 
     if (request.method !== "GET" && request.method !== "HEAD") {
-      return new Response("Method not allowed", { status: 405, headers: { allow: "GET, HEAD" } });
+      return withSecurityHeaders(
+        new Response("Method not allowed", { status: 405, headers: { allow: "GET, HEAD" } }),
+      );
     }
 
     // `caches.default.put`/`match` only accept GET, so HEAD skips the cache and
@@ -57,7 +105,7 @@ export default {
     // SPA fallback would answer with index.html, and the tile loader would try
     // to parse an HTML page as binary and fail silently — which is exactly how
     // the missing-tiles bug presented in production.
-    if (!object) return new Response("Tile not found", { status: 404 });
+    if (!object) return withSecurityHeaders(new Response("Tile not found", { status: 404 }));
 
     const headers = new Headers();
     object.writeHttpMetadata(headers);
@@ -65,7 +113,7 @@ export default {
     headers.set("cache-control", TILE_CACHE_CONTROL);
     headers.set("etag", object.httpEtag);
 
-    const response = new Response(object.body, { headers });
+    const response = withSecurityHeaders(new Response(object.body, { headers }));
     if (cacheable) ctx.waitUntil(cache.put(request, response.clone()));
     return response;
   },

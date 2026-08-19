@@ -1,0 +1,47 @@
+# Security headers for siahra-web (E4.2).
+#
+# This file is configuration, not an asset: Cloudflare's static-asset layer
+# reads it out of the uploaded directory (apps/web/dist, where Vite copies it
+# from public/) and applies it to every asset response. That matters because
+# siahra-web deliberately has no `run_worker_first` — index.html and
+# /assets/*.js are answered by the asset layer and never reach worker/index.ts,
+# so a header set only in the Worker would never appear on the page itself.
+# The Worker sets the same headers on the responses it *does* produce (the R2
+# tiles and their 404s) — see worker/index.ts.
+#
+# /api/* is not covered here at all: in production that path is claimed by the
+# siahra-api Worker's route before it ever reaches this origin, and that Worker
+# sends its own, much narrower policy (apps/api/src/securityHeaders.ts).
+#
+# The full audit table lives in docs/security.md.
+
+/*
+  # HSTS: max-age only. No includeSubDomains and no preload — decided by the
+  # repository owner and recorded in docs/roadmap.md §4; other hostnames under
+  # siahra-radar.co are not ours to speak for, and preload is irreversible.
+  Strict-Transport-Security: max-age=31536000
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  # Redundant with frame-ancestors for modern browsers, kept for the old ones.
+  X-Frame-Options: DENY
+  Permissions-Policy: accelerometer=(), camera=(), display-capture=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), usb=()
+  # CSP notes, directive by directive:
+  #   script-src 'self'        — the built index.html has exactly one <script src>
+  #                              and no inline script; three.js compiles GLSL on
+  #                              the GPU and never eval()s, so no 'unsafe-eval'.
+  #   style-src adds 'unsafe-inline' — forced by React inline `style` attributes
+  #                              (TopBar, MapLegend, Sidebar, RightPanel,
+  #                              TimelineBar, BottomBar, MapViewport, MobileSheet).
+  #                              Splitting it into style-src-attr is not an option:
+  #                              Safari does not implement style-src-attr and falls
+  #                              back to style-src, which would break the layout
+  #                              there while looking clean in Chrome.
+  #   img-src                  — data:/blob: for the share-image download and the
+  #                              stitched imagery canvas; the two basemap hosts are
+  #                              loaded as <img> by scene/SatelliteImagery.ts.
+  #   connect-src              — same-origin /api/* plus the WebSocket. 'self' already
+  #                              covers wss: on the same origin in CSP3; wss://siahra-radar.co
+  #                              is spelled out so an old implementation cannot get it wrong.
+  #   worker-src 'self'        — src/workers/* are bundled as real same-origin URLs.
+  Content-Security-Policy: default-src 'self'; base-uri 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; form-action 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://server.arcgisonline.com https://tiles.maps.eox.at; font-src 'self'; connect-src 'self' wss://siahra-radar.co; worker-src 'self'; manifest-src 'self'; media-src 'none'
+

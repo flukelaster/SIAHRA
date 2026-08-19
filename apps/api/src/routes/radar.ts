@@ -1,4 +1,5 @@
 import { parseQuery } from "../query.js";
+import * as cachePolicy from "../cachePolicy.js";
 import { json } from "../router.js";
 import type { AppEnv } from "../types.js";
 
@@ -8,7 +9,7 @@ export async function handleRadarFrames(request: Request, env: AppEnv): Promise<
   if (!q.ok) return json({ error: q.error }, { status: 400 });
   try {
     const data = await env.RADAR.getByName("tmd").getFrames(q.value.hours);
-    return json(data, { cacheControl: "public, max-age=60" });
+    return json(data, { cache: cachePolicy.radarFrames });
   } catch (err) {
     console.error(JSON.stringify({ level: "error", message: "radar frames failed", error: String(err) }));
     return json({ error: "Radar unavailable" }, { status: 503 });
@@ -26,7 +27,7 @@ export async function handleRadarFrame(tsRaw: string, env: AppEnv): Promise<Resp
   return new Response(object.body, {
     headers: {
       "Content-Type": "image/png",
-      "Cache-Control": "public, max-age=86400, immutable",
+      "Cache-Control": cachePolicy.radarFrame.value,
       ETag: object.httpEtag,
     },
   });

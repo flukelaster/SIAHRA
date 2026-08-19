@@ -1,4 +1,5 @@
 import { parseQuery } from "../query.js";
+import * as cachePolicy from "../cachePolicy.js";
 import { json } from "../router.js";
 import type { AppEnv } from "../types.js";
 
@@ -11,7 +12,7 @@ export async function handleStationHistory(id: string, request: Request, env: Ap
   const stub = env.OBSERVATION_CACHE.getByName("thaiwater");
   try {
     const data = await stub.getHistory(stationId, q.value.hours);
-    return json(data, { cacheControl: "public, max-age=120" });
+    return json(data, { cache: cachePolicy.history });
   } catch (err) {
     console.error(JSON.stringify({ level: "error", message: "station history failed", error: String(err) }));
     return json({ error: "History unavailable" }, { status: 503 });
@@ -25,7 +26,7 @@ export async function handleDams(request: Request, env: AppEnv): Promise<Respons
   const stub = env.OBSERVATION_CACHE.getByName("thaiwater");
   try {
     const data = await stub.getDams(q.value.province);
-    return json(data, { cacheControl: "public, max-age=300" });
+    return json(data, { cache: cachePolicy.slowMoving });
   } catch (err) {
     console.error(JSON.stringify({ level: "error", message: "dams failed", error: String(err) }));
     return json({ error: "Dam data unavailable" }, { status: 503 });

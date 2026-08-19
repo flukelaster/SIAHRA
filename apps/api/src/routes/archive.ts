@@ -1,4 +1,5 @@
 import { parseQuery } from "../query.js";
+import * as cachePolicy from "../cachePolicy.js";
 import { json } from "../router.js";
 import type { AppEnv } from "../types.js";
 
@@ -6,7 +7,7 @@ import type { AppEnv } from "../types.js";
 export async function handleArchiveDays(_req: Request, env: AppEnv): Promise<Response> {
   try {
     const days = await env.OBSERVATION_CACHE.getByName("thaiwater").archiveDays(60);
-    return json({ days }, { cacheControl: "public, max-age=300" });
+    return json({ days }, { cache: cachePolicy.slowMoving });
   } catch (err) {
     console.error(JSON.stringify({ level: "error", message: "archive days failed", error: String(err) }));
     return json({ error: "Archive unavailable" }, { status: 503 });
@@ -24,8 +25,8 @@ export async function handleArchiveSnapshot(request: Request, env: AppEnv): Prom
   if (at === null) return json({ error: "at (ISO-8601) required" }, { status: 400 });
   try {
     const snap = await env.OBSERVATION_CACHE.getByName("thaiwater").archivedSnapshot(Date.parse(at), province);
-    if (!snap) return json({ error: "No snapshot near that time" }, { status: 404, cacheControl: "public, max-age=60" });
-    return json(snap, { cacheControl: "public, max-age=3600" });
+    if (!snap) return json({ error: "No snapshot near that time" }, { status: 404 });
+    return json(snap, { cache: cachePolicy.archivedSnapshot });
   } catch (err) {
     console.error(JSON.stringify({ level: "error", message: "archive snapshot failed", error: String(err) }));
     return json({ error: "Archive unavailable" }, { status: 503 });

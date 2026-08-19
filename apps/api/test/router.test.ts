@@ -1,6 +1,7 @@
 import { createExecutionContext } from "cloudflare:test";
 import { exports as workerExports } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
+import * as cachePolicy from "../src/cachePolicy";
 import { allowHeader, createRouter, json, type Route } from "../src/router";
 import type { AppEnv } from "../src/types";
 
@@ -24,7 +25,7 @@ const workerFetch = (url: string, init: RequestInit = {}) =>
 const okRoute = (pattern: RegExp): Route => ({
   method: "GET",
   pattern,
-  handler: () => json({ ok: true }, { cacheControl: "public, max-age=15" }),
+  handler: () => json({ ok: true }, { cache: cachePolicy.health }),
 });
 
 describe("allowHeader", () => {

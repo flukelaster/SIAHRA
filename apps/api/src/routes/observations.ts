@@ -1,4 +1,5 @@
 import { parseQuery } from "../query.js";
+import * as cachePolicy from "../cachePolicy.js";
 import { json } from "../router.js";
 import type { AppEnv } from "../types.js";
 
@@ -19,9 +20,7 @@ export async function handleObservations(request: Request, env: AppEnv): Promise
 
   try {
     const data = await stub.getObservations(q.value.province, q.value.at);
-    return Response.json(data, {
-      headers: { "Cache-Control": "public, max-age=60, s-maxage=120" },
-    });
+    return json(data, { cache: cachePolicy.observations });
   } catch (err) {
     console.error(
       JSON.stringify({ level: "error", message: "observations request failed", error: String(err) }),

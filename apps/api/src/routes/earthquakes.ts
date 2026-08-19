@@ -1,4 +1,5 @@
 import { parseQuery } from "../query.js";
+import * as cachePolicy from "../cachePolicy.js";
 import { json } from "../router.js";
 import type { AppEnv } from "../types.js";
 
@@ -19,7 +20,7 @@ export async function handleEarthquakesRecent(request: Request, env: AppEnv): Pr
 
   const stub = env.EARTHQUAKE_FEED.getByName("global");
   const body = await stub.getRecentResponse(q.value.limit, q.value.minMag);
-  return json(body, { cacheControl: "public, max-age=10, s-maxage=20" });
+  return json(body, { cache: cachePolicy.realtime });
 }
 
 export async function handleEarthquakesLive(request: Request, env: AppEnv): Promise<Response> {

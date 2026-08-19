@@ -47,12 +47,15 @@
       name="twitter:image:alt"
       content="SIAHRA — แผนที่ 3 มิติเฝ้าระวังภัยพิบัติของไทย จากข้อมูลที่ตรวจวัดได้จริง: ภูมิประเทศ 3D ระดับน้ำ เรดาร์ฝน น้ำท่วมจากดาวเทียม แผ่นดินไหว"
     />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
-      rel="stylesheet"
-    />
+    <!--
+      Fonts are self-hosted (public/fonts/, @font-face in src/fonts.css) — no
+      fonts.googleapis.com / fonts.gstatic.com origin any more, which is what
+      lets the CSP say `font-src 'self'`. Preload only the two faces the first
+      paint needs (Thai body text at 400, and 600 for headings); the rest are
+      pulled in by unicode-range as they are needed.
+    -->
+    <link rel="preload" href="/fonts/sarabun-thai-400.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/sarabun-thai-600.woff2" as="font" type="font/woff2" crossorigin />
   </head>
   <body>
     <div id="root"></div>
