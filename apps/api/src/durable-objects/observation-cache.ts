@@ -17,6 +17,7 @@ import {
   fetchWaterLevel,
   fetchWaterLevelHistory,
 } from "../ingestion/thaiwater.js";
+import { shortReason } from "../ingestion/errors.js";
 import { deriveSourceHealth } from "../sourceHealth.js";
 import { UpstreamQueue } from "../upstream/limiter.js";
 import {
@@ -69,6 +70,12 @@ const WARM_MAX_STATIONS = 24;
 /** Snapshot lookups accept a reading this far before the requested time. */
 const SNAPSHOT_TOLERANCE_MS = 3 * 60 * 60 * 1000;
 const DAMS_TTL_MS = 30 * 60 * 1000;
+/**
+ * รอบที่ฟีดเขื่อนล้มเหลวจะไม่ประทับ `damsFetchedAt` (ไม่มีข้อมูลใหม่ให้ประทับ)
+ * ทุกคำขอถัดไปจึงเข้าเงื่อนไข "หมดอายุ" แล้วยิงต้นทางซ้ำทุกครั้ง — ต้นทางที่ส่ง
+ * payload ผิดรูปไม่ใช่อาการชั่วคราว การยิงรัวจึงได้แต่รูปเดิม เว้นระยะไว้ 5 นาที
+ */
+const DAMS_RETRY_MS = 5 * 60 * 1000;
 
 /**
  * Durable Object SQLite caps bound parameters per statement (100), and each
@@ -421,14 +428,17 @@ export class ObservationCacheDO extends DurableObject<Env> {
     this.writeMeta("lastAttemptAt", new Date(nowMs).toISOString());
     // Partial failure must not wipe the good half of the cache, so each feed
     // is only rewritten when its own fetch succeeded.
+    const errors: string[] = [];
     const [rainfall, waterlevel] = await Promise.all([
       this.upstream.run(() => fetchRainfall(), 0).catch((err: unknown) => {
+        errors.push(shortReason(err));
         console.error(
           JSON.stringify({ level: "error", message: "thaiwater rain fetch failed", error: String(err) }),
         );
         return null;
       }),
       this.upstream.run(() => fetchWaterLevel(), 0).catch((err: unknown) => {
+        errors.push(shortReason(err));
         console.error(
           JSON.stringify({ level: "error", message: "thaiwater waterlevel fetch failed", error: String(err) }),
         );
@@ -436,6 +446,12 @@ export class ObservationCacheDO extends DurableObject<Env> {
       }),
     ]);
 
+    /**
+     * **ตรวจรูปร่างเสร็จก่อนถึงบรรทัดนี้เสมอ** — adapter จะโยน `UpstreamShapeError`
+     * ตั้งแต่ตอนแปลง payload จึงคืนค่าเป็น null และไม่มี SQL สักคำสั่งถูกรัน
+     * ผลคือรอบที่ payload ผิดรูปจะไม่มีวัน "เขียนไปได้ครึ่งทาง": แถวเดิมอยู่ครบ
+     * แล้วความล้มเหลวไปโผล่ที่ lastError/health แทน (E4.4 AC 4)
+     */
     if (rainfall) this.replaceRainfall(rainfall);
     if (waterlevel) this.replaceWaterLevel(waterlevel);
 
@@ -447,8 +463,13 @@ export class ObservationCacheDO extends DurableObject<Env> {
       // Partial success still refreshes fetchedAt (the good half is new), but
       // the failure is recorded so /health can say "degraded".
       if (rainfall || waterlevel) this.writeMeta("fetchedAt", new Date(nowMs).toISOString());
-      const which = [!rainfall && "rain_24h", !waterlevel && "waterlevel_load"].filter(Boolean).join(", ");
-      this.writeMeta("lastError", `ThaiWater ${which} fetch failed`);
+      // เก็บข้อความจริงของต้นทางไว้ ไม่ใช่แค่ "fetch failed" — ผู้ใช้ที่เห็น
+      // แถบสถานะต้องแยกออกว่าต้นทางล่ม (HTTP 5xx) กับต้นทางเปลี่ยนรูปร่าง
+      // (UpstreamShapeError พร้อม path) คนละเรื่องกัน
+      // ไม่ใส่คำนำหน้า "ThaiWater" ซ้ำ: shortReason() คืนข้อความที่ขึ้นต้นด้วยชื่อ
+      // ต้นทางและ path อยู่แล้ว การซ้ำจะกินโควตา 200 ตัวอักษรจน path ของฟีดที่สอง
+      // ถูกตัดทิ้ง ทั้งที่มันคือชิ้นเดียวที่บอกว่าต้นทางเปลี่ยนรูปตรงไหน
+      this.writeMeta("lastError", errors.join("; ").slice(0, 200));
       const failures = Number(this.readMeta("consecutiveFailures") ?? "0") + 1;
       this.writeMeta("consecutiveFailures", String(failures));
     }
@@ -686,8 +707,15 @@ export class ObservationCacheDO extends DurableObject<Env> {
   private async refreshDams(nowMs: number): Promise<void> {
     if (!this.damsInflight) {
       this.damsInflight = (async () => {
+        const lastAttemptMs = Number(this.readMeta("damsAttemptAt") ?? "0");
+        if (this.readMeta("damsError") && nowMs - lastAttemptMs < DAMS_RETRY_MS) return;
+        this.writeMeta("damsAttemptAt", String(nowMs));
         try {
           const dams = await this.upstream.run(() => fetchDams(nowMs), 3);
+          // ล้างตารางเฉพาะเมื่อมีของใหม่มาแทนจริง ๆ — payload ที่แปลงแล้วเหลือศูนย์
+          // แถวไม่ควรมีสิทธิ์ลบเขื่อนทั้งประเทศทิ้ง (การตรวจซองจดหมายใน adapter
+          // ดักกรณีนี้ไปแล้ว บรรทัดนี้คือกันชนชั้นสุดท้าย)
+          if (dams.length === 0) throw new Error("ThaiWater analyst/dam returned no usable rows");
           this.ctx.storage.sql.exec("DELETE FROM dams");
           for (const d of dams) {
             this.ctx.storage.sql.exec(
@@ -702,6 +730,8 @@ export class ObservationCacheDO extends DurableObject<Env> {
           this.writeMeta("damsError", null);
         } catch (err) {
           this.writeMeta("damsError", String(err).slice(0, 200));
+          // แถวเขื่อนเดิมยังอยู่ครบ (ไม่มีคำสั่ง DELETE ถูกรัน) และความล้มเหลว
+          // ไปโผล่ที่ lastError ของ /health ด้านล่าง แทนที่จะหายไปใน log เฉย ๆ
           console.error(JSON.stringify({ level: "error", message: "thaiwater dams fetch failed", error: String(err) }));
         }
       })().finally(() => {
@@ -743,7 +773,16 @@ export class ObservationCacheDO extends DurableObject<Env> {
   async status(): Promise<SourceStatus> {
     const nowMs = Date.now();
     const fetchedAt = this.readMeta("fetchedAt");
-    const lastError = this.readMeta("lastError");
+    /**
+     * `damsError` ต้องถูกรวมเข้ากับ `lastError` ไม่ใช่ซ่อนไว้ใน `detail`:
+     * SourceStatusBar แสดงแค่ `health` กับ `lastError` ฟีดเขื่อนที่พังจึงจะ
+     * มองไม่เห็นเลยถ้าปล่อยไว้ใน detail อย่างเดียว
+     */
+    const lastError =
+      [this.readMeta("lastError"), this.readMeta("damsError") && `dams: ${this.readMeta("damsError")}`]
+        .filter(Boolean)
+        .join("; ")
+        .slice(0, 300) || null;
     const rainCount =
       this.ctx.storage.sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM rainfall").toArray()[0]?.n ?? 0;
     const waterCount =
@@ -786,6 +825,7 @@ export class ObservationCacheDO extends DurableObject<Env> {
         archiveLastDay: this.readMeta("lastArchivedDay"),
         snapshotLastHour: this.readMeta("lastSnapshotKey"),
         archiveError: this.readMeta("archiveError"),
+        damsError: this.readMeta("damsError"),
       },
       staleAfterSeconds: STALE_AFTER_MS / 1000,
       observedLagSeconds: OBSERVED_LAG_MS / 1000,

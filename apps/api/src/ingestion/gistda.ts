@@ -1,4 +1,6 @@
 import type { FloodExtentFeature } from "@siahra/shared-types";
+import { UpstreamShapeError, readUpstreamJson } from "./errors.js";
+import { assertGistdaEnvelope, assertGistdaFeature } from "./schemas/gistda.js";
 
 /**
  * GISTDA flood-extent scene, served openly (no key, CORS *) from their
@@ -120,12 +122,16 @@ async function fetchSceneJson(options?: FetchOptions): Promise<WfsResponse> {
         headers: { "User-Agent": "siahra-api/0.0.0 (flood extent ingestion)", Accept: "application/json" },
         signal: AbortSignal.timeout(timeoutMs),
       });
-      if (res.ok) return (await res.json()) as WfsResponse;
+      // ตรวจ "ซองจดหมาย" ตรงนี้ ก่อนคืนให้ผู้เรียก — payload ที่ไม่มีคีย์ features
+      // เคยถูกแปลงเป็นฉากว่างแล้วเขียนทับฉากล่าสุดทั้งใน SQLite และใน R2
+      if (res.ok) return assertGistdaEnvelope((await readUpstreamJson("gistda", res)) as WfsResponse);
       throw new UpstreamError(
         `GISTDA WFS failed: ${res.status} ${res.statusText}`,
         retryableStatus(res.status),
       );
     } catch (err) {
+      // payload ผิดรูปไม่ใช่อาการชั่วคราว — ยิงซ้ำอีกกี่ครั้งก็ได้รูปร่างเดิม
+      if (err instanceof UpstreamShapeError) throw err;
       if (err instanceof UpstreamError && !err.retryable) throw err;
       lastError = err instanceof Error ? err : new Error(String(err));
     }
@@ -159,7 +165,8 @@ export async function fetchGistdaFloodExtent(options?: FetchOptions): Promise<Gi
   const body = await fetchSceneJson(options);
   const features = Array.isArray(body.features) ? body.features : [];
   const out: RawFloodFeature[] = [];
-  for (const f of features) {
+  for (const [index, f] of features.entries()) {
+    assertGistdaFeature(f, index);
     const g = f.geometry;
     if (!g || (g.type !== "Polygon" && g.type !== "MultiPolygon")) continue;
     const p = f.properties ?? {};

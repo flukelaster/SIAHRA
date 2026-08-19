@@ -6,6 +6,17 @@ import type {
   WaterLevelHistoryPoint,
   WaterLevelObservation,
 } from "@siahra/shared-types";
+import { readUpstreamJson } from "./errors.js";
+import {
+  assertDamEnvelope,
+  assertDamRecord,
+  assertGraphEnvelope,
+  assertGraphPoint,
+  assertRainEnvelope,
+  assertRainRecord,
+  assertWaterEnvelope,
+  assertWaterRecord,
+} from "./schemas/thaiwater.js";
 
 const BASE = "https://api-v3.thaiwater.net/api/v1/thaiwater30";
 const RAIN_24H_URL = `${BASE}/public/rain_24h`;
@@ -125,11 +136,16 @@ export async function fetchRainfall(): Promise<RainfallObservation[]> {
   });
   if (!res.ok) throw new Error(`ThaiWater rain_24h failed: ${res.status} ${res.statusText}`);
 
-  const body = (await res.json()) as { data?: UpstreamRainRecord[] | null };
-  const records = Array.isArray(body.data) ? body.data : [];
+  const body = assertRainEnvelope((await readUpstreamJson("thaiwater rain_24h", res)) as {
+    data?: UpstreamRainRecord[] | null;
+  });
+  const records = (body.data ?? []) as UpstreamRainRecord[];
 
   const observations: RainfallObservation[] = [];
-  for (const record of records) {
+  for (const [index, raw] of records.entries()) {
+    // ตรวจทีละระเบียนใน loop ที่ต้องเดินอยู่แล้ว — payload 2–4 MB ไม่คุ้มกับการ
+    // สร้าง schema ทั้งเอกสารแล้ว walk ซ้ำอีกหนึ่งรอบ
+    const record = assertRainRecord(raw, index);
     const station = toStationRef(record);
     if (!station) continue;
     observations.push({
@@ -148,13 +164,14 @@ export async function fetchWaterLevel(): Promise<WaterLevelObservation[]> {
   });
   if (!res.ok) throw new Error(`ThaiWater waterlevel_load failed: ${res.status} ${res.statusText}`);
 
-  const body = (await res.json()) as {
+  const body = assertWaterEnvelope((await readUpstreamJson("thaiwater waterlevel_load", res)) as {
     waterlevel_data?: { data?: UpstreamWaterRecord[] | null } | null;
-  };
-  const records = Array.isArray(body.waterlevel_data?.data) ? body.waterlevel_data.data : [];
+  });
+  const records = (body.waterlevel_data?.data ?? []) as UpstreamWaterRecord[];
 
   const observations: WaterLevelObservation[] = [];
-  for (const record of records) {
+  for (const [index, raw] of records.entries()) {
+    const record = assertWaterRecord(raw, index);
     const station = toStationRef(record);
     if (!station) continue;
 
@@ -212,16 +229,16 @@ export async function fetchWaterLevelHistory(
     `&end_date=${encodeURIComponent(bangkokStamp(nowMs, true))}`;
   const res = await fetch(url, { headers: { "User-Agent": UA, Accept: "application/json" } });
   if (!res.ok) throw new Error(`ThaiWater waterlevel_graph ${stationId} failed: ${res.status}`);
-  const text = await res.text();
-  let body: { data?: { graph_data?: { datetime?: string; value?: unknown; discharge?: unknown }[] } };
-  try {
-    body = JSON.parse(text);
-  } catch {
-    throw new Error(`ThaiWater waterlevel_graph ${stationId}: non-JSON response`);
-  }
-  const rows = Array.isArray(body.data?.graph_data) ? body.data.graph_data : [];
+  // ต้นทางเคยตอบ Go panic เป็นข้อความล้วนเมื่อถามสถานีคลองด้วย tele_waterlevel
+  // — เดินเส้นทางเดียวกับ payload ผิดรูปอื่น ๆ แทนที่จะเป็น Error ทั่วไป
+  const body = (await readUpstreamJson(`thaiwater waterlevel_graph ${stationId}`, res)) as {
+    data?: { graph_data?: { datetime?: string; value?: unknown; discharge?: unknown }[] };
+  };
+  assertGraphEnvelope(body);
+  const rows = body.data?.graph_data ?? [];
   const points: WaterLevelHistoryPoint[] = [];
-  for (const r of rows) {
+  for (const [index, r] of rows.entries()) {
+    assertGraphPoint(r, index);
     const t = toIso(r.datetime);
     if (!t) continue;
     points.push({ t, value: num(r.value), discharge: num(r.discharge) });
@@ -259,16 +276,22 @@ interface UpstreamDamRecord {
 export async function fetchDams(nowMs = Date.now()): Promise<DamObservation[]> {
   const res = await fetch(DAM_URL, { headers: { "User-Agent": UA, Accept: "application/json" } });
   if (!res.ok) throw new Error(`ThaiWater analyst/dam failed: ${res.status} ${res.statusText}`);
-  const body = (await res.json()) as {
+  const body = assertDamEnvelope((await readUpstreamJson("thaiwater analyst/dam", res)) as {
     data?: {
       dam_hourly?: UpstreamDamRecord[];
       dam_daily?: UpstreamDamRecord[];
       dam_medium?: UpstreamDamRecord[];
     };
-  };
+  });
   const byId = new Map<number, DamObservation>();
-  const ingest = (rows: UpstreamDamRecord[] | undefined, kind: "large" | "medium", priority: number) => {
-    for (const r of rows ?? []) {
+  const ingest = (
+    rows: UpstreamDamRecord[] | undefined,
+    group: string,
+    kind: "large" | "medium",
+    priority: number,
+  ) => {
+    for (const [index, r] of (rows ?? []).entries()) {
+      assertDamRecord(r, group, index);
       const observedAt = toIso(r.dam_date);
       if (!observedAt || nowMs - Date.parse(observedAt) > DAM_MAX_AGE_MS) continue;
       const id = num(r.dam?.id);
@@ -306,9 +329,9 @@ export async function fetchDams(nowMs = Date.now()): Promise<DamObservation[]> {
       byId.set(id, dam);
     }
   };
-  ingest(body.data?.dam_daily, "large", 1);
-  ingest(body.data?.dam_hourly, "large", 2);
-  ingest(body.data?.dam_medium, "medium", 0);
+  ingest(body.data?.dam_daily, "dam_daily", "large", 1);
+  ingest(body.data?.dam_hourly, "dam_hourly", "large", 2);
+  ingest(body.data?.dam_medium, "dam_medium", "medium", 0);
   return [...byId.values()].map((d) => {
     const { _p, ...rest } = d as DamObservation & { _p?: number };
     void _p;

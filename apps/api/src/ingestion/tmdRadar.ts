@@ -11,6 +11,8 @@
  * the 1173×1668 composite to 0.06 %, and land/sea pixels sampled at Bangkok,
  * Chiang Mai, Phuket, the Gulf and the Andaman all land correctly with it.
  */
+import { assertRadarFrame, assertRadarIndex } from "./schemas/radar.js";
+
 export const RADAR_LIST_URL = "https://weather.tmd.go.th/composite/images_composite.list";
 export const RADAR_IMAGE_BASE = "https://weather.tmd.go.th/composite/images/";
 export const RADAR_BOUNDS = { minLon: 95.005, minLat: 3.995, maxLon: 108.005, maxLat: 22.495 };
@@ -52,7 +54,11 @@ export async function fetchRadarIndex(): Promise<RadarIndex> {
   }
   const lastModified = res.headers.get("last-modified");
   const publishedMs = lastModified ? Date.parse(lastModified) : NaN;
-  return { slots, publishedAt: Number.isFinite(publishedMs) ? new Date(publishedMs).toISOString() : null };
+  // ดัชนีที่ parse แล้วได้ศูนย์ช่อง = รูปแบบบรรทัดเปลี่ยน ไม่ใช่ "ไม่มีเฟรมใหม่"
+  return assertRadarIndex({
+    slots,
+    publishedAt: Number.isFinite(publishedMs) ? new Date(publishedMs).toISOString() : null,
+  });
 }
 
 export async function fetchRadarFrame(file: string): Promise<ArrayBuffer> {
@@ -60,5 +66,5 @@ export async function fetchRadarFrame(file: string): Promise<ArrayBuffer> {
     headers: { "User-Agent": "siahra-api/0.0.0 (radar ingestion)" },
   });
   if (!res.ok) throw new Error(`TMD radar frame ${file} failed: ${res.status}`);
-  return res.arrayBuffer();
+  return assertRadarFrame(await res.arrayBuffer(), file);
 }

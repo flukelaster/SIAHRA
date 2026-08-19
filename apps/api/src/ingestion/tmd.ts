@@ -1,5 +1,6 @@
 import type { EarthquakeEvent } from "@siahra/shared-types";
 import type { Bbox } from "./usgs.js";
+import { assertTmdDocument, assertTmdRecord } from "./schemas/tmd.js";
 
 const TMD_SEISMIC_BASE = "https://data.tmd.go.th/api/DailySeismicEvent/v1/";
 
@@ -103,11 +104,24 @@ export async function fetchTmdEvents(
 
   const events: EarthquakeEvent[] = [];
   const blocks = xml.match(/<DailyEarthquakes>[\s\S]*?<\/DailyEarthquakes>/g) ?? [];
+  // เอกสารที่ไม่ว่างแต่ไม่มีบล็อกเลย = รูปร่างเปลี่ยน ไม่ใช่ "วันนี้ไม่มีแผ่นดินไหว"
+  assertTmdDocument(xml, blocks.length);
 
-  for (const block of blocks) {
-    const lat = toNumberOrNull(tagText(block, "Latitude"));
-    const lon = toNumberOrNull(tagText(block, "Longitude"));
-    const timeMs = parseTmdUtc(tagText(block, "DateTimeUTC"));
+  for (const [index, block] of blocks.entries()) {
+    const mag = toNumberOrNull(tagText(block, "Magnitude"));
+    const depthKm = toNumberOrNull(tagText(block, "Depth"));
+    const { lat, lon, timeMs } = assertTmdRecord(
+      {
+        lat: toNumberOrNull(tagText(block, "Latitude")),
+        lon: toNumberOrNull(tagText(block, "Longitude")),
+        timeMs: parseTmdUtc(tagText(block, "DateTimeUTC")),
+        mag,
+        depthKm,
+      },
+      index,
+    );
+    // แถวที่ไม่ครบฟิลด์เป็นเรื่องปกติของฟีดนี้ — ข้ามเหมือนเดิม ต่างจากค่าที่
+    // "มีแต่เพี้ยนพิสัย" ซึ่ง assertTmdRecord ด้านบนดักไปแล้ว
     if (lat === null || lon === null || timeMs === null) continue;
     if (!inBbox(lat, lon, bbox)) continue;
     if (nowMs - timeMs > MAX_AGE_MS) continue;
@@ -121,14 +135,14 @@ export async function fetchTmdEvents(
       id,
       clusterId: id,
       sources: ["tmd"],
-      mag: toNumberOrNull(tagText(block, "Magnitude")),
+      mag,
       // TMD does not publish a magnitude scale on this feed; leaving it null
       // is honest, and the UI already renders "ไม่ระบุมาตรา" for that case.
       magType: null,
       place: tagText(block, "OriginThai"),
       lat,
       lon,
-      depthKm: toNumberOrNull(tagText(block, "Depth")),
+      depthKm,
       time,
       // No revision timestamp in the feed — origin time is the only stamp,
       // so last-write-wins can never spuriously overwrite a newer solution.

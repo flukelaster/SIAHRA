@@ -1,5 +1,7 @@
 import type { EarthquakeEvent } from "@siahra/shared-types";
 import type { Bbox } from "./usgs.js";
+import { readUpstreamJson } from "./errors.js";
+import { assertEmscFeed } from "./schemas/emsc.js";
 
 interface EmscFeatureProperties {
   time: string;
@@ -48,7 +50,7 @@ export async function fetchEmscEvents(bbox: Bbox, sinceMs: number): Promise<Eart
     throw new Error(`EMSC feed request failed: ${res.status} ${res.statusText}`);
   }
 
-  const data = (await res.json()) as EmscFeedResponse;
+  const data = assertEmscFeed((await readUpstreamJson("emsc", res)) as EmscFeedResponse);
 
   return data.features.map((f): EarthquakeEvent => ({
     id: `emsc:${f.properties.unid}`,

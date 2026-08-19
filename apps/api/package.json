@@ -14,7 +14,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@siahra/shared-types": "*"
+    "@siahra/shared-types": "*",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.22.0",

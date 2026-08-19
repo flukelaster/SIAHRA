@@ -108,6 +108,14 @@ export class RadarDO extends DurableObject<Env> {
     // ต้นทางบอกเวลาเผยแพร่มาบ้างไม่บอกบ้าง — ไม่บอกคือ null ไม่ใช่เวลาเดิมที่ค้างอยู่
     this.writeMeta("publishedAt", index.publishedAt);
     let added = 0;
+    /**
+     * เฟรมที่ตรวจไม่ผ่าน/โหลดไม่ได้ ต้อง "ข้ามแล้วมองเห็น" ไม่ใช่ข้ามเงียบ ๆ
+     * ตัวนับใน `detail` อย่างเดียวไม่พอ เพราะ SourceStatusBar แสดงเฉพาะ `health`
+     * กับ `lastError` — ถ้าไม่ตั้ง lastError ผู้ใช้จะไม่รู้อะไรเลยจนกว่าเฟรมที่
+     * ยังเก็บไว้จะเก่าจนกลายเป็น stale ไปเอง (E4.4 AC 3)
+     */
+    const skipped: string[] = [];
+    const skippedDetail: string[] = [];
     for (const slot of slots) {
       const have = this.ctx.storage.sql.exec<FrameRow>("SELECT key FROM frames WHERE ts_ms = ?", slot.tsMs).toArray()[0];
       if (have) continue;
@@ -118,7 +126,9 @@ export class RadarDO extends DurableObject<Env> {
         this.ctx.storage.sql.exec("INSERT OR REPLACE INTO frames (ts_ms, key) VALUES (?, ?)", slot.tsMs, key);
         added++;
       } catch (err) {
-        console.error(JSON.stringify({ level: "warn", message: "radar frame fetch failed", file: slot.file, error: String(err) }));
+        skipped.push(slot.file);
+        skippedDetail.push(`${slot.file} (${String(err)})`);
+        console.error(JSON.stringify({ level: "warn", message: "radar frame skipped", file: slot.file, error: String(err) }));
       }
     }
     // Prune old frames from both the index and R2.
@@ -130,7 +140,16 @@ export class RadarDO extends DurableObject<Env> {
       this.ctx.storage.sql.exec("DELETE FROM frames WHERE ts_ms = ?", row.ts_ms);
     }
     this.writeMeta("fetchedAt", new Date(nowMs).toISOString());
-    this.writeMeta("lastError", null);
+    // เขียนทับทุกรอบที่เดินมาถึงตรงนี้ รวมถึงกรณี 0 — ตัวเลขของรอบก่อนต้องไม่ค้าง
+    // (รอบที่ดึง "ดัชนี" ไม่สำเร็จจะ return ไปก่อนหน้านี้ และคงค่าเดิมไว้ตามเจตนา:
+    //  เรายังไม่ได้ตรวจเฟรมใด ๆ ในรอบนั้นเลย จึงไม่มีข้อมูลใหม่มาแทนที่)
+    this.writeMeta("skippedFrames", String(skipped.length));
+    this.writeMeta(
+      "lastError",
+      skipped.length === 0
+        ? null
+        : `radar frames skipped (${skipped.length}/${slots.length}): ${skippedDetail.join("; ")}`.slice(0, 200),
+    );
     if (added > 0) console.log(JSON.stringify({ level: "info", message: "radar frames added", added }));
     return true;
   }
@@ -201,7 +220,7 @@ export class RadarDO extends DurableObject<Env> {
       latestObservedAt,
       lastAttemptAt: this.readMeta("lastAttemptAt"),
       lastError,
-      detail: { frames24h: count },
+      detail: { frames24h: count, skippedFrames: Number(this.readMeta("skippedFrames") ?? "0") },
       staleAfterSeconds: FETCH_STALE_AFTER_MS / 1000,
       observedLagSeconds: OBSERVED_LAG_MS / 1000,
       nextAttemptAt: alarmAtMs === null ? null : new Date(alarmAtMs).toISOString(),

@@ -1,0 +1,23 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "20260819_0000042",
+      "geometry": { "type": "Point", "coordinates": [96.28, 20.11, 33.0] },
+      "properties": {
+        "unid": "20260819_0000042",
+        "time": "2026-08-19T04:12:33.0Z",
+        "lastupdate": "2026-08-19T04:31:02.0Z",
+        "flynn_region": "MYANMAR",
+        "lat": 20.11,
+        "lon": 96.28,
+        "depth": 33.0,
+        "mag": 4.1,
+        "magtype": "mb",
+        "auth": "EMSC",
+        "source_id": "1234567"
+      }
+    }
+  ]
+}

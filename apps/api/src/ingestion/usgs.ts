@@ -1,4 +1,6 @@
 import type { EarthquakeEvent } from "@siahra/shared-types";
+import { readUpstreamJson } from "./errors.js";
+import { assertUsgsFeed } from "./schemas/usgs.js";
 
 const USGS_FEED_URL =
   "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson";
@@ -72,7 +74,7 @@ export async function fetchUsgsEvents(bbox: Bbox): Promise<EarthquakeEvent[]> {
   if (!res.ok) {
     throw new Error(`USGS feed request failed: ${res.status} ${res.statusText}`);
   }
-  return toEvents((await res.json()) as UsgsFeedResponse, bbox);
+  return toEvents(assertUsgsFeed((await readUpstreamJson("usgs", res)) as UsgsFeedResponse), bbox);
 }
 
 /**
@@ -103,5 +105,8 @@ export async function backfillUsgsEvents(
   if (!res.ok) {
     throw new Error(`USGS FDSN backfill failed: ${res.status} ${res.statusText}`);
   }
-  return toEvents((await res.json()) as UsgsFeedResponse, bbox);
+  return toEvents(
+    assertUsgsFeed((await readUpstreamJson("usgs backfill", res)) as UsgsFeedResponse, "usgs backfill"),
+    bbox,
+  );
 }
