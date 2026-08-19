@@ -1,4 +1,5 @@
 import { ExternalLink, Gauge, Layers } from "lucide-react";
+import { DETAIL_TILE_ALTITUDE_GATE_M } from "../../scene/lod";
 import type { QualityLevel, QualityMode } from "../../scene/quality";
 import type { MapLayers } from "./Map3DCanvas";
 import type { LayerDescriptors } from "../../hooks/useLayerDescriptors";
@@ -316,7 +317,9 @@ export function MapLegend({
               </span>
               <span className="min-w-0 leading-tight">
                 <span className="block text-xs text-[var(--color-fg)]">{t(row.labelKey)}</span>
-                <span className="block text-[10px] text-[var(--color-fg-subtle)]">{t(row.noteKey)}</span>
+                <span className="block text-[10px] text-[var(--color-fg-subtle)]">
+                  {t(row.noteKey, { km: DETAIL_TILE_ALTITUDE_GATE_M / 1000 })}
+                </span>
                 {entry ? <LayerMeta entry={entry} nowMs={nowMs} lang={lang} t={t} /> : null}
               </span>
             </label>

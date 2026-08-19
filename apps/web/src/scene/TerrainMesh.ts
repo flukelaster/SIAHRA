@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import type { AoiManifest } from "@siahra/shared-types";
 import { loadBoundaryMask } from "./boundaryMask";
-import { buildOverlayField, type OverlayField } from "./hazardOverlay";
+import { buildOverlayFieldAsync, type OverlayField } from "./hazardOverlay";
 import { createLocalProjection, type LocalProjection } from "./localProjection";
 import { imageryUv, type ImageryPlan } from "./SatelliteImagery";
 import {
@@ -135,7 +135,12 @@ export async function buildTerrainMesh(
   geometry.setIndex(new THREE.BufferAttribute(indices, 1));
   geometry.computeVertexNormals();
 
-  const overlay = buildOverlayField(manifest, heights, insideMask);
+  // วัดเวลาเป็น performance measure เดียวกันทั้งก่อนและหลังย้ายไป worker —
+  // ตัวเลขที่รายงานใน PR อ่านจาก `performance.getEntriesByName()` ชื่อนี้
+  performance.mark("siahra:overlay:start");
+  const overlay = await buildOverlayFieldAsync(manifest, heights, insideMask);
+  performance.mark("siahra:overlay:end");
+  performance.measure("siahra:overlay", "siahra:overlay:start", "siahra:overlay:end");
   const material = createTerrainMaterial(sharedUniforms);
   material.setOverlay(overlay.texture);
 

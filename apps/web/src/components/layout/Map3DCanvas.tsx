@@ -35,7 +35,7 @@ import {
 import { buildStationMarkers, type StationMarkerResult } from "../../scene/StationMarkers";
 import { buildTerrainMesh, type TerrainField } from "../../scene/TerrainMesh";
 import { createTerrainSharedUniforms } from "../../scene/terrainMaterial";
-import { TerrainTileTree, type TerrainTileStats } from "../../scene/TerrainTiles";
+import { disposedTreeCounters, TerrainTileTree, type TerrainTileStats } from "../../scene/TerrainTiles";
 import { formatNumber } from "../../lib/number";
 import { useLang } from "../../i18n/context";
 import type { MessageKey } from "../../i18n";
@@ -281,6 +281,14 @@ export function Map3DCanvas({
             if (!cancelled) setTileStats(st);
           };
           quality.setTree(tree);
+          // ตัวนับ LOD สำหรับ DEV — ให้ QA นับการสลับ split/merge และคู่
+          // created/disposed ของ mesh ได้ แทนที่จะดูด้วยตา (registry ถูกล้าง
+          // ใน handles.dispose() จึงไม่ต้องถอนเอง)
+          if (import.meta.env.DEV) {
+            const t = tree;
+            handles.debug.register("lod", () => t.lodCounters);
+            handles.debug.register("lodDisposedTrees", () => disposedTreeCounters);
+          }
           handles.world.add(tree.group);
           if (manifest.buildings?.tiles) {
             buildingTiles = new BuildingTileLayer(manifest, terrain.projection);
@@ -358,8 +366,8 @@ export function Map3DCanvas({
             tree.update(h.camera, h.world.scale.y, container.clientHeight);
             const keys = tree.visibleTileKeys();
             const now = performance.now();
-            buildingTiles?.update(keys, now);
-            featureTiles?.update(keys, now);
+            buildingTiles?.update(keys, h.camera, h.world.scale.y, now);
+            featureTiles?.update(keys, h.camera, h.world.scale.y, now);
             vegetation?.update(keys, h.camera, now);
           }
           const d = h.camera.position.distanceTo(h.controls.target) / frameDistance;

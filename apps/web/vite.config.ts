@@ -59,6 +59,24 @@ const API_TARGET = `http://127.0.0.1:${PORTS.api ?? 8787}`;
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), terrainTiles()],
+  build: {
+    rollupOptions: {
+      output: {
+        // three (~600 kB) และ react เปลี่ยนน้อยกว่าโค้ดของเราหลายเท่า แยกออกมา
+        // แล้ว hash ของมันจะคงเดิมข้ามการ deploy ที่แตะแค่โค้ดแอป — ผู้ใช้เดิม
+        // ดาวน์โหลดใหม่เฉพาะชิ้นเล็ก
+        //
+        // นี่คือกำไรด้าน **แคช** ไม่ใช่ first paint: ทั้งสองก้อนยังอยู่บนเส้นทาง
+        // วิกฤติ เพราะโมดูลใน scene/* import three แบบตรง ๆ
+        manualChunks: (id: string) => {
+          if (!id.includes("node_modules")) return undefined;
+          if (/node_modules[/\\]three[/\\]/.test(id)) return "three";
+          if (/node_modules[/\\](react|react-dom|scheduler)[/\\]/.test(id)) return "react";
+          return undefined;
+        },
+      },
+    },
+  },
   server: {
     port: PORTS.web,
     strictPort: PORTS.web !== undefined,

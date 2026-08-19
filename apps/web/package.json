@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "postbuild": "node ../../scripts/check-bundle-budget.mjs dist",
     "lint": "oxlint",
     "preview": "vite preview",
     "og:image": "node og/build.mjs",
