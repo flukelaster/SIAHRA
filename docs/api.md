@@ -119,6 +119,57 @@ Notes:
 - `at` on `/api/v1/archive/snapshot` is **required**; a missing `at` answers `400`. On
   `/api/v1/observations` it is optional (absent = latest).
 
+## Realtime protocol (`/api/v1/earthquakes/live`)
+
+One WebSocket, one direction. The frame union is `EqWsMessage` in
+`packages/shared-types/src/earthquake.ts` — api and web cannot disagree about it, because both
+import that file.
+
+| Frame | When | Carries |
+|---|---|---|
+| `snapshot` | first frame on every connection, before any `event.*` | `asOf`, the layer descriptor, up to 200 most recent events |
+| `event.created` / `event.updated` | on a poll that changed something | the event; **no** time reference, so the client must not move `asOf` |
+| `event.deleted` | reserved; not emitted today | the event id |
+| `heartbeat` | every ≤ 30 s while at least one client is connected | `serverTime`, `asOf`, and the deprecated `ts` |
+
+**Cadence.** `WS_HEARTBEAT_INTERVAL_MS = 30_000` is declared once, in the shared contract, and both
+sides read it: the Durable Object's alarm re-arms at that interval **while a socket is connected**
+(with no client it falls back to the 60 s poll interval, because waking up to broadcast to nobody
+only burns Durable Object storage writes), and the browser watchdog is
+`WS_HEARTBEAT_WATCHDOG_MS = 2.5 × interval = 75 s`. Changing the cadence therefore moves the client
+watchdog with it; it cannot be left behind. Because the two Workers deploy separately, a browser
+starts each socket on the pre-E6.1 budget (`WS_HEARTBEAT_LEGACY_WATCHDOG_MS = 150 s`, from the old
+60 s poll-bound heartbeat) and tightens to 75 s the first time a heartbeat arrives carrying
+`serverTime` — the presence of that field is the version signal. Both legacy constants can be
+deleted one release after E6.1 is live on both Workers. The heartbeat is independent of the 60 s poll: a poll
+that is slow, or that fails on every feed, still leaves the socket beating, so the client never
+mistakes a broken upstream for a dead connection.
+
+**`serverTime` vs `asOf`.** `serverTime` is the server clock at the moment the frame was sent and
+proves only that the connection is alive. `asOf` is the time of the **last poll round** — the age of
+the data the frame vouches for — and is `null` when no poll has ever completed. It means exactly that
+in **both** the `snapshot` and the `heartbeat` frame, deliberately: they travel on the same socket, so
+if `snapshot.asOf` were the response-build time instead, the displayed timestamp would jump backwards
+by up to one poll interval when the first heartbeat arrived — and the value it jumped *to* would be
+the true one, meaning the snapshot had been overstating freshness all along. The client moves its
+displayed `asOf` from `asOf` only, never from `serverTime`: heartbeats keep coming while every
+upstream feed is failing, and using the server clock there would advertise a freshness we do not
+have. `ts` duplicates `serverTime` and is kept for one release so a web build shipped before E6.1
+keeps parsing frames (the two Workers deploy separately, which is also why `layer`, `serverTime` and
+`asOf` are optional in the type).
+
+**Client → server.** The only message the server understands is the text `"ping"`, answered with the
+text `"pong"` by `setWebSocketAutoResponse` in the runtime, without waking the Durable Object.
+(A browser cannot send a protocol-level ping frame, which is why the pair is a text pair.) Any other
+message is ignored.
+
+**Close.** A request without `Upgrade: websocket` is answered `426`, not a hanging connection.
+The Durable Object defines no close codes of its own: when a peer closes, the server echoes that
+peer's code and reason back and the client reconnects with full-jitter backoff, 1 s → 30 s, reset
+when a `snapshot` arrives. While the socket is down the client falls back to polling
+`/api/v1/earthquakes/recent` every 30 s and keeps showing the stale `asOf` with its age — never
+"now".
+
 ## Freshness states (`/api/v1/health`)
 
 Every live source reports one `health` value. The point of the list is that **"we could not fetch"

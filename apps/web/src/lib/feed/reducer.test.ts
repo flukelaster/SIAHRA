@@ -49,12 +49,38 @@ describe("feedReducer — asOf only ever comes from the wire", () => {
     expect(dropped.reconnectAttempt).toBe(1);
   });
 
-  it("moves asOf forward only on a heartbeat", () => {
+  it("moves asOf forward on a heartbeat — but to the poll time it carries, not the server clock", () => {
+    const beat = feedReducer(live, {
+      type: "ws.message",
+      msg: {
+        type: "heartbeat",
+        ts: "2026-08-18T10:01:00.000Z",
+        serverTime: "2026-08-18T10:01:00.000Z",
+        asOf: "2026-08-18T10:00:30.000Z",
+      },
+    });
+    expect(beat.asOf).toBe("2026-08-18T10:00:30.000Z");
+    expect(beat.status).toBe("live");
+  });
+
+  it("a heartbeat with asOf: null keeps the old asOf — a live socket is not fresh data", () => {
+    // ตั้งแต่ E6.1 heartbeat เต้นทุก 30 วิ โดยไม่ผูกกับรอบ poll: poll ที่ล้มทุกครั้ง
+    // ต้องไม่ทำให้การ์ดดูสดขึ้นเพียงเพราะสายยังต่ออยู่
+    const beat = feedReducer(live, {
+      type: "ws.message",
+      msg: { type: "heartbeat", ts: "2026-08-18T10:01:00.000Z", serverTime: "2026-08-18T10:01:00.000Z", asOf: null },
+    });
+    expect(beat.asOf).toBe(live.asOf);
+  });
+
+  it("tolerates an api deployed before E6.1 that sends only `ts`", () => {
+    // สอง Worker ขึ้นแยกกัน — เฟรมที่ไม่มี asOf ต้องไม่ทำให้ asOf เดิมหาย
     const beat = feedReducer(live, {
       type: "ws.message",
       msg: { type: "heartbeat", ts: "2026-08-18T10:01:00.000Z" },
     });
-    expect(beat.asOf).toBe("2026-08-18T10:01:00.000Z");
+    expect(beat.asOf).toBe(live.asOf);
+    expect(beat.status).toBe("live");
   });
 });
 

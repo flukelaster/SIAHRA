@@ -66,7 +66,9 @@ export function feedReducer(state: EarthquakeFeedState, action: FeedAction): Ear
             ...state,
             events: sortByTimeDesc(msg.events),
             status: "live",
-            asOf: msg.asOf,
+            // snapshot ของ DO ที่ยังไม่เคย poll สำเร็จส่ง `asOf: null` มา — คงค่าเดิม
+            // ที่เคยรู้ไว้ เหมือนเส้นทาง heartbeat ดีกว่าล้างทิ้งแล้วแสดงว่าไม่มีข้อมูล
+            asOf: msg.asOf ?? state.asOf,
             error: null,
             reconnectAttempt: 0,
           };
@@ -77,7 +79,17 @@ export function feedReducer(state: EarthquakeFeedState, action: FeedAction): Ear
         case "event.deleted":
           return { ...state, events: state.events.filter((e) => e.id !== msg.id) };
         case "heartbeat":
-          return { ...state, status: "live", asOf: msg.ts, error: null };
+          /**
+           * heartbeat พิสูจน์ว่า "สายยังมีชีวิต" ไม่ใช่ว่า "ข้อมูลใหม่" — ตั้งแต่ E6.1
+           * มันเต้นทุก 30 วิ โดยไม่ผูกกับรอบ poll ดังนั้น `asOf` ต้องมาจาก
+           * `msg.asOf` (เวลาของรอบ poll จริง) เท่านั้น ห้ามถอยไปใช้ `serverTime`/`ts`
+           * ซึ่งเป็นนาฬิกาเซิร์ฟเวอร์ ไม่งั้นการ์ดจะโฆษณาความสดทั้งที่ poll ล้มยาว
+           *
+           * `msg.asOf` เป็น undefined ได้เมื่อ api ยังเป็นรุ่นก่อน E6.1 (สอง Worker
+           * ขึ้นแยกกัน) และเป็น null เมื่อยังไม่เคย poll สำเร็จเลย — ทั้งสองกรณีให้คง
+           * ค่าเดิมไว้ ไม่ใช่ล้าง `asOf` ที่เคยรู้ทิ้ง
+           */
+          return { ...state, status: "live", asOf: msg.asOf ?? state.asOf, error: null };
         default:
           return state;
       }

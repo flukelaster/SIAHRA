@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import {
   SOURCES,
+  WS_HEARTBEAT_INTERVAL_MS,
   type EarthquakeEvent,
   type EarthquakeRecentResponse,
   type EqWsMessage,
@@ -21,6 +22,11 @@ const BACKFILL_MIN_MAG = 2.5;
 const EMSC_LOOKBACK_MS = 70 * 60 * 1000; // trailing ~70 min window per 1-min cron tick
 const CORROBORATION_LOOKBACK_MS = 2 * 60 * 60 * 1000; // only recent rows can corroborate
 const POLL_INTERVAL_MS = 60 * 1000;
+/**
+ * เผื่อความคลาดของ alarm: ถ้าเช็คด้วย `elapsed >= POLL_INTERVAL_MS` เป๊ะ ๆ รอบที่ตื่น
+ * ช้าไปไม่กี่มิลลิวินาทีจะ "ยังไม่ถึงกำหนด" แล้วเลื่อน poll ไปอีกหนึ่งคาบ heartbeat
+ */
+const POLL_DUE_SLACK_MS = 5 * 1000;
 /**
  * ต้นทางที่ poll ทุกครั้ง — `down` คือ "ล้มเหลวครบทุกตัวในรายการนี้" จึงต้องนับ
  * จากความยาวของรายการ ไม่ใช่เลข 3 ที่ฝังไว้ (เพิ่ม/ลดฟีดแล้วเกณฑ์ต้องขยับตาม)
@@ -88,6 +94,18 @@ function rowToEvent(row: EventRow): EarthquakeEvent {
   };
 }
 
+/**
+ * heartbeat หนึ่งเฟรม: `serverTime` คือนาฬิกาเซิร์ฟเวอร์ (พิสูจน์ว่าสายยังมีชีวิต)
+ * ส่วน `asOf` คือเวลาของ **ข้อมูล** = รอบ poll ล่าสุด — `null` เมื่อยังไม่เคย poll สำเร็จ
+ * สองค่านี้ห้ามยุบเป็นค่าเดียว: ตั้งแต่ heartbeat หลุดจากคาบ poll แล้ว การส่งนาฬิกา
+ * เซิร์ฟเวอร์ไปเป็นอายุข้อมูลจะทำให้การ์ดโฆษณาความสดทั้งที่ poll ล้มมาเป็นชั่วโมง
+ * (`ts` ซ้ำกับ `serverTime` ไว้ให้เว็บรุ่นก่อน E6.1 อ่านได้อีกหนึ่งรีลีส)
+ */
+function heartbeatMessage(poll: PollStatus | null): EqWsMessage {
+  const serverTime = new Date().toISOString();
+  return { type: "heartbeat", ts: serverTime, serverTime, asOf: poll?.at ?? null };
+}
+
 export class EarthquakeFeedDO extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -116,6 +134,12 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
         CREATE INDEX IF NOT EXISTS idx_events_time ON events(time_ms DESC);
       `);
     });
+    /**
+     * ตอบ "ping" ด้วย "pong" ที่ชั้น runtime — ไคลเอนต์ที่อยากพิสูจน์ว่าสายยังดี
+     * เองได้โดยไม่ต้องรอ heartbeat รอบถัดไป และไม่ปลุก DO ขึ้นมาคิดเงิน
+     * (เบราว์เซอร์ส่งเฟรม ping ของโปรโตคอลเองไม่ได้ คู่นี้จึงเป็นข้อความล้วน)
+     */
+    ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
   }
 
   private resolveBbox(): Bbox {
@@ -125,21 +149,50 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
   private pollInflight: Promise<{ created: number; updated: number; polled: number }> | null = null;
 
   /**
-   * Self-scheduling fallback: production polls from the 1-minute cron, but
-   * `wrangler dev` never fires crons, and a missed cron tick should not
-   * silently freeze the feed either. The alarm re-arms itself every minute
-   * and shares the in-flight poll with the cron path.
+   * คาบของ alarm รอบถัดไป — **มีไคลเอนต์ต่ออยู่จึงเต้นถี่**: 30 วิ ตามสัญญากลาง
+   * (`WS_HEARTBEAT_INTERVAL_MS`) เพื่อส่ง heartbeat ให้ทันก่อน watchdog ฝั่งเว็บ,
+   * ไม่มีสายเลยก็กลับไป 60 วิ ตามคาบ poll — การตื่นถี่ตอนไม่มีคนฟังคือการเขียน
+   * storage ทิ้งเปล่าบนโควตา Durable Objects โดยไม่มีใครได้ประโยชน์
    */
-  private async armAlarm(): Promise<void> {
-    const existing = await this.ctx.storage.getAlarm();
-    if (existing !== null && existing > Date.now()) return;
-    await this.ctx.storage.setAlarm(Date.now() + POLL_INTERVAL_MS);
+  private nextAlarmDelayMs(): number {
+    return this.ctx.getWebSockets().length > 0 ? WS_HEARTBEAT_INTERVAL_MS : POLL_INTERVAL_MS;
   }
 
+  /**
+   * Self-scheduling fallback: production polls from the 1-minute cron, but
+   * `wrangler dev` never fires crons, and a missed cron tick should not
+   * silently freeze the feed either. The alarm re-arms itself and shares the
+   * in-flight poll with the cron path.
+   *
+   * `mode` เป็น "keep" โดยปริยายเพราะเส้นทาง REST เรียกทุก request — เขียน alarm
+   * ใหม่ทุกครั้งคือการถลุงโควตาเขียน; "shorten" ใช้เฉพาะตอนมี socket ต่อเข้ามา
+   * ซึ่งต้องย่นนัดที่ตั้งไว้ 60 วิ ให้เหลือ 30 วิ ไม่งั้นไคลเอนต์รอ heartbeat แรกนาน
+   */
+  private async armAlarm(mode: "keep" | "shorten" = "keep"): Promise<void> {
+    const now = Date.now();
+    const desired = now + this.nextAlarmDelayMs();
+    const existing = await this.ctx.storage.getAlarm();
+    if (existing !== null && existing > now && (mode === "keep" || existing <= desired)) return;
+    await this.ctx.storage.setAlarm(desired);
+  }
+
+  /**
+   * รอบ alarm ที่ถี่กว่าคาบ poll: รอบไหนถึงกำหนด poll ก็ poll (ซึ่งจบด้วย heartbeat
+   * อยู่แล้ว) รอบที่ยังไม่ถึงกำหนดยิงแค่ heartbeat — คาบ heartbeat จึงไม่ผูกกับ
+   * คาบ poll อีกต่อไป และการ poll ที่ช้าหรือล้มไม่ทำให้สายเงียบจนถูก watchdog ตัด
+   */
   async alarm(): Promise<void> {
-    await this.pollAndBroadcast().catch((err: unknown) => {
-      logError("alarm poll failed", { error: errorText(err) });
-    });
+    const lastPoll = (await this.ctx.storage.get<PollStatus>("lastPoll")) ?? null;
+    const lastPollMs = lastPoll ? Date.parse(lastPoll.at) : NaN;
+    const pollDue = !Number.isFinite(lastPollMs) || Date.now() - lastPollMs >= POLL_INTERVAL_MS - POLL_DUE_SLACK_MS;
+
+    if (pollDue) {
+      await this.pollAndBroadcast().catch((err: unknown) => {
+        logError("alarm poll failed", { error: errorText(err) });
+      });
+    } else {
+      this.broadcast([heartbeatMessage(lastPoll)]);
+    }
     await this.armAlarm();
   }
 
@@ -285,7 +338,6 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
     this.ctx.storage.sql.exec("DELETE FROM events WHERE time_ms < ?", nowMs - RETENTION_MS);
 
     if (messages.length > 0) this.broadcast(messages);
-    this.broadcast([{ type: "heartbeat", ts: new Date(nowMs).toISOString() }]);
 
     const status: PollStatus = {
       at: new Date(nowMs).toISOString(),
@@ -296,6 +348,9 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
       errors: feedErrors,
     };
     await this.ctx.storage.put("lastPoll", status);
+    // heartbeat ยิงหลังบันทึก `lastPoll` เสมอ เพื่อให้ `asOf` ของเส้นทาง poll กับ
+    // เส้นทาง alarm อ่านจากค่าเดียวกัน ไม่ต่างกันหนึ่งรอบ
+    this.broadcast([heartbeatMessage(status)]);
 
     return { created, updated, polled: candidates.length };
   }
@@ -420,30 +475,40 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
       return new Response("Expected websocket upgrade", { status: 426 });
     }
 
-    void this.armAlarm();
     const pair = new WebSocketPair();
     const [client, server] = [pair[0], pair[1]];
     this.ctx.acceptWebSocket(server);
+    // ย่นนัด alarm หลังรับ socket แล้ว เพื่อให้ `nextAlarmDelayMs()` นับสายนี้ด้วย
+    // และ heartbeat แรกมาถึงภายใน 30 วิ ไม่ใช่รอ 60 วิของนัดเดิม
+    await this.armAlarm("shorten");
 
     const rows = this.ctx.storage.sql
       .exec<EventRow>("SELECT * FROM events ORDER BY time_ms DESC LIMIT 200")
       .toArray();
+    // `asOf` ของ snapshot ต้องหมายถึงสิ่งเดียวกับของ heartbeat คือ "เวลาที่ poll
+    // สำเร็จล่าสุด" ไม่ใช่ `new Date()` ตอนประกอบ response — สองเฟรมบน socket
+    // เดียวกันที่ใช้ชื่อฟิลด์เดียวกันแต่คนละความหมาย ทำให้เวลาบนการ์ด "กระโดด
+    // ถอยหลัง" ได้ถึงหนึ่งคาบ poll ตอน heartbeat แรกมาถึง และค่าที่ถอยหลังนั่น
+    // คือค่าที่จริงกว่า แปลว่า snapshot โฆษณาความสดเกินจริงมาตลอด
+    const lastPoll = (await this.ctx.storage.get<PollStatus>("lastPoll")) ?? null;
     const snapshot: EqWsMessage = {
       type: "snapshot",
-      asOf: new Date().toISOString(),
+      asOf: lastPoll?.at ?? null,
       layer: await this.layer(),
       events: rows.map(rowToEvent),
     };
     // Snapshot must be sent before any event.* message reaches this specific
-    // socket — safe here because broadcast() only fires from pollAndBroadcast(),
-    // which runs on the cron tick, never concurrently with this handler.
+    // socket. The storage await above and in armAlarm() cannot let an alarm
+    // interleave: Durable Object input gating defers delivery of new events —
+    // alarms included — while a storage operation is in flight.
     server.send(JSON.stringify(snapshot));
 
     return new Response(null, { status: 101, webSocket: client });
   }
 
   async webSocketMessage(_ws: WebSocket, _message: string | ArrayBuffer): Promise<void> {
-    // Clients don't send meaningful messages today; reserved for future ping/pong.
+    // "ping" ถูกตอบด้วย auto-response ที่ชั้น runtime ก่อนถึงตรงนี้แล้ว
+    // ข้อความอื่นจากไคลเอนต์ยังไม่มีความหมายในโปรโตคอลนี้
   }
 
   async webSocketClose(ws: WebSocket, code: number, reason: string, _wasClean: boolean): Promise<void> {

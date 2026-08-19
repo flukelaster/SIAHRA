@@ -1,7 +1,11 @@
 import { env, exports as workerExports } from "cloudflare:workers";
 import { runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import type { EarthquakeRecentResponse } from "@siahra/shared-types";
+import {
+  WS_HEARTBEAT_INTERVAL_MS,
+  type EarthquakeRecentResponse,
+  type EqWsMessage,
+} from "@siahra/shared-types";
 import emscFixture from "./fixtures/emsc-query.json";
 import usgsFixture from "./fixtures/usgs-all-hour.json";
 import { TMD_SEISMIC_XML } from "./fixtures/text";
@@ -98,9 +102,11 @@ beforeAll(() => {
 afterAll(async () => {
   mutableEnv.TMD_UID = savedCreds.uid;
   mutableEnv.TMD_UKEY = savedCreds.ukey;
-  await runInDurableObject(env.EARTHQUAKE_FEED.getByName("global"), (_instance, ctx) =>
-    ctx.storage.deleteAlarm(),
-  );
+  for (const name of ["global", HEARTBEAT_DO]) {
+    await runInDurableObject(env.EARTHQUAKE_FEED.getByName(name), (_instance, ctx) =>
+      ctx.storage.deleteAlarm(),
+    );
+  }
 });
 
 afterEach(() => {
@@ -193,5 +199,102 @@ describe("EarthquakeFeedDO: ทุกฟีดล้มพร้อมกัน"
     const status = await statusOf("global");
     expect(status.health).toBe("down");
     expect(status.nextAttemptAt).not.toBeNull();
+  });
+});
+
+/**
+ * E6.1 — คาบ heartbeat ต้องไม่ผูกกับคาบ poll: DO ตื่นทุก 30 วินาที (สัญญากลาง
+ * `WS_HEARTBEAT_INTERVAL_MS`) ตราบใดที่ยังมี socket ต่ออยู่ รอบที่ยังไม่ถึงกำหนด
+ * poll (60 วิ) ต้องยิงแค่ heartbeat — ใช้ DO คนละชื่อกับชุดข้างบนเพื่อไม่ให้ alarm
+ * ของสองชุดชนกัน
+ */
+const HEARTBEAT_DO = "heartbeat-cadence";
+
+/** เปิดสายจริงเข้ากับ instance แล้วเก็บทุกเฟรมที่เซิร์ฟเวอร์ส่งมาตามลำดับ */
+async function openSocket(): Promise<{ frames: EqWsMessage[]; close: () => void }> {
+  const frames: EqWsMessage[] = [];
+  // ผ่าน stub.fetch จริง ไม่ใช่ runInDurableObject — ตัวหลังส่ง WebSocket ข้าม
+  // ขอบเขตกลับมาไม่ได้ ("tried to return a WebSocket in a response ...")
+  const res = await env.EARTHQUAKE_FEED.getByName(HEARTBEAT_DO).fetch(
+    new Request("https://siahra-radar.co/api/v1/earthquakes/live", {
+      headers: { Upgrade: "websocket" },
+    }),
+  );
+  expect(res.status).toBe(101);
+  const client = res.webSocket!;
+  client.accept();
+  client.addEventListener("message", (ev) => {
+    frames.push(JSON.parse(ev.data as string) as EqWsMessage);
+  });
+  return { frames, close: () => client.close() };
+}
+
+describe("EarthquakeFeedDO: heartbeat ที่ไม่ผูกกับคาบ poll (E6.1)", () => {
+  it("ตอบ ping ด้วย pong ที่ชั้น runtime โดยไม่ต้องปลุก DO", async () => {
+    const pair = await runInDurableObject(env.EARTHQUAKE_FEED.getByName(HEARTBEAT_DO), (_instance, ctx) =>
+      ctx.getWebSocketAutoResponse(),
+    );
+    expect(pair?.request).toBe("ping");
+    expect(pair?.response).toBe("pong");
+  });
+
+  it("ไม่มี Upgrade ต้องเป็น 426 ไม่ใช่สายที่เปิดค้าง", async () => {
+    const res = await runInDurableObject(env.EARTHQUAKE_FEED.getByName(HEARTBEAT_DO), (instance) =>
+      instance.fetch(new Request("https://siahra-radar.co/api/v1/earthquakes/live")),
+    );
+    expect(res.status).toBe(426);
+  });
+
+  it("รอบ alarm ที่ยังไม่ถึงกำหนด poll ยิง heartbeat และนัดรอบถัดไปภายในคาบ heartbeat", async () => {
+    serveAllFeeds();
+    const stub = env.EARTHQUAKE_FEED.getByName(HEARTBEAT_DO);
+    // poll หนึ่งรอบก่อน เพื่อให้ `lastPoll` สดพอที่รอบ alarm ถัดไปจะ "ยังไม่ถึงกำหนด"
+    await runInDurableObject(stub, (instance) => instance.pollAndBroadcast());
+
+    const socket = await openSocket();
+    await vi.waitFor(() => expect(socket.frames).toHaveLength(1));
+    expect(socket.frames[0].type).toBe("snapshot");
+
+    // มีสายต่ออยู่แล้ว นัดถัดไปต้องไม่เกินคาบ heartbeat
+    const armed = await runInDurableObject(stub, (_instance, ctx) => ctx.storage.getAlarm());
+    expect(armed).not.toBeNull();
+    expect(armed! - Date.now()).toBeLessThanOrEqual(WS_HEARTBEAT_INTERVAL_MS + 1_000);
+
+    expect(await runDurableObjectAlarm(stub)).toBe(true);
+    await vi.waitFor(() => expect(socket.frames).toHaveLength(2));
+
+    const beat = socket.frames[1];
+    expect(beat.type).toBe("heartbeat");
+    if (beat.type !== "heartbeat") throw new Error("unreachable");
+    expect(beat.serverTime).toBeTruthy();
+    // ความซื่อสัตย์ต่อเวลา: `asOf` คือเวลาของรอบ poll จริง ไม่ใช่นาฬิกาตอนยิงเฟรม
+    const status = await statusOf(HEARTBEAT_DO);
+    expect(beat.asOf).toBe(status.fetchedAt);
+    expect(Date.parse(beat.serverTime!)).toBeGreaterThanOrEqual(Date.parse(beat.asOf!));
+    // ts เก่ายังมาด้วยอีกหนึ่งรีลีส และเท่ากับ serverTime เสมอ
+    expect(beat.ts).toBe(beat.serverTime);
+
+    // รอบนี้ไม่ได้ poll ใหม่ — heartbeat จึงไม่ทำให้ fetchedAt ขยับ
+    expect(status.fetchedAt).toBe(
+      (await runInDurableObject(stub, (instance) => instance.getRecentResponse(1))).layer.fetchedAt,
+    );
+
+    // ...และยังนัดรอบต่อไปเสมอ ไม่หยุดหลังรอบที่ไม่ได้ poll
+    const next = await runInDurableObject(stub, (_instance, ctx) => ctx.storage.getAlarm());
+    expect(next).not.toBeNull();
+    expect(next!).toBeGreaterThan(Date.now());
+
+    socket.close();
+  });
+
+  it("DO ที่ยังไม่เคย poll รายงาน fetchedAt: null — ซึ่งคือค่าที่ heartbeat ส่งเป็น asOf", () => {
+    // heartbeatMessage() อ่าน `lastPoll` ตัวเดียวกับที่ status() อ่าน ไม่มี lastPoll
+    // จึงได้ asOf: null ไม่ใช่เวลาปัจจุบัน (เฟรมจริงของสภาพนี้ทดสอบตรง ๆ ไม่ได้
+    // เพราะรอบ alarm ของ DO ที่ยังไม่เคย poll จะเดินเส้นทาง poll เสมอ)
+    return runInDurableObject(env.EARTHQUAKE_FEED.getByName("never-polled"), async (instance, ctx) => {
+      const status = (await instance.status())[0];
+      expect(status.fetchedAt).toBeNull();
+      await ctx.storage.deleteAlarm();
+    });
   });
 });
