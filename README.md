@@ -210,6 +210,12 @@ Two conventions a branch ruleset can't express — a PR that touches UI files mu
 
 **Agent loop:** `.claude/` holds the working loop this repo is built with — `/implement` runs a senior-engineer agent, gates it on a QA agent that runs the same commands as CI plus a headless screenshot pass, loops until the verdict is green, syncs the docs, and then *asks* before opening a PR (a `PreToolUse` hook makes sure it never opens one on its own). `/review-fix` addresses a Codex review in a single batch — P1/P2 only — and closes every thread with a reaction, a reply and a resolve. See [`AGENTS.md`](AGENTS.md).
 
+<p align="center">
+  <img src="docs/images/loop-engineering.png" alt="Loop engineering diagram: the build loop (/implement) runs Spec, senior-se, qa-verifier with a fail-loop of at most three rounds, then docs-sync, commit and an ask-the-user gate; the review loop (/babysit-prs to /review-fix) runs push and PR, CI checks, Codex review, thread reading, batched fixes and thread closure, re-reviewed on every push with no cap on rounds" width="100%" />
+</p>
+
+<p align="center"><sub>The diagram is rendered from <a href="docs/diagrams/loop-engineering.svg"><code>docs/diagrams/loop-engineering.svg</code></a> with <code>node docs/diagrams/render.mjs</code> — edit the SVG and re-render.</sub></p>
+
 **Social preview / Open Graph image:** [`docs/images/og-image.png`](docs/images/og-image.png) (1280 × 640) is rendered from [`docs/og/og-image.html`](docs/og/og-image.html) with `node docs/og/render.mjs` — edit the HTML, re-render, and upload the PNG in *Settings → General → Social preview*.
 
 **Contributing:** branch, open a PR, and — for anything that touches the UI — put a screenshot in the description (drag-and-drop, or `scripts/pr-media.sh "$(git branch --show-current)" shot.png` from the CLI and paste the Markdown it prints). Delete the branch once merged. [`AGENTS.md`](AGENTS.md) has the full working agreement, including the data-honesty rules every layer must follow.

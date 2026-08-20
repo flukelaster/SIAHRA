@@ -1,0 +1,185 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="750" viewBox="0 0 1440 750" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <style>
+      .t   { fill:#0f172a; font-size:14.5px; font-weight:600; }
+      .s   { fill:#64748b; font-size:11.5px; }
+      .h   { fill:#0f172a; font-size:13.5px; font-weight:700; letter-spacing:.02em; }
+      .hs  { fill:#94a3b8; font-size:11.5px; }
+      .lab { fill:#64748b; font-size:11px; font-weight:600; letter-spacing:.03em; }
+      .ok  { fill:#15803d; }
+      .no  { fill:#b91c1c; }
+      .box { fill:#ffffff; stroke:#cbd5e1; stroke-width:1.2; }
+      .pan { fill:#f8fafc; stroke:#e2e8f0; stroke-width:1.2; }
+      .ln  { fill:none; stroke:#94a3b8; stroke-width:1.6; }
+      .lno { fill:none; stroke:#e08a5f; stroke-width:1.6; }
+      .lnb { fill:none; stroke:#7aa2e8; stroke-width:1.6; }
+      .foot{ fill:#94a3b8; font-size:11.5px; }
+    </style>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0.6 L9.4 5 L0 9.4 z" fill="#94a3b8"/>
+    </marker>
+    <marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0.6 L9.4 5 L0 9.4 z" fill="#e08a5f"/>
+    </marker>
+    <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0.6 L9.4 5 L0 9.4 z" fill="#7aa2e8"/>
+    </marker>
+
+    <!-- brand marks — thesvg.org -->
+    <symbol id="i-claude" viewBox="0 0 24 24" fill="#d97757" fill-rule="evenodd">
+      <path clip-rule="evenodd" d="M20.998 10.949H24v3.102h-3v3.028h-1.487V20H18v-2.921h-1.487V20H15v-2.921H9V20H7.488v-2.921H6V20H4.487v-2.921H3V14.05H0V10.95h3V5h17.998v5.949zM6 10.949h1.488V8.102H6v2.847zm10.51 0H18V8.102h-1.49v2.847z"/>
+    </symbol>
+    <symbol id="i-codex" viewBox="0 0 24 24" fill="#111827" fill-rule="evenodd">
+      <path clip-rule="evenodd" d="M8.086.457a6.105 6.105 0 013.046-.415c1.333.153 2.521.72 3.564 1.7a.117.117 0 00.107.029c1.408-.346 2.762-.224 4.061.366l.063.03.154.076c1.357.703 2.33 1.77 2.918 3.198.278.679.418 1.388.421 2.126a5.655 5.655 0 01-.18 1.631.167.167 0 00.04.155 5.982 5.982 0 011.578 2.891c.385 1.901-.01 3.615-1.183 5.14l-.182.22a6.063 6.063 0 01-2.934 1.851.162.162 0 00-.108.102c-.255.736-.511 1.364-.987 1.992-1.199 1.582-2.962 2.462-4.948 2.451-1.583-.008-2.986-.587-4.21-1.736a.145.145 0 00-.14-.032c-.518.167-1.04.191-1.604.185a5.924 5.924 0 01-2.595-.622 6.058 6.058 0 01-2.146-1.781c-.203-.269-.404-.522-.551-.821a7.74 7.74 0 01-.495-1.283 6.11 6.11 0 01-.017-3.064.166.166 0 00.008-.074.115.115 0 00-.037-.064 5.958 5.958 0 01-1.38-2.202 5.196 5.196 0 01-.333-1.589 6.915 6.915 0 01.188-2.132c.45-1.484 1.309-2.648 2.577-3.493.282-.188.55-.334.802-.438.286-.12.573-.22.861-.304a.129.129 0 00.087-.087A6.016 6.016 0 015.635 2.31C6.315 1.464 7.132.846 8.086.457zm-.804 7.85a.848.848 0 00-1.473.842l1.694 2.965-1.688 2.848a.849.849 0 001.46.864l1.94-3.272a.849.849 0 00.007-.854l-1.94-3.393zm5.446 6.24a.849.849 0 000 1.695h4.848a.849.849 0 000-1.696h-4.848z"/>
+    </symbol>
+    <symbol id="i-github" viewBox="0 0 24 24" fill="#181717">
+      <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/>
+    </symbol>
+    <symbol id="i-actions" viewBox="0 0 24 24" fill="#2088FF">
+      <path d="M10.984 13.836a.5.5 0 0 1-.353-.146l-.745-.743a.5.5 0 1 1 .706-.708l.392.391 1.181-1.18a.5.5 0 0 1 .708.707l-1.535 1.533a.504.504 0 0 1-.354.146zm9.353-.147l1.534-1.532a.5.5 0 0 0-.707-.707l-1.181 1.18-.392-.391a.5.5 0 1 0-.706.708l.746.743a.497.497 0 0 0 .706-.001zM4.527 7.452l2.557-1.585A1 1 0 0 0 7.09 4.17L4.533 2.56A1 1 0 0 0 3 3.406v3.196a1.001 1.001 0 0 0 1.527.85zm2.03-2.436L4 6.602V3.406l2.557 1.61zM24 12.5c0 1.93-1.57 3.5-3.5 3.5a3.503 3.503 0 0 1-3.46-3h-2.08a3.503 3.503 0 0 1-3.46 3 3.502 3.502 0 0 1-3.46-3h-.558c-.972 0-1.85-.399-2.482-1.042V17c0 1.654 1.346 3 3 3h.04c.244-1.693 1.7-3 3.46-3 1.93 0 3.5 1.57 3.5 3.5S13.43 24 11.5 24a3.502 3.502 0 0 1-3.46-3H8c-2.206 0-4-1.794-4-4V9.899A5.008 5.008 0 0 1 0 5c0-2.757 2.243-5 5-5s5 2.243 5 5a5.005 5.005 0 0 1-4.952 4.998A2.482 2.482 0 0 0 7.482 12h.558c.244-1.693 1.7-3 3.46-3a3.502 3.502 0 0 1 3.46 3h2.08a3.503 3.503 0 0 1 3.46-3c1.93 0 3.5 1.57 3.5 3.5zm-15 8c0 1.378 1.122 2.5 2.5 2.5s2.5-1.122 2.5-2.5-1.122-2.5-2.5-2.5S9 19.122 9 20.5zM5 9c2.206 0 4-1.794 4-4S7.206 1 5 1 1 2.794 1 5s1.794 4 4 4zm9 3.5c0-1.378-1.122-2.5-2.5-2.5S9 11.122 9 12.5s1.122 2.5 2.5 2.5 2.5-1.122 2.5-2.5zm9 0c0-1.378-1.122-2.5-2.5-2.5S18 11.122 18 12.5s1.122 2.5 2.5 2.5 2.5-1.122 2.5-2.5zm-13 8a.5.5 0 1 0 1 0 .5.5 0 0 0-1 0zm2 0a.5.5 0 1 0 1 0 .5.5 0 0 0-1 0zm12 0c0 1.93-1.57 3.5-3.5 3.5a3.503 3.503 0 0 1-3.46-3.002c-.007.001-.013.005-.021.005l-.506.017h-.017a.5.5 0 0 1-.016-.999l.506-.017c.018-.002.035.006.052.007A3.503 3.503 0 0 1 20.5 17c1.93 0 3.5 1.57 3.5 3.5zm-1 0c0-1.378-1.122-2.5-2.5-2.5S18 19.122 18 20.5s1.122 2.5 2.5 2.5 2.5-1.122 2.5-2.5z"/>
+    </symbol>
+    <symbol id="i-git" viewBox="0 0 24 24" fill="#DE4C36">
+      <path d="M23.546 10.93L13.067.452c-.604-.603-1.582-.603-2.188 0L8.708 2.627l2.76 2.76c.645-.215 1.379-.07 1.889.441.516.515.658 1.258.438 1.9l2.658 2.66c.645-.223 1.387-.078 1.9.435.721.72.721 1.884 0 2.604-.719.719-1.881.719-2.6 0-.539-.541-.674-1.337-.404-1.996L12.86 8.955v6.525c.176.086.342.203.488.348.713.721.713 1.883 0 2.6-.719.721-1.889.721-2.609 0-.719-.719-.719-1.879 0-2.598.182-.18.387-.316.605-.406V8.835c-.217-.091-.424-.222-.6-.401-.545-.545-.676-1.342-.396-2.009L7.636 3.7.45 10.881c-.6.605-.6 1.584 0 2.189l10.48 10.477c.604.604 1.582.604 2.186 0l10.43-10.43c.605-.603.605-1.582 0-2.187"/>
+    </symbol>
+    <!-- line marks -->
+    <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2.8 4.5 5.9v5.6c0 4.5 3.1 8.4 7.5 9.7 4.4-1.3 7.5-5.2 7.5-9.7V5.9z"/><path d="m8.9 12 2.2 2.2 4-4.4"/>
+    </symbol>
+    <symbol id="i-list" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M8.5 6.5h11M8.5 12h11M8.5 17.5h11"/><path d="M3.4 6.3l1.2 1.2 2.1-2.4M3.4 11.8l1.2 1.2 2.1-2.4M3.4 17.3l1.2 1.2 2.1-2.4"/>
+    </symbol>
+    <symbol id="i-docs" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M13.5 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8.5z"/><path d="M13.5 3v5.5H19M8.5 13h7M8.5 16.5h4.5"/>
+    </symbol>
+    <symbol id="i-ask" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15a2.5 2.5 0 0 1-2.5 2.5H8L3.5 21V5.5A2.5 2.5 0 0 1 6 3h12.5A2.5 2.5 0 0 1 21 5.5z"/><path d="M10.1 8.4a2 2 0 0 1 3.9.6c0 1.4-2 1.6-2 3"/><path d="M12 14.8h.01"/>
+    </symbol>
+    <symbol id="i-thread" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v8a1.5 1.5 0 0 1-1.5 1.5H9l-5 4z"/><path d="m9.4 9.6 1.6 1.6 3.6-3.6"/>
+    </symbol>
+  </defs>
+
+  <rect width="1440" height="750" fill="#ffffff"/>
+
+  <!-- ========== title ========== -->
+  <text x="60" y="44" fill="#0f172a" font-size="21" font-weight="700" letter-spacing="-.01em">Loop engineering</text>
+  <text x="60" y="68" class="hs" font-size="12.5">How a change gets from a prompt to a merged PR — the agents and gates in <tspan font-family="ui-monospace, SFMono-Regular, Menlo, monospace" fill="#64748b">.claude/</tspan></text>
+
+  <!-- ========== lane 1 ========== -->
+  <rect x="60" y="90" width="1320" height="250" rx="16" class="pan"/>
+  <use href="#i-claude" x="84" y="110" width="17" height="17"/>
+  <text x="109" y="124" class="h">1 · Build loop — /implement</text>
+  <text x="311" y="124" class="hs">local, one session · senior-se writes, qa-verifier gates</text>
+
+  <!-- boxes -->
+  <g>
+    <rect x="100" y="160" width="180" height="90" rx="12" class="box"/>
+    <use href="#i-list" x="116" y="178" width="17" height="17"/>
+    <text x="141" y="192" class="t">Spec</text>
+    <text x="116" y="218" class="s">3–7 acceptance criteria,</text>
+    <text x="116" y="234" class="s">printed before any code</text>
+
+    <rect x="308" y="160" width="180" height="90" rx="12" class="box" stroke="#e8b79f"/>
+    <use href="#i-claude" x="324" y="178" width="17" height="17"/>
+    <text x="349" y="192" class="t">senior-se</text>
+    <text x="324" y="218" class="s">writes the code, leaves</text>
+    <text x="324" y="234" class="s">it in the working tree</text>
+
+    <rect x="516" y="160" width="180" height="90" rx="12" class="box" stroke="#a8c4ec"/>
+    <use href="#i-shield" x="532" y="178" width="17" height="17"/>
+    <text x="557" y="192" class="t">qa-verifier</text>
+    <text x="532" y="218" class="s">runs CI's commands +</text>
+    <text x="532" y="234" class="s">visual · no Write/Edit</text>
+
+    <rect x="724" y="160" width="180" height="90" rx="12" class="box"/>
+    <use href="#i-docs" x="740" y="178" width="17" height="17"/>
+    <text x="765" y="192" class="t">docs-sync</text>
+    <text x="740" y="218" class="s">docs only, and only</text>
+    <text x="740" y="234" class="s">once QA is green</text>
+
+    <rect x="932" y="160" width="180" height="90" rx="12" class="box"/>
+    <use href="#i-git" x="948" y="178" width="17" height="17"/>
+    <text x="973" y="192" class="t">commit</text>
+    <text x="948" y="218" class="s">one commit, code +</text>
+    <text x="948" y="234" class="s">docs, English only</text>
+
+    <rect x="1140" y="160" width="180" height="90" rx="12" fill="#fffbeb" stroke="#e7c07a" stroke-width="1.2"/>
+    <use href="#i-ask" x="1156" y="178" width="17" height="17"/>
+    <text x="1181" y="192" class="t">ask the user</text>
+    <text x="1156" y="218" class="s">“Open a PR now?” —</text>
+    <text x="1156" y="234" class="s">never automatic</text>
+  </g>
+
+  <!-- arrows -->
+  <path class="ln" marker-end="url(#a)" d="M284 205 H304"/>
+  <path class="ln" marker-end="url(#a)" d="M492 205 H512"/>
+  <path class="ln" marker-end="url(#a)" d="M700 205 H720"/>
+  <path class="ln" marker-end="url(#a)" d="M908 205 H928"/>
+  <path class="ln" marker-end="url(#a)" d="M1116 205 H1136"/>
+  <text x="710" y="150" class="lab ok" text-anchor="middle">pass</text>
+
+  <!-- fail loop back -->
+  <path class="lno" marker-end="url(#ao)" d="M606 250 V283 Q606 295 594 295 H410 Q398 295 398 283 V256"/>
+  <text x="502" y="318" class="lab" text-anchor="middle" fill="#c2683f">fail → next round · at most 3 · blocked doesn’t count</text>
+
+  <!-- ========== connector between lanes ========== -->
+  <path class="ln" marker-end="url(#a)" d="M1230 250 V385 H30 V545 H96"/>
+  <text x="1222" y="372" class="lab" text-anchor="end">user says yes → push + gh pr create</text>
+
+  <!-- ========== lane 2 ========== -->
+  <rect x="60" y="430" width="1320" height="250" rx="16" class="pan"/>
+  <use href="#i-codex" x="84" y="450" width="17" height="17"/>
+  <text x="109" y="464" class="h">2 · Review loop — /babysit-prs → /review-fix</text>
+  <text x="424" y="464" class="hs">on GitHub, after the push · one batch per push</text>
+
+  <g>
+    <rect x="100" y="500" width="180" height="90" rx="12" class="box"/>
+    <use href="#i-github" x="116" y="518" width="17" height="17"/>
+    <text x="141" y="532" class="t">push + PR</text>
+    <text x="116" y="558" class="s">branch only — the</text>
+    <text x="116" y="574" class="s">ruleset rejects main</text>
+
+    <rect x="308" y="500" width="180" height="90" rx="12" class="box"/>
+    <use href="#i-actions" x="324" y="518" width="17" height="17"/>
+    <text x="349" y="532" class="t">CI checks</text>
+    <text x="324" y="558" class="s">Lint · TypeScript ·</text>
+    <text x="324" y="574" class="s">Build — all required</text>
+
+    <rect x="516" y="500" width="180" height="90" rx="12" class="box" stroke="#c9ced6"/>
+    <use href="#i-codex" x="532" y="518" width="17" height="17"/>
+    <text x="557" y="532" class="t">Codex review</text>
+    <text x="532" y="558" class="s">one comment per</text>
+    <text x="532" y="574" class="s">round, P1 / P2 only</text>
+
+    <rect x="724" y="500" width="180" height="90" rx="12" class="box" stroke="#e8b79f"/>
+    <use href="#i-claude" x="740" y="518" width="17" height="17"/>
+    <text x="765" y="532" class="t">/babysit-prs</text>
+    <text x="740" y="558" class="s">reads threads over</text>
+    <text x="740" y="574" class="s">GraphQL, dispatches</text>
+
+    <rect x="932" y="500" width="180" height="90" rx="12" class="box" stroke="#e8b79f"/>
+    <use href="#i-claude" x="948" y="518" width="17" height="17"/>
+    <text x="973" y="532" class="t">/review-fix</text>
+    <text x="948" y="558" class="s">fixes the whole batch,</text>
+    <text x="948" y="574" class="s">QA green, pushes once</text>
+
+    <rect x="1140" y="500" width="180" height="90" rx="12" fill="#f2fbf5" stroke="#9dd3b0" stroke-width="1.2"/>
+    <use href="#i-thread" x="1156" y="518" width="17" height="17"/>
+    <text x="1181" y="532" class="t">close threads</text>
+    <text x="1156" y="558" class="s">react 👍 → reply with</text>
+    <text x="1156" y="574" class="s">the sha → resolve</text>
+  </g>
+
+  <path class="ln" marker-end="url(#a)" d="M284 545 H304"/>
+  <path class="ln" marker-end="url(#a)" d="M492 545 H512"/>
+  <path class="ln" marker-end="url(#a)" d="M700 545 H720"/>
+  <path class="ln" marker-end="url(#a)" d="M908 545 H928"/>
+  <path class="ln" marker-end="url(#a)" d="M1116 545 H1136"/>
+
+  <path class="lnb" marker-end="url(#ab)" d="M1230 590 V623 Q1230 635 1218 635 H618 Q606 635 606 623 V596"/>
+  <text x="918" y="658" class="lab" text-anchor="middle" fill="#3f6fb5">every push is re-reviewed · no cap on rounds — stop only when the same finding repeats unchanged</text>
+
+  <!-- ========== footnotes ========== -->
+  <text x="60" y="712" class="foot">Gates you cannot skip: <tspan fill="#475569">guard-pr.sh</tspan> (PreToolUse) turns <tspan fill="#475569">gh pr create/merge/ready</tspan> and any push landing on <tspan fill="#475569">main</tspan> back into a question · the branch ruleset has no bypass actors · PR text and every commit are English-only.</text>
+  <text x="60" y="734" class="foot">QA verdicts: <tspan fill="#15803d">pass</tspan> leaves the loop (minor findings are reported, not looped on) · <tspan fill="#b91c1c">fail</tspan> goes back to senior-se · <tspan fill="#b45309">blocked</tspan> stops without consuming a round · a non-empty unmet_criteria always fails. Nothing merges without a human.</text>
+</svg>
