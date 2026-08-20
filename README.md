@@ -86,41 +86,11 @@ The project follows a clean separation between three data classes: **base geospa
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    subgraph Sources["Upstream sources"]
-        TMD[TMD rainfall / radar / seismic]
-        TW[ThaiWater สสน. gauges & dams]
-        GISTDA[GISTDA flood extent]
-        USGS[USGS / EMSC earthquakes]
-        DEM[Copernicus DEM · OSM buildings]
-    end
+<p align="center">
+  <img src="docs/images/architecture.png" alt="SIAHRA architecture: five upstream sources (TMD, ThaiWater/HII, GISTDA, USGS/EMSC, and an offline Copernicus DEM + OSM dataset) feed the siahra-api Cloudflare Worker, whose router applies a same-origin guard and rate limiting in front of five SQLite Durable Objects kept warm by a one-minute cron; the offline apps/etl pipeline and the Durable Object archive both write to the R2 bucket siahra-geodata, which the siahra-web Worker reads to serve the tile pyramid to a React 19 and three.js r185 client that calls the API same-origin" width="100%" />
+</p>
 
-    subgraph ETL["apps/etl — offline pipeline"]
-        A[Ingest + CRS normalize] --> B[Terrain / building / land-cover tiles]
-    end
-
-    subgraph Edge["apps/api — Cloudflare Worker"]
-        R[Router] --> DO["Durable Objects<br/>observation cache · flood extent<br/>earthquake feed · radar"]
-    end
-
-    subgraph Storage
-        R2[(R2 — tile & geodata artifacts)]
-    end
-
-    subgraph Client["apps/web — React + Three.js"]
-        UI[3D viewport, panels, timeline]
-    end
-
-    TMD --> Edge
-    TW --> Edge
-    GISTDA --> Edge
-    USGS --> Edge
-    DEM --> ETL --> R2
-    DO --> R2
-    R2 --> UI
-    Edge --> UI
-```
+<p align="center"><sub>Rendered from <a href="docs/diagrams/architecture.svg"><code>docs/diagrams/architecture.svg</code></a> with <code>node docs/diagrams/render.mjs</code> — edit the SVG and re-render.</sub></p>
 
 The Worker's `scheduled` handler polls upstream sources on a cron and keeps each Durable Object's cache warm, so the first browser request after a quiet period never pays a multi-megabyte upstream fetch inline.
 
