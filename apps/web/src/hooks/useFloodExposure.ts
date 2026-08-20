@@ -2,6 +2,32 @@ import { useEffect, useState } from "react";
 import type { ProvinceExposureResponse } from "@siahra/shared-types";
 import { errorMessage, type ErrorMessage } from "../lib/errorMessage";
 
+/**
+ * เหตุผลของ 503 จาก `/provinces/{NN}/exposure/latest` — สามค่านี้มาจาก field
+ * `reason` ที่ `apps/api/src/routes/exposure.ts` ใส่ในบอดี้ ไม่ใช่การเดาจากข้อความ
+ * `error` (ห้ามจับข้อความมาตัดสิน เพราะข้อความอ่านง่ายเปลี่ยนได้โดยไม่ตั้งใจทำลาย
+ * สัญญา แต่ `reason` เป็นค่าคงที่ที่ตั้งใจให้ client อ่าน):
+ * - `"never-published"` = ยังไม่เคยเผยแพร่ run เลย (pointer เป็น null)
+ * - `"missing"`         = pointer ชี้ไปที่ run ที่เคยเผยแพร่จริง แต่ object หายจาก R2
+ * - `"error"`           = ล้มเหลวระหว่างพยายามอ่าน ไม่รู้ด้วยซ้ำว่า run มีอยู่ไหม
+ * `null` = ยังไม่เคยได้ 503 ที่มี field นี้เลย (รวมถึงตอน apiUnreachable ซึ่งไม่มี
+ * บอดี้ให้อ่าน และตอนบอดี้อ่านไม่ได้/ไม่มี field นี้ — backend รุ่นเก่ากว่านี้)
+ */
+export type ExposureUnavailableReason = "never-published" | "missing" | "error";
+
+function isExposureUnavailableReason(v: unknown): v is ExposureUnavailableReason {
+  return v === "never-published" || v === "missing" || v === "error";
+}
+
+/** พก `reason` มาด้วยจาก HTTP layer ไปถึง `catch` โดยไม่ต้องแยก state คนละก้อน */
+class ExposureUnavailableError extends Error {
+  reason: ExposureUnavailableReason | null;
+  constructor(message: string, reason: ExposureUnavailableReason | null) {
+    super(message);
+    this.reason = reason;
+  }
+}
+
 export interface FloodExposureState {
   /**
    * run ล่าสุดที่ดึงสำเร็จของจังหวัดนี้ — **ไม่ถูกล้างเมื่อรอบถัดไปล้มเหลว**
@@ -11,8 +37,9 @@ export interface FloodExposureState {
   loading: boolean;
   error: ErrorMessage | null;
   /**
-   * true = ความพยายามดึงครั้งล่าสุดล้มเหลว (api ล่ม หรือยังไม่เคยมี run เผยแพร่ →
-   * 503) ถ้ามี `data` อยู่ด้วย แปลว่าสิ่งที่เห็นบนแผนที่คือ run เก่า
+   * true = ความพยายามดึงครั้งล่าสุดล้มเหลว (api ล่ม หรือ 503 ด้วยเหตุผลใดก็ตาม —
+   * ยังไม่เคยเผยแพร่ run / เผยแพร่แล้วแต่หาย / อ่านพัง ดู `noRunReason` แยกสามเรื่อง
+   * นี้) ถ้ามี `data` อยู่ด้วย แปลว่าสิ่งที่เห็นบนแผนที่คือ run เก่า
    */
   failing: boolean;
   /**
@@ -25,6 +52,14 @@ export interface FloodExposureState {
    * ซึ่งเป็นข้อเท็จจริงคนละเรื่องกัน (ดู `apiDownNoRun` vs `noRunEver` ใน MapLegend.tsx)
    */
   apiUnreachable: boolean;
+  /**
+   * เหตุผลของ 503 ล่าสุด เมื่อ `data` เป็น `null` (ไม่เคยมี run ในเครื่องเลย) —
+   * legend ต้องแยกสามข้อเท็จจริงนี้ออกจากกัน: "ยังไม่เคยเผยแพร่" ต่างจาก "เผยแพร่
+   * แล้วแต่หาย" ต่างจาก "ไม่รู้เพราะอ่านพัง" (ดูคำอธิบายที่ `ExposureUnavailableReason`)
+   * `null` = ยังไม่มีคำตอบ 503 ที่มี reason เลย (รวมกรณี apiUnreachable ที่ไม่มีบอดี้
+   * ให้อ่าน) — ต้องไม่ตีความว่าเป็น "never-published" เพราะอาจแค่ยังไม่ได้ถาม
+   */
+  noRunReason: ExposureUnavailableReason | null;
 }
 
 const EMPTY: FloodExposureState = {
@@ -33,6 +68,7 @@ const EMPTY: FloodExposureState = {
   error: null,
   failing: false,
   apiUnreachable: false,
+  noRunReason: null,
 };
 
 /** ฝั่ง api คำนวณ run ใหม่ทุกรอบ refresh ของ ThaiWater — ตามด้วยคาบเดียวกัน */
@@ -88,18 +124,40 @@ export function useFloodExposure(
           error: { key: "error.networkUnreachable" },
           failing: true,
           apiUnreachable: true,
+          // "ติดต่อไม่ได้" ไม่บอกอะไรเรื่อง run เลย — ไม่แบก reason ของ 503 ครั้งก่อน
+          // (ถ้ามี) ข้ามมาด้วย เพราะมันอาจไม่จริงอีกแล้วตอนนี้ก็ได้
+          noRunReason: null,
         }));
         timer = window.setTimeout(load, RETRY_MS);
         return;
       }
       try {
         // เซิร์ฟเวอร์ตอบมาแล้ว (สถานะใดก็ตาม) — `!res.ok` ไม่ใช่ "ติดต่อไม่ได้" อีกต่อไป
-        // 503 ของเส้นทางนี้มีความหมายเฉพาะว่า "ยังไม่เคยเผยแพร่ run" (ดู exposure.ts)
-        // ซึ่งเป็นข้อเท็จจริงที่ตรวจมาแล้ว ต้องแยกจาก "ไม่รู้อะไรเลยเพราะถามไม่ถึง"
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        // เส้นทางนี้มี**สาม**ความหมายของ 503 คนละเรื่องกัน (ดู exposure.ts): ยังไม่เคย
+        // เผยแพร่ / เผยแพร่แล้วแต่ object หายจาก R2 / ล้มเหลวระหว่างอ่านโดยไม่รู้ว่า
+        // run มีอยู่ไหม — ต้องอ่าน `reason` จากบอดี้มาแยกสามเรื่องนี้ ไม่ใช่จับคำใน
+        // `error` message (ซึ่งเป็นข้อความอ่านง่ายที่แก้ไขได้โดยไม่ตั้งใจทำลายสัญญา)
+        if (!res.ok) {
+          let reason: ExposureUnavailableReason | null = null;
+          try {
+            const body = (await res.json()) as { reason?: unknown };
+            if (isExposureUnavailableReason(body.reason)) reason = body.reason;
+          } catch {
+            // บอดี้อ่านไม่ได้ หรือไม่ใช่ JSON — reason ยังคง null (ไม่รู้เหตุผล
+            // ไม่ใช่การเดาว่าเป็น "never-published")
+          }
+          throw new ExposureUnavailableError(`HTTP ${res.status}`, reason);
+        }
         const data = (await res.json()) as ProvinceExposureResponse;
         if (cancelled) return;
-        setState({ data, loading: false, error: null, failing: false, apiUnreachable: false });
+        setState({
+          data,
+          loading: false,
+          error: null,
+          failing: false,
+          apiUnreachable: false,
+          noRunReason: null,
+        });
         timer = window.setTimeout(load, REFRESH_MS);
       } catch (err) {
         if (cancelled || controller.signal.aborted) return;
@@ -111,6 +169,7 @@ export function useFloodExposure(
           error: errorMessage(err, "error.loadFailed"),
           failing: true,
           apiUnreachable: false,
+          noRunReason: err instanceof ExposureUnavailableError ? err.reason : null,
         }));
         timer = window.setTimeout(load, RETRY_MS);
       }

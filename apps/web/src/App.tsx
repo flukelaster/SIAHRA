@@ -162,6 +162,10 @@ export default function App() {
     noNewRun: exposureOwnNoNewRun,
     apiUnreachable: exposureApiUnreachable,
     inputsDegraded: exposureInputsDegraded,
+    // เหตุผลของ 503 ล่าสุด (เมื่อยังไม่มี run ในเครื่องเลย) มาจาก hook ตรง ๆ — App.tsx
+    // ไม่แปล/ไม่เดาเพิ่ม แค่ส่งต่อไปให้ MapLegend เลือกข้อความให้ตรงกับสามข้อเท็จจริง
+    // ที่ backend แยกไว้ (ดูคำอธิบายที่ useFloodExposure.ts)
+    noRunReason: exposure.noRunReason,
   };
   const aoiId = aoiIdForProvince(provinceCode);
   // ป้ายชนิดความรู้ + เวลาของแต่ละชั้นใน legend มาจาก descriptor ที่ backend ประกาศ

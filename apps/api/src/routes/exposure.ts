@@ -38,13 +38,24 @@ export async function handleProvinceExposureLatest(province: string, env: AppEnv
     const pointer = await env.FORECAST_POINTER.getByName(EXPOSURE_POINTER_NAME).getLatest();
     if (!pointer) {
       // ยังไม่เคยเผยแพร่ run เลย — พูดตามนั้น ไม่ใช่ตอบ run ว่างที่ดูเหมือนของจริง
-      return json({ error: "No flood-exposure run has been published yet" }, { status: 503 });
+      // `reason` เป็นฟิลด์ที่ client อ่านแบบระวังตัว (ไม่ตรวจข้อความ `error`) เพื่อ
+      // แยกกรณีนี้จาก "มี run เผยแพร่ไว้แล้วแต่ดึงไม่ได้ตอนนี้" สองแบบด้านล่าง — ทั้งสาม
+      // ตอบ 503 เหมือนกัน แต่เป็นข้อเท็จจริงคนละเรื่อง (ดู useFloodExposure.ts)
+      return json(
+        { error: "No flood-exposure run has been published yet", reason: "never-published" },
+        { status: 503 },
+      );
     }
     const run = await getJsonGz<FloodExposureRun>(env.HAZARD_BUCKET, pointer.manifestKey);
     if (!run) {
       logError("exposure run object missing", { key: pointer.manifestKey, runId: pointer.runId });
+      // pointer ชี้ไปที่ run ที่เคยเผยแพร่จริง แต่ตัว object หายไปจาก R2 — ปัญหาความ
+      // สมบูรณ์ของที่เก็บ ไม่ใช่ "ไม่เคยมี run" จึงต้อง reason คนละค่ากับข้างบน
       return json(
-        { error: `Flood-exposure run ${pointer.runId} is referenced but no longer stored` },
+        {
+          error: `Flood-exposure run ${pointer.runId} is referenced but no longer stored`,
+          reason: "missing",
+        },
         { status: 503 },
       );
     }
@@ -54,7 +65,9 @@ export async function handleProvinceExposureLatest(province: string, env: AppEnv
     });
   } catch (err) {
     logError("exposure latest failed", { province, error: errorText(err) });
-    return json({ error: "Flood exposure unavailable" }, { status: 503 });
+    // ล้มเหลวระหว่างพยายามอ่าน — ไม่รู้ด้วยซ้ำว่า run มีอยู่หรือไม่ จึงต้องแยกจากทั้ง
+    // "ไม่เคยเผยแพร่" และ "เผยแพร่แล้วแต่หาย"
+    return json({ error: "Flood exposure unavailable", reason: "error" }, { status: 503 });
   }
 }
 

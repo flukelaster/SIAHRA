@@ -23,6 +23,7 @@ import {
   type ExposureRenderClass,
 } from "../../lib/exposureStyle";
 import { formatAge, formatFullDateTime } from "../../lib/time";
+import type { ExposureUnavailableReason } from "../../hooks/useFloodExposure";
 
 const SITUATION_LEVELS: { key: MessageKey; color: string }[] = [
   { key: "situation.3", color: "#22c55e" },
@@ -166,6 +167,26 @@ export interface ExposureLegendState {
    * `ExposureDetails` ให้ `noNewRun` ขึ้นก่อนเสมอในกรณีนั้น ไม่ใช่ `inputsDegraded`
    */
   inputsDegraded?: boolean;
+  /**
+   * เหตุผลของ 503 ล่าสุดจาก `/exposure/latest` เมื่อ `run === null` (ไม่เคยมีอะไร
+   * ให้วาดในเครื่องเลย) — มาจาก field `reason` ที่ api ใส่ในบอดี้ 503 ตรง ๆ
+   * (`apps/api/src/routes/exposure.ts`, ดูรายละเอียดที่ `useFloodExposure.ts`):
+   *
+   *   - `"never-published"` (หรือ `undefined`/`null`) → "ยังไม่เคยได้รับผลคำนวณสักรอบ"
+   *     (`noRunEver`) — ข้อความเดิม เป็นค่าเริ่มต้นที่ปลอดภัยเมื่อยังไม่รู้เหตุผล
+   *   - `"missing"` / `"error"` → เซิร์ฟเวอร์ **เคยเผยแพร่จริง** (หรือไม่รู้ว่าเคยไหม)
+   *     แต่ตอบค่าที่ขอไม่ได้ตอนนี้ — พูดว่า "ยังไม่เคยมี run" ไม่ได้ (เป็นเท็จสำหรับ
+   *     `"missing"` แน่ ๆ) และพูดว่า "ติดต่อ API ไม่ได้" ก็ไม่ได้เหมือนกัน (เซิร์ฟเวอร์
+   *     ตอบมาแล้วจริง ๆ — ไปอยู่ในกิ่ง `apiUnreachable` แทนถ้าเป็นกรณีนั้น) จึงต้องมี
+   *     ข้อความของตัวเอง (`runUnavailable`)
+   *
+   * ตั้งใจให้เป็น field บังคับ (ไม่ใช่ `?:`) ต่างจาก `inputsDegraded` — App.tsx เป็น
+   * จุดสร้างเดียวของ state นี้และส่งมาครบทุกครั้งอยู่แล้ว การทำให้บังคับหมายความว่า
+   * จุดสร้างใหม่ในอนาคตที่ลืมใส่ฟิลด์นี้จะเป็น compile error แทนที่จะตกไปที่
+   * `noRunEver` แบบเงียบ ๆ (คือบั๊กเดิมที่ Codex เจอ เกิดซ้ำที่จุดสร้างอื่นได้ถ้าปล่อย
+   * เป็น optional)
+   */
+  noRunReason: ExposureUnavailableReason | null;
 }
 
 /**
@@ -198,6 +219,7 @@ function ExposureDetails({
   const noNewRun = exposure?.noNewRun ?? false;
   const apiUnreachable = exposure?.apiUnreachable ?? false;
   const inputsDegraded = exposure?.inputsDegraded ?? false;
+  const noRunReason = exposure?.noRunReason ?? null;
   const counts = run ? countExposureClasses(run.stations) : null;
 
   /**
@@ -207,7 +229,10 @@ function ExposureDetails({
    *     เพราะ `useFloodExposure` ไม่ยิงคำขอเลยเมื่อชั้นถูกปิด (และปิดคือค่าเริ่มต้น)
    *     การเขียนว่าไม่เคยได้รับ = การกล่าวถึงสถานะของแหล่งข้อมูลที่ไม่มีใครตรวจ
    *   - เปิดอยู่ ยังไม่มี run และยังไม่มีสัญญาณว่าล้มเหลว → คำขอยังไม่กลับมา จึงเงียบ
-   *   - เปิดอยู่ ไม่มี run และดึงไม่สำเร็จ/แหล่งไม่ปกติ   → "ยังไม่เคยได้รับผลคำนวณ"
+   *   - เปิดอยู่ ไม่มี run และ 503 บอกว่า "ยังไม่เคยเผยแพร่"    → "ยังไม่เคยได้รับผลคำนวณ"
+   *   - เปิดอยู่ ไม่มี run แต่ 503 บอกเหตุผลอื่น (เผยแพร่แล้วแต่หาย/อ่านพัง) →
+   *     "ตอนนี้ดึงมาแสดงไม่ได้" (`runUnavailable`) — พูดว่า "ไม่เคยมี run" ไม่ได้
+   *     เพราะเป็นเท็จ และไม่ใช่ apiUnreachable เพราะเซิร์ฟเวอร์ตอบมาแล้วจริง ๆ
    *   - มี run เก่าอยู่ แต่ไม่มีรอบใหม่ "ของตัวมันเอง"     → "ไม่มีรอบใหม่ตั้งแต่เมื่อไหร่"
    *     (ขึ้นก่อนกรณีถัดไปเสมอ — สองอย่างนี้เป็นจริงพร้อมกันได้จริงเมื่อ ThaiWater ล่ม
    *     ทั้งหมด และ "ไม่มีรอบใหม่" เป็นข้อเท็จจริงที่หนักกว่า ต้องไม่ถูกกลบ)
@@ -234,11 +259,19 @@ function ExposureDetails({
       </span>
     );
   } else if (run === null) {
-    status = noNewRun ? (
+    // `noRunReason` แยกกันเฉพาะตอน `noNewRun` เป็นจริง (มี 503 มาให้อ่านแล้ว) —
+    // "never-published" (หรือไม่รู้เหตุผลเลย ซึ่งเป็นค่าเริ่มต้นที่ปลอดภัยกว่า) ใช้
+    // ข้อความเดิม ส่วน "missing"/"error" ต้องมีข้อความของตัวเอง ห้ามยืม noRunEver
+    // เพราะนั่นคือการอ้างว่า "ไม่เคยมี run" ทั้งที่เซิร์ฟเวอร์ไม่ได้พูดแบบนั้น
+    status = !noNewRun ? null : noRunReason === "missing" || noRunReason === "error" ? (
+      <span className="text-[10px] text-[var(--color-risk-medium)]">
+        {t("legend.exposure.runUnavailable")}
+      </span>
+    ) : (
       <span className="text-[10px] text-[var(--color-fg-muted)]">
         {t("legend.exposure.noRunEver")}
       </span>
-    ) : null;
+    );
   } else if (noNewRun) {
     // เหตุผล "ของตัวมันเอง" (ดึงไม่สำเร็จ หรือ exposure-illustrative เองไม่ปกติ) ต้อง
     // ขึ้นก่อน inputsDegraded เสมอ — สองอย่างนี้เป็นจริงพร้อมกันได้ (ThaiWater ล่มทั้งหมด

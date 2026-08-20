@@ -158,6 +158,8 @@ export const en: Record<keyof typeof th, string> = {
   "legend.exposure.staleInputs":
     "This is the run from {time} — but ThaiWater itself is reporting degraded right now, so the inputs behind it may be partial or stale",
   "legend.exposure.noRunEver": "No computed run has ever been received, so nothing is drawn on the map",
+  "legend.exposure.runUnavailable":
+    "A run may have already been published, but it cannot be retrieved right now",
   "legend.exposure.layerOff": "This layer is off — no computed run has been requested",
   "legend.exposure.apiDownSince": "Cannot reach the API — this is the run from {time}; whether a newer one exists is unknown",
   "legend.exposure.apiDownNoRun": "Cannot reach the API, so no computed run has been received",

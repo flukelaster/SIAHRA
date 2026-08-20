@@ -111,6 +111,7 @@ const ids = (stations: StationExposure[]) => stations.map((s) => s.stationId).so
 /** run ที่หนึ่ง: สถานี 10 กับ 11 ในจังหวัด 10, สถานี 50 ในจังหวัด 50, สถานี 99 ไม่มีจังหวัด */
 let runA = "";
 let runB = "";
+let runC = "";
 
 beforeEach(() => {
   vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
@@ -122,6 +123,15 @@ afterEach(() => {
 });
 
 describe("GET /api/v1/provinces/{NN}/exposure/latest", () => {
+  it("ยังไม่เคยเผยแพร่ run เลย (DO เย็น ไม่มี pointer) → 503 reason \"never-published\"", async () => {
+    // ต้องรันก่อนเทสอื่นในไฟล์นี้ทุกตัว: ตัวชี้ run ล่าสุดใช้ instance เดียวทั้งประเทศ
+    // (`EXPOSURE_POINTER_NAME`) พอมี publishAt() ครั้งแรกเกิดขึ้นแล้ว ไม่มีทางย้อนกลับ
+    // มาสถานะ "ไม่มี pointer" ได้อีกในไฟล์นี้
+    const res = await call("/api/v1/provinces/50/exposure/latest");
+    expect(res.status).toBe(503);
+    await expect(res.json()).resolves.toMatchObject({ reason: "never-published" });
+  });
+
   it("เผยแพร่ run แรกแล้วเสิร์ฟตามสัญญา: illustrative + methodologyUrl + X-Run-Id + ไม่มีคีย์ต้องห้าม", async () => {
     await seedWater(
       [
@@ -196,7 +206,7 @@ describe("GET /api/v1/exposure/runs/{runId}", () => {
   it("run เก่ายังตัดขอบจังหวัดได้เหมือนวันที่มันถูกเขียน แม้สถานีจะหายไปจากตารางจริงแล้ว", async () => {
     // สถานี 50 ถูกถอดออกจากตารางที่ยังมีชีวิตอยู่ แล้วเผยแพร่ run ใหม่
     await seedWater([water(10, "10", "2026-08-19T10:05:00.000Z"), water(11, "10", "2026-08-19T09:50:00.000Z")], "2026-08-19T10:14:00.000Z");
-    const runC = await publishAt(T0 + 15 * 60_000);
+    runC = await publishAt(T0 + 15 * 60_000);
     expect(runC).not.toBe(runB);
 
     const latest50 = (await (await call("/api/v1/provinces/50/exposure/latest")).json()) as ProvinceExposureResponse;
@@ -230,5 +240,24 @@ describe("GET /api/v1/exposure/runs/{runId}", () => {
     const malformed = await call("/api/v1/exposure/runs/..%2F..%2Fsecret");
     expect(malformed.status).toBe(404);
     expect(await appEnv.HAZARD_BUCKET.head(exposureRunKey("20260101T000000Z-abcdef0123456789"))).toBeNull();
+  });
+
+  it('pointer ชี้ไปที่ run จริง แต่ object หายไปจาก R2 → 503 reason "missing" (ไม่ใช่ "never-published")', async () => {
+    // ณ จุดนี้ pointer ล่าสุดของไฟล์นี้ชี้ไปที่ runC (เผยแพร่ในเทสก่อนหน้า) — ลบ
+    // object ทิ้งแล้วคืนกลับหลังตรวจ ไม่ให้กระทบเทสอื่นที่อาจรันหลังจากนี้
+    const key = exposureRunKey(runC);
+    const stored = await appEnv.HAZARD_BUCKET.get(key);
+    expect(stored, "เทสนี้ต้องรันหลัง runC ถูกเผยแพร่แล้วเท่านั้น").not.toBeNull();
+    const bytes = new Uint8Array(await stored!.arrayBuffer());
+    await appEnv.HAZARD_BUCKET.delete(key);
+    try {
+      const res = await call("/api/v1/provinces/10/exposure/latest");
+      expect(res.status).toBe(503);
+      const body = (await res.json()) as { reason?: string };
+      expect(body.reason).toBe("missing");
+      expect(body.reason).not.toBe("never-published");
+    } finally {
+      await appEnv.HAZARD_BUCKET.put(key, bytes);
+    }
   });
 });
