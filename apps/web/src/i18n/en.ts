@@ -155,6 +155,8 @@ export const en: Record<keyof typeof th, string> = {
   "legend.exposure.historyWindow": "The change is measured over the last {h} h; it is a rate that already happened",
   "legend.exposure.computedAt": "Last computed {age}",
   "legend.exposure.noRunSince": "Nothing new has been computed since {time} — this is the earlier run",
+  "legend.exposure.staleInputs":
+    "This is the run from {time} — but ThaiWater itself is reporting degraded right now, so the inputs behind it may be partial or stale",
   "legend.exposure.noRunEver": "No computed run has ever been received, so nothing is drawn on the map",
   "legend.exposure.layerOff": "This layer is off — no computed run has been requested",
   "legend.exposure.apiDownSince": "Cannot reach the API — this is the run from {time}; whether a newer one exists is unknown",

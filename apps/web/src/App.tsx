@@ -127,10 +127,29 @@ export default function App() {
   // ชั้นการเผชิญน้ำมีแหล่งข้อมูลของตัวเองใน /health (E10.3) — `delayed` คือ "ไม่มี run
   // ใหม่เกิน 30 นาที" ซึ่งต้องหรี่ชั้นและบอกเวลาของรอบล่าสุดเหมือนกับตอนดึงไม่สำเร็จ
   const exposureSource = sourceStatus(apiHealth.health, "exposure-illustrative");
-  const exposureNoNewRun =
+  // เหตุผลของ "ไม่มีรอบใหม่" ที่มาจากตัว exposure/การดึงเอง — เก็บชื่อไว้แยกจากตัว OR
+  // รวมด้านล่าง เพราะ legend ต้องบอกเหตุผลได้แม่นกว่า "ไม่มีรอบใหม่" เฉย ๆ (ดูหมายเหตุถัดไป)
+  const exposureOwnNoNewRun =
     exposure.failing ||
     apiHealth.apiDown ||
     (exposureSource !== null && exposureSource.health !== "ok");
+  // run ของ exposure คำนวณจากค่า ThaiWater โดยตรงเพียงแหล่งเดียว (ดู `sourceIds:
+  // ["thaiwater"]` ใน apps/api/src/exposure/compute.ts) — endpoint ของ exposure เอง
+  // อาจตอบว่า "ok" ได้ทั้งที่ครึ่งหนึ่งของอินพุตที่ใช้คำนวณ run นั้นเป็นค่าเก่า/บางส่วน
+  // (sub-feed หนึ่งของ ThaiWater ล่ม แต่อีก sub-feed สำเร็จ → ObservationCacheDO
+  // เผยแพร่ run ใหม่จากข้อมูลครึ่งเดียว) แยกไว้เป็นตัวแปรของตัวเองเพื่อให้ legend บอก
+  // เหตุผลที่แม่นกว่า "ไม่มีรอบใหม่" เฉย ๆ ได้ (ดู `ExposureLegendState.inputsDegraded`)
+  //
+  // `exposureOwnNoNewRun` กับ `exposureInputsDegraded` เกิดพร้อมกันได้จริง (ไม่ใช่กรณี
+  // แปลก): ThaiWater ล่มทั้งหมด → ObservationCacheDO ไม่เผยแพร่ run ใหม่เลย (own = true)
+  // **และ** thaiwater เองก็ผิดปกติ (inputsDegraded = true) พร้อมกัน — ข้อความจึงต้อง
+  // เลือกจากทั้งสองสัญญาณแยกกัน ไม่ใช่พับเป็นตัวเดียวแล้วเดาสาเหตุจากมันทีหลัง
+  // (`ExposureDetails` ให้ `noRunSince` ขึ้นก่อนเสมอเมื่อ `exposureOwnNoNewRun` เป็นจริง
+  // — ข้อเท็จจริงที่หนักกว่า: "ไม่มีรอบใหม่" ต้องไม่ถูกกลบด้วย "อินพุตอาจไม่ครบ")
+  const exposureInputsDegraded = thaiwater !== null && thaiwater.health !== "ok";
+  // ใช้หรี่ชั้นบนแผนที่ (`exposureStale` prop): หรี่ทุกครั้งที่สิ่งที่วาดอยู่อาจไม่ใช่
+  // ของล่าสุดหรือคำนวณจากอินพุตที่ไม่ครบ — ไม่ใช่ค่าที่ใช้เลือกข้อความใน legend โดยตรง
+  const exposureNoNewRun = exposureOwnNoNewRun || exposureInputsDegraded;
   // ชั้นถูกหรี่ในทุกกรณีที่สิ่งที่วาดอยู่อาจไม่ใช่ของล่าสุด (`exposureNoNewRun`)
   // แต่ข้อความใน legend ต้องแยก "เราถามไม่ได้" ออกจาก "เซิร์ฟเวอร์บอกว่าไม่มีรอบใหม่"
   // — `exposure.apiUnreachable` เป็น true เฉพาะตอน fetch() เองไปไม่ถึงเซิร์ฟเวอร์
@@ -139,8 +158,12 @@ export default function App() {
   const exposureApiUnreachable = exposure.apiUnreachable || apiHealth.apiDown;
   const exposureLegend = {
     run: exposure.data,
-    noNewRun: exposureNoNewRun,
+    // ตั้งใจส่งเหตุผล "ของตัวเอง" เท่านั้น ไม่ใช่ `exposureNoNewRun` ที่รวม
+    // inputsDegraded เข้าไปแล้ว — ไม่งั้น legend จะเลือกข้อความ "noRunSince" ผิดจังหวะ
+    // ตอน run===null ทั้งที่คำขอยังไม่กลับมา เพียงเพราะ thaiwater ไม่ปกติ ณ ขณะนั้นพอดี
+    noNewRun: exposureOwnNoNewRun,
     apiUnreachable: exposureApiUnreachable,
+    inputsDegraded: exposureInputsDegraded,
   };
   const aoiId = aoiIdForProvince(provinceCode);
   // ป้ายชนิดความรู้ + เวลาของแต่ละชั้นใน legend มาจาก descriptor ที่ backend ประกาศ

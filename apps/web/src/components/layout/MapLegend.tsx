@@ -135,9 +135,16 @@ const EXPOSURE_SCALE: { cls: ExposureRenderClass; key: MessageKey }[] = [
 export interface ExposureLegendState {
   run: ProvinceExposureResponse | null;
   /**
-   * true = ไม่มีผลคำนวณรอบใหม่ — ทั้งกรณีดึงไม่สำเร็จ และกรณีที่ `/api/v1/health`
-   * บอกว่า `exposure-illustrative` ไม่ปกติ (E10.3 ตั้งเป็น `delayed` เมื่อไม่มี run
-   * เกิน 30 นาที) ชั้นถูกวาดแบบหรี่ และ legend ต้องบอกว่า "ไม่มีตั้งแต่เมื่อไหร่"
+   * true = ไม่มีผลคำนวณรอบใหม่ "ของตัวมันเอง" — ทั้งกรณีดึงไม่สำเร็จ และกรณีที่
+   * `/api/v1/health` บอกว่า `exposure-illustrative` ไม่ปกติ (E10.3 ตั้งเป็น `delayed`
+   * เมื่อไม่มี run เกิน 30 นาที) ชั้นถูกวาดแบบหรี่ และ legend ต้องบอกว่า "ไม่มีตั้งแต่
+   * เมื่อไหร่"
+   *
+   * **ไม่รวม** `inputsDegraded` — ตั้งใจแยกไว้เพราะทั้งสองเกิดพร้อมกันได้จริง (ThaiWater
+   * ล่มทั้งหมด → ทั้งไม่มี run ใหม่ และ ThaiWater เองก็ผิดปกติพร้อมกัน) `noNewRun` ที่นี่
+   * เป็นข้อเท็จจริงที่ "หนักกว่า" และต้องขึ้นก่อนเสมอเมื่อเป็นจริง ไม่ถูก `inputsDegraded`
+   * บังไว้ (ดู `ExposureDetails` — ลำดับ apiUnreachable → run===null → noNewRun →
+   * inputsDegraded → ปกติ)
    */
   noNewRun: boolean;
   /**
@@ -147,6 +154,18 @@ export interface ExposureLegendState {
    * (ชั้นยังถูกหรี่เหมือนกันทั้งสองกรณี — ต่างกันแค่ข้อความ)
    */
   apiUnreachable: boolean;
+  /**
+   * true = ThaiWater เอง (แหล่งอินพุตเดียวของ run นี้ — ดู `sourceIds: ["thaiwater"]`
+   * ใน apps/api/src/exposure/compute.ts) ไม่ปกติ **ในขณะนี้** ซึ่งแยกจาก `noNewRun`
+   * ได้: endpoint ของ exposure เองตอบว่า "ok" และเผยแพร่ run ใหม่ได้อยู่ ทั้งที่
+   * ครึ่งหนึ่งของอินพุตที่ใช้คำนวณ run นั้นเป็นค่าเก่า/บางส่วน (sub-feed หนึ่งของ
+   * ThaiWater ล่ม แต่อีก sub-feed สำเร็จ) — run จึงอาจ "ใหม่" แต่คำนวณจากอินพุตที่
+   * ไม่ครบ ต่างจาก `noNewRun` ที่พูดถึง run ว่าเก่าหรือใหม่เท่านั้น
+   *
+   * `noNewRun` กับ `inputsDegraded` เป็นจริงพร้อมกันได้ (ดูหมายเหตุใน `noNewRun`) —
+   * `ExposureDetails` ให้ `noNewRun` ขึ้นก่อนเสมอในกรณีนั้น ไม่ใช่ `inputsDegraded`
+   */
+  inputsDegraded?: boolean;
 }
 
 /**
@@ -178,6 +197,7 @@ function ExposureDetails({
   const run = exposure?.run ?? null;
   const noNewRun = exposure?.noNewRun ?? false;
   const apiUnreachable = exposure?.apiUnreachable ?? false;
+  const inputsDegraded = exposure?.inputsDegraded ?? false;
   const counts = run ? countExposureClasses(run.stations) : null;
 
   /**
@@ -188,7 +208,12 @@ function ExposureDetails({
    *     การเขียนว่าไม่เคยได้รับ = การกล่าวถึงสถานะของแหล่งข้อมูลที่ไม่มีใครตรวจ
    *   - เปิดอยู่ ยังไม่มี run และยังไม่มีสัญญาณว่าล้มเหลว → คำขอยังไม่กลับมา จึงเงียบ
    *   - เปิดอยู่ ไม่มี run และดึงไม่สำเร็จ/แหล่งไม่ปกติ   → "ยังไม่เคยได้รับผลคำนวณ"
-   *   - มี run เก่าอยู่ แต่ไม่มีรอบใหม่                  → "ไม่มีรอบใหม่ตั้งแต่เมื่อไหร่"
+   *   - มี run เก่าอยู่ แต่ไม่มีรอบใหม่ "ของตัวมันเอง"     → "ไม่มีรอบใหม่ตั้งแต่เมื่อไหร่"
+   *     (ขึ้นก่อนกรณีถัดไปเสมอ — สองอย่างนี้เป็นจริงพร้อมกันได้จริงเมื่อ ThaiWater ล่ม
+   *     ทั้งหมด และ "ไม่มีรอบใหม่" เป็นข้อเท็จจริงที่หนักกว่า ต้องไม่ถูกกลบ)
+   *   - มี run อยู่ ไม่มีรอบใหม่ของตัวมันเอง แต่ ThaiWater (อินพุตเดียวของ run) ไม่ปกติ
+   *     ตอนนี้ → "อินพุตอาจไม่ครบ" (run นี้ **อาจใหม่ก็ได้** เพียงแต่คำนวณจากข้อมูล
+   *     บางส่วน — ดูที่มาใน App.tsx `exposureInputsDegraded`)
    */
   let status: ReactNode = null;
   if (!enabled) {
@@ -215,9 +240,22 @@ function ExposureDetails({
       </span>
     ) : null;
   } else if (noNewRun) {
+    // เหตุผล "ของตัวมันเอง" (ดึงไม่สำเร็จ หรือ exposure-illustrative เองไม่ปกติ) ต้อง
+    // ขึ้นก่อน inputsDegraded เสมอ — สองอย่างนี้เป็นจริงพร้อมกันได้ (ThaiWater ล่มทั้งหมด
+    // → ทั้งไม่มี run ใหม่ และ ThaiWater เองก็ผิดปกติพร้อมกัน) และ "ไม่มีรอบใหม่" เป็น
+    // ข้อเท็จจริงที่หนักกว่า ต้องไม่ถูก "อินพุตอาจไม่ครบ" กลบไป
     status = (
       <span className="text-[10px] text-[var(--color-risk-medium)]">
         {t("legend.exposure.noRunSince", { time: formatFullDateTime(lang, run.computedAt) })}
+      </span>
+    );
+  } else if (inputsDegraded) {
+    // ต่างจาก noNewRun: run นี้อาจเพิ่งคำนวณไปหมาด ๆ (endpoint ของ exposure เองตอบ
+    // "ok" และไม่มีสัญญาณว่า run ใหม่ขาดหาย) แต่ ThaiWater ซึ่งเป็นอินพุตเดียวของมัน
+    // ผิดปกติอยู่ ณ ตอนนี้ — "ไม่มีรอบใหม่ตั้งแต่ X" จะเป็นข้อความที่ผิดข้อเท็จจริง
+    status = (
+      <span className="text-[10px] text-[var(--color-risk-medium)]">
+        {t("legend.exposure.staleInputs", { time: formatFullDateTime(lang, run.computedAt) })}
       </span>
     );
   } else {
