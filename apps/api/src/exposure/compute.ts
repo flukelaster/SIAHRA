@@ -289,7 +289,9 @@ function compactUtc(iso: string): string {
  * คำนวณ run หนึ่งชุด
  *
  * @param observations ค่าตรวจวัดล่าสุดจาก ThaiWater (ฝน + ระดับน้ำ) พร้อม `fetchedAt`
- * @param hourlyLevels ประวัติระดับน้ำรายสถานี ใช้เฉพาะหา `freeboardTrendMPerH`
+ * @param hourlyLevels ประวัติระดับน้ำรายสถานี ใช้เฉพาะหา `freeboardTrendMPerH` — การอ่านสด
+ *   (`observations.waterlevel[].waterlevelMsl`) ของแต่ละสถานีถูกรวมเป็นจุดเพิ่มเข้าไปใน
+ *   หน้าต่างนี้เองด้วยเสมอ (ดูหมายเหตุที่จุดรวมในลูปด้านล่าง — round 8)
  * @param thresholds ตารางเกณฑ์ (ปกติคือ `DEFAULT_EXPOSURE_THRESHOLDS`)
  * @param now เวลาปัจจุบันที่ผู้เรียกส่งเข้ามา — ฟังก์ชันนี้ไม่อ่านนาฬิกาเอง
  *
@@ -349,7 +351,22 @@ export function computeExposure(
   }
 
   for (const w of dedupe(observations.waterlevel)) {
-    const trendResult = freeboardTrend(history.get(w.station.id), thresholds.historyWindowH, nowMs);
+    // เติมการอ่านสด (live) ของสถานีนี้เป็นจุดหนึ่งในหน้าต่างเสมอ ไม่ใช่พึ่ง `hourlyLevels`
+    // อย่างเดียว: ผู้เรียก (ObservationCacheDO.refreshOnce) เรียก `publishExposure()`
+    // ทันทีที่ `refresh()` เสร็จ ส่วนการเขียนสแนปช็อตรายชั่วโมง (`archiveTick` →
+    // `writeHourlySnapshot`) ถูกจัดคิวแยกด้วย `ctx.waitUntil` **หลังจากนั้น** โดยตั้งใจ
+    // (งานเก็บถาวรต้องไม่กันจังหวะ refresh) ผลคือในรอบ refresh ที่ตรงกับต้นชั่วโมงพอดี
+    // จุดล่าสุดใน `hourly_levels` ยังเป็นของชั่วโมงก่อนอยู่ ทั้งที่ค่าที่วัดจริง ณ ตอนนี้
+    // (`w`) สดกว่านั้น — ถ้าไม่รวมจุดนี้เข้าไป trend รอบนั้นจะมองไม่เห็นการเปลี่ยนแปลง
+    // ที่เพิ่งเกิดขึ้นจริง (review round 8) `freeboardTrend` เองมี total-order/กรอง
+    // หน้าต่างอยู่แล้ว จึงส่งจุดนี้เข้าไปเป็นผู้สมัครอีกหนึ่งจุดแล้วปล่อยให้ตัดสินเอง
+    // ไม่รวมกรณีที่ไม่มีค่าหรือไม่มีเวลาที่อ่านออก — เกณฑ์เดียวกับทุกจุดอื่นใน history
+    const historyPoints = history.get(w.station.id);
+    const pointsWithLive =
+      w.observedAt !== null && w.waterlevelMsl !== null && Number.isFinite(Date.parse(w.observedAt))
+        ? [...(historyPoints ?? []), { t: w.observedAt, value: w.waterlevelMsl, discharge: null }]
+        : historyPoints;
+    const trendResult = freeboardTrend(pointsWithLive, thresholds.historyWindowH, nowMs);
     const factors: ExposureFactors = {
       rain1hMm: null,
       rain24hMm: null,

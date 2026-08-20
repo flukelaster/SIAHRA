@@ -123,8 +123,16 @@ export default function App() {
   // เงื่อนไข `!== "ok"` ครอบ `delayed` ด้วยโดยตั้งใจ (E3.3): ต้นทางตอบปกติแต่ค่า
   // ตรวจวัดล่าสุดเก่ากว่าคาบที่ควรเป็น ก็ยังเป็นค่าเก่าที่ห้ามอ่านว่าเป็นปัจจุบัน
   // และรูปแบบนี้ยัง fail-safe กับสถานะใหม่ที่จะเพิ่มเข้ามาในอนาคต
-  const observationsStale =
-    apiHealth.apiDown || (thaiwater !== null && thaiwater.health !== "ok");
+  //
+  // จงใจอ่านเฉพาะสุขภาพของ sub-feed ฝน/ระดับน้ำ (`exposureInputsAreDegraded`) ไม่ใช่
+  // `thaiwater.health` โดยรวม (review round 8): `status()` ฝั่ง backend พับ
+  // `damsError` เข้า `lastError`/`health` โดยตั้งใจเพื่อให้ SourceStatusBar เห็น
+  // ความล้มเหลวของเขื่อน — แต่ผลคือถ้าใช้ `thaiwater.health` ตรงนี้ เขื่อนล่มตัวเดียว
+  // (ฝน/ระดับน้ำยังสดปกติ) จะไปหรี่หมุดฝน/ระดับน้ำที่ไม่เกี่ยวข้องเลย ความล้มเหลวของ
+  // เขื่อนมีป้ายของตัวเองอยู่แล้วที่ `DamCard` จึงไม่จำเป็นต้องยืมสัญญาณนี้มาบอกซ้ำ
+  // ใช้ตัวตัดสินเดียวกับ `exposureInputsDegraded` ด้านล่างเพราะเป็นเกณฑ์เดียวกันเป๊ะ
+  // (ทั้งสองจุดต้องการรู้แค่ "ฝนกับระดับน้ำเองยังโอเคอยู่ไหม" ไม่ใช่ ThaiWater โดยรวม)
+  const observationsStale = apiHealth.apiDown || exposureInputsAreDegraded(thaiwater);
   // ชั้นการเผชิญน้ำมีแหล่งข้อมูลของตัวเองใน /health (E10.3) — `delayed` คือ "ไม่มี run
   // ใหม่เกิน 30 นาที" ซึ่งต้องหรี่ชั้นและบอกเวลาของรอบล่าสุดเหมือนกับตอนดึงไม่สำเร็จ
   const exposureSource = sourceStatus(apiHealth.health, "exposure-illustrative");

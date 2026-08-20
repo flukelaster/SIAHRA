@@ -262,6 +262,52 @@ describe("ค่าที่ขาดต้องไม่ถูกกุขึ�
     expect(run.stations[0].factors.freeboardTrendMPerH).toBeNull();
     expect(run.stations[0].level).toBe("low");
   });
+
+  it("การอ่านสดปัจจุบันถูกรวมเป็นจุดหนึ่งในหน้าต่าง trend เสมอ แม้ hourly_levels ยังไม่มีสแนปช็อตของรอบนี้ (round 8)", () => {
+    // จำลองรอบ refresh ที่ตรงกับต้นชั่วโมงพอดี: `archiveTick()`/`writeHourlySnapshot()`
+    // ยังไม่ทันเขียนจุดของชั่วโมงนี้ลง hourly_levels (มันถูกจัดคิวแยกด้วย
+    // `ctx.waitUntil` หลังจาก `publishExposure()` เสร็จไปแล้วเสมอ โดยตั้งใจ ดู
+    // หมายเหตุที่ `alarm()`) — จุดล่าสุดที่มีอยู่จึงเป็นของชั่วโมงก่อน (01:00) เพียง
+    // จุดเดียว ซึ่งไม่พอคำนวณ trend (`freeboardTrend` ต้องการอย่างน้อยสองจุด — ดูเทส
+    // "ประวัติที่มีจุดเดียว..." ข้างบน) ถ้าไม่รวมการอ่านสดเข้าไป trend รอบนี้จะยังเป็น
+    // null ทั้งที่ระดับน้ำจริงขึ้นไปแล้วตั้งแต่ 01:00 ถึง 02:20
+    const staleHourly: StationHourlyLevels[] = [
+      { stationId: 9, points: [{ t: "2026-08-19T01:00:00.000Z", value: 3, discharge: null }] },
+    ];
+    const run = computeExposure(
+      obs({ waterlevel: [water({ id: 9, waterlevelMsl: 3.5, observedAt: "2026-08-19T02:20:00.000Z" })] }),
+      staleHourly,
+      T,
+      NOW,
+    );
+    // 3 → 3.5 ม. ใน 1h20m (01:00Z → 02:20Z) = ขึ้น 0.375 ม./ชม.
+    expect(run.stations[0].factors.freeboardTrendMPerH).toBe(-0.375);
+    expect(run.stations[0].level).toBe("high");
+  });
+
+  it("การอ่านสดที่ไม่มีค่าระดับน้ำ หรือไม่มีเวลาที่อ่านออก ไม่ถูกรวมเป็นจุด", () => {
+    const staleHourly: StationHourlyLevels[] = [
+      { stationId: 9, points: [{ t: "2026-08-19T01:00:00.000Z", value: 3, discharge: null }] },
+    ];
+    // waterlevelMsl เป็น null — ไม่มีค่าจะรวม
+    expect(
+      computeExposure(
+        obs({ waterlevel: [water({ id: 9, waterlevelMsl: null, observedAt: "2026-08-19T02:20:00.000Z" })] }),
+        staleHourly,
+        T,
+        NOW,
+      ).stations[0].factors.freeboardTrendMPerH,
+    ).toBeNull();
+    // observedAt เป็น null — ไม่มีเวลาจะรวม
+    expect(
+      computeExposure(
+        obs({ waterlevel: [water({ id: 9, waterlevelMsl: 3.5, observedAt: null })] }),
+        staleHourly,
+        T,
+        NOW,
+      ).stations[0].factors.freeboardTrendMPerH,
+    ).toBeNull();
+  });
 });
 
 describe("run ที่ไม่มีสถานีเลย", () => {
@@ -486,8 +532,11 @@ describe("provinceCode: สำเนา ณ เวลาคำนวณ", () => 
     // min_bank = 0 ที่ต้นทางแปลว่า "ไม่มีค่าสำรวจ" → freeboard ต้องเป็น null ไม่ใช่ 0
     expect(byId.get(202)?.factors.freeboardM).toBeNull();
     expect(byId.get(202)?.level).toBe("low");
-    // กราฟย้อนหลังของสถานี 201: 13.41 → 13.42 ใน 10 นาที = ระดับน้ำขึ้น 0.06 ม./ชม.
-    expect(byId.get(201)?.factors.freeboardTrendMPerH).toBe(-0.06);
+    // กราฟย้อนหลังของสถานี 201: 13.41 (08:00) → 13.42 (08:10 เวลาไทย) แต่การอ่านสด
+    // (waterFixture) ของสถานีเดียวกันคือ 13.44 ที่ 09:20 เวลาไทย ซึ่งใหม่กว่าและถูกรวม
+    // เป็นจุดสุดท้ายของหน้าต่างเสมอ (round 8 — ดูหมายเหตุที่จุดรวมใน compute.ts):
+    // จาก 13.41 (01:00Z) ถึง 13.44 (02:20Z) = ขึ้น 0.03 ม. ใน 1h20m ≈ 0.0225 ม./ชม.
+    expect(byId.get(201)?.factors.freeboardTrendMPerH).toBe(-0.022);
     expect(byId.get(201)?.factors.situationLevel).toBe(2);
   });
 
