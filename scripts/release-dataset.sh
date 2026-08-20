@@ -40,6 +40,13 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TILES="$ROOT/apps/etl/data/tiles"
 AOI_ROOT="$ROOT/apps/web/public/aoi"
+# ประวัติลายเซ็นเนื้อหาของทุกรุ่นที่ทุก AOI เคยมี (`isSafeVersionReuse` ใน
+# apps/etl/src/datasetVersion.ts) — refreshManifests.ts เขียนไฟล์นี้คู่กับ manifest
+# เสมอในขั้นที่ 5 ข้างล่าง และมันต้องเดินทางไปกับ commit เดียวกับ manifest ไม่งั้น
+# เครื่องอื่น/CI ที่ clone ใหม่จะจำได้แค่รุ่น**ปัจจุบัน**ของแต่ละ AOI (bootstrap จาก
+# manifest.json) ซึ่งมองไม่เห็นรุ่นเก่าที่เคยถูกปล่อยไปแล้วเลย — เป็นช่องโหว่เดียวกับ
+# ที่ ledger ทั้งก้อนถูกสร้างขึ้นมาปิด (review round 7)
+LEDGER="$ROOT/apps/etl/data/dataset-version-ledger.json"
 HOST="${HOST:-https://siahra-radar.co}"
 ENV_FILE_DEFAULT="$ROOT/scripts/.env.r2"
 
@@ -160,6 +167,12 @@ fi
 if ! git -C "$ROOT" diff --quiet HEAD -- "$AOI_ROOT" 2>/dev/null; then
   die "apps/web/public/aoi มีการแก้ค้างอยู่ (รวมของที่ git add ไว้แล้ว) — commit หรือ stash ก่อน
 ขั้นที่ 5 แสดง git diff ของ manifest เป็นด่านตรวจสุดท้ายก่อน deploy; diff ที่ปนของค้างอ่านไม่ออก"
+fi
+# เหตุผลเดียวกับข้างบน — ledger ถูกเขียนคู่กับ manifest ในขั้นที่ 5 เสมอ diff ของมันต้อง
+# สะอาดก่อนเริ่มด้วย ไม่งั้นของค้างจากรอบก่อนจะปนอยู่ใน diff ที่คนต้องตรวจด้วยตา (review round 7)
+if [ -f "$LEDGER" ] && ! git -C "$ROOT" diff --quiet HEAD -- "$LEDGER" 2>/dev/null; then
+  die "apps/etl/data/dataset-version-ledger.json มีการแก้ค้างอยู่ (รวมของที่ git add ไว้แล้ว) — commit หรือ stash ก่อน
+ขั้นที่ 5 แสดง git diff ของไฟล์นี้คู่กับ manifest เป็นด่านตรวจสุดท้ายก่อน deploy; diff ที่ปนของค้างอ่านไม่ออก"
 fi
 
 # 4) รุ่นที่ manifest ประกาศอยู่ตอนนี้ (ไว้บอกคน ไม่ใช่เงื่อนไข) — เท่ากับรุ่นที่กำลังปล่อย
@@ -376,9 +389,13 @@ set -e
 if [ "$rc" != "0" ]; then
   die "
 ขั้นที่ 5 ล้มเหลว (exit $rc) — refreshManifests.ts ทำต่อจนจบแล้วค่อยคืนค่าไม่ศูนย์ แปลว่า
-**บาง manifest ถูกเขียนไปแล้ว บางอันไม่** ตอนนี้ working tree อยู่ในสภาพผสม
-ห้าม deploy สภาพนี้ ให้ถอย manifest กลับก่อนแล้วค่อยหาสาเหตุ:
+**บาง manifest ถูกเขียนไปแล้ว บางอันไม่ และ ledger อาจถูกเขียนบางส่วนตามไปด้วย** (มันถูกเขียนกลับ
+ดิสก์ครั้งเดียวหลังลูปทั้งหมด แต่คู่ manifest/ledger ของ AOI ที่ทำสำเร็จไปแล้วในลูปเดียวกันนี้ ถือว่า
+เขียนแล้วทั้งคู่) ตอนนี้ working tree อยู่ในสภาพผสม ห้าม deploy สภาพนี้ ให้ถอยทั้งสองไฟล์กลับพร้อมกัน
+แล้วค่อยหาสาเหตุ (ถอยแค่ไฟล์เดียวจะเหลือ manifest กับ ledger อ้างอิงรุ่นไม่ตรงกัน — สั่งแยกบรรทัด
+เพราะ \`git checkout --\` ตรวจ pathspec ทั้งหมดก่อนแล้วค่อยถอย ถ้าไฟล์ไหนไม่ถูก track จะไม่ถอยเลยสักไฟล์):
   git -C $ROOT checkout -- apps/web/public/aoi
+  git -C $ROOT checkout -- $LEDGER
 ไบต์ที่อัปขึ้น R2 ไปแล้วปล่อยทิ้งไว้ได้ ไม่ต้องลบ (append-only) — แต่ชื่อรุ่น $VERSION ถือว่าใช้ไปแล้ว"
 fi
 
@@ -393,6 +410,13 @@ fi
 say ""
 say "-- git diff --stat HEAD -- apps/web/public/aoi --"
 git -C "$ROOT" diff --stat HEAD -- "$AOI_ROOT" || true
+# แยกเป็นบล็อกของตัวเอง ไม่ปนกับ diff_all ข้างล่าง — diff_all ถูก grep ต่อด้วยเงื่อนไข
+# `wrong=…` ที่เจาะจงบรรทัด "urlTemplate" ของ manifest เท่านั้น เอา diff ของ ledger
+# (คีย์เป็นรหัสรุ่น/ลายเซ็น ไม่มีคำว่า urlTemplate เลย) มาปนจะไม่ทำให้ grep นับผิด
+# แต่จะทำให้คนอ่าน diff ปนกันโดยไม่จำเป็น (review round 7)
+say ""
+say "-- git diff --stat HEAD -- apps/etl/data/dataset-version-ledger.json --"
+git -C "$ROOT" diff --stat HEAD -- "$LEDGER" || true
 diff_all=$(git -C "$ROOT" diff HEAD -- "$AOI_ROOT" || true)
 if [ -z "$diff_all" ]; then
   say ""
@@ -408,14 +432,17 @@ else
   if [ "${wrong:-0}" -gt 0 ]; then
     die "
 มี urlTemplate ที่เขียนใหม่ $wrong บรรทัดที่ **ไม่ได้** ชี้ /v/$VERSION/ — อย่า deploy
-ดู git diff เต็ม ๆ แล้วถอยด้วย: git -C $ROOT checkout -- apps/web/public/aoi"
+ดู git diff เต็ม ๆ แล้วถอยด้วย (ทั้งสองไฟล์ — ledger เพิ่งถูกเขียนคู่กับ manifest ผิดในรอบนี้เอง —
+แยกคำสั่งเพราะ \`git checkout --\` ตรวจ pathspec ทั้งหมดก่อนถอย ไฟล์ไหนไม่ถูก track จะไม่ถอยเลยสักไฟล์):
+  git -C $ROOT checkout -- apps/web/public/aoi
+  git -C $ROOT checkout -- $LEDGER"
   fi
   say "ทุกบรรทัดที่เขียนใหม่ชี้ /v/$VERSION/ ครบ"
 fi
 
 say ""
 say "==== เหลืออีกสามอย่าง ที่สคริปต์นี้ไม่ทำให้ (ตั้งใจ) ===="
-say "  1. อ่าน diff ข้างบนด้วยตา แล้ว commit: git add apps/web/public/aoi && git commit"
+say "  1. อ่าน diff ข้างบนด้วยตา แล้ว commit: git add apps/web/public/aoi apps/etl/data/dataset-version-ledger.json && git commit"
 say "  2. deploy: npm run deploy:web    (manifest ถูก track และ ship ไปกับ deploy unit เดียวกัน)"
 say "  3. ตรวจซ้ำโดยไม่บังคับรุ่น: scripts/verify-tiles.sh   (คราวนี้ค่าที่อ่านได้ต้องเป็น $VERSION เอง)"
 say ""

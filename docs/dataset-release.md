@@ -101,6 +101,8 @@ date, content-type, report-to, nel, server, cf-ray, alt-svc) จึงใช้ 
 - **`apps/web/public/aoi` ต้องไม่มีการแก้ค้าง** (เทียบกับ `HEAD` จึงนับของที่ `git add` ไว้แล้วด้วย)
   — ขั้นที่ 5 คือ `git diff HEAD` ของ manifest ซึ่งเป็นด่านตรวจ
   ด้วยตาด่านสุดท้ายก่อน deploy; diff ที่ปนของค้างมาก่อนหน้าอ่านไม่ออก = ด่านนั้นหายไปทั้งด่าน
+- **`apps/etl/data/dataset-version-ledger.json` ต้องไม่มีการแก้ค้างเช่นกัน** — ขั้นที่ 5 เขียนไฟล์นี้
+  คู่กับ manifest เสมอ (ดู §7 ของ `docs/dataset.md`) ด่านเดียวกันข้างบนจึงครอบคลุมมันด้วย
 - **`--copy` กับ `--build` ใช้ร่วมกันไม่ได้** — `--copy` ก๊อปไบต์ที่อยู่บน prefix เดิมของ R2 (ของเก่า)
   เข้ารุ่นใหม่ ถ้าเพิ่ง build ใหม่ในเครื่อง รุ่นใหม่จะบรรจุไบต์ชุดเก่าขณะที่ checksum ใน manifest
   บรรยายชุดใหม่ — ผิดชนิดที่ immutable หนึ่งปีทำให้แก้ไม่ได้
@@ -113,7 +115,7 @@ date, content-type, report-to, nel, server, cf-ray, alt-svc) จึงใช้ 
 | 2 checksum | `refresh:manifests --dataset-version=$VER --dry-run` — คำนวณ checksum/`builtAt` ใหม่แล้วเทียบกับที่ manifest ประกาศไว้ **โดยไม่เขียนไฟล์** ด่านนี้ตอบคำถามเดียว: ชื่อรุ่นนี้ยังใช้ได้ไหม | หยุดก่อนลงทุนอัป — ดู §5 |
 | 3 upload | `upload-tiles.sh --version=$VER [--copy] --smoke` (ไฟล์เดียวก่อนเสมอ) แล้วจึงทั้งชุด | prefix เดิมยังเสิร์ฟอยู่ ผู้ใช้ไม่เห็นอะไรผิด |
 | 4 verify | `VERSION=$VER verify-tiles.sh` — ต้องบังคับรุ่น เพราะ manifest ยังประกาศรุ่นเก่า ปล่อยว่างจะกลายเป็นการตรวจรุ่นก่อนหน้าแล้วผ่านฉลุยโดยไม่ได้ตรวจรุ่นใหม่เลย | manifest ยังไม่ถูกแตะ |
-| 5 manifest diff | `refresh:manifests --dataset-version=$VER` ของจริง แล้วโชว์ `git diff --stat` กับบรรทัด `urlTemplate` ที่ถูกชี้ใหม่ | ดู §5 (tree ผสม) |
+| 5 manifest diff | `refresh:manifests --dataset-version=$VER` ของจริง แล้วโชว์ `git diff --stat` ของ manifest กับ `apps/etl/data/dataset-version-ledger.json` แยกกันคนละบล็อก บวกบรรทัด `urlTemplate` ที่ถูกชี้ใหม่ | ดู §5 (tree ผสม) |
 
 **AOI สาธิต `chiangmai-old-city` เปลี่ยนไม่เท่ากับจังหวัดอื่น** — ขั้นที่ 5 จะเลื่อน
 `provenance.datasetVersion` ของมันตามรุ่นใหม่ แต่ **ไม่** เขียน `urlTemplate` ให้เป็น prefix แบบมีรุ่น
@@ -165,10 +167,16 @@ scripts/release-dataset.sh --version=2026-08-21 --sample=20 11 12 13
 ## 4. หลังสคริปต์จบ
 
 ```bash
-git add apps/web/public/aoi && git commit    # 1. อ่าน diff ที่ขั้นที่ 5 พิมพ์ไว้ก่อน
+git add apps/web/public/aoi apps/etl/data/dataset-version-ledger.json && git commit    # 1. อ่าน diff ที่ขั้นที่ 5 พิมพ์ไว้ก่อน
 npm run deploy:web                           # 2. manifest ถูก track และ ship ไปกับ deploy unit เดียวกัน
 scripts/verify-tiles.sh                      # 3. ตรวจซ้ำโดยไม่บังคับรุ่น — ค่าที่อ่านได้ต้องเป็นรุ่นใหม่เอง
 ```
+
+`ledger` ต้อง commit คู่กับ manifest เสมอ: ledger บันทึกลายเซ็นเนื้อหาของ **ทุก**
+รุ่นที่แต่ละ AOI เคยมี ไม่ใช่แค่รุ่นล่าสุด — ถ้าปล่อยรุ่น A แล้ว B แล้ว ปล่อยไว้แต่ไม่ commit ledger
+เครื่องอื่น/CI ที่ clone ใหม่ทีหลังจะ bootstrap ledger จาก manifest.json ปัจจุบันได้แค่รุ่น B รุ่น A
+จะหายไปจากความจำโดยสิ้นเชิง แล้วเปิดช่องให้มีคนขอปล่อยรุ่น A ซ้ำด้วยเนื้อหาอื่นได้อีกโดยไม่มีอะไรกัน
+(review round 7 — ก่อนหน้านี้ ledger ถูกสร้างไว้แต่ไม่เคยถูก commit เลยสักครั้ง)
 
 ขั้นที่ 3 ต่างจากขั้นที่ 4 ของสคริปต์ตรงที่ไม่ตั้ง `VERSION=` ให้: มันอ่าน
 `provenance.datasetVersion` จาก manifest ที่เพิ่ง deploy ไป จึงเป็นการยืนยันว่า "สิ่งที่ manifest บอก"
@@ -182,9 +190,13 @@ scripts/verify-tiles.sh                      # 3. ตรวจซ้ำโดย
 ส่วนไบต์ที่อัปขึ้นไปแล้ว **ปล่อยทิ้งไว้ ไม่ต้องลบ** (ต้นทุนคือค่า storage ~5.2 GiB ต่อชุด — §7 มีตัวเลข)
 
 ```bash
-git checkout -- apps/web/public/aoi   # หรือ git revert <sha> ถ้า commit ไปแล้ว
+git checkout -- apps/web/public/aoi apps/etl/data/dataset-version-ledger.json   # หรือ git revert <sha> ถ้า commit ไปแล้ว
 npm run deploy:web
 ```
+
+ถอยทั้งสองไฟล์พร้อมกันเสมอ ไม่ใช่แค่ manifest — ถอยแค่ manifest จะเหลือ ledger ที่จำผิดว่ารุ่นที่ถูก
+ถอยไปแล้วมีลายเซ็นเนื้อหาแบบที่เพิ่งถูกยกเลิก ทำให้การรันซ้ำในอนาคตด้วยรุ่นเดิมถูก guard ปฏิเสธทั้งที่
+ไม่ควร (หรือกลับกัน: ปล่อยผ่านทั้งที่ไม่ควร)
 
 | พังตอนไหน | ผู้ใช้เห็นอะไร | ทำอะไร |
 |---|---|---|
@@ -193,8 +205,8 @@ npm run deploy:web
 | ขั้น 3 upload ล้มกลางคัน | ปกติ — manifest ยังชี้ prefix เดิม | รันสคริปต์ซ้ำด้วยรุ่นเดิม `rclone copy` จะทำต่อจากที่ค้าง ไม่ลบอะไร |
 | ขั้น 4 verify ไม่ผ่าน | ปกติ | อ่านบรรทัดสรุปของ `verify-tiles.sh`: "prefix เดิมไม่ผ่าน" = ของเก่าหาย (ร้ายแรงกว่ามาก) · "แบบมีรุ่นไม่ผ่าน" = ยังก๊อปไม่ครบ หรือ Worker ยังไม่รู้จัก `/v/` |
 | ขั้น 4 เจอ `MISSING_LOCAL` | ปกติ | ชุด tile ในเครื่องขาดบางชั้น ไม่ใช่ปัญหาฝั่ง R2 — symlink dataset ให้ครบ (หรือ `--build`) แล้วรันใหม่ด้วยรุ่นเดิม |
-| ขั้น 5 refresh ล้มบางส่วน | ปกติ (ยังไม่ deploy) | `refreshManifests.ts` ทำต่อจนจบแล้วค่อยคืนค่าไม่ศูนย์ = **บาง manifest ถูกเขียนไปแล้ว** ห้าม deploy สภาพนี้ → `git checkout -- apps/web/public/aoi` แล้วหาสาเหตุ |
-| ขั้น 5 เจอ `urlTemplate` ที่ไม่ได้ชี้ `/v/$VER/` | ปกติ (ยังไม่ deploy) | manifest ถูกเขียนไปแล้วแต่มีบรรทัดที่ชี้ผิด สคริปต์หยุดก่อน commit — ถอยเหมือนแถวบน แล้วดู `git diff` เต็ม ๆ ว่าจังหวัดไหนหลุด |
+| ขั้น 5 refresh ล้มบางส่วน | ปกติ (ยังไม่ deploy) | `refreshManifests.ts` ทำต่อจนจบแล้วค่อยคืนค่าไม่ศูนย์ = **บาง manifest ถูกเขียนไปแล้ว และ ledger อาจถูกเขียนตามคู่กันไปแล้ว** ห้าม deploy สภาพนี้ → `git checkout -- apps/web/public/aoi apps/etl/data/dataset-version-ledger.json` (ทั้งสองไฟล์พร้อมกันเสมอ) แล้วหาสาเหตุ |
+| ขั้น 5 เจอ `urlTemplate` ที่ไม่ได้ชี้ `/v/$VER/` | ปกติ (ยังไม่ deploy) | manifest ถูกเขียนไปแล้วแต่มีบรรทัดที่ชี้ผิด (ledger ถูกเขียนคู่กันไปด้วย) สคริปต์หยุดก่อน commit — ถอยเหมือนแถวบน แล้วดู `git diff` เต็ม ๆ ว่าจังหวัดไหนหลุด |
 | หลัง deploy: tile 404 เป็นรู | เห็นจริง | ถอย manifest + `npm run deploy:web` หรือถ้าเพิ่ง deploy ไปสด ๆ ใช้ `npx wrangler rollback <deployment-id> --config apps/web/wrangler.jsonc` ก็ได้ผลเดียวกันเร็วกว่า แล้วค่อยตามแก้ให้ครบ |
 
 > **ชื่อรุ่นที่เคยไปถึง manifest ที่ deploy แล้ว ถือว่าถูกเผาไปแล้ว** ถอยแล้วก็ยังห้ามใช้ซ้ำ เพราะมี
