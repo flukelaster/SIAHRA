@@ -7,6 +7,8 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    // worker/ อยู่นอก src เพราะเป็นโค้ดฝั่ง Worker (ถูก bundle ด้วย wrangler) —
+    // เทสของมัน (worker/tilePath.test.ts) เป็น pure module เหมือนกัน จึงรันที่นี่
+    include: ["src/**/*.test.ts", "worker/**/*.test.ts"],
   },
 });

@@ -13,8 +13,7 @@
  * and read back through this handler.
  */
 
-/** `/aoi/{province}/{layer}/{z}/{x}_{y}.bin` — mirrors the dev-only Vite middleware in vite.config.ts. */
-const TILE_PATH = /^\/aoi\/(\d{2})\/(terrain|buildings|features|landcover)\/(\d+)\/(\d+)_(\d+)\.bin$/;
+import { parseTilePath, tileKey } from "./tilePath.ts";
 
 /**
  * Tiles are content-addressed by path: a given {z}/{x}_{y} for a province never
@@ -67,7 +66,10 @@ function withSecurityHeaders(res: Response): Response {
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
-    const tile = TILE_PATH.exec(url.pathname);
+    // Both the version-addressed and the legacy path shapes; the parser is
+    // shared with the dev middleware in vite.config.ts so the two can never
+    // disagree about what a tile path is (worker/tilePath.ts).
+    const tile = parseTilePath(url.pathname);
 
     // Not a tile: hand it back to the asset layer. There is deliberately no
     // `run_worker_first` in wrangler.jsonc — the asset layer answers first and
@@ -97,9 +99,10 @@ export default {
       if (hit) return hit;
     }
 
-    const [, province, layer, z, x, y] = tile;
-    const key = `aoi/${province}/${layer}/${z}/${x}_${y}.bin`;
-    const object = await env.HAZARD_BUCKET.get(key);
+    // A versioned URL resolves to a versioned key — the version is never
+    // stripped to fall back on the legacy object, or two dataset versions would
+    // silently share one set of bytes (docs/dataset.md §7).
+    const object = await env.HAZARD_BUCKET.get(tileKey(tile));
 
     // A miss must be a real 404. If this fell through to the asset layer the
     // SPA fallback would answer with index.html, and the tile loader would try

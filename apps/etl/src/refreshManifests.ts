@@ -4,6 +4,14 @@
  *
  *   npm run refresh:manifests -w apps/etl -- --dry-run
  *   npm run refresh:manifests -w apps/etl
+ *   npm run refresh:manifests -w apps/etl -- --dataset-version=2026-08-21
+ *
+ * ตั้งแต่ E9.2 สคริปต์นี้ยังชี้ `urlTemplate` ของ tile ทุก pyramid ไปที่ prefix
+ * ของรุ่น (`/aoi/{code}/v/{ver}/…`) ด้วย และบังคับกฎของ `datasetVersion` ตาม
+ * `datasetVersion.ts`: ไม่เดารุ่นจาก `manifest.version` อีกต่อไป และถ้า
+ * `builtAt`/`checksums` เปลี่ยนไปจากที่ manifest ประกาศไว้ขณะที่รุ่นยังชื่อเดิม
+ * จะหยุดโดยไม่เขียน (`--allow-version-reuse` ข้ามได้ ใช้ได้เฉพาะตอนที่ prefix
+ * นั้นยังไม่เคยอัปขึ้น R2)
  *
  * ที่มาของ `builtAt` แต่ละชั้นคือ mtime ล่าสุดของโฟลเดอร์ tile ใน
  * `apps/etl/data/tiles/{code}/{layer}/` เท่านั้น (ดูเหตุผลยาว ๆ ในหัวไฟล์
@@ -19,6 +27,12 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { AoiManifest, AoiProvenance } from "@siahra/shared-types";
 import { buildAoiProvenance, isoUtc, readOsmPublishedAt } from "./provenance.js";
+import {
+  assertDatasetVersion,
+  diffTileContent,
+  retargetTileTemplates,
+  tileContentSignature,
+} from "./datasetVersion.js";
 
 const OUT_ROOT = path.resolve(import.meta.dirname, "../../web/public/aoi");
 const TILES_ROOT = path.resolve(import.meta.dirname, "../data/tiles");
@@ -28,6 +42,10 @@ const onlyArg = process.argv.find((a) => a.startsWith("--only="));
 const only = onlyArg ? onlyArg.slice("--only=".length).split(",") : null;
 const versionArg = process.argv.find((a) => a.startsWith("--dataset-version="));
 const datasetVersionOverride = versionArg ? versionArg.slice("--dataset-version=".length) : null;
+/** ยอมให้ทับรุ่นเดิมทั้งที่เนื้อหาเปลี่ยน — ใช้ได้เฉพาะก่อนที่ prefix นั้นจะถูกอัปขึ้น R2 */
+const allowVersionReuse = process.argv.includes("--allow-version-reuse");
+
+if (datasetVersionOverride !== null) assertDatasetVersion(datasetVersionOverride);
 
 /** เทียบทุกฟิลด์ยกเว้น `generatedAt` — ใช้ตัดสินว่า "มีอะไรเปลี่ยนจริงไหม" */
 function sameContent(a: AoiProvenance | undefined, b: AoiProvenance): boolean {
@@ -77,24 +95,66 @@ for (const code of codes) {
   try {
     const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as AoiManifest;
     const tilesDir = path.join(TILES_ROOT, code);
+
+    // ไม่มี `manifest.version` เป็นตัวสำรองอีกแล้ว (ดูเหตุผลใน datasetVersion.ts):
+    // รุ่นคือ prefix ของ URL การเดามันคือการชี้ชุดข้อมูลใหม่ไปที่ prefix เก่า
+    const datasetVersion = datasetVersionOverride ?? manifest.provenance?.datasetVersion;
+    if (!datasetVersion) {
+      throw new Error(
+        "manifest ยังไม่มี provenance.datasetVersion — ต้องระบุ --dataset-version=YYYY-MM-DD " +
+          "(ไม่หยิบ manifest.version มาใช้แทน: มันขยับทุกครั้งที่ rebuild ชั้นเดียว)",
+      );
+    }
+    assertDatasetVersion(datasetVersion);
+
     const next = buildAoiProvenance({
       aoiDir: dir,
       tilesDir: existsSync(tilesDir) ? tilesDir : null,
-      datasetVersion:
-        datasetVersionOverride ?? manifest.provenance?.datasetVersion ?? manifest.version,
+      datasetVersion,
       generatedAt: isoUtc(Date.now()),
       osmPublishedAt,
     });
 
-    if (sameContent(manifest.provenance, next)) {
+    // ไบต์ใต้ prefix เปลี่ยนแต่ชื่อรุ่นเท่าเดิม = client ที่แคช immutable ไว้จะได้
+    // ของเก่าต่อไปอีกหนึ่งปีโดยแก้ไม่ได้ — หยุดตรงนี้ ไม่เขียนไฟล์
+    const delta = diffTileContent(manifest.provenance, next);
+    for (const line of delta.removed) console.warn(`  ${code} — เตือน: ${line}`);
+    if (delta.changed.length > 0 && manifest.provenance?.datasetVersion === datasetVersion) {
+      const detail = delta.changed.join("; ");
+      if (!allowVersionReuse) {
+        throw new Error(
+          `tile ใต้รุ่น ${datasetVersion} เปลี่ยนไปแล้ว (${detail}) — ต้องตั้ง --dataset-version= ` +
+            `เป็นรุ่นใหม่ก่อน (หรือ --allow-version-reuse ถ้ารุ่นนี้ยังไม่เคยอัปขึ้น R2)`,
+        );
+      }
+      console.warn(`  ${code} — ทับรุ่น ${datasetVersion} ทั้งที่เนื้อหาเปลี่ยน (${detail}) [--allow-version-reuse]`);
+    }
+
+    // urlTemplate ถูกเขียนก่อนเทียบ เพราะมันไม่ได้อยู่ใน provenance — sameContent()
+    // มองไม่เห็น ถ้าไม่นับรวมตรงนี้ การรีเฟรชครั้งแรกของ E9.2 จะรายงาน "ไม่เปลี่ยน"
+    // แล้วปล่อยให้ manifest ทั้ง 78 ไฟล์ชี้ prefix เดิมอยู่เงียบ ๆ
+    const templateChanges = retargetTileTemplates(manifest, datasetVersion);
+    const provenanceChanged = !sameContent(manifest.provenance, next);
+
+    if (!provenanceChanged && templateChanges.length === 0) {
       unchanged++;
       console.log(`  ${code} — ไม่เปลี่ยน (${describe(manifest.provenance!)})`);
       continue;
     }
     changed++;
-    console.log(`  ${code} — ${manifest.provenance ? "อัปเดต" : "เพิ่ม"}: ${describe(next)}`);
+    const what = [
+      provenanceChanged ? (manifest.provenance ? "provenance อัปเดต" : "provenance เพิ่ม") : null,
+      templateChanges.length > 0 ? `urlTemplate ${templateChanges.length} ชั้น → v/${datasetVersion}` : null,
+    ]
+      .filter(Boolean)
+      .join(" + ");
+    console.log(`  ${code} — ${what}: ${describe(next)} [${tileContentSignature(next)}]`);
     if (!dryRun) {
-      manifest.provenance = next;
+      // generatedAt = "เนื้อหา provenance นี้ถูกเขียนเมื่อไหร่" — ถ้าเปลี่ยนแค่
+      // urlTemplate ก็ไม่ใช่การเขียน provenance ใหม่ จึงคงค่าเดิมไว้
+      manifest.provenance = provenanceChanged
+        ? next
+        : { ...next, generatedAt: manifest.provenance?.generatedAt ?? next.generatedAt };
       writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
     }
   } catch (err) {

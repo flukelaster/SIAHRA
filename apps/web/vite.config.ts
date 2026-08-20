@@ -1,6 +1,7 @@
 import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { defineConfig, type Plugin } from "vite";
+import { localTileSegments, parseTilePath } from "./worker/tilePath.ts";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
@@ -28,15 +29,35 @@ const PORTS = worktreePorts();
  * in public/ (which would be copied into dist and the Worker asset bundle).
  * Production is expected to serve the same prefix from R2 through the
  * siahra-web Worker (see apps/web/wrangler.jsonc).
+ *
+ * Both URL shapes are served, through the same parser the Worker uses
+ * (worker/tilePath.ts): the legacy `/aoi/{code}/{layer}/…` and the
+ * version-addressed `/aoi/{code}/v/{version}/{layer}/…` that E9.2 puts into the
+ * manifests. **The version segment is dropped when the local file path is
+ * built** (`localTileSegments`), because `apps/etl/data/tiles` holds exactly one
+ * build of the dataset with no version directories on disk — so in dev every
+ * version resolves to the bytes that are actually there, which is the truth on
+ * this machine.
+ *
+ * That is precisely what the Worker must **not** do: in R2 several versions
+ * coexist as separate objects and are served `immutable` for a year, so
+ * stripping the version there would let two dataset versions collide on one
+ * object and pin a wrong answer for a year. Dev has one version, no immutable
+ * caching (max-age=3600, and nothing is shared with any other client), and the
+ * file on disk is by definition the current build.
  */
 function terrainTiles(): Plugin {
   return {
     name: "siahra-terrain-tiles",
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
-        const m = /^\/aoi\/(\d{2})\/(terrain|buildings|features|landcover)\/(\d+)\/(\d+)_(\d+)\.bin$/.exec(req.url ?? "");
-        if (!m) return next();
-        const file = path.join(TILES_ROOT, m[1], m[2], m[3], `${m[4]}_${m[5]}.bin`);
+        // req.url is the raw request target (query string included, dot segments
+        // *not* normalised) — parseTilePath cuts the query and rejects anything
+        // that is not a strict tile path, which is what keeps `..` out of the
+        // path.join below.
+        const tile = parseTilePath(req.url ?? "");
+        if (!tile) return next();
+        const file = path.join(TILES_ROOT, ...localTileSegments(tile));
         if (!existsSync(file)) {
           res.statusCode = 404;
           res.end();

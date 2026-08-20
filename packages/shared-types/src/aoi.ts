@@ -172,7 +172,17 @@ export interface AoiLayerProvenance {
  * สร้างไว้เมื่อสามวันก่อน ความต่างนี้คือเหตุผลทั้งหมดที่ต้องมี provenance รายชั้น
  */
 export interface AoiProvenance {
-  /** รหัสรุ่นของชุดข้อมูล (E9.2 จะใช้เป็น prefix ของ tile URL) */
+  /**
+   * รหัสรุ่นของชุดข้อมูล และเป็น segment `v/{ver}` ใน `urlTemplate` ของ tile ทุก
+   * pyramid ตั้งแต่ E9.2 — รูปแบบ `YYYY-MM-DD` (หรือ `YYYY-MM-DD.N`) ที่คนตั้งเอง
+   * ตอนปล่อยรุ่น ห้าม derive จาก `version` ด้านล่าง
+   *
+   * กฎเดียวที่ต้องถือ: **ไบต์ใต้ `aoi/{code}/v/{ver}/` เปลี่ยนเมื่อไหร่ ค่านี้ต้อง
+   * เปลี่ยนด้วย** เพราะ tile ถูกส่งด้วย `immutable, max-age=1y` การชี้ชุดข้อมูลใหม่
+   * ไปที่รุ่นเดิมคือการล็อกคำตอบที่ผิดไว้หนึ่งปี — `apps/etl/src/datasetVersion.ts`
+   * เป็นคนบังคับ (`refresh:manifests` หยุดถ้า `builtAt`/`checksums` เปลี่ยนแต่รุ่น
+   * ยังชื่อเดิม) และ `apps/web/worker/tilePath.ts` เป็นคนเสิร์ฟ
+   */
   datasetVersion: string;
   /** เวลาที่ไฟล์ manifest นี้ถูกเขียน — ช้ากว่า builtAt ทุกตัวได้เป็นเรื่องปกติ */
   generatedAt: string;

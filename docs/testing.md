@@ -160,6 +160,15 @@ parsing, the `Asia/Bangkok` time formatter, the `terrain.bin` checksum verdict a
 channel it suppresses, and similar. Anything that needs the 3D scene is verified visually with
 `playwright-cli` against the running dev server, not in vitest (see `AGENTS.md`).
 
+Its `include` covers two roots, `src/**/*.test.ts` and `worker/**/*.test.ts` — `worker/` sits outside `src`
+because wrangler bundles it, but `worker/tilePath.ts` (the tile path parser the Worker and the Vite
+dev middleware share, E9.2) is a pure module too, so its tests run in the same suite.
+`worker/tilePath.test.ts` pins what may become an R2 key: both accepted URL shapes, that a
+version-addressed path never resolves to the legacy object, and that traversal spellings (`..`,
+`%2e%2e`, `%2f`, empty segments) return `null`. Like `src/**/*.test.ts` under `tsconfig.app.json`,
+these files are excluded from `tsconfig.worker.json` so `npx tsc -b` does not have to pull vitest
+types into the Worker build graph.
+
 ## apps/etl
 
 `apps/etl` also runs plain vitest, and has **no `vitest.config.ts`** — the default `include` picks up

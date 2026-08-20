@@ -82,14 +82,26 @@ R2_ACCESS_KEY_ID=...
 R2_SECRET_ACCESS_KEY=...
 EOF
 scripts/upload-tiles.sh --smoke   # อัปไฟล์เดียวแล้ว HEAD ดูบน prod ก่อนลงทุน 5.6 GB
-scripts/upload-tiles.sh           # sync ทั้งหมด (~1–3 ชม.; ข้ามของที่มีแล้ว, resume ได้)
+scripts/upload-tiles.sh           # อัปทั้งหมด (~1–3 ชม.; ข้ามของที่มีแล้ว, resume ได้, ไม่ลบอะไรบน R2)
 scripts/upload-tiles.sh 11 12     # หรือทีละจังหวัด
-scripts/verify-tiles.sh           # ตรวจ 77 จังหวัด × 4 ชนิด × (z ตื้นสุด+ลึกสุด)
+scripts/verify-tiles.sh           # ตรวจ 77 จังหวัด × 4 ชนิด × (z ตื้นสุด+ลึกสุด) × 2 prefix
 ```
 key ที่ได้จะเป็น `aoi/{code}/terrain/{z}/{x}_{y}.bin` ตรงกับ URL `/aoi/{code}/terrain/...` ที่ client เรียก
 
-**คอขวดคือจำนวนไฟล์ ไม่ใช่ขนาด** — 302,689 ไฟล์ / 5.6 GB ; อยู่ในโควตาฟรีทั้งคู่ (< 10 GB storage,
-< 1M Class A writes/เดือน) ; เครื่องที่อยู่หลัง FortiGate อาจอัปไม่ผ่าน (ดู §6) — ถ้า `--smoke` ล้ม
+ตั้งแต่ E9.2 มี prefix แบบมีรุ่นเพิ่มมาอีกชุด (`aoi/{code}/v/{ver}/{layer}/...`) ซึ่งสร้างด้วย
+server-side copy ในฝั่ง R2 ไม่ต้องดึงไบต์ผ่านเครื่องที่รัน:
+```bash
+scripts/upload-tiles.sh --version=2026-08-17 --copy --smoke   # ก๊อปไฟล์เดียวแล้ว HEAD ดูก่อน
+scripts/upload-tiles.sh --version=2026-08-17 --copy           # ก๊อปทั้งชุด
+```
+**ลำดับของการปล่อยรุ่น** (ต้องก๊อปขึ้น R2 ให้เสร็จก่อน manifest จะชี้ไปหา) และนโยบาย "prefix เดิม
+ห้ามลบ" อยู่ที่ [`docs/dataset.md` §7](./dataset.md) — สคริปต์ทั้งสองโหมดเป็น append-only
+(`rclone copy` ไม่มี `sync` แล้ว) จึงไม่ลบไฟล์บน R2 ให้เองไม่ว่ากรณีใด
+
+**คอขวดคือจำนวนไฟล์ ไม่ใช่ขนาด** — 302,689 ไฟล์ / 5.6 GB ; write อยู่ในโควตาฟรี (< 1M Class A
+writes/เดือน แม้ตอนก๊อปทั้งชุด) แต่ **storage ไม่อยู่แล้วตั้งแต่รุ่นที่สอง**: prefix เดิมห้ามลบ
+(`docs/dataset.md` §7) สองชุดจึงกินราว 10.3 GiB ทะลุ 10 GB ฟรีของ R2 ส่วนที่เกินคิด $0.015/GB/เดือน
+(รวมอยู่ในประมาณการท้ายเอกสารแล้ว) ; เครื่องที่อยู่หลัง FortiGate อาจอัปไม่ผ่าน (ดู §6) — ถ้า `--smoke` ล้ม
 ให้รันจากเครือข่ายอื่น หรือส่ง CA ขององค์กรเข้าไปด้วย `--ca-cert`
 
 ## 2. Worker route สำหรับ tile (เขียนแล้ว — อยู่ที่ **siahra-web** ไม่ใช่ api)
@@ -97,7 +109,11 @@ prefix `/aoi/` มีทั้ง manifest/overview ที่เป็น static
 ก้อนใหญ่ใน R2 และ route ของ Cloudflare **แยกตามนามสกุลไฟล์ไม่ได้** → ทั้ง prefix ต้องอยู่ใน Worker
 เดียวกัน และตัวที่ถือ static asset อยู่แล้วคือ `siahra-web` (พลอยได้: งาน DO/cron ไม่ต้องมาเสิร์ฟ tile)
 
-`apps/web/worker/index.ts` จับ `^/aoi/(\d{2})/(terrain|buildings|features|landcover)/(\d+)/(\d+)_(\d+)\.bin$`
+`apps/web/worker/index.ts` อ่าน path ด้วย `apps/web/worker/tilePath.ts` (ตัวเดียวกับที่ middleware
+ตอน dev ใน `apps/web/vite.config.ts` ใช้) ซึ่งรับสองรูปแบบ: `/aoi/{code}/v/{ver}/{layer}/{z}/{x}_{y}.bin`
+แบบมีรุ่น (E9.2) และ `/aoi/{code}/{layer}/{z}/{x}_{y}.bin` แบบเดิมที่ยังต้องเสิร์ฟตลอดไป —
+URL แบบมีรุ่นแปลงเป็น key แบบมีรุ่นเสมอ ไม่มีการตัด `v/{ver}` ทิ้งไปหยิบไฟล์ของ prefix เดิมมาตอบ
+(ไม่มีไฟล์ในรุ่นนั้น = 404 ดู `docs/dataset.md` §7)
 → `env.HAZARD_BUCKET.get("aoi/...")` + `Cache-Control: public, max-age=31536000, immutable` +
 `Content-Type: application/octet-stream` และแคชด้วย Cache API (`caches.default`) กัน R2 reads ;
 path อื่นส่งต่อ `env.ASSETS.fetch(request)` ; tile ที่ไม่มีใน R2 ตอบ **404** (ห้ามปล่อยให้ตกไป SPA
