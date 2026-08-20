@@ -1,4 +1,6 @@
+import type { ReactNode } from "react";
 import { ExternalLink, Gauge, Layers } from "lucide-react";
+import type { ProvinceExposureResponse } from "@siahra/shared-types";
 import { DETAIL_TILE_ALTITUDE_GATE_M } from "../../scene/lod";
 import type { QualityLevel, QualityMode } from "../../scene/quality";
 import type { MapLayers } from "./Map3DCanvas";
@@ -15,6 +17,12 @@ import {
   ILLUSTRATIVE_RIM_WIDTH_PX,
   illustrativeCss,
 } from "../../lib/illustrativeStyle";
+import {
+  countExposureClasses,
+  exposureCss,
+  type ExposureRenderClass,
+} from "../../lib/exposureStyle";
+import { formatAge, formatFullDateTime } from "../../lib/time";
 
 const SITUATION_LEVELS: { key: MessageKey; color: string }[] = [
   { key: "situation.3", color: "#22c55e" },
@@ -75,6 +83,209 @@ function IllustrativeSwatch() {
   );
 }
 
+/**
+ * สัญลักษณ์ของชั้น "ระดับการเผชิญน้ำ (ภาพประกอบ)" — ลายตาราง
+ *
+ * ลายทแยงชุดล่างคือลายเดียวกับพื้นที่ลุ่มต่ำ (ชั้นนี้วางทับอยู่บนนั้น) และลายทแยง
+ * กลับด้านชุดบนคือสิ่งที่ shader เพิ่มเข้ามา ค่าคาบ/สัดส่วนเส้นจึงอ่านจาก
+ * `illustrativeStyle.ts` ตัวเดียวกัน และสีจาก `exposureStyle.ts` ตัวเดียวกัน
+ */
+function ExposureSwatch() {
+  const period = ILLUSTRATIVE_HATCH_PERIOD_PX;
+  const stroke = period * ILLUSTRATIVE_HATCH_DUTY;
+  return (
+    <svg className="h-3 w-5 rounded-sm" viewBox="0 0 20 12" aria-hidden="true">
+      <defs>
+        <pattern
+          id="siahra-exposure-hatch-base"
+          width={period}
+          height={period}
+          patternUnits="userSpaceOnUse"
+          patternTransform={`rotate(${ILLUSTRATIVE_HATCH_ANGLE_DEG})`}
+        >
+          <rect width={period} height={period} fill={illustrativeCss("dark")} />
+          <rect width={stroke} height={period} fill={illustrativeCss("light")} />
+        </pattern>
+        <pattern
+          id="siahra-exposure-hatch-cross"
+          width={period}
+          height={period}
+          patternUnits="userSpaceOnUse"
+          patternTransform={`rotate(${-ILLUSTRATIVE_HATCH_ANGLE_DEG})`}
+        >
+          <rect width={stroke} height={period} fill={exposureCss("high")} />
+        </pattern>
+      </defs>
+      <rect width="20" height="12" fill="url(#siahra-exposure-hatch-base)" />
+      <rect width="20" height="12" fill="url(#siahra-exposure-hatch-cross)" />
+    </svg>
+  );
+}
+
+/** สเกลของชั้นการเผชิญน้ำ เรียงจากหนักไปเบา แล้วปิดท้ายด้วยสถานะ "ไม่มีข้อมูล" */
+const EXPOSURE_SCALE: { cls: ExposureRenderClass; key: MessageKey }[] = [
+  { cls: "severe", key: "legend.exposure.level.severe" },
+  { cls: "high", key: "legend.exposure.level.high" },
+  { cls: "elevated", key: "legend.exposure.level.elevated" },
+  { cls: "low", key: "legend.exposure.level.low" },
+  { cls: "no-data", key: "legend.exposure.level.noData" },
+];
+
+/** สิ่งที่ legend ต้องรู้เกี่ยวกับ run ล่าสุด (มาจาก `hooks/useFloodExposure.ts`) */
+export interface ExposureLegendState {
+  run: ProvinceExposureResponse | null;
+  /**
+   * true = ไม่มีผลคำนวณรอบใหม่ — ทั้งกรณีดึงไม่สำเร็จ และกรณีที่ `/api/v1/health`
+   * บอกว่า `exposure-illustrative` ไม่ปกติ (E10.3 ตั้งเป็น `delayed` เมื่อไม่มี run
+   * เกิน 30 นาที) ชั้นถูกวาดแบบหรี่ และ legend ต้องบอกว่า "ไม่มีตั้งแต่เมื่อไหร่"
+   */
+  noNewRun: boolean;
+  /**
+   * true = เรียก API ไม่สำเร็จ (ทั้งก้อน หรือเฉพาะ endpoint ของชั้นนี้) ต้องแยกจาก
+   * `noNewRun` เพราะ "ถามไม่ได้" กับ "ถามแล้วเซิร์ฟเวอร์บอกว่าไม่มีรอบใหม่" เป็นคนละ
+   * เรื่อง อย่างหลังเป็นข้อเท็จจริงที่ตรวจมาแล้ว อย่างแรกคือไม่รู้อะไรเลย
+   * (ชั้นยังถูกหรี่เหมือนกันทั้งสองกรณี — ต่างกันแค่ข้อความ)
+   */
+  apiUnreachable: boolean;
+}
+
+/**
+ * รายละเอียดใต้แถว "ระดับการเผชิญน้ำ (ภาพประกอบ)" (E10.4)
+ *
+ * สามอย่างที่ต้องอยู่ครบเสมอ:
+ *   1. รายการอินพุตที่ใช้จริง — ผู้อ่านต้องตรวจย้อนได้ว่ามาจากค่าตรวจวัดอะไรบ้าง
+ *   2. เวลาที่คำนวณรอบล่าสุด คิดตอนเรนเดอร์จาก `nowMs` ไม่ได้เก็บเป็นฟิลด์ไว้ที่ไหน
+ *      และถ้าไม่มีรอบใหม่ ต้องบอกว่า "ไม่มีตั้งแต่เมื่อไหร่" ไม่ใช่ปล่อยให้เงียบ
+ *   3. **ทั้งสองความหมายของคำว่า `low`** — แถบต่ำสุดที่วัดได้ กับสถานีที่ไม่มีปัจจัย
+ *      ใดวัดได้เลย ซึ่งไม่ใช่สถานีที่ปลอดภัย
+ */
+function ExposureDetails({
+  exposure,
+  enabled,
+  nowMs,
+  lang,
+  t,
+  terrainIntegrity,
+}: {
+  exposure: ExposureLegendState | undefined;
+  /** สวิตช์ของชั้น — ปิดอยู่ = `useFloodExposure` ไม่เคยยิงคำขอเลย */
+  enabled: boolean;
+  nowMs: number;
+  lang: Lang;
+  t: TFunction;
+  terrainIntegrity: TerrainIntegrity;
+}) {
+  const run = exposure?.run ?? null;
+  const noNewRun = exposure?.noNewRun ?? false;
+  const apiUnreachable = exposure?.apiUnreachable ?? false;
+  const counts = run ? countExposureClasses(run.stations) : null;
+
+  /**
+   * บรรทัดสถานะของ run — พูดถึงแหล่งข้อมูลได้เฉพาะสิ่งที่ "ถามไปแล้ว" เท่านั้น
+   *
+   *   - ชั้นปิดอยู่            → บอกว่าปิดอยู่ ไม่ใช่บอกว่า "ไม่เคยได้รับผลคำนวณ"
+   *     เพราะ `useFloodExposure` ไม่ยิงคำขอเลยเมื่อชั้นถูกปิด (และปิดคือค่าเริ่มต้น)
+   *     การเขียนว่าไม่เคยได้รับ = การกล่าวถึงสถานะของแหล่งข้อมูลที่ไม่มีใครตรวจ
+   *   - เปิดอยู่ ยังไม่มี run และยังไม่มีสัญญาณว่าล้มเหลว → คำขอยังไม่กลับมา จึงเงียบ
+   *   - เปิดอยู่ ไม่มี run และดึงไม่สำเร็จ/แหล่งไม่ปกติ   → "ยังไม่เคยได้รับผลคำนวณ"
+   *   - มี run เก่าอยู่ แต่ไม่มีรอบใหม่                  → "ไม่มีรอบใหม่ตั้งแต่เมื่อไหร่"
+   */
+  let status: ReactNode = null;
+  if (!enabled) {
+    status = (
+      <span className="text-[10px] text-[var(--color-fg-subtle)]">
+        {t("legend.exposure.layerOff")}
+      </span>
+    );
+  } else if (apiUnreachable) {
+    // ถามไม่ได้ ≠ ไม่มีรอบใหม่ — พูดได้แค่ว่าติดต่อไม่ได้ และรอบที่เห็นเป็นของเมื่อไหร่
+    status = (
+      <span className="text-[10px] text-[var(--color-risk-medium)]">
+        {run === null
+          ? t("legend.exposure.apiDownNoRun")
+          : t("legend.exposure.apiDownSince", {
+              time: formatFullDateTime(lang, run.computedAt),
+            })}
+      </span>
+    );
+  } else if (run === null) {
+    status = noNewRun ? (
+      <span className="text-[10px] text-[var(--color-fg-muted)]">
+        {t("legend.exposure.noRunEver")}
+      </span>
+    ) : null;
+  } else if (noNewRun) {
+    status = (
+      <span className="text-[10px] text-[var(--color-risk-medium)]">
+        {t("legend.exposure.noRunSince", { time: formatFullDateTime(lang, run.computedAt) })}
+      </span>
+    );
+  } else {
+    status = (
+      <span className="text-[10px] text-[var(--color-fg-subtle)]">
+        {t("legend.exposure.computedAt", { age: formatAge(lang, run.computedAt, nowMs) })}
+      </span>
+    );
+  }
+
+  return (
+    <div className="mt-1 ml-7 flex flex-col gap-1 border-l border-white/8 pl-2">
+      {terrainIntegrity === "mismatch" ? (
+        <span className="text-[10px] text-[var(--color-danger)]">
+          {t("legend.exposure.integrity.mismatch")}
+        </span>
+      ) : null}
+
+      <span className="text-[10px] text-[var(--color-fg-subtle)]">
+        {t("legend.layer.exposure.inputs")}
+      </span>
+      {run ? (
+        <span className="text-[10px] text-[var(--color-fg-subtle)]">
+          {t("legend.exposure.historyWindow", { h: run.inputs.historyWindowH })}
+        </span>
+      ) : null}
+
+      {/* บรรทัดสถานะของ run — ห้ามเงียบเมื่อมี run เก่าค้างอยู่แล้วไม่มีรอบใหม่ */}
+      {status}
+
+      <span className="mt-0.5 text-[10px] font-medium text-[var(--color-fg-subtle)]">
+        {t("legend.exposure.scale")}
+      </span>
+      <ul className="flex flex-col gap-0.5">
+        {EXPOSURE_SCALE.map((row) => (
+          <li key={row.cls} className="flex items-start gap-1.5 text-[10px] text-[var(--color-fg-muted)]">
+            {/* สถานะ "ไม่มีข้อมูล" ใช้รูปวงแหวนกลวงเส้นประ = รูปเดียวกับหมุดบนแผนที่
+                ไม่ใช่จุดทึบสีของแถบใดแถบหนึ่ง */}
+            <span
+              className={`mt-[3px] h-2.5 w-2.5 shrink-0 rounded-full ${
+                row.cls === "no-data" ? "border-2 border-dashed" : "border border-white/70"
+              }`}
+              style={
+                row.cls === "no-data"
+                  ? { borderColor: exposureCss("no-data") }
+                  : { backgroundColor: exposureCss(row.cls) }
+              }
+              aria-hidden="true"
+            />
+            <span className="min-w-0">
+              {t(row.key)}
+              {counts ? (
+                <span className="text-[var(--color-fg-subtle)]">
+                  {" · "}
+                  {/* หนึ่งสถานีมีคีย์ของตัวเอง ไม่งั้นฝั่งอังกฤษอ่านว่า "1 stations" */}
+                  {counts[row.cls] === 1
+                    ? t("legend.exposure.stationCount.one")
+                    : t("legend.exposure.stationCount", { n: counts[row.cls] })}
+                </span>
+              ) : null}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 const LAYER_ROWS: {
   key: keyof MapLayers;
   labelKey: MessageKey;
@@ -119,6 +330,12 @@ const LAYER_ROWS: {
     labelKey: "legend.layer.lowland",
     noteKey: "legend.layer.lowland.note",
     swatch: <IllustrativeSwatch />,
+  },
+  {
+    key: "exposure",
+    labelKey: "legend.layer.exposure",
+    noteKey: "legend.layer.exposure.note",
+    swatch: <ExposureSwatch />,
   },
   {
     key: "hazard",
@@ -297,11 +514,14 @@ export function MapLegend({
   qualityLevel,
   onQualityChange,
   terrainIntegrity = "unknown",
+  exposure,
 }: {
   layers: MapLayers;
   onToggle: (key: keyof MapLayers, value: boolean) => void;
   /** `HazardLayerDescriptor` ต่อชั้น (useLayerDescriptors) — ไม่มี = ไม่ใช่ข้อมูล */
   descriptors: LayerDescriptors;
+  /** run ล่าสุดของชั้นการเผชิญน้ำ + สถานะการดึง (E10.4) */
+  exposure?: ExposureLegendState;
   quality: QualityMode;
   qualityLevel: QualityLevel;
   onQualityChange: (q: QualityMode) => void;
@@ -354,6 +574,18 @@ export function MapLegend({
                 {entry ? <LayerMeta entry={entry} nowMs={nowMs} lang={lang} t={t} /> : null}
               </span>
             </label>
+            {/* รายละเอียดของชั้นการเผชิญน้ำอยู่นอก <label> โดยตั้งใจ — ไม่งั้นการกด
+                อ่านสเกลจะไปสลับสวิตช์ของชั้นเข้าให้ */}
+            {row.key === "exposure" ? (
+              <ExposureDetails
+                exposure={exposure}
+                enabled={layers.exposure}
+                nowMs={nowMs}
+                lang={lang}
+                t={t}
+                terrainIntegrity={terrainIntegrity}
+              />
+            ) : null}
           </li>
           );
         })}

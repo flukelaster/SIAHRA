@@ -160,6 +160,18 @@ parsing, the `Asia/Bangkok` time formatter, the `terrain.bin` checksum verdict a
 channel it suppresses, and similar. Anything that needs the 3D scene is verified visually with
 `playwright-cli` against the running dev server, not in vitest (see `AGENTS.md`).
 
+That constraint is what keeps a rendering rule testable: `src/lib/exposureStyle.ts` (E10.4) holds the
+flood-exposure visual language and the rule that splits a *measured* lowest band from a station where
+no factor was measurable at all, and it deliberately imports **no `three`** so it stays inside this
+suite — keep it that way when editing it. `exposureStyle.test.ts` pins `hasUsableFactor` /
+`exposureRenderClass` / `countExposureClasses`, which mirror `bandOfRising`/`bandOfFalling` in
+`apps/api/src/exposure/compute.ts`: `null` or non-finite produces no band, a non-null
+`situationLevel` counts, and `rain24hMm: 0` is a measurement and stays measured-low rather than
+collapsing into "no data". `i18n/catalog.test.ts` guards the same honesty
+from the other side: it fails the suite on forecast/probability wording in either catalogue, and its
+"not a forecast" exemption allows at most one intervening word (none in Thai) — its positive control
+pins the bypass spellings that a looser gap let through.
+
 Its `include` covers two roots, `src/**/*.test.ts` and `worker/**/*.test.ts` — `worker/` sits outside `src`
 because wrangler bundles it, but `worker/tilePath.ts` (the tile path parser the Worker and the Vite
 dev middleware share, E9.2) is a pure module too, so its tests run in the same suite.

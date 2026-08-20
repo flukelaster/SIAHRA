@@ -7,6 +7,7 @@
 - **Never invent forecast numbers** — no "% chance of flooding" that does not come from a citable model; the "low-lying area" layer is *illustrative*, derived from a DEM, and its legend says so
 - Stale data and dead sources must stay visible (dimmed dots, labels, the status bar fed by `/api/v1/health`) instead of silently disappearing; `fetchedAt` is null when a fetch has never succeeded — never render that as "now"
 - Historical values (timeline) carry no ThaiWater `situationLevel` → colour is derived from the distance below bank level, and that is stated explicitly
+- **Never state a source's condition unless it was actually probed** — a layer that is off has requested nothing, and an unreachable API tells you only that *you could not ask*: neither may be reported as "nothing new was computed" or "the source is quiet". Say which of the two it is; the layer still dims either way
 - An artefact that fails the checksum its manifest declares stops feeding the layers derived from it, and the legend says why — but **"not verified" is not "failed"**: a missing checksum suppresses nothing (`docs/dataset.md`)
 
 ## Layout

@@ -13,6 +13,7 @@ import { useApiHealth, sourceStatus } from "./hooks/useApiHealth";
 import { useLayerDescriptors } from "./hooks/useLayerDescriptors";
 import { useEarthquakeFeed } from "./hooks/useEarthquakeFeed";
 import { useDams } from "./hooks/useDams";
+import { useFloodExposure } from "./hooks/useFloodExposure";
 import { useFloodExtent } from "./hooks/useFloodExtent";
 import { useRadar } from "./hooks/useRadar";
 import { TimelineBar } from "./components/layout/TimelineBar";
@@ -49,6 +50,13 @@ const COMPACT_DOCK_H = 120;
 const DEFAULT_LAYERS: MapLayers = {
   imagery: true,
   lowland: true,
+  /**
+   * E10.4 — ชั้นเดียวที่ **ปิดไว้เป็นค่าเริ่มต้น** ชั้นนี้เป็นสิ่งที่เราคำนวณเอง
+   * ไม่ใช่สิ่งที่ใครวัดมา จึงต้องเป็นการกดเปิดของผู้ใช้เสมอ ไม่ใช่ของแถมที่ติดมา
+   * (ผลข้างเคียงที่ตั้งใจ: `?layers=` จะปรากฏใน permalink เสมอ เพราะมีชั้นที่ปิดอยู่
+   *  หนึ่งชั้น — ซึ่งเป็นความหมายเดิมของพารามิเตอร์นั้นทุกประการ)
+   */
+  exposure: false,
   hazard: true,
   stations: true,
   buildings: true,
@@ -60,6 +68,12 @@ const DEFAULT_LAYERS: MapLayers = {
   sunlight: true,
   trees: true,
 };
+
+/**
+ * ค่าเริ่มต้นในรูป `Record` สำหรับ permalink codec — สร้างครั้งเดียวที่โมดูล ไม่ใช่
+ * ทุกเรนเดอร์ (`MapLayers` ไม่มี index signature จึงต้องคัดลอกออกมา)
+ */
+const DEFAULT_LAYERS_RECORD: Record<string, boolean> = { ...DEFAULT_LAYERS };
 
 /** Parsed once at startup; a shared link restores province, camera, layers and time. */
 const INITIAL = readPermalink();
@@ -101,6 +115,8 @@ export default function App() {
   const earthquakes = useEarthquakeFeed();
   const apiHealth = useApiHealth();
   const floodExtent = useFloodExtent(provinceCode);
+  // ชั้นปิดอยู่ = ไม่ยิงคำขอเลยแม้แต่ครั้งเดียว (รูปแบบเดียวกับ useRadar)
+  const exposure = useFloodExposure(provinceCode, layers.exposure);
   const thaiwater = sourceStatus(apiHealth.health, "thaiwater");
   // Stale/failed station data is drawn dimmed so nobody reads an old reading as current.
   // เงื่อนไข `!== "ok"` ครอบ `delayed` ด้วยโดยตั้งใจ (E3.3): ต้นทางตอบปกติแต่ค่า
@@ -108,6 +124,21 @@ export default function App() {
   // และรูปแบบนี้ยัง fail-safe กับสถานะใหม่ที่จะเพิ่มเข้ามาในอนาคต
   const observationsStale =
     apiHealth.apiDown || (thaiwater !== null && thaiwater.health !== "ok");
+  // ชั้นการเผชิญน้ำมีแหล่งข้อมูลของตัวเองใน /health (E10.3) — `delayed` คือ "ไม่มี run
+  // ใหม่เกิน 30 นาที" ซึ่งต้องหรี่ชั้นและบอกเวลาของรอบล่าสุดเหมือนกับตอนดึงไม่สำเร็จ
+  const exposureSource = sourceStatus(apiHealth.health, "exposure-illustrative");
+  const exposureNoNewRun =
+    exposure.failing ||
+    apiHealth.apiDown ||
+    (exposureSource !== null && exposureSource.health !== "ok");
+  // ชั้นถูกหรี่ในทุกกรณีที่สิ่งที่วาดอยู่อาจไม่ใช่ของล่าสุด (`exposureNoNewRun`)
+  // แต่ข้อความใน legend ต้องแยก "เราถามไม่ได้" ออกจาก "เซิร์ฟเวอร์บอกว่าไม่มีรอบใหม่"
+  const exposureApiUnreachable = exposure.failing || apiHealth.apiDown;
+  const exposureLegend = {
+    run: exposure.data,
+    noNewRun: exposureNoNewRun,
+    apiUnreachable: exposureApiUnreachable,
+  };
   const aoiId = aoiIdForProvince(provinceCode);
   // ป้ายชนิดความรู้ + เวลาของแต่ละชั้นใน legend มาจาก descriptor ที่ backend ประกาศ
   // (หรือจาก data/staticLayerDescriptors.ts สำหรับชั้นคงที่) — อายุคำนวณตอนเรนเดอร์
@@ -116,6 +147,7 @@ export default function App() {
     radar,
     floodExtent,
     dams,
+    exposure,
     health: apiHealth.health,
     // เวลาที่ artefact ของชั้นคงที่ถูก build มาจาก manifest ของจังหวัดที่แสดงอยู่
     // (null ตอนยังไม่โหลด/manifest รุ่นก่อน E9.1 → legend คงข้อความ "ไม่ได้บันทึกเวลา")
@@ -128,7 +160,17 @@ export default function App() {
 
   // `lang` ต้องอยู่ในสถานะที่ sync ลง URL ด้วย ไม่งั้นการเปิดลิงก์ `?lang=en`
   // แล้วปล่อยไว้ 400 มิลลิวินาที จะถูก replaceState เขียนทับจนพารามิเตอร์หายไป
-  usePermalinkSync({ provinceCode, pose, exaggeration, layers: { ...layers }, atIso, lang });
+  usePermalinkSync({
+    provinceCode,
+    pose,
+    exaggeration,
+    layers: { ...layers },
+    // ต้องส่งค่าเริ่มต้นไปด้วย ไม่งั้นชั้นที่ "ปิดไว้เป็นค่าเริ่มต้น" (exposure) จะหลุด
+    // ออกจากลิงก์ตอนที่ผู้ใช้เปิดมัน เพราะทุกชั้นกลายเป็นเปิดหมดพอดี
+    defaultLayers: DEFAULT_LAYERS_RECORD,
+    atIso,
+    lang,
+  });
 
   const selectProvince = useCallback((code: string) => {
     initialPoseRef.current = null;
@@ -249,6 +291,8 @@ export default function App() {
         floodExtent={floodExtent.data}
         dams={dams.data?.dams ?? []}
         radar={radar.data}
+        exposure={exposure.data}
+        exposureStale={exposureNoNewRun}
         atIso={atIso}
         layers={layers}
         safeArea={safeArea}
@@ -314,6 +358,7 @@ export default function App() {
                     qualityLevel={qualityLevel}
                     onQualityChange={setQuality}
                     terrainIntegrity={mapInfo?.terrainIntegrity}
+                    exposure={exposureLegend}
                   />
                 ),
               },
@@ -361,6 +406,7 @@ export default function App() {
             qualityLevel={qualityLevel}
             onQualityChange={setQuality}
             terrainIntegrity={mapInfo?.terrainIntegrity}
+            exposure={exposureLegend}
             width={LEFT_W}
             top={dockTop}
           />

@@ -7,6 +7,7 @@ import type {
   EarthquakeEvent,
   FloodExtentResponse,
   ObservationsResponse,
+  ProvinceExposureResponse,
   RadarFramesResponse,
   SourceId,
 } from "@siahra/shared-types";
@@ -22,6 +23,7 @@ import { pickAt, type PickResult } from "../../scene/picking";
 import { QualityManager, type QualityLevel, type QualityMode } from "../../scene/quality";
 import { InfoPopup } from "../map/InfoPopup";
 import { buildEarthquakeMarkers, type EarthquakeMarkerResult } from "../../scene/EarthquakeMarkers";
+import { buildExposureMarkers, type ExposureMarkerResult } from "../../scene/ExposureMarkers";
 import { declutterLabels, disposeLabels, makeLabel, makePlaceLabel } from "../../scene/labels";
 import { CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
 import { AoiNotBuiltError, loadAoiManifest, type TerrainIntegrity } from "../../scene/loadAoiManifest";
@@ -46,6 +48,11 @@ import { ILLUSTRATIVE_HATCH_PERIOD_PX } from "../../lib/illustrativeStyle";
 export interface MapLayers {
   imagery: boolean;
   lowland: boolean;
+  /**
+   * ระดับการเผชิญน้ำ (ภาพประกอบ) — E10.4 **ปิดไว้เป็นค่าเริ่มต้น** ชั้นนี้เป็นชั้นที่
+   * เราคำนวณเอง จึงไม่ควรถูกเปิดให้ใครโดยไม่ได้ตั้งใจกด
+   */
+  exposure: boolean;
   hazard: boolean;
   stations: boolean;
   buildings: boolean;
@@ -114,6 +121,8 @@ export function Map3DCanvas({
   floodExtent,
   dams,
   radar,
+  exposure,
+  exposureStale = false,
   atIso,
   exaggeration,
   layers,
@@ -133,6 +142,10 @@ export function Map3DCanvas({
   floodExtent: FloodExtentResponse | null;
   dams: DamObservation[];
   radar: RadarFramesResponse | null;
+  /** run ล่าสุดของ "ระดับการเผชิญน้ำ (ภาพประกอบ)" — null = ยังไม่มี/ชั้นถูกปิด */
+  exposure: ProvinceExposureResponse | null;
+  /** true = ไม่มีผลคำนวณรอบใหม่ → ชั้นและหมุดหรี่ลง แต่ไม่หายไป */
+  exposureStale?: boolean;
   /** Timeline position (null = live). */
   atIso: string | null;
   /** Camera pose to restore (permalink) instead of the default framing. */
@@ -177,6 +190,9 @@ export function Map3DCanvas({
   const quakesRef = useRef<EarthquakeMarkerResult | null>(null);
   const floodMaskRef = useRef<FloodMask | null>(null);
   const damsRef = useRef<DamMarkerResult | null>(null);
+  const exposureRef = useRef<ExposureMarkerResult | null>(null);
+  /** ถอนตัวนับดีบักของชั้นการเผชิญน้ำ (DEV) เมื่อ run เปลี่ยนหรือฉากถูกทิ้ง */
+  const exposureDebugRef = useRef<(() => void) | null>(null);
   const radarRef = useRef<RadarOverlay | null>(null);
   const qualityRef = useRef<QualityManager | null>(null);
   const qualityCbRef = useRef(onQualityLevel);
@@ -341,7 +357,19 @@ export function Map3DCanvas({
               if (ov.data[i + 1] > 0) g++;
               if (ov.data[i + 2] > 0) b++;
             }
-            return { integrity, lowlandShare: ov.lowlandShare, nonZeroR: r, nonZeroG: g, nonZeroB: b };
+            // ชั้นการเผชิญน้ำอยู่คนละ texture — นับแยกเพื่อให้ QA ยืนยันด้วยตัวเลขได้
+            // ว่ามันดับจริงเมื่อ terrain.bin ไม่ผ่านการตรวจลายเซ็น
+            const ex = ov.exposureTexture.image.data as Uint8Array;
+            let exR = 0;
+            for (let i = 0; i < ex.length; i += 4) if (ex[i] > 0) exR++;
+            return {
+              integrity,
+              lowlandShare: ov.lowlandShare,
+              nonZeroR: r,
+              nonZeroG: g,
+              nonZeroB: b,
+              exposureNonZero: exR,
+            };
           });
         }
         const proj = terrain.projection;
@@ -425,6 +453,9 @@ export function Map3DCanvas({
             collect(floodLabelsRef.current);
             collect(damsRef.current?.labels);
             collect(quakesRef.current?.group);
+            // ป้าย "ไม่มีข้อมูลจัดลำดับ" ของชั้นการเผชิญน้ำต้องเข้าคิวจัดที่ร่วมกับ
+            // ป้ายอื่น ไม่งั้นสถานีที่อยู่ใกล้กันจะพิมพ์ทับกันจนอ่านไม่ออกทั้งกอง
+            collect(exposureRef.current?.labels);
             if (all.length > 0) {
               declutterLabels(all, h.camera, container.clientWidth, container.clientHeight);
             }
@@ -535,6 +566,10 @@ export function Map3DCanvas({
       if (damsRef.current) disposeLabels(damsRef.current.labels);
       damsRef.current?.dispose();
       damsRef.current = null;
+      exposureDebugRef.current?.();
+      exposureDebugRef.current = null;
+      exposureRef.current?.dispose();
+      exposureRef.current = null;
       radarRef.current?.dispose();
       radarRef.current = null;
       qualityRef.current = null;
@@ -798,6 +833,68 @@ export function Map3DCanvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dams, state.status, lang, t]);
 
+  // ระดับการเผชิญน้ำ (ภาพประกอบ) — E10.4
+  //
+  // สองส่วนที่ต้องไปด้วยกันเสมอ:
+  //   1. texture ที่ shader ระบายลงบนภูมิประเทศ **โดยถูกคุมด้วยแชนแนลพื้นที่ลุ่มต่ำ**
+  //   2. หมุดของทุกสถานีใน run ซึ่ง *ไม่* ถูกคุมด้วยพื้นที่ลุ่มต่ำ เพราะสถานีที่
+  //      "ไม่มีปัจจัยใดวัดได้" ต้องเห็นได้เสมอ ไม่ว่าจะอยู่บนที่ดอนแค่ไหน
+  //
+  // `terrain.bin` ที่ไม่ผ่านการตรวจลายเซ็น (E9.1) ปิดทั้งสองส่วน: ตัวระบายดับเองเพราะ
+  // แชนแนลพื้นที่ลุ่มต่ำเป็นศูนย์อยู่แล้ว ส่วนหมุด **ไม่ได้ถูกปิดเอง** จึงต้องกันไว้ที่นี่
+  // ตรง ๆ — ระดับความสูงที่ใช้วางหมุดมาจาก DEM ก้อนเดียวกับที่เชื่อไม่ได้
+  useEffect(() => {
+    const handles = sceneRef.current;
+    const loaded = terrainRef.current;
+    if (!handles || !loaded) return;
+    const u = loaded.terrain.material.uniforms;
+    exposureDebugRef.current?.();
+    exposureDebugRef.current = null;
+    if (exposureRef.current) {
+      handles.markers.remove(exposureRef.current.dots);
+      handles.world.remove(exposureRef.current.labels);
+      exposureRef.current.dispose();
+      exposureRef.current = null;
+    }
+    const trusted = loaded.terrain.integrity !== "mismatch";
+    const stations = trusted ? (exposure?.stations ?? null) : null;
+    const painted = loaded.terrain.overlay.updateExposure(stations);
+    // `null` = ยังไม่มี run ให้วาด (หรือ DEM เชื่อไม่ได้) — เป็นค่าที่บล็อกการเปิดชั้น
+    // จากเอฟเฟกต์สวิตช์ข้างล่างด้วย ไม่ใช่แค่ปล่อย texture ศูนย์ทิ้งไว้
+    u.uExposure.value = stations ? loaded.terrain.overlay.exposureTexture : null;
+    u.uShowExposure.value = layers.exposure && stations !== null ? 1 : 0;
+    u.uExposureStale.value = exposureStale ? 1 : 0;
+    if (!stations || stations.length === 0) return;
+
+    const result = buildExposureMarkers(
+      loaded.manifest,
+      stations,
+      loaded.terrain.sample,
+      handles.viewportHeightPx(),
+      t,
+    );
+    result.applyExaggeration(handles.getExaggeration());
+    result.setDimmed(exposureStale);
+    result.dots.visible = layers.exposure;
+    result.labels.visible = layers.exposure;
+    handles.markers.add(result.dots);
+    handles.world.add(result.labels);
+    exposureRef.current = result;
+    // ตัวนับสำหรับ DEV — ให้ตรวจได้ด้วยตัวเลขว่าสถานีที่ "ไม่มีปัจจัยใดวัดได้" ถูกนับ
+    // แยกจากแถบต่ำสุดที่วัดได้จริง (E10.4 ข้อ 8) ไม่ใช่ยุบรวมกันเป็นคำว่า low คำเดียว
+    if (import.meta.env.DEV) {
+      exposureDebugRef.current = handles.debug.register("exposure", () => ({
+        runId: exposure?.runId ?? null,
+        computedAt: exposure?.computedAt ?? null,
+        stale: exposureStale,
+        drawn: result.counts,
+        paintedHalos: painted.bandedCount,
+        noDataStations: painted.noDataCount,
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exposure, exposureStale, state.status, lang, t]);
+
   // GISTDA satellite flood extent -> shader mask + tambon labels.
   useEffect(() => {
     const handles = sceneRef.current;
@@ -859,6 +956,7 @@ export function Map3DCanvas({
     handles.setExaggeration(exaggeration);
     markersRef.current?.applyExaggeration(exaggeration);
     damsRef.current?.applyExaggeration(exaggeration);
+    exposureRef.current?.applyExaggeration(exaggeration);
   }, [exaggeration, state.status]);
 
   useEffect(() => {
@@ -878,6 +976,16 @@ export function Map3DCanvas({
       const u = loaded.terrain.material.uniforms;
       u.uShowLowland.value = layers.lowland ? 1 : 0;
       u.uShowHazard.value = layers.hazard ? 1 : 0;
+      // ชั้นการเผชิญน้ำถูกปิดทันทีเมื่อ terrain.bin ไม่ผ่านการตรวจลายเซ็น — เงื่อนไข
+      // เดียวกับตอนสร้าง เพื่อไม่ให้การกดสวิตช์เปิดมันกลับมาได้
+      u.uShowExposure.value =
+        layers.exposure && loaded.terrain.integrity !== "mismatch" && u.uExposure.value !== null
+          ? 1
+          : 0;
+      if (exposureRef.current) {
+        exposureRef.current.dots.visible = layers.exposure;
+        exposureRef.current.labels.visible = layers.exposure;
+      }
       const desired = layers.imagery ? loaded.imagery : null;
       if (loaded.terrain.material.material.map !== desired) loaded.terrain.material.setImagery(desired);
       loaded.tiles?.setImageryEnabled(layers.imagery);

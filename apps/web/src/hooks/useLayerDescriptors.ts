@@ -10,6 +10,7 @@ import type {
 import type { MapLayers } from "../components/layout/Map3DCanvas";
 import { STATIC_LAYER_DESCRIPTORS } from "../data/staticLayerDescriptors";
 import type { DamsState } from "./useDams";
+import type { FloodExposureState } from "./useFloodExposure";
 import type { FloodExtentState } from "./useFloodExtent";
 import type { ObservationsState } from "./useObservations";
 import type { RadarState } from "./useRadar";
@@ -95,15 +96,21 @@ export function useLayerDescriptors(input: {
   radar: RadarState;
   floodExtent: FloodExtentState;
   dams: DamsState;
+  /** run ล่าสุดของชั้นการเผชิญน้ำ (E10.4) — descriptor มาจาก `run.layer` ตรง ๆ */
+  exposure: FloodExposureState;
   health: HealthResponse | null;
   /** `manifest.provenance` ของจังหวัดที่กำลังแสดง — null = manifest ก่อน E9.1 */
   provenance: AoiProvenance | null;
 }): LayerDescriptors {
-  const { observations, radar, floodExtent, dams, health, provenance } = input;
+  const { observations, radar, floodExtent, dams, exposure, health, provenance } = input;
   const obsLayer = observations.data?.layer;
   const radarLayer = radar.data?.layer;
   const floodLayer = floodExtent.data?.layer;
   const damsLayer = dams.data?.layer;
+  // ห้ามประกอบ descriptor ของชั้นนี้เอง: `epistemicClass: "illustrative"`,
+  // `methodologyUrl` และ `fetchedAt` ถูกประกาศไว้ใน run ที่ api เผยแพร่ (E10.2/E10.3)
+  // การเขียนใหม่ฝั่งเว็บจะทำให้ป้ายกับเวลาบน legend เลิกตรงกับ artefact ที่อ้างอิงได้
+  const exposureLayer = exposure.data?.layer;
 
   return useMemo(() => {
     const out: LayerDescriptors = {};
@@ -121,6 +128,7 @@ export function useLayerDescriptors(input: {
     put("radar", radarLayer);
     put("floodExtent", floodLayer);
     put("dams", damsLayer);
+    put("exposure", exposureLayer);
     return out;
-  }, [obsLayer, radarLayer, floodLayer, damsLayer, health, provenance]);
+  }, [obsLayer, radarLayer, floodLayer, damsLayer, exposureLayer, health, provenance]);
 }

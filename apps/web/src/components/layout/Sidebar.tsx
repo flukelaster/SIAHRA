@@ -4,7 +4,7 @@ import { ApiStatusFooter } from "./ApiStatusFooter";
 import type { MapLayers } from "./Map3DCanvas";
 import type { LayerDescriptors } from "../../hooks/useLayerDescriptors";
 import type { QualityLevel, QualityMode } from "../../scene/quality";
-import { MapLegend } from "./MapLegend";
+import { MapLegend, type ExposureLegendState } from "./MapLegend";
 import type { TerrainIntegrity } from "../../scene/loadAoiManifest";
 import { ProvinceSelector } from "./ProvinceSelector";
 
@@ -21,6 +21,7 @@ export function Sidebar({
   qualityLevel,
   onQualityChange,
   terrainIntegrity,
+  exposure,
   width,
   top,
 }: {
@@ -36,6 +37,8 @@ export function Sidebar({
   onQualityChange: (q: QualityMode) => void;
   /** ผลตรวจ sha256 ของ terrain.bin — ส่งต่อให้ legend บอกว่าชั้นไหนถูกปิดและทำไม */
   terrainIntegrity?: TerrainIntegrity;
+  /** run ล่าสุดของชั้นการเผชิญน้ำ + สถานะการดึง (E10.4) */
+  exposure?: ExposureLegendState;
   width: number;
   top: number;
 }) {
@@ -57,6 +60,7 @@ export function Sidebar({
           qualityLevel={qualityLevel}
           onQualityChange={onQualityChange}
           terrainIntegrity={terrainIntegrity}
+          exposure={exposure}
         />
       </div>
 

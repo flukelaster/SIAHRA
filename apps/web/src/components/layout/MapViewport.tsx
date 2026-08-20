@@ -6,6 +6,7 @@ import type {
   EarthquakeEvent,
   FloodExtentResponse,
   ObservationsResponse,
+  ProvinceExposureResponse,
   RadarFramesResponse,
 } from "@siahra/shared-types";
 import type { CameraPose, MapTool, SafeArea, SceneHandles } from "../../scene/setupScene";
@@ -31,6 +32,8 @@ export function MapViewport({
   floodExtent,
   dams,
   radar,
+  exposure,
+  exposureStale = false,
   atIso,
   layers,
   safeArea,
@@ -59,6 +62,10 @@ export function MapViewport({
   floodExtent: FloodExtentResponse | null;
   dams: DamObservation[];
   radar: RadarFramesResponse | null;
+  /** run ล่าสุดของ "ระดับการเผชิญน้ำ (ภาพประกอบ)" — null = ยังไม่มี/ชั้นถูกปิด */
+  exposure: ProvinceExposureResponse | null;
+  /** true = ไม่มีผลคำนวณรอบใหม่ → ชั้นหรี่ลง ไม่ใช่หายไป */
+  exposureStale?: boolean;
   atIso: string | null;
   layers: MapLayers;
   safeArea: SafeArea;
@@ -134,6 +141,8 @@ export function MapViewport({
         floodExtent={floodExtent}
         dams={dams}
         radar={radar}
+        exposure={exposure}
+        exposureStale={exposureStale}
         atIso={atIso}
         exaggeration={exaggeration}
         layers={layers}

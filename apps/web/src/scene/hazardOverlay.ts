@@ -2,8 +2,14 @@ import * as THREE from "three";
 import type {
   AoiManifest,
   RainfallObservation,
+  StationExposure,
   WaterLevelObservation,
 } from "@siahra/shared-types";
+import {
+  EXPOSURE_CODE,
+  EXPOSURE_HALO,
+  exposureRenderClass,
+} from "../lib/exposureStyle";
 import { createLocalProjection } from "./localProjection";
 import {
   computeOverlayField,
@@ -34,16 +40,37 @@ import type { OverlayFieldJob, OverlayFieldResult } from "../workers/overlay.wor
  *
  * Every layer here is either directly observed or a plain topographic
  * derivative; the legend states which is which.
+ *
+ * ชั้น "ระดับการเผชิญน้ำ (ภาพประกอบ)" (E10.4) **ไม่ได้อยู่ใน RGBA ก้อนนี้** เพราะ
+ * สี่แชนแนลถูกใช้ครบแล้ว จึงมี texture ของตัวเองอีกก้อน (`exposureTexture`) บนกริด
+ * เดียวกัน:
+ *
+ *   R  ความแรงของฮาโล  — สูงสุดในบรรดาสถานีที่ครอบเซลล์นั้น
+ *   G  รหัสแถบ          — ของสถานีที่ชนะใน R (shader แปลงกลับเป็นสีด้วย ramp เดียวกัน)
+ *
+ * ตัว shader คูณ R ด้วยแชนแนล R ข้างบน (พื้นที่ลุ่มต่ำ) จึงมีแต่ "ที่ลุ่มต่ำ" เท่านั้น
+ * ที่ติดสี — และเมื่อ `terrain.bin` ไม่ผ่านการตรวจลายเซ็น แชนแนลนั้นเป็นศูนย์ ชั้นนี้
+ * จึงดับตามไปเองโดยไม่ต้องมีเงื่อนไขซ้ำ
  */
 
 /** Re-exported so callers keep one import for the overlay's tunables. */
 export { LOWLAND_WINDOW_M };
+
+/** จำนวนสถานีที่ถูกวาดลงบนภูมิประเทศจริง ๆ แยกตามสิ่งที่ผู้ใช้ต้องอ่านให้ออก */
+export interface ExposurePaintResult {
+  /** สถานีที่อยู่ในแถบสูงกว่าต่ำสุด และตกอยู่ในกริดของจังหวัด (จึงมีฮาโล) */
+  bandedCount: number;
+  /** สถานีที่ "ไม่มีปัจจัยใดวัดได้" — ไม่ระบายฮาโล แต่ต้องถูกวาดเป็นหมุดเสมอ */
+  noDataCount: number;
+}
 
 export interface OverlayField {
   texture: THREE.DataTexture;
   data: Uint8Array;
   width: number;
   height: number;
+  /** texture ของชั้น "ระดับการเผชิญน้ำ (ภาพประกอบ)" — R = ความแรง, G = รหัสแถบ */
+  exposureTexture: THREE.DataTexture;
   /**
    * สัดส่วนพื้นที่ลุ่มต่ำในจังหวัด — `null` เมื่อชั้นนี้ถูกปิดเพราะ DEM ไม่ผ่าน
    * การตรวจลายเซ็น (ห้ามรายงานเป็น 0 ซึ่งอ่านว่า "ไม่มีพื้นที่ลุ่มต่ำ")
@@ -54,6 +81,11 @@ export interface OverlayField {
     rainfall: RainfallObservation[],
     waterlevel: WaterLevelObservation[],
   ) => { haloCount: number };
+  /**
+   * เขียน texture ของชั้นการเผชิญน้ำใหม่ทั้งก้อน — `null`/อาเรย์ว่าง = ล้างเป็นศูนย์
+   * (run ถูกทิ้งตอนสลับจังหวัด หรือยังไม่เคยมี run เผยแพร่)
+   */
+  updateExposure: (stations: readonly StationExposure[] | null) => ExposurePaintResult;
   dispose: () => void;
 }
 
@@ -74,21 +106,35 @@ function wrapOverlayField(
   const proj = createLocalProjection(manifest);
   const data = field.data;
 
-  const texture = new THREE.DataTexture(data, width, height, THREE.RGBAFormat, THREE.UnsignedByteType);
-  texture.minFilter = THREE.LinearFilter;
-  texture.magFilter = THREE.LinearFilter;
-  texture.wrapS = THREE.ClampToEdgeWrapping;
-  texture.wrapT = THREE.ClampToEdgeWrapping;
-  texture.generateMipmaps = false;
-  texture.needsUpdate = true;
+  const makeTexture = (bytes: Uint8Array) => {
+    const tex = new THREE.DataTexture(bytes, width, height, THREE.RGBAFormat, THREE.UnsignedByteType);
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+    tex.generateMipmaps = false;
+    tex.needsUpdate = true;
+    return tex;
+  };
+
+  const texture = makeTexture(data);
+  // texture ของชั้นการเผชิญน้ำเริ่มต้นเป็นศูนย์ทั้งก้อน = ยังไม่มี run ให้วาด
+  const exposureData = new Uint8Array(n * 4);
+  const exposureTexture = makeTexture(exposureData);
 
   // --- G: observed hazard halos --------------------------------------------
+  /**
+   * `codes` (ถ้าส่งมา) เก็บ "รหัสของสถานีที่ชนะ" ที่เซลล์นั้น — ต้องเขียนพร้อมกับ
+   * ค่าความแรงในเงื่อนไขเดียวกัน ไม่งั้นสีของแถบจะมาจากสถานีคนละตัวกับความแรง
+   */
   const paintHalo = (
     field: Float32Array,
     lon: number,
     lat: number,
     radiusM: number,
     strength: number,
+    codes?: Float32Array,
+    code = 0,
   ) => {
     const [x, z] = proj.lonLatToLocal(lon, lat);
     if (!proj.insideGrid(x, z)) return false;
@@ -106,10 +152,25 @@ function wrapOverlayField(
         // Smooth bump: full at the centre, zero at the rim.
         const w = strength * (1 - d * d) * (1 - d * d);
         const i = r * width + c;
-        if (w > field[i]) field[i] = w;
+        if (w > field[i]) {
+          field[i] = w;
+          if (codes) codes[i] = code;
+        }
       }
     }
     return true;
+  };
+
+  /** คัดลอกฟิลด์ทศนิยม (แถวเรียงจากบนลงล่าง) ลงแชนแนลหนึ่งของ texture (ล่างขึ้นบน) */
+  const writeChannel = (target: Uint8Array, field: Float32Array, channel: number) => {
+    for (let r = 0; r < height; r++) {
+      const texRow = height - 1 - r;
+      for (let c = 0; c < width; c++) {
+        target[(texRow * width + c) * 4 + channel] = Math.round(
+          Math.min(1, Math.max(0, field[r * width + c])) * 255,
+        );
+      }
+    }
   };
 
   const updateObserved = (rainfall: RainfallObservation[], waterlevel: WaterLevelObservation[]) => {
@@ -127,14 +188,47 @@ function wrapOverlayField(
       const strength = mm >= 90 ? 0.9 : 0.5;
       if (paintHalo(field, rf.station.lon, rf.station.lat, 6000, strength)) haloCount++;
     }
-    for (let r = 0; r < height; r++) {
-      const texRow = height - 1 - r;
-      for (let c = 0; c < width; c++) {
-        data[(texRow * width + c) * 4 + 1] = Math.round(Math.min(1, field[r * width + c]) * 255);
-      }
-    }
+    writeChannel(data, field, 1);
     texture.needsUpdate = true;
     return { haloCount };
+  };
+
+  /**
+   * ชั้น "ระดับการเผชิญน้ำ (ภาพประกอบ)" (E10.4)
+   *
+   * ระบายเฉพาะสถานีที่อยู่ใน `EXPOSURE_DRAPED_LEVELS` (สูงกว่าแถบต่ำสุด) — สถานี
+   * แถบต่ำสุดและสถานีที่ไม่มีปัจจัยใดวัดได้ **ไม่ถูกระบาย** แต่ก็ไม่ได้หายไป: ทั้งคู่
+   * ถูกวาดเป็นหมุดคนละแบบใน `scene/ExposureMarkers.ts` และ legend เรียกชื่อทั้งสอง
+   * สถานะ การเอา "ไม่มีข้อมูล" ไประบายด้วยสีของแถบต่ำสุดคือการกลบสถานะนั้นทิ้ง
+   */
+  const updateExposure = (stations: readonly StationExposure[] | null) => {
+    const strengthField = new Float32Array(n);
+    const codeField = new Float32Array(n);
+    let bandedCount = 0;
+    let noDataCount = 0;
+    for (const s of stations ?? []) {
+      const cls = exposureRenderClass(s);
+      if (cls === "no-data") {
+        noDataCount++;
+        continue;
+      }
+      const halo = EXPOSURE_HALO[cls];
+      if (halo.strength <= 0) continue;
+      const painted = paintHalo(
+        strengthField,
+        s.lon,
+        s.lat,
+        halo.radiusM,
+        halo.strength,
+        codeField,
+        EXPOSURE_CODE[cls],
+      );
+      if (painted) bandedCount++;
+    }
+    writeChannel(exposureData, strengthField, 0);
+    writeChannel(exposureData, codeField, 1);
+    exposureTexture.needsUpdate = true;
+    return { bandedCount, noDataCount };
   };
 
   return {
@@ -142,9 +236,14 @@ function wrapOverlayField(
     data,
     width,
     height,
+    exposureTexture,
     lowlandShare: field.lowlandShare,
     updateObserved,
-    dispose: () => texture.dispose(),
+    updateExposure,
+    dispose: () => {
+      texture.dispose();
+      exposureTexture.dispose();
+    },
   };
 }
 
