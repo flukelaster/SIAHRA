@@ -62,11 +62,20 @@ export function scopeToProvince(run: FloodExposureRun, provinceCode: string): Pr
    * มา — ไม่งั้นจังหวัดที่สถานีเงียบไปสามชั่วโมงจะแสดงเวลาตรวจวัดของอีกจังหวัด
    * หนึ่งว่าเป็นของตัวเอง (ข้อมูลค้างถูกเรนเดอร์ว่าสด อีกทางหนึ่ง) ส่วน
    * `fetchedAt` ยังเป็นของทั้ง run เพราะการดึงต้นทางเป็นครั้งเดียวทั้งประเทศจริง ๆ
+   *
+   * ใช้ `StationExposure.latestObservedAt` (เวลาดิบล่าสุดของสถานี) ไม่ใช่
+   * `StationExposure.observedAt` — หลังรอบ 5 `observedAt` ถูกนิยามใหม่เป็น
+   * "เวลาของปัจจัยที่เก่าที่สุด" (ย้อนหลังได้ถึง `inputs.historyWindowH` ชั่วโมง
+   * ตาม `freeboardTrendMPerH`) เอา `max()` ทับค่าที่ถูกถอยหลังแล้วจะรายงานเวลา
+   * ตรวจวัดของจังหวัดเก่ากว่าความจริงถึงขนาดหน้าต่างนั้น แม้สถานีที่สดที่สุดของ
+   * จังหวัดเพิ่งรายงานมาเมื่อครู่ — endpoint นี้ (`/provinces/{NN}/exposure/latest`)
+   * เป็นทางเดียวที่เว็บเรียกจริง ดังนั้นตัวเลขที่แสดงต้องถูก ไม่ใช่แค่ badge
+   * ไม่กระพริบ (review round 6)
    */
   let observedAt: string | null = null;
   for (const s of stations) {
-    if (s.observedAt === null) continue;
-    if (observedAt === null || Date.parse(s.observedAt) > Date.parse(observedAt)) observedAt = s.observedAt;
+    if (s.latestObservedAt === null) continue;
+    if (observedAt === null || Date.parse(s.latestObservedAt) > Date.parse(observedAt)) observedAt = s.latestObservedAt;
   }
   const { observedAt: _dropped, ...layerRest } = run.layer;
   return {

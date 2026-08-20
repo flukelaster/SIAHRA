@@ -175,3 +175,46 @@ export function tileContentSignature(p: AoiProvenance): string {
   ]);
   return createHash("sha256").update(payload).digest("hex").slice(0, 12);
 }
+
+/**
+ * ประวัติลายเซ็นเนื้อหาของ AOI หนึ่ง คีย์คือ `datasetVersion` ค่าคือผลของ
+ * `tileContentSignature()` ตอนที่รุ่นนั้นถูกเขียนลง manifest ครั้งล่าสุด
+ *
+ * ## ทำไมต้องมีสิ่งนี้แยกจาก `diffTileContent`
+ *
+ * `diffTileContent` เทียบ manifest **ปัจจุบัน** (รุ่นล่าสุดที่มันจำได้) กับ
+ * เนื้อหาที่คำนวณใหม่ในรอบนี้ — การป้องกันเดิมของ `refresh:manifests` จึงเช็ค
+ * แค่ `manifest.provenance?.datasetVersion === datasetVersion` เท่านั้น: ถ้าผู้
+ * ใช้งานเรียก `--dataset-version=` เป็นรุ่นที่ **เก่ากว่า** รุ่นปัจจุบันของ
+ * manifest (พิมพ์ผิด, สคริปต์เดิมค้างอยู่, ความพยายาม rollback ที่พลาด) เงื่อนไข
+ * นั้นเป็นเท็จเสมอ เพราะ manifest จำรุ่นล่าสุดไว้เป็นรุ่นอื่นแล้ว การเทียบกับ
+ * "ปัจจุบัน" เพียงอย่างเดียวจึงมองไม่เห็นเลยว่ารุ่นเก่านั้นเคยถูกปล่อยไปด้วย
+ * เนื้อหาอะไร แล้วปล่อยให้เขียนทับ prefix ที่เสิร์ฟแบบ immutable หนึ่งปีไปแล้ว
+ * อย่างเงียบ ๆ (review round 6)
+ *
+ * ledger นี้จำไว้แทน: **ทุก** รุ่นที่ AOI หนึ่งเคยมีเนื้อหาถูกบันทึก ไม่ใช่แค่
+ * รุ่นปัจจุบันรุ่นเดียว — การขอเขียนซ้ำภายใต้ชื่อรุ่นไหนก็ตามที่มีอยู่ใน ledger
+ * แล้วเนื้อหาไม่ตรง ต้องถูกปฏิเสธเสมอ ไม่ว่ารุ่นนั้นจะเป็นรุ่นปัจจุบันของ manifest
+ * หรือรุ่นที่มันเคยเป็นเมื่อนานมาแล้วก็ตาม
+ */
+export type VersionSignatureLedger = Record<string, string>;
+
+/**
+ * true = ปลอดภัยที่จะเขียนภายใต้ `version` นี้
+ *
+ * ปลอดภัยสองกรณีเท่านั้น: (1) `version` นี้ไม่เคยถูกบันทึกใน ledger เลย (รุ่นใหม่
+ * จริง ๆ) หรือ (2) เคยถูกบันทึกไว้ด้วย **ลายเซ็นเดียวกันเป๊ะ** กับที่กำลังจะเขียน
+ * (resume การปล่อยรุ่นเดิมที่ยังไม่เสร็จ — คนละกรณีกับการใช้ `--allow-version-reuse`
+ * ซึ่งมีไว้สำหรับ "รุ่นนี้ยังไม่เคยอัปขึ้น R2 เลย" เท่านั้น)
+ *
+ * ทุกกรณีอื่น — โดยเฉพาะเนื้อหาต่างกันภายใต้รุ่นที่เคยถูกบันทึกไปแล้ว ไม่ว่าจะ
+ * เป็นรุ่นปัจจุบันของ manifest หรือรุ่นเก่ากว่านั้น — เป็นเท็จ
+ */
+export function isSafeVersionReuse(
+  ledger: VersionSignatureLedger,
+  version: string,
+  signature: string,
+): boolean {
+  const recorded = ledger[version];
+  return recorded === undefined || recorded === signature;
+}

@@ -106,6 +106,25 @@ export interface StationExposure {
    * observation carried a timestamp — never substituted with the compute time.
    */
   observedAt: string | null;
+  /**
+   * The station's raw, newest reading instant — the same value that feeds
+   * `FloodExposureRun.layer.observedAt` (nationwide "newest across all
+   * stations") before that field is derived, kept here per-station instead of
+   * discarded.
+   *
+   * Deliberately DISTINCT from `observedAt` above, which is the OLDEST
+   * contributing factor and can be up to `inputs.historyWindowH` hours older
+   * than this. Do not merge the two meanings: `ProvinceExposureResponse`'s
+   * scoped `layer.observedAt` must be derived from `latestObservedAt`
+   * (`max()` over the province's stations), never from `observedAt` — taking
+   * `max()` over the backdated `observedAt` values silently understates how
+   * fresh a province's freshest reading actually is by up to that window
+   * (review round 6, the bug this field exists to close).
+   *
+   * `null` under the same rule as `observedAt`: no raw reading carried a
+   * timestamp, never substituted with the compute time.
+   */
+  latestObservedAt: string | null;
 }
 
 /** What a run was computed from — enough to reproduce it. */

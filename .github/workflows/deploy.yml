@@ -47,13 +47,39 @@ jobs:
       api: ${{ steps.filter.outputs.api }}
       contract: ${{ steps.filter.outputs.contract }}
     steps:
+      # Full history: the diff below spans `github.event.before` (main's tip
+      # BEFORE this push) to `github.sha` (the new tip), which can be an
+      # arbitrary number of commits back on a multi-commit push — a rebase
+      # merge or a fast-forward of a whole PR branch, exactly what merging
+      # this PR itself does. A shallow `fetch-depth` would only work if
+      # `before` happened to be reachable within that depth, which isn't
+      # guaranteed. This job is cheap metadata detection, not the build, so
+      # the extra clone time here is not the cost that matters.
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 2
+          fetch-depth: 0
       - id: filter
         run: |
-          changed=$(git diff --name-only HEAD^ HEAD)
-          echo "changed files:"
+          # `github.event.before` is the previous value of `main` before this
+          # push — comparing against it (not `HEAD^`, which only ever sees the
+          # single most recent commit) is what makes this diff see every
+          # commit the push carried, not just the last one. On the very first
+          # push to a brand-new branch (or a force-push whose old tip GitHub no
+          # longer has), `before` is the synthetic all-zeros SHA and has no
+          # commit to diff against — treat that as "everything changed" rather
+          # than silently skipping the contract path: "not sure" must never
+          # resolve to "skip the safe path" for a release-safety check.
+          before="${{ github.event.before }}"
+          zero="0000000000000000000000000000000000000000"
+          if [ -z "$before" ] || [ "$before" = "$zero" ] || ! git cat-file -e "$before" 2>/dev/null; then
+            echo "changed files: (before=$before is unusable — treating everything as changed)"
+            echo "web=true" >> "$GITHUB_OUTPUT"
+            echo "api=true" >> "$GITHUB_OUTPUT"
+            echo "contract=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed=$(git diff --name-only "$before" "${{ github.sha }}")
+          echo "changed files ($before..${{ github.sha }}):"
           echo "$changed"
           if echo "$changed" | grep -qE '^(apps/web/|packages/shared-types/)'; then
             echo "web=true" >> "$GITHUB_OUTPUT"

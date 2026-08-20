@@ -261,3 +261,105 @@ describe("GET /api/v1/exposure/runs/{runId}", () => {
     }
   });
 });
+
+/**
+ * scopeToProvince() ต้องคิด `layer.observedAt` ของจังหวัดจาก
+ * `StationExposure.latestObservedAt` (เวลาดิบล่าสุด) ไม่ใช่จาก `observedAt`
+ * (เวลาของปัจจัยที่เก่าที่สุด ซึ่งถูกถอยหลังได้ถึง `historyWindowH` ชั่วโมงตาม
+ * freeboardTrendMPerH) — เทสนี้เรียก `scopeToProvince` ตรง ๆ บน run สังเคราะห์
+ * เพื่อพิสูจน์ทีละสถานีโดยไม่ต้องพึ่ง pipeline เต็มของ DO (review round 6:
+ * ก่อนแก้ ผลลัพธ์ตรงนี้จะเป็นเวลาที่ถอยหลังแล้ว 01:00 แทนที่จะเป็นเวลาจริง 02:20)
+ */
+describe("scopeToProvince(): เวลาตรวจวัดของจังหวัดต้องไม่ถูกถอยหลังตาม freeboardTrendMPerH", () => {
+  function syntheticStation(over: Partial<StationExposure>): StationExposure {
+    return {
+      stationId: 1,
+      stationKind: "waterlevel",
+      provinceCode: "10",
+      lat: 13,
+      lon: 100,
+      level: "low",
+      factors: {
+        rain1hMm: null,
+        rain24hMm: null,
+        freeboardM: 1,
+        freeboardTrendMPerH: -0.5,
+        situationLevel: null,
+      },
+      observedAt: null,
+      latestObservedAt: null,
+      ...over,
+    };
+  }
+
+  it("สถานีเดียวใน run ถูกถอยหลัง observedAt ไปที่จุดประวัติเก่าสุด แต่ layer.observedAt ของจังหวัดต้องยึดเวลาดิบล่าสุด", () => {
+    const station = syntheticStation({
+      stationId: 9,
+      // ถอยหลังไปตามหน้าต่างของ freeboardTrendMPerH เหมือนที่ compute.ts ทำจริง
+      observedAt: "2026-08-19T01:00:00.000Z",
+      // เวลาดิบล่าสุดของการอ่านค่าจริง ๆ
+      latestObservedAt: "2026-08-19T02:20:00.000Z",
+    });
+    const run: FloodExposureRun = {
+      runId: "20260819T023000Z-0123456789abcdef",
+      computedAt: "2026-08-19T02:30:00.000Z",
+      inputs: { thaiwaterFetchedAt: "2026-08-19T02:25:00.000Z", historyWindowH: 3 },
+      layer: {
+        id: "flood-exposure",
+        epistemicClass: "illustrative",
+        liveOrStatic: "live",
+        // ค่าของทั้งประเทศ (นับก่อนตัดขอบจังหวัด) ต้องถูกทิ้ง ไม่ใช่ถูกคัดลอกตรงไป
+        observedAt: "2026-08-19T02:20:00.000Z",
+        publishedAt: null,
+        fetchedAt: "2026-08-19T02:25:00.000Z",
+        staleAfterSeconds: 1800,
+        methodologyUrl: "/methodology/flood-exposure",
+        sourceIds: ["thaiwater"],
+      },
+      stations: [station],
+    };
+
+    const scoped = scopeToProvince(run, "10");
+    // ก่อนแก้: เอา max() ทับ `observedAt` (เก่าที่สุด) → ได้ 01:00 ทั้งที่สถานีนี้
+    // เพิ่งรายงานมาเมื่อ 02:20 จริง ๆ — endpoint นี้เป็นทางเดียวที่เว็บเรียก
+    expect(scoped.layer.observedAt).toBe("2026-08-19T02:20:00.000Z");
+    expect(scoped.layer.observedAt).not.toBe(station.observedAt);
+  });
+
+  it("หลายสถานีในจังหวัดเดียวกัน: ต้องใช้ max() ของ latestObservedAt ไม่ใช่ของ observedAt", () => {
+    const fresh = syntheticStation({
+      stationId: 10,
+      // ปัจจัยเก่าที่สุด (ถูกถอยหลัง) เก่ากว่าอีกสถานีหนึ่ง แต่เวลาดิบล่าสุดใหม่กว่า
+      observedAt: "2026-08-19T00:30:00.000Z",
+      latestObservedAt: "2026-08-19T02:20:00.000Z",
+    });
+    const stale = syntheticStation({
+      stationId: 11,
+      // ไม่มี trend มาถอยหลัง — สองเวลาเท่ากัน แต่เก่ากว่าเวลาดิบของ `fresh`
+      observedAt: "2026-08-19T01:10:00.000Z",
+      latestObservedAt: "2026-08-19T01:10:00.000Z",
+    });
+    const run: FloodExposureRun = {
+      runId: "20260819T023000Z-fedcba9876543210",
+      computedAt: "2026-08-19T02:30:00.000Z",
+      inputs: { thaiwaterFetchedAt: "2026-08-19T02:25:00.000Z", historyWindowH: 3 },
+      layer: {
+        id: "flood-exposure",
+        epistemicClass: "illustrative",
+        liveOrStatic: "live",
+        observedAt: "2026-08-19T02:20:00.000Z",
+        publishedAt: null,
+        fetchedAt: "2026-08-19T02:25:00.000Z",
+        staleAfterSeconds: 1800,
+        methodologyUrl: "/methodology/flood-exposure",
+        sourceIds: ["thaiwater"],
+      },
+      stations: [fresh, stale],
+    };
+
+    const scoped = scopeToProvince(run, "10");
+    // max(latestObservedAt) ของสองสถานี = 02:20 (ของ `fresh`) — ไม่ใช่
+    // max(observedAt) = 01:10 (ของ `stale`) ซึ่งเป็นพฤติกรรมเดิมที่ผิด
+    expect(scoped.layer.observedAt).toBe("2026-08-19T02:20:00.000Z");
+  });
+});

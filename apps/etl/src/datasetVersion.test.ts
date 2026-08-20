@@ -4,9 +4,12 @@ import {
   DATASET_VERSION_RE,
   assertDatasetVersion,
   diffTileContent,
+  isSafeVersionReuse,
   retargetTileTemplates,
+  tileContentSignature,
   tileUrlTemplate,
   versionedTilePrefix,
+  type VersionSignatureLedger,
 } from "./datasetVersion.js";
 
 /**
@@ -182,5 +185,61 @@ describe("diffTileContent — กันการใช้รุ่นเดิ�
 
   it("manifest ที่ยังไม่มี provenance ไม่ถือว่าเปลี่ยน (ไม่มีอะไรให้เทียบ)", () => {
     expect(diffTileContent(undefined, provenance())).toEqual({ changed: [], removed: [] });
+  });
+});
+
+describe("isSafeVersionReuse — กันการใช้ชื่อรุ่นเดิมซ้ำไม่ว่าจะเป็นรุ่นปัจจุบันของ manifest หรือรุ่นเก่ากว่านั้น", () => {
+  it("รุ่นที่ไม่เคยอยู่ใน ledger เลย = ปลอดภัยเสมอ (รุ่นใหม่จริง ๆ)", () => {
+    expect(isSafeVersionReuse({}, "2026-08-21", "sig-a")).toBe(true);
+  });
+
+  it("รุ่นเดิม เนื้อหาเดิมเป๊ะ = ปลอดภัย (resume งานที่ยังไม่เสร็จ)", () => {
+    const ledger: VersionSignatureLedger = { "2026-08-17": "sig-a" };
+    expect(isSafeVersionReuse(ledger, "2026-08-17", "sig-a")).toBe(true);
+  });
+
+  it("รุ่นเดิม เนื้อหาต่าง = ไม่ปลอดภัย", () => {
+    const ledger: VersionSignatureLedger = { "2026-08-17": "sig-a" };
+    expect(isSafeVersionReuse(ledger, "2026-08-17", "sig-b")).toBe(false);
+  });
+
+  /**
+   * ฉากที่การ์ดเดิมของ `refresh:manifests` (ก่อน review round 6) มองไม่เห็น:
+   * AOI หนึ่งปล่อยรุ่น A แล้วปล่อยรุ่น B (manifest ปัจจุบันจำ B ไว้) จากนั้นถูก
+   * เรียกซ้ำด้วย `--dataset-version=A` (พิมพ์ผิด/สคริปต์เก่าค้าง/rollback พลาด)
+   * ทั้งที่เนื้อหาบนดิสก์ตอนนี้คือของ B ไม่ใช่ของ A แล้ว — การเทียบกับ "รุ่น
+   * ปัจจุบันของ manifest" อย่างเดียว (`=== datasetVersion`) จะเป็นเท็จเพราะ
+   * manifest จำ B ไว้ ไม่ใช่ A จึงข้ามการตรวจไปเงียบ ๆ `isSafeVersionReuse`
+   * ต้องจับกรณีนี้ได้ด้วยประวัติทั้งหมด ไม่ใช่แค่รุ่นล่าสุด
+   */
+  it("ปล่อยรุ่น A แล้วปล่อยรุ่น B (เนื้อหาเปลี่ยน) แล้วขอปล่อยรุ่น A ซ้ำด้วยเนื้อหาของ B = ไม่ปลอดภัย", () => {
+    const provA = provenance({ datasetVersion: "2026-08-17" });
+    const provB = provenance({
+      datasetVersion: "2026-08-20",
+      sources: {
+        terrain: { builtAt: "2026-08-20T02:51:03.000Z", sourceIds: ["copernicus-dem"] },
+        roads: { builtAt: "2026-08-20T03:32:44.000Z", sourceIds: ["osm"] },
+      },
+      checksums: { "terrain.bin": "b".repeat(64) },
+    });
+
+    // ลำดับเดียวกับที่ refreshManifests.ts ทำจริง: bootstrap รุ่นแรกตอนยังไม่มี
+    // ledger เลย แล้วเมื่อปล่อยรุ่น B สำเร็จก็บันทึกรุ่น B เพิ่มเข้าไป
+    const ledger: VersionSignatureLedger = {};
+    ledger[provA.datasetVersion] = tileContentSignature(provA);
+    ledger[provB.datasetVersion] = tileContentSignature(provB);
+
+    // ตอนนี้ผู้ใช้งานขอปล่อยรุ่น "2026-08-17" (= A) ซ้ำ แต่เนื้อหาบนดิสก์ตอนนี้
+    // คือของ B แล้ว (สคริปต์จริงจะคำนวณ `next` จากไฟล์ปัจจุบันบนดิสก์เสมอ ไม่ใช่
+    // จาก provA/provB ที่นี่ — จำลองด้วยการส่งลายเซ็นของ B เข้าไปตรง ๆ)
+    const requestedVersion = provA.datasetVersion;
+    const currentDiskSignature = tileContentSignature(provB);
+    expect(isSafeVersionReuse(ledger, requestedVersion, currentDiskSignature)).toBe(false);
+
+    // เทียบกับการ์อดเดิม (ก่อนแก้) ที่เช็คแค่ `manifest.provenance?.datasetVersion === datasetVersion`
+    // เท่านั้น — manifest ปัจจุบันจำ B ไว้ ไม่ใช่ A การเทียบแบบนั้นจะเป็นเท็จและ
+    // ปล่อยผ่านไปเงียบ ๆ ซึ่งเป็นบั๊กที่เทสนี้พิสูจน์ว่า `isSafeVersionReuse` ปิดได้
+    const legacyGuardWouldHaveFired = provB.datasetVersion === requestedVersion;
+    expect(legacyGuardWouldHaveFired).toBe(false);
   });
 });

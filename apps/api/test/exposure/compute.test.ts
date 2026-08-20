@@ -339,6 +339,10 @@ describe("เวลา: fetchedAt / computedAt / observedAt เป็นคน�
     );
     expect(run.stations[0].observedAt).toBe("2026-08-19T01:00:00.000Z");
     expect(run.layer.observedAt).toBe("2026-08-19T02:20:00.000Z");
+    // `latestObservedAt` ของสถานีเองก็ต้องยึดเวลาดิบเดียวกัน (02:20) ไม่ใช่เวลาที่
+    // ถูกถอยหลังแล้ว (01:00) — มันคือสิ่งที่ `scopeToProvince` ใช้คำนวณ
+    // `layer.observedAt` ของจังหวัด (review round 6, ดูเทสใน routes.test.ts)
+    expect(run.stations[0].latestObservedAt).toBe("2026-08-19T02:20:00.000Z");
   });
 
   it("สถานีที่ต้นทางไม่ได้ส่งเวลามา → observedAt เป็น null ไม่ใช่ now", () => {

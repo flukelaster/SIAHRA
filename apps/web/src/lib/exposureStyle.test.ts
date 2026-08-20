@@ -27,6 +27,7 @@ function station(factors: Partial<ExposureFactors>, level: StationExposure["leve
     level,
     factors: { ...NO_FACTORS, ...factors },
     observedAt: "2026-08-20T06:00:00.000Z",
+    latestObservedAt: "2026-08-20T06:00:00.000Z",
   };
 }
 

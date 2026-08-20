@@ -319,7 +319,20 @@ export class ObservationCacheDO extends DurableObject<Env> {
 
   private async writeHourlySnapshot(nowMs: number, day: string, hour: string): Promise<void> {
     const snapshot = await this.getObservations(null);
-    await putJsonGz(this.env.HAZARD_BUCKET, archiveKeys.snapshot(day, hour), snapshot);
+    // Local hourly MSL levels are written FIRST, independently of the R2
+    // archive write below — this is not just archival bookkeeping.
+    // `exposureHistory()` reads straight from `hourly_levels` and feeds it to
+    // `freeboardTrend()`, so this table is a live input to every exposure run,
+    // not only to the daily province archive. Writing R2 first (the original
+    // order) meant a single R2 failure (quota, network, whatever) skipped this
+    // INSERT entirely for that hour; `hourly_levels` rows then age out of the
+    // 3h trend window one missed archive tick at a time, and
+    // `freeboardTrendMPerH` silently goes `null` for every station even though
+    // `/health` and the exposure layer both keep reporting healthy — a
+    // background dependency failing with no visible effect (review round 6,
+    // P2). Doing the local insert first means that failure mode requires the
+    // SQLite write itself to fail, not merely the unrelated R2 call after it.
+    //
     // Also keep hourly MSL levels for every station in SQLite so the daily
     // file has at least hourly coverage for stations nobody warmed.
     //
@@ -352,6 +365,14 @@ export class ObservationCacheDO extends DurableObject<Env> {
       );
     }
     this.ctx.storage.sql.exec("DELETE FROM hourly_levels WHERE ts_ms < ?", nowMs - HISTORY_RETENTION_MS);
+    // R2 archive write — best-effort from here on. If this (or the index
+    // write below) throws, `archiveTick()`'s catch records `archiveError`
+    // (surfaced in `/health`'s `thaiwater` source detail) and
+    // `lastSnapshotKey` is never set, so the next tick retries this whole
+    // function — including a harmless re-insert of the rows above (`INSERT OR
+    // REPLACE`) — but the exposure trend already has this hour's data
+    // regardless of whether the retry succeeds.
+    await putJsonGz(this.env.HAZARD_BUCKET, archiveKeys.snapshot(day, hour), snapshot);
     // Index bookkeeping.
     const idx = (await getJson<ArchiveDayIndex>(this.env.HAZARD_BUCKET, archiveKeys.index(day))) ?? {
       day,

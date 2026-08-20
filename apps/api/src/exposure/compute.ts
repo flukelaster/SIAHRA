@@ -260,6 +260,8 @@ interface Merged {
   lon: number;
   factors: ExposureFactors;
   observedAt: string | null;
+  /** เวลาวัดดิบล่าสุดของสถานีนี้ — ดู `StationExposure.latestObservedAt` */
+  latestObservedAt: string | null;
 }
 
 /**
@@ -340,6 +342,8 @@ export function computeExposure(
         situationLevel: null,
       },
       observedAt: r.observedAt,
+      // ฝนไม่มีหน้าต่างประวัติมาถอยหลัง เวลาดิบล่าสุด = เวลา `observedAt` เดียวกัน
+      latestObservedAt: r.observedAt,
     });
     latestObservedAt = newer(latestObservedAt, r.observedAt);
   }
@@ -370,6 +374,9 @@ export function computeExposure(
       lon: w.station.lon,
       factors,
       observedAt,
+      // เวลาดิบล่าสุดของสถานีนี้ = `w.observedAt` เท่านั้น — ไม่ถอยหลังตามหน้าต่าง
+      // ของ trend เหมือน `observedAt` ข้างบน (ดู `StationExposure.latestObservedAt`)
+      latestObservedAt: w.observedAt,
     });
     latestObservedAt = newer(latestObservedAt, w.observedAt);
   }
@@ -391,6 +398,7 @@ export function computeExposure(
       level: levelOf(m.factors, thresholds),
       factors: m.factors,
       observedAt: m.observedAt,
+      latestObservedAt: m.latestObservedAt,
     }));
 
   // `latestObservedAt` คำนวณไว้แล้วระหว่างประกอบ `merged` ข้างบน (จากเวลาดิบ ไม่ใช่
