@@ -17,7 +17,7 @@ git add -A -N && git diff HEAD --stat && git diff HEAD
 
 ## 1. The same gate as CI (`.github/workflows/ci.yml`) — run the whole set every round, not only what failed last time
 ```
-cd apps/web && npx oxlint src
+cd apps/web && npx oxlint src worker
 cd apps/web && npx tsc -b
 cd apps/api && npx tsc --noEmit
 cd apps/api && npx tsc -p test/tsconfig.json --noEmit

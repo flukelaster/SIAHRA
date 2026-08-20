@@ -41,8 +41,12 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      # `worker/` too, not just `src`: worker/tilePath.ts is what rejects path
+      # traversal in the tile URL, and it sat outside the lint gate until E9.2.
+      # Note oxlint exits 0 on warnings, so this fails the build only on
+      # error-level rules — the same contract `src` has always had here.
       - name: oxlint apps/web
-        run: npx oxlint src
+        run: npx oxlint src worker
         working-directory: apps/web
 
   test:
