@@ -15,9 +15,25 @@ export interface FloodExposureState {
    * 503) ถ้ามี `data` อยู่ด้วย แปลว่าสิ่งที่เห็นบนแผนที่คือ run เก่า
    */
   failing: boolean;
+  /**
+   * true เฉพาะเมื่อ `fetch()` เอง**ไปไม่ถึงเซิร์ฟเวอร์เลย** (เครือข่ายขาด/DNS/ยกเลิก
+   * ไม่ใช่ error ที่ผู้ใช้สั่ง) — คำตอบ HTTP ใด ๆ ที่ได้กลับมา **นับเป็นเซิร์ฟเวอร์ตอบแล้ว**
+   * แม้จะเป็น `503 "No flood-exposure run has been published yet"` (ดู
+   * `apps/api/src/routes/exposure.ts`) ก็ตาม — นั่นคือคำตอบจริงจากต้นทาง ไม่ใช่
+   * "ติดต่อไม่ได้" การนับสองอย่างนี้เป็นก้อนเดียวกัน (เหมือนที่เคยเป็นก่อนแก้ไข)
+   * ทำให้ legend บอกว่า "ติดต่อ API ไม่ได้" ทั้งที่ API ตอบมาแล้วว่า "ยังไม่เคยมี run"
+   * ซึ่งเป็นข้อเท็จจริงคนละเรื่องกัน (ดู `apiDownNoRun` vs `noRunEver` ใน MapLegend.tsx)
+   */
+  apiUnreachable: boolean;
 }
 
-const EMPTY: FloodExposureState = { data: null, loading: false, error: null, failing: false };
+const EMPTY: FloodExposureState = {
+  data: null,
+  loading: false,
+  error: null,
+  failing: false,
+  apiUnreachable: false,
+};
 
 /** ฝั่ง api คำนวณ run ใหม่ทุกรอบ refresh ของ ThaiWater — ตามด้วยคาบเดียวกัน */
 const REFRESH_MS = 5 * 60 * 1000;
@@ -51,14 +67,39 @@ export function useFloodExposure(
     let timer: number | null = null;
     const controller = new AbortController();
     const load = async () => {
+      let res: Response;
       try {
-        const res = await fetch(`/api/v1/provinces/${provinceCode}/exposure/latest`, {
+        res = await fetch(`/api/v1/provinces/${provinceCode}/exposure/latest`, {
           signal: controller.signal,
         });
+      } catch {
+        if (cancelled || controller.signal.aborted) return;
+        // `fetch()` เองไม่เคยได้คำตอบกลับมา — นี่คือกรณีเดียวที่นับเป็น "ติดต่อ API
+        // ไม่ได้" จริง ๆ ต่างจากคำตอบ HTTP ใด ๆ (รวม 503) ซึ่งแปลว่าเซิร์ฟเวอร์ตอบแล้ว
+        //
+        // ตั้งเป็น `{ key: ... }` ตรง ๆ ไม่ผ่าน errorMessage(): errorMessage() คืน
+        // `{ raw: err.message }` ทันทีที่ err เป็น instance ของ Error (ดู errorMessage.ts)
+        // โดยไม่สนใจ fallbackKey ที่ส่งเข้าไปเลย — ห่อ err ด้วย Error ของเราเองแล้วส่งผ่าน
+        // มันจะได้ข้อความภายในที่ไม่ได้แปล ("fetch failed" ฯลฯ) ไม่ใช่คีย์นี้ จึงไม่รับ
+        // err มาเลย (ไม่มีอะไรต้องอ้างถึง — สาเหตุไม่เปลี่ยนข้อความที่แสดง)
+        setState((s) => ({
+          ...s,
+          loading: false,
+          error: { key: "error.networkUnreachable" },
+          failing: true,
+          apiUnreachable: true,
+        }));
+        timer = window.setTimeout(load, RETRY_MS);
+        return;
+      }
+      try {
+        // เซิร์ฟเวอร์ตอบมาแล้ว (สถานะใดก็ตาม) — `!res.ok` ไม่ใช่ "ติดต่อไม่ได้" อีกต่อไป
+        // 503 ของเส้นทางนี้มีความหมายเฉพาะว่า "ยังไม่เคยเผยแพร่ run" (ดู exposure.ts)
+        // ซึ่งเป็นข้อเท็จจริงที่ตรวจมาแล้ว ต้องแยกจาก "ไม่รู้อะไรเลยเพราะถามไม่ถึง"
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = (await res.json()) as ProvinceExposureResponse;
         if (cancelled) return;
-        setState({ data, loading: false, error: null, failing: false });
+        setState({ data, loading: false, error: null, failing: false, apiUnreachable: false });
         timer = window.setTimeout(load, REFRESH_MS);
       } catch (err) {
         if (cancelled || controller.signal.aborted) return;
@@ -69,6 +110,7 @@ export function useFloodExposure(
           loading: false,
           error: errorMessage(err, "error.loadFailed"),
           failing: true,
+          apiUnreachable: false,
         }));
         timer = window.setTimeout(load, RETRY_MS);
       }

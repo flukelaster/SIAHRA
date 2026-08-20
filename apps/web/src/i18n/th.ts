@@ -212,6 +212,7 @@ export const th = {
   "legend.layer.trees.note": "ป่า/สวนจากแผนที่สิ่งปกคลุมดิน 10 ม. แสดงเมื่อซูมใกล้",
   "legend.layer.buildings": "อาคาร 3 มิติ (OSM)",
   "legend.layer.buildings.note": "ทั้งจังหวัด · มองไกลแสดงเฉพาะอาคารใหญ่/สูง · ปิดเองเมื่อกล้องสูงเกิน {km} กม.",
+  "legend.layer.buildings.error": "โหลดอาคารของพื้นที่นี้ไม่สำเร็จ — สวิตช์ยังเปิดอยู่แต่ไม่มีอะไรวาดบนแผนที่",
   "legend.waterlevelScale": "สถานีวัดระดับน้ำ (เกณฑ์ ThaiWater)",
   "legend.rainScale": "ฝนสะสม 24 ชม.",
   "legend.rain.band1": "< 10 มม.",

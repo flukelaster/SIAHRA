@@ -254,9 +254,22 @@ fi
 # แล้วเทียบกับที่ manifest ประกาศไว้ (diffTileContent) โดยไม่เขียนไฟล์ — เป็นด่านที่บอกว่า
 # "ชื่อรุ่นนี้ใช้ได้ไหม" **ก่อน** ลงทุนอัป 5.17 GiB ขึ้นไปใต้ชื่อที่ใช้ซ้ำไม่ได้
 stage 2 "checksum + ตรวจว่าชื่อรุ่นยังใช้ได้ (ยังไม่เขียนอะไร)"
-set +e
-run npm run refresh:manifests -w apps/etl -- "--dataset-version=$VERSION" --dry-run
-rc=$?
+# ปล่อยบางจังหวัด (มี provinces[]) ต้องจำกัด refresh:manifests ไว้เฉพาะจังหวัดนั้นด้วย
+# --only= เหมือนขั้น 3/4 ที่จำกัดอัป/ตรวจไว้แค่จังหวัดที่ระบุอยู่แล้ว — ไม่งั้นขั้นที่ 5
+# จะเขียน manifest ของอีก 75 จังหวัดให้ชี้ /v/$VERSION/ ทั้งที่ไบต์ของรุ่นนั้นไม่เคยถูกอัป
+# หรือตรวจให้เลย (404 หลัง manifest ที่ deploy)
+#
+# ไม่ใช้ array ว่างที่อาจโดน "${ONLY_ARGS[@]}" ขยาย: bash 3.2 (ปริยายบน macOS) กับ
+# `set -u` โยน "unbound variable" ทันทีที่ขยาย array ว่างเปล่า จึงแยกกิ่ง ALL=1/0 แทน
+if [ "$ALL" = "1" ]; then
+  set +e
+  run npm run refresh:manifests -w apps/etl -- "--dataset-version=$VERSION" --dry-run
+  rc=$?
+else
+  set +e
+  run npm run refresh:manifests -w apps/etl -- "--dataset-version=$VERSION" --dry-run "--only=$(IFS=,; echo "${provinces[*]}")"
+  rc=$?
+fi
 set -e
 if [ "$rc" != "0" ]; then
   die "
@@ -345,9 +358,16 @@ fi
 
 # ถึงตรงนี้เท่านั้นที่ manifest ถูกเขียนให้ชี้รุ่นใหม่ได้ — ไบต์อยู่ครบและตอบ 200 แล้ว
 stage 5 "เขียน manifest ให้ชี้ v/$VERSION แล้วโชว์ diff ให้คนตรวจ"
-set +e
-run npm run refresh:manifests -w apps/etl -- "--dataset-version=$VERSION"
-rc=$?
+# --only= เดียวกับขั้นที่ 2 — ปล่อยบางจังหวัดต้องเขียน manifest เฉพาะจังหวัดนั้น (ดูเหตุผลด้านบน)
+if [ "$ALL" = "1" ]; then
+  set +e
+  run npm run refresh:manifests -w apps/etl -- "--dataset-version=$VERSION"
+  rc=$?
+else
+  set +e
+  run npm run refresh:manifests -w apps/etl -- "--dataset-version=$VERSION" "--only=$(IFS=,; echo "${provinces[*]}")"
+  rc=$?
+fi
 set -e
 if [ "$rc" != "0" ]; then
   die "

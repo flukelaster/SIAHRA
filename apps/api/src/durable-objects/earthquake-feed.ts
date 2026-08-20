@@ -501,7 +501,11 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
   /** Backs GET /api/v1/earthquakes/recent — events plus their descriptor. */
   async getRecentResponse(limit = 100, minMag: number | null = null): Promise<EarthquakeRecentResponse> {
     const events = await this.getRecent(limit, minMag);
-    return { asOf: new Date().toISOString(), layer: await this.layer(), events };
+    // asOf ต้องเป็นเวลาที่ poll สำเร็จล่าสุด (เหมือน WS snapshot/heartbeat ด้านบน)
+    // ไม่ใช่เวลาที่ประกอบ response นี้ — ไคลเอนต์ที่ REST-poll ทุก 30 วิ จะเห็น
+    // เหตุการณ์เดิม "ดูสด" ทุกครั้งที่ต้นทางเงียบไปแล้วหลายชั่วโมง ถ้าใช้ `new Date()`
+    const poll = (await this.ctx.storage.get<PollStatus>("lastPoll")) ?? null;
+    return { asOf: poll?.at ?? null, layer: await this.layer(), events };
   }
 
   /** Backs GET /api/v1/health — one SourceStatus per upstream feed. */

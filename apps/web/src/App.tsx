@@ -133,7 +133,10 @@ export default function App() {
     (exposureSource !== null && exposureSource.health !== "ok");
   // ชั้นถูกหรี่ในทุกกรณีที่สิ่งที่วาดอยู่อาจไม่ใช่ของล่าสุด (`exposureNoNewRun`)
   // แต่ข้อความใน legend ต้องแยก "เราถามไม่ได้" ออกจาก "เซิร์ฟเวอร์บอกว่าไม่มีรอบใหม่"
-  const exposureApiUnreachable = exposure.failing || apiHealth.apiDown;
+  // — `exposure.apiUnreachable` เป็น true เฉพาะตอน fetch() เองไปไม่ถึงเซิร์ฟเวอร์
+  // (ไม่ใช่ทุก `exposure.failing`: 503 "ยังไม่เคยมี run" ก็นับเป็น failing แต่เป็น
+  // คำตอบจริงจาก API ที่ตอบสำเร็จ ไม่ใช่ "ติดต่อไม่ได้")
+  const exposureApiUnreachable = exposure.apiUnreachable || apiHealth.apiDown;
   const exposureLegend = {
     run: exposure.data,
     noNewRun: exposureNoNewRun,
@@ -358,6 +361,7 @@ export default function App() {
                     qualityLevel={qualityLevel}
                     onQualityChange={setQuality}
                     terrainIntegrity={mapInfo?.terrainIntegrity}
+                    buildingsError={mapInfo?.buildingsError ?? null}
                     exposure={exposureLegend}
                   />
                 ),
@@ -406,6 +410,7 @@ export default function App() {
             qualityLevel={qualityLevel}
             onQualityChange={setQuality}
             terrainIntegrity={mapInfo?.terrainIntegrity}
+            buildingsError={mapInfo?.buildingsError ?? null}
             exposure={exposureLegend}
             width={LEFT_W}
             top={dockTop}

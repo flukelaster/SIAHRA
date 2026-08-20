@@ -129,10 +129,35 @@ jobs:
         run: |
           set -euo pipefail
           curl -fsS -o /dev/null -w 'index: %{http_code}\n' https://siahra-radar.co/
-          # A tile proves the R2 route and the asset fallthrough, not just that
-          # something answers on the domain.
-          curl -fsS -I -o /dev/null -w 'tile: %{http_code}\n' \
-            https://siahra-radar.co/aoi/10/manifest.json
+          # `manifest.json` is a static asset served by the asset layer, so it
+          # never exercises the R2 route or its binding — and this repo's
+          # `not_found_handling: "single-page-application"` config means an
+          # unclaimed path can come back `200 text/html` through the SPA
+          # fallback, which `curl -f` (status only) would let through as a
+          # pass on a broken deploy. Probe a real tile instead — the same
+          # `.bin` `scripts/upload-tiles.sh --smoke` and `verify-tiles.sh`
+          # already use — and require BOTH 200 and the octet-stream
+          # content-type the Worker sets in worker/index.ts for tiles it
+          # actually claims; the asset layer never returns that content-type.
+          # No `-f` here on purpose: it would make curl exit non-zero on a 4xx/5xx
+          # response before the custom error message below can run, and (via
+          # `set -e`) with no explanation of which of the two checks failed.
+          out=$(curl -sS -I -m 20 -o /dev/null -w '%{http_code} %{content_type}' \
+            https://siahra-radar.co/aoi/11/terrain/0/0_0.bin)
+          # Same split as head_probe() in scripts/release-dataset.sh and probe()
+          # in scripts/upload-tiles.sh: guard on a space existing before taking
+          # everything after it, so a curl that never even started a transfer
+          # (empty $out) yields an empty ctype instead of an unrelated slice.
+          code="${out%% *}"
+          ctype=""
+          case "$out" in *' '*) ctype="${out#* }" ;; esac
+          ctype="${ctype%%;*}"
+          echo "tile: ${code:-000} ${ctype:--}"
+          [ "$code" = "200" ] || { echo "::error::tile probe returned ${code:-000}, expected 200" >&2; exit 1; }
+          case "$ctype" in
+            application/octet-stream) ;;
+            *) echo "::error::tile probe content-type was \"$ctype\", not application/octet-stream — the asset layer answered, not the R2-backed Worker route" >&2; exit 1 ;;
+          esac
 
       # Per-Worker path only. On a contract release the shared rollback below
       # owns both units, and rolling web back here would run it out of order.

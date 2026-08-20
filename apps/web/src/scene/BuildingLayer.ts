@@ -89,6 +89,14 @@ export async function buildBuildingLayer(
   manifest: AoiManifest,
   sampleGround: (x: number, z: number) => number,
   onProgress?: (done: number, total: number) => void,
+  /**
+   * เรียกเฉพาะตอนที่มี `buildings.url` แต่โหลด/แปลงไม่สำเร็จจริง ๆ (404, SPA shell,
+   * geojson ผิดรูป, เครือข่ายขาด) — **ไม่เรียก** เมื่อ AOI นี้ไม่มีข้อมูลอาคารอยู่แล้ว
+   * (ไม่มีทั้ง `url`/`tiles`) เพราะนั่นไม่ใช่ความล้มเหลว เป็นข้อเท็จจริงของ AOI
+   * ผู้เรียก (Map3DCanvas) ใช้สิ่งนี้เพื่อไม่ให้ชั้นหายไปเงียบ ๆ ใน console เท่านั้น —
+   * ต้องโผล่ใน legend/สถานะแผนที่ด้วย (ดู `MapInfo.buildingsError`)
+   */
+  onError?: (message: string) => void,
 ): Promise<BuildingLayerResult | null> {
   const buildings = manifest.buildings;
   if (!buildings) return null;
@@ -121,7 +129,11 @@ export async function buildBuildingLayer(
     collection = (await res.json()) as BuildingCollection;
     if (!Array.isArray(collection?.features)) throw new Error("ไม่ใช่ FeatureCollection");
   } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
     console.warn(`[buildings] ${manifest.aoiId}: โหลด ${buildings.url} ไม่สำเร็จ — ไม่แสดงอาคาร`, err);
+    // นี่คือความล้มเหลวจริง (มี url แต่โหลด/แปลงไม่ผ่าน) ต่างจากตอนที่ AOI ไม่มี
+    // ข้อมูลอาคารเลย — ผู้เรียกต้องโชว์สิ่งนี้ให้เห็น ไม่ใช่แค่ log ที่ผู้ใช้ทั่วไปไม่เปิดดู
+    onError?.(reason);
     return null;
   }
 

@@ -189,6 +189,7 @@ export const en: Record<keyof typeof th, string> = {
   "legend.layer.trees.note": "Forest/plantation from 10 m land cover; shown when zoomed in",
   "legend.layer.buildings": "3D buildings (OSM)",
   "legend.layer.buildings.note": "Whole province · only large/tall buildings from far away · off above {km} km",
+  "legend.layer.buildings.error": "Buildings failed to load for this area — the switch is on but nothing is drawn",
   "legend.waterlevelScale": "Water-level stations (ThaiWater bands)",
   "legend.rainScale": "24 h accumulated rainfall",
   "legend.rain.band1": "< 10 mm",

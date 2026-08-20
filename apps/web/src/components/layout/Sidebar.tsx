@@ -21,6 +21,7 @@ export function Sidebar({
   qualityLevel,
   onQualityChange,
   terrainIntegrity,
+  buildingsError,
   exposure,
   width,
   top,
@@ -37,6 +38,8 @@ export function Sidebar({
   onQualityChange: (q: QualityMode) => void;
   /** ผลตรวจ sha256 ของ terrain.bin — ส่งต่อให้ legend บอกว่าชั้นไหนถูกปิดและทำไม */
   terrainIntegrity?: TerrainIntegrity;
+  /** ชั้นอาคารแบบเก่า (E8.3) โหลด/แปลงไม่สำเร็จ — null = โหลดสำเร็จ/ไม่เกี่ยวข้อง */
+  buildingsError?: string | null;
   /** run ล่าสุดของชั้นการเผชิญน้ำ + สถานะการดึง (E10.4) */
   exposure?: ExposureLegendState;
   width: number;
@@ -60,6 +63,7 @@ export function Sidebar({
           qualityLevel={qualityLevel}
           onQualityChange={onQualityChange}
           terrainIntegrity={terrainIntegrity}
+          buildingsError={buildingsError}
           exposure={exposure}
         />
       </div>

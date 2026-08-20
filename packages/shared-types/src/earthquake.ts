@@ -116,7 +116,13 @@ export type EqWsMessage =
 
 /** Envelope of GET /api/v1/earthquakes/recent. */
 export interface EarthquakeRecentResponse {
-  asOf: string;
+  /**
+   * เวลาของรอบ poll ล่าสุดที่สำเร็จ — ความหมายเดียวกับ `asOf` ของ WS snapshot/heartbeat
+   * `null` = DO ยังไม่เคย poll สำเร็จเลย ห้ามเรนเดอร์เป็นเวลาใด ๆ และห้ามแทนด้วยเวลาที่
+   * ประกอบ response นี้ (ไม่งั้นเหตุการณ์เดิมที่ต้นทางเงียบมาหลายชั่วโมงจะดูเหมือน
+   * เพิ่งอัปเดตทุกครั้งที่ REST fallback poll)
+   */
+  asOf: string | null;
   layer: HazardLayerDescriptor;
   events: EarthquakeEvent[];
 }

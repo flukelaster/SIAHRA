@@ -514,6 +514,7 @@ export function MapLegend({
   qualityLevel,
   onQualityChange,
   terrainIntegrity = "unknown",
+  buildingsError = null,
   exposure,
 }: {
   layers: MapLayers;
@@ -527,6 +528,12 @@ export function MapLegend({
   onQualityChange: (q: QualityMode) => void;
   /** ผลตรวจ sha256 ของ terrain.bin — ยังไม่โหลดฉาก = "unknown" */
   terrainIntegrity?: TerrainIntegrity;
+  /**
+   * ชั้นอาคารแบบเก่า (E8.3, เฉพาะ AOI สาธิตที่ไม่มี tile pyramid) โหลด/แปลงไม่
+   * สำเร็จ — `null` = โหลดสำเร็จ, ไม่มีข้อมูลอาคารสำหรับ AOI นี้อยู่แล้ว, หรือ AOI
+   * นี้ใช้ tile pyramid (ไม่ผ่านเส้นทางนี้เลย) ดูรายละเอียดที่ `BuildingLayer.ts`
+   */
+  buildingsError?: string | null;
 }) {
   const nowMs = useNow();
   const { lang, t } = useLang();
@@ -543,6 +550,9 @@ export function MapLegend({
           // ชั้นพื้นที่ลุ่มต่ำเป็นอนุพันธ์ของ terrain.bin โดยตรง จึงเป็นแถวเดียว
           // ที่ต้องบอกผลตรวจลายเซ็น และเป็นแถวเดียวที่ถูกปิดเมื่อไม่ผ่าน
           const integrityKey = row.key === "lowland" ? INTEGRITY_NOTE[terrainIntegrity] : null;
+          // ชั้นอาคารแบบเก่า (E8.3) โหลดพลาด = ไม่มีอาคารบนแผนที่ทั้งที่สวิตช์ยัง
+          // เปิดอยู่ — ต้องบอกเหตุผล ไม่ใช่ปล่อยให้ผู้ใช้เดาว่า AOI นี้ไม่มีอาคารเลย
+          const showBuildingsError = row.key === "buildings" && buildingsError !== null;
           return (
           <li key={row.key}>
             <label className="flex cursor-pointer items-start gap-2 rounded-lg px-1.5 py-1 hover:bg-white/5">
@@ -569,6 +579,11 @@ export function MapLegend({
                     }`}
                   >
                     {t(integrityKey)}
+                  </span>
+                ) : null}
+                {showBuildingsError ? (
+                  <span className="mt-0.5 block text-[10px] text-[var(--color-risk-extreme)]">
+                    {t("legend.layer.buildings.error")}
                   </span>
                 ) : null}
                 {entry ? <LayerMeta entry={entry} nowMs={nowMs} lang={lang} t={t} /> : null}

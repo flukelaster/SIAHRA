@@ -36,17 +36,22 @@ afterEach(() => {
 });
 
 describe("buildBuildingLayer", () => {
-  it("manifest.buildings = null → ไม่มีอาคาร และไม่ยิง fetch", async () => {
+  it("manifest.buildings = null → ไม่มีอาคาร ไม่ยิง fetch และไม่เรียก onError (ไม่ใช่ความล้มเหลว)", async () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);
-    await expect(buildBuildingLayer(manifest(null), sampleGround)).resolves.toBeNull();
+    const onError = vi.fn();
+    await expect(
+      buildBuildingLayer(manifest(null), sampleGround, undefined, onError),
+    ).resolves.toBeNull();
     expect(fetchSpy).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
   });
 
-  it("มี tiles → ปล่อยให้ BuildingTiles สตรีมเอง ไม่ดึง geojson", async () => {
+  it("มี tiles → ปล่อยให้ BuildingTiles สตรีมเอง ไม่ดึง geojson และไม่เรียก onError", async () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);
     vi.spyOn(console, "warn").mockImplementation(() => {});
+    const onError = vi.fn();
     const tiles = {
       urlTemplate: "/aoi/test-aoi/buildings/{z}/{x}_{y}.bin",
       unitM: 0.25,
@@ -55,30 +60,49 @@ describe("buildBuildingLayer", () => {
       heightSourceCounts: {},
     };
     await expect(
-      buildBuildingLayer(manifest({ url: "/aoi/test-aoi/buildings.geojson", tiles }), sampleGround),
+      buildBuildingLayer(
+        manifest({ url: "/aoi/test-aoi/buildings.geojson", tiles }),
+        sampleGround,
+        undefined,
+        onError,
+      ),
     ).resolves.toBeNull();
     expect(fetchSpy).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
   });
 
-  it("ไม่มีทั้ง tiles และ url → เตือนใน console แล้วคืน null ไม่ throw", async () => {
+  it("ไม่มีทั้ง tiles และ url → เตือนใน console แล้วคืน null ไม่ throw และไม่เรียก onError (ไม่ใช่ความล้มเหลว)", async () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    await expect(buildBuildingLayer(manifest({ count: 0 }), sampleGround)).resolves.toBeNull();
+    const onError = vi.fn();
+    await expect(
+      buildBuildingLayer(manifest({ count: 0 }), sampleGround, undefined, onError),
+    ).resolves.toBeNull();
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(warn).toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
   });
 
-  it("url ที่หายไป (static host ตอบ SPA shell/404) → คืน null ไม่ reject", async () => {
+  it("url ที่หายไป (static host ตอบ SPA shell/404) → คืน null ไม่ reject แต่ต้องเรียก onError ให้ผู้เรียกโชว์บน UI", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response("<!doctype html>", { status: 404 })),
     );
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const onError = vi.fn();
     await expect(
-      buildBuildingLayer(manifest({ url: "/aoi/test-aoi/buildings.geojson" }), sampleGround),
+      buildBuildingLayer(
+        manifest({ url: "/aoi/test-aoi/buildings.geojson" }),
+        sampleGround,
+        undefined,
+        onError,
+      ),
     ).resolves.toBeNull();
     expect(warn).toHaveBeenCalled();
+    // ความล้มเหลวจริง (มี url แต่โหลดไม่ผ่าน) ต้องโผล่ให้ผู้เรียกเห็น ไม่ใช่แค่ console
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith(expect.stringContaining("404"));
   });
 
   it("url ที่ยังมีจริง → สร้าง mesh ตามจำนวน feature (ทางสำรองของ AOI รุ่นเก่า)", async () => {

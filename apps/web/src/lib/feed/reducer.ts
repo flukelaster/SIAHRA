@@ -30,7 +30,7 @@ export type FeedAction =
   | { type: "ws.parse-error" }
   | { type: "ws.closed" }
   | { type: "ws.watchdog" }
-  | { type: "poll.success"; asOf: string; events: EarthquakeEvent[] }
+  | { type: "poll.success"; asOf: string | null; events: EarthquakeEvent[] }
   | { type: "poll.error"; message: ErrorMessage };
 
 export const initialFeedState: EarthquakeFeedState = {
@@ -106,11 +106,13 @@ export function feedReducer(state: EarthquakeFeedState, action: FeedAction): Ear
       return { ...state, status: "reconnecting", reconnectAttempt: state.reconnectAttempt + 1 };
     case "poll.success":
       // ยังไม่ live: ข้อมูลชุดนี้มาจาก REST fallback จึงเป็น "ดึงเป็นช่วง" ไม่ใช่ "เรียลไทม์"
+      // `action.asOf` เป็น null เมื่อ DO ยังไม่เคย poll ต้นทางสำเร็จเลย — คงค่าเดิม
+      // ที่เคยรู้ไว้ (เหมือน snapshot/heartbeat ด้านบน) แทนที่จะล้าง asOf ที่มีอยู่ทิ้ง
       return {
         ...state,
         events: sortByTimeDesc(action.events),
         status: "polling",
-        asOf: action.asOf,
+        asOf: action.asOf ?? state.asOf,
         error: null,
       };
     case "poll.error":

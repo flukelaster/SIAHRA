@@ -92,6 +92,14 @@ export interface MapInfo {
   provenance: AoiProvenance | null;
   /** ผลตรวจ sha256 ของ terrain.bin — `"unknown"` ไม่ปิดชั้นใด */
   terrainIntegrity: TerrainIntegrity;
+  /**
+   * ข้อความล้มเหลวของชั้นอาคาร geojson แบบเก่า (E8.3 — เฉพาะ AOI สาธิตที่ยังไม่มี
+   * tile pyramid) เมื่อ `buildings.url` โหลด/แปลงไม่สำเร็จ — `null` เมื่อโหลดสำเร็จ,
+   * ไม่มีข้อมูลอาคารสำหรับ AOI นี้อยู่แล้ว, หรือ AOI นี้ใช้ tile pyramid แทน
+   * (ซึ่งสตรีมเองและไม่ผ่านเส้นทางนี้เลย) ต้องไม่หายเงียบเป็นแค่ console.warn
+   * เพราะผู้ใช้ทั่วไปไม่เปิด console — legend ต้องบอกว่าชั้นนี้หายไปเพราะโหลดพลาด
+   */
+  buildingsError: string | null;
 }
 
 /** Imperative map controls exposed to the shell (search fly-to, permalink, capture). */
@@ -402,6 +410,10 @@ export function Map3DCanvas({
           // (cleanup ของ effect เรียก onInfo?.(null))
           provenance: manifest.provenance ?? null,
           terrainIntegrity: terrain.integrity,
+          // ยังไม่รู้ผลของชั้นอาคารแบบเก่า ณ จุดนี้ (ยิ่งกว่านั้น AOI ที่มี tile
+          // pyramid ไม่มีวันเรียก buildBuildingLayer เลย) — ตั้ง null ไว้ก่อน แล้ว
+          // ให้ publishInfo() แก้ทีหลังถ้าเข้าเส้นทาง legacy จริง ๆ
+          buildingsError: null,
         };
         onInfo?.(infoRef.current);
 
@@ -510,14 +522,23 @@ export function Map3DCanvas({
         // building tile pyramid (tiles stream on their own).
         if (!buildingTiles) {
           setState({ status: "loading", labelKey: "scene.buildingBuild", progress: 0 });
-          const buildings = await buildBuildingLayer(manifest, terrain.sample, (done, total) => {
-            if (cancelled) return;
-            setState({
-              status: "loading",
-              labelKey: "scene.buildingBuild",
-              progress: total > 0 ? Math.round((done / total) * 100) : 0,
-            });
-          });
+          const buildings = await buildBuildingLayer(
+            manifest,
+            terrain.sample,
+            (done, total) => {
+              if (cancelled) return;
+              setState({
+                status: "loading",
+                labelKey: "scene.buildingBuild",
+                progress: total > 0 ? Math.round((done / total) * 100) : 0,
+              });
+            },
+            // มี url แต่โหลด/แปลงพัง — terrain ยังใช้งานได้ตามปกติ (ไม่ throw ทั้งฉาก)
+            // แต่ต้องโผล่ใน legend ด้วย ไม่ใช่แค่ log ที่เงียบสำหรับผู้ใช้ทั่วไป
+            (message) => {
+              if (!cancelled) publishInfo({ buildingsError: message });
+            },
+          );
           if (cancelled || !handles) return;
           if (buildings) {
             buildingsRef.current = buildings.mesh;

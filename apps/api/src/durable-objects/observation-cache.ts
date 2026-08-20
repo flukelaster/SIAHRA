@@ -322,14 +322,30 @@ export class ObservationCacheDO extends DurableObject<Env> {
     await putJsonGz(this.env.HAZARD_BUCKET, archiveKeys.snapshot(day, hour), snapshot);
     // Also keep hourly MSL levels for every station in SQLite so the daily
     // file has at least hourly coverage for stations nobody warmed.
+    //
+    // `ts_ms` must be a real observation time: `exposureHistory()` feeds this
+    // table straight into `freeboardTrend()`, which treats `ts_ms` as elapsed
+    // wall-clock time between two real readings. A station whose
+    // `observedAt` is missing or unparsable has no real observation time to
+    // record here — stamping it with `nowMs` (the snapshot's own clock, not
+    // an upstream measurement) would let an unrelated value change between
+    // two snapshots read as a rate of change, i.e. a fabricated trend. Such
+    // rows are skipped entirely rather than given a synthetic timestamp; the
+    // station just has one fewer archived/trend point for that hour, same as
+    // any other station that failed to report.
     const rows = snapshot.waterlevel;
     for (let i = 0; i < rows.length; i += 30) {
       const chunk = rows.slice(i, i + 30);
-      const placeholders = chunk.map(() => "(?, ?, ?)").join(",");
       const binds: SqlStorageValue[] = [];
+      let n = 0;
       for (const w of chunk) {
-        binds.push(w.station.id, w.observedAt ? Date.parse(w.observedAt) : nowMs, w.waterlevelMsl);
+        const ts = w.observedAt ? Date.parse(w.observedAt) : NaN;
+        if (!Number.isFinite(ts)) continue;
+        binds.push(w.station.id, ts, w.waterlevelMsl);
+        n++;
       }
+      if (n === 0) continue;
+      const placeholders = Array.from({ length: n }, () => "(?, ?, ?)").join(",");
       this.ctx.storage.sql.exec(
         `INSERT OR REPLACE INTO hourly_levels (station_id, ts_ms, value_msl) VALUES ${placeholders}`,
         ...binds,
