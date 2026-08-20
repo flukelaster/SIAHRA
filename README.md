@@ -162,14 +162,21 @@ The Worker exposes a versioned JSON API under `/api/v1`:
 **`ci.yml`** runs on every push to `main` and every pull request:
 
 ```
-Lint ────────┐
-TypeScript ──┼─ independent, always run → required status checks on main
-Build ───────┘
+Lint ─────────────┐
+TypeScript ───────┼─ independent, always run → required status checks on main
+Build ────────────┘
+Detect affected ──┬─ Test (api, apps/api)  ┐
+                  ├─ Test (web, apps/web)  ├─ only the affected workspaces
+                  └─ Test (etl, apps/etl)  ┘
+                       └─ Test ─────────────── always reports, gates the legs
 ```
 
-- **Lint** — `oxlint` over `apps/web/src`
-- **TypeScript** — `tsc -b` (apps/web), `tsc --noEmit` (apps/api, apps/etl); the same commands as the pre-push checklist in [`AGENTS.md`](AGENTS.md)
-- **Build** — production web build, then `wrangler deploy --dry-run` to bundle the Worker against it, plus a guard on the Workers static-asset limits (≤ 20,000 files, ≤ 25 MiB each)
+- **Lint** — `oxlint` over `apps/web/src` and `apps/web/worker`
+- **TypeScript** — `tsc -b` (apps/web), `tsc --noEmit` (apps/api + its `test/` project, apps/etl); the same commands as the pre-push checklist in [`AGENTS.md`](AGENTS.md)
+- **Build** — production web build, then `wrangler deploy --dry-run` to bundle both Workers against it, plus a guard on the Workers static-asset limits (≤ 20,000 files, ≤ 25 MiB each)
+- **Detect affected** — diffs the branch against its merge base and emits the matrix of workspaces whose tests need to run. A change to the lockfile, root `package.json`, `packages/shared-types` or `ci.yml` itself marks all three; an unusable diff base does the same, so the failure mode is "run everything", never "run nothing"
+- **Test (name, path)** — one vitest run per affected workspace: `apps/api` in `workerd`, `apps/web` and `apps/etl` as pure modules in node. These names are generated and a leg can be absent, so none of them may ever be a required check
+- **Test** — the aggregate gate, `if: always()`. It reports pass/fail for whatever the matrix did, including "nothing was affected", which makes it the only test check that is safe to require. It is **not** required yet — promoting it is an owner action
 
 Two conventions a branch ruleset can't express — a PR that touches UI files must embed a screenshot (or carry the `no-screenshot` label), and PR titles/descriptions are English-only — used to live in a `pr-rules.yml` workflow. They are still the rules, but they are now checked locally by the `/implement` loop instead of burning Actions minutes on every edit to a PR description. `pr-image-cleanup.yml` / `pr-cache-cleanup.yml` tidy up screenshot releases and npm caches when a PR closes; `dependabot.yml` batches minor/patch bumps weekly and opens majors one-by-one.
 

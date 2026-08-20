@@ -17,6 +17,10 @@ npx vitest run test/ingestion -w apps/api   # one folder
 CI runs exactly the commands in `.github/workflows/ci.yml`; QA runs the same ones. If a command here
 drifts from CI, CI is right.
 
+CI splits that root run into one job per workspace (`Detect affected` picks which ones), so a CI
+failure names the workspace directly; the commands inside each leg are the `npm run test -w <path>`
+lines above.
+
 ## How the API suite is arranged
 
 `apps/api` runs on **`@cloudflare/vitest-pool-workers`**, so tests execute in `workerd` through
