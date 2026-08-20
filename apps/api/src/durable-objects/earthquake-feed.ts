@@ -36,7 +36,7 @@ const BACKFILL_NEAREST_PER_POLL = 200;
  */
 const EQ_FEEDS = ["usgs", "emsc", "tmd"] as const;
 
-/** Outcome of the last cron poll, kept for /health. */
+/** Outcome of one poll attempt, kept separately from the last successful pull. */
 interface PollStatus {
   at: string;
   created: number;
@@ -217,16 +217,23 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
    * คาบ poll อีกต่อไป และการ poll ที่ช้าหรือล้มไม่ทำให้สายเงียบจนถูก watchdog ตัด
    */
   async alarm(): Promise<void> {
-    const lastPoll = (await this.ctx.storage.get<PollStatus>("lastPoll")) ?? null;
-    const lastPollMs = lastPoll ? Date.parse(lastPoll.at) : NaN;
-    const pollDue = !Number.isFinite(lastPollMs) || Date.now() - lastPollMs >= POLL_INTERVAL_MS - POLL_DUE_SLACK_MS;
+    // Failed attempts set their own clock: retry on the normal cadence while
+    // retaining `lastPoll` as the timestamp of data we actually obtained.
+    const lastAttempt =
+      (await this.ctx.storage.get<PollStatus>("lastAttempt")) ??
+      (await this.ctx.storage.get<PollStatus>("lastPoll")) ??
+      null;
+    const lastAttemptMs = lastAttempt ? Date.parse(lastAttempt.at) : NaN;
+    const pollDue =
+      !Number.isFinite(lastAttemptMs) || Date.now() - lastAttemptMs >= POLL_INTERVAL_MS - POLL_DUE_SLACK_MS;
 
     if (pollDue) {
       await this.pollAndBroadcast().catch((err: unknown) => {
         logError("alarm poll failed", { error: errorText(err) });
       });
     } else {
-      this.broadcast([heartbeatMessage(lastPoll)]);
+      const lastSuccessfulPoll = (await this.ctx.storage.get<PollStatus>("lastPoll")) ?? null;
+      this.broadcast([heartbeatMessage(lastSuccessfulPoll)]);
     }
     await this.armAlarm();
   }
@@ -447,10 +454,16 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
       feeds: EQ_FEEDS.length,
       errors: feedErrors,
     };
-    await this.ctx.storage.put("lastPoll", status);
-    // heartbeat ยิงหลังบันทึก `lastPoll` เสมอ เพื่อให้ `asOf` ของเส้นทาง poll กับ
-    // เส้นทาง alarm อ่านจากค่าเดียวกัน ไม่ต่างกันหนึ่งรอบ
-    this.broadcast([heartbeatMessage(status)]);
+    await this.ctx.storage.put("lastAttempt", status);
+    // `lastPoll` is a successful data pull, never a clock for a failed
+    // attempt. This keeps the descriptor/REST/WebSocket `asOf` honest when
+    // every upstream feed is unreachable.
+    const successful = feedErrors.length < EQ_FEEDS.length;
+    if (successful) await this.ctx.storage.put("lastPoll", status);
+    const lastSuccessfulPoll = successful
+      ? status
+      : (await this.ctx.storage.get<PollStatus>("lastPoll")) ?? null;
+    this.broadcast([heartbeatMessage(lastSuccessfulPoll)]);
 
     return { created, updated, polled: candidates.length };
   }
@@ -511,6 +524,7 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
   /** Backs GET /api/v1/health — one SourceStatus per upstream feed. */
   async status(): Promise<SourceStatus[]> {
     const poll = (await this.ctx.storage.get<PollStatus>("lastPoll")) ?? null;
+    const attempt = (await this.ctx.storage.get<PollStatus>("lastAttempt")) ?? poll;
     const count =
       this.ctx.storage.sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM events").toArray()[0]?.n ?? 0;
     const newest =
@@ -520,11 +534,11 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
     const now = Date.now();
     const staleAfterSeconds = 5 * 60; // cron runs every minute
     // เรกคอร์ดที่บันทึกไว้ก่อนมีฟิลด์ feeds ให้ถือว่าเป็นชุดฟีดปัจจุบัน
-    const feeds = poll?.feeds ?? EQ_FEEDS.length;
+    const feeds = attempt?.feeds ?? EQ_FEEDS.length;
     const health = deriveSourceHealth({
       nowMs: now,
       fetchedAt: poll?.at ?? null,
-      lastError: poll?.errors.length ? poll.errors.join("; ") : null,
+      lastError: attempt?.errors.length ? attempt.errors.join("; ") : null,
       latestObservedAt: newest ? new Date(newest).toISOString() : null,
       staleAfterSeconds,
       /**
@@ -533,7 +547,7 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
        * `delayed` ไม่ได้เลย และการทำเป็นตัดสินคือการกุความล้มเหลวขึ้นมาเอง
        */
       observedLagSeconds: null,
-      allFeedsFailed: (poll?.errors.length ?? 0) >= feeds,
+      allFeedsFailed: (attempt?.errors.length ?? 0) >= feeds,
     });
     const alarmAtMs = await this.ctx.storage.getAlarm();
     return [
@@ -544,13 +558,13 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
         health,
         fetchedAt: poll?.at ?? null,
         latestObservedAt: newest ? new Date(newest).toISOString() : null,
-        lastAttemptAt: poll?.at ?? null,
-        lastError: poll?.errors.length ? poll.errors.join("; ") : null,
+        lastAttemptAt: attempt?.at ?? null,
+        lastError: attempt?.errors.length ? attempt.errors.join("; ") : null,
         detail: {
           events30d: count,
           wsClients: this.ctx.getWebSockets().length,
-          lastCreated: poll?.created ?? null,
-          lastUpdated: poll?.updated ?? null,
+          lastCreated: attempt?.created ?? null,
+          lastUpdated: attempt?.updated ?? null,
         },
         staleAfterSeconds,
         observedLagSeconds: null,

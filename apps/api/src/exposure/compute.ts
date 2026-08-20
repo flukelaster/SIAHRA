@@ -134,13 +134,6 @@ function bandOfFalling(value: number | null, bands: readonly FallingBand[]): Exp
   return "low";
 }
 
-/** เวลาที่ "เก่ากว่า" ในสองค่า — `null` ของอีกฝั่งไม่ทำให้ค่าที่มีหายไป */
-function older(a: string | null, b: string | null): string | null {
-  if (a === null) return b;
-  if (b === null) return a;
-  return Date.parse(a) <= Date.parse(b) ? a : b;
-}
-
 /** เวลาที่ "ใหม่กว่า" ในสองค่า */
 function newer(a: string | null, b: string | null): string | null {
   if (a === null) return b;
@@ -236,6 +229,7 @@ function dedupe<T extends { station: { id: number }; observedAt: string | null }
 /** ระเบียนที่รวมแล้วของสถานีหนึ่ง ก่อนถูกจัดแถบ */
 interface Merged {
   stationId: number;
+  stationKind: "rainfall" | "waterlevel";
   provinceCode: string | null;
   lat: number;
   lon: number;
@@ -292,15 +286,16 @@ export function computeExposure(
     else history.set(h.stationId, [...h.points]);
   }
 
-  const merged = new Map<number, Merged>();
+  const merged = new Map<string, Merged>();
 
-  // ฝนก่อน แล้วระดับน้ำทับ — สถานีโทรมาตรตัวเดียวรายงานได้ทั้งสองอย่าง และระเบียน
-  // ระดับน้ำคือระเบียนที่มีค่าตลิ่งประกอบ จึงถูกใช้เป็นตัวยึดข้อมูลประจำตัว
-  // (ไม่มีการเฉลี่ยพิกัดหรือเดาจังหวัดในทุกกรณี) ระเบียนซ้ำของสถานีเดียวกันถูกยุบ
-  // ด้วย `dedupe` ก่อน เพื่อไม่ให้ลำดับที่ต้นทางส่งมามีผลต่อค่าและต่อ `runId`
+  // รหัสสถานีฝนและระดับน้ำอยู่คนละ namespace ของ ThaiWater — เลขที่ตรงกันจึงไม่ใช่
+  // หลักฐานว่าเป็นสถานีเดียวกัน และห้ามนำปัจจัยของคนละสถานีมารวมเป็นหมุดเดียว
+  // ระเบียนซ้ำ *ภายในชนิดเดียวกัน* ถูกยุบด้วย `dedupe` ก่อน เพื่อให้ลำดับจากต้นทาง
+  // ไม่มีผลต่อค่าและต่อ `runId`
   for (const r of dedupe(observations.rainfall)) {
-    merged.set(r.station.id, {
+    merged.set(`rainfall:${r.station.id}`, {
       stationId: r.station.id,
+      stationKind: "rainfall",
       // คัดลอกมาตรง ๆ คง null ไว้ตามที่ต้นทางส่งมา — ห้ามเดาจากพิกัด
       provinceCode: r.station.provinceCode,
       lat: r.station.lat,
@@ -317,29 +312,36 @@ export function computeExposure(
   }
 
   for (const w of dedupe(observations.waterlevel)) {
-    const existing = merged.get(w.station.id);
     const trend = freeboardTrend(history.get(w.station.id), thresholds.historyWindowH, nowMs);
     const factors: ExposureFactors = {
-      rain1hMm: existing?.factors.rain1hMm ?? null,
-      rain24hMm: existing?.factors.rain24hMm ?? null,
+      rain1hMm: null,
+      rain24hMm: null,
       freeboardM: w.freeboardM,
       freeboardTrendMPerH: trend,
       situationLevel: w.situationLevel,
     };
-    merged.set(w.station.id, {
+    merged.set(`waterlevel:${w.station.id}`, {
       stationId: w.station.id,
+      stationKind: "waterlevel",
       provinceCode: w.station.provinceCode,
       lat: w.station.lat,
       lon: w.station.lon,
       factors,
-      observedAt: older(existing?.observedAt ?? null, w.observedAt),
+      observedAt: w.observedAt,
     });
   }
 
   const stations: StationExposure[] = [...merged.values()]
-    .sort((a, b) => a.stationId - b.stationId)
+    .sort((a, b) =>
+      a.stationKind === b.stationKind
+        ? a.stationId - b.stationId
+        : a.stationKind === "rainfall"
+          ? -1
+          : 1,
+    )
     .map((m) => ({
       stationId: m.stationId,
+      stationKind: m.stationKind,
       provinceCode: m.provinceCode,
       lat: m.lat,
       lon: m.lon,

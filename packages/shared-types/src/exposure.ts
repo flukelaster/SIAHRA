@@ -67,8 +67,15 @@ export interface ExposureFactors {
 
 /** One station's contribution to a run. */
 export interface StationExposure {
-  /** ThaiWater telemetering station id — the join key back to the observation. */
+  /** ThaiWater telemetering station id within the declared measurement namespace. */
   stationId: number;
+  /**
+   * ThaiWater assigns rainfall and water-level identifiers independently. A
+   * matching number is not evidence that two records describe one instrument,
+   * so exposure runs keep their namespaces separate unless a citable mapping
+   * is introduced in a future contract revision.
+   */
+  stationKind: "rainfall" | "waterlevel";
   /**
    * The station's province, **copied verbatim from `StationRef.provinceCode`
    * at compute time**, and `null`-preserving.
@@ -130,7 +137,7 @@ export interface FloodExposureRun {
   inputs: FloodExposureRunInputs;
   /** Always `epistemicClass: "illustrative"` with a non-empty `methodologyUrl`. */
   layer: HazardLayerDescriptor;
-  /** Sorted by `stationId`. Empty is a valid run, not an error. */
+  /** Sorted by `stationKind`, then `stationId`. Empty is a valid run, not an error. */
   stations: StationExposure[];
 }
 

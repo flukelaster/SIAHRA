@@ -440,8 +440,8 @@ export function Map3DCanvas({
             tree.update(h.camera, h.world.scale.y, container.clientHeight);
             const keys = tree.visibleTileKeys();
             const now = performance.now();
-            buildingTiles?.update(keys, h.camera, h.world.scale.y, now);
-            featureTiles?.update(keys, h.camera, h.world.scale.y, now);
+            buildingTiles?.update(keys, h.camera, now);
+            featureTiles?.update(keys, h.camera, now);
             vegetation?.update(keys, h.camera, now);
           }
           const d = h.camera.position.distanceTo(h.controls.target) / frameDistance;

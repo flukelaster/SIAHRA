@@ -501,14 +501,18 @@ export class ObservationCacheDO extends DurableObject<Env> {
     // Partial failure must not wipe the good half of the cache, so each feed
     // is only rewritten when its own fetch succeeded.
     const errors: string[] = [];
+    let rainfallError: string | null = null;
+    let waterlevelError: string | null = null;
     const [rainfall, waterlevel] = await Promise.all([
       this.upstream.run(() => fetchRainfall(), 0).catch((err: unknown) => {
-        errors.push(shortReason(err));
+        rainfallError = shortReason(err);
+        errors.push(rainfallError);
         logError("thaiwater rain fetch failed", { error: errorText(err) });
         return null;
       }),
       this.upstream.run(() => fetchWaterLevel(), 0).catch((err: unknown) => {
-        errors.push(shortReason(err));
+        waterlevelError = shortReason(err);
+        errors.push(waterlevelError);
         logError("thaiwater waterlevel fetch failed", { error: errorText(err) });
         return null;
       }),
@@ -523,14 +527,34 @@ export class ObservationCacheDO extends DurableObject<Env> {
     if (rainfall) this.replaceRainfall(rainfall);
     if (waterlevel) this.replaceWaterLevel(waterlevel);
 
+    // Keep the two station feeds independently auditable.  `fetchedAt` and
+    // `lastError` below remain the aggregate source state, while these fields
+    // let consumers of rainfall/water-level only (notably exposure) avoid
+    // treating an unrelated dam failure as an input failure.  Missing fields
+    // deliberately stay missing for pre-metadata caches: status() maps that
+    // to `unknown`, never to a fresh successful poll.
+    const attemptedAt = new Date(nowMs).toISOString();
+    if (rainfall) {
+      this.writeMeta("rainfallFetchedAt", attemptedAt);
+      this.writeMeta("rainfallError", null);
+    } else {
+      this.writeMeta("rainfallError", rainfallError ?? "ThaiWater rain_24h failed");
+    }
+    if (waterlevel) {
+      this.writeMeta("waterlevelFetchedAt", attemptedAt);
+      this.writeMeta("waterlevelError", null);
+    } else {
+      this.writeMeta("waterlevelError", waterlevelError ?? "ThaiWater waterlevel_load failed");
+    }
+
     if (rainfall && waterlevel) {
-      this.writeMeta("fetchedAt", new Date(nowMs).toISOString());
+      this.writeMeta("fetchedAt", attemptedAt);
       this.writeMeta("lastError", null);
       this.writeMeta("consecutiveFailures", "0");
     } else {
       // Partial success still refreshes fetchedAt (the good half is new), but
       // the failure is recorded so /health can say "degraded".
-      if (rainfall || waterlevel) this.writeMeta("fetchedAt", new Date(nowMs).toISOString());
+      if (rainfall || waterlevel) this.writeMeta("fetchedAt", attemptedAt);
       // เก็บข้อความจริงของต้นทางไว้ ไม่ใช่แค่ "fetch failed" — ผู้ใช้ที่เห็น
       // แถบสถานะต้องแยกออกว่าต้นทางล่ม (HTTP 5xx) กับต้นทางเปลี่ยนรูปร่าง
       // (UpstreamShapeError พร้อม path) คนละเรื่องกัน
@@ -1006,6 +1030,37 @@ export class ObservationCacheDO extends DurableObject<Env> {
           "SELECT MAX(observed_at) AS t FROM (SELECT observed_at FROM rainfall UNION ALL SELECT observed_at FROM waterlevel)",
         )
         .toArray()[0]?.t ?? null;
+    const latestRainfall =
+      this.ctx.storage.sql.exec<{ t: string | null }>("SELECT MAX(observed_at) AS t FROM rainfall").toArray()[0]?.t ??
+      null;
+    const latestWaterlevel =
+      this.ctx.storage.sql.exec<{ t: string | null }>("SELECT MAX(observed_at) AS t FROM waterlevel").toArray()[0]?.t ??
+      null;
+    const rainfallFetchedAt = this.readMeta("rainfallFetchedAt");
+    const waterlevelFetchedAt = this.readMeta("waterlevelFetchedAt");
+    const rainfallError = this.readMeta("rainfallError");
+    const waterlevelError = this.readMeta("waterlevelError");
+    // These are intentionally separate from the aggregate ThaiWater health:
+    // the latter includes dam failures so SourceStatusBar can surface them,
+    // while exposure has only rainfall and water-level inputs.
+    const rainfallHealth = deriveSourceHealth({
+      nowMs,
+      fetchedAt: rainfallFetchedAt,
+      lastError: rainfallError,
+      latestObservedAt: latestRainfall,
+      staleAfterSeconds: STALE_AFTER_MS / 1000,
+      observedLagSeconds: OBSERVED_LAG_MS / 1000,
+      extraDegraded: this.upstream.pausedUntilMs > 0,
+    });
+    const waterlevelHealth = deriveSourceHealth({
+      nowMs,
+      fetchedAt: waterlevelFetchedAt,
+      lastError: waterlevelError,
+      latestObservedAt: latestWaterlevel,
+      staleAfterSeconds: STALE_AFTER_MS / 1000,
+      observedLagSeconds: OBSERVED_LAG_MS / 1000,
+      extraDegraded: this.upstream.pausedUntilMs > 0,
+    });
     const health = deriveSourceHealth({
       nowMs,
       fetchedAt,
@@ -1029,6 +1084,12 @@ export class ObservationCacheDO extends DurableObject<Env> {
       detail: {
         rainfallStations: rainCount,
         waterlevelStations: waterCount,
+        rainfallFetchedAt,
+        rainfallError,
+        rainfallHealth,
+        waterlevelFetchedAt,
+        waterlevelError,
+        waterlevelHealth,
         consecutiveFailures: Number(this.readMeta("consecutiveFailures") ?? "0"),
         upstreamQueue: this.upstream.length,
         upstreamInflight: this.upstream.inflight,

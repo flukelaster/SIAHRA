@@ -102,7 +102,7 @@ beforeAll(() => {
 afterAll(async () => {
   mutableEnv.TMD_UID = savedCreds.uid;
   mutableEnv.TMD_UKEY = savedCreds.ukey;
-  for (const name of ["global", HEARTBEAT_DO]) {
+  for (const name of ["global", HEARTBEAT_DO, "all-fail-cold"]) {
     await runInDurableObject(env.EARTHQUAKE_FEED.getByName(name), (_instance, ctx) =>
       ctx.storage.deleteAlarm(),
     );
@@ -162,6 +162,7 @@ describe("EarthquakeFeedDO: สามฟีดตอบครบ", () => {
 describe("EarthquakeFeedDO: ทุกฟีดล้มพร้อมกัน", () => {
   it("รายงาน down แต่ยังเสิร์ฟเหตุการณ์ที่เก็บไว้แล้ว", async () => {
     const stub = env.EARTHQUAKE_FEED.getByName("global");
+    const previous = await runInDurableObject(stub, (instance) => instance.getRecentResponse(1));
     serveAllFailing();
     await runInDurableObject(stub, (instance) => instance.pollAndBroadcast());
 
@@ -180,9 +181,24 @@ describe("EarthquakeFeedDO: ทุกฟีดล้มพร้อมกัน"
     expect(res.status).toBe(200);
     const body = (await res.json()) as EarthquakeRecentResponse;
     expect(body.events).toHaveLength(4);
-    // fetchedAt ของรอบที่ล้มยังเป็นเวลาจริงของรอบล่าสุด — อายุของมันคือสิ่งที่
-    // ทำให้ผู้ใช้รู้ว่าข้อมูลเก่าลงเรื่อย ๆ ห้ามซ่อนหรือรีเซ็ตเป็น null
-    expect(body.layer.fetchedAt).not.toBeNull();
+    // fetchedAt/asOf คือความสำเร็จครั้งก่อน ไม่ใช่เวลาของ attempt ที่ล้ม
+    expect(body.layer.fetchedAt).toBe(previous.layer.fetchedAt);
+    expect(body.asOf).toBe(previous.asOf);
+    expect(status.lastAttemptAt).not.toBeNull();
+  });
+
+  it("รอบแรกที่ทุกฟีดล้มยังคง fetchedAt และ asOf เป็น null", async () => {
+    const stub = env.EARTHQUAKE_FEED.getByName("all-fail-cold");
+    serveAllFailing();
+    await runInDurableObject(stub, (instance) => instance.pollAndBroadcast());
+
+    const body = await runInDurableObject(stub, (instance) => instance.getRecentResponse(1));
+    const status = await statusOf("all-fail-cold");
+    expect(body.layer.fetchedAt).toBeNull();
+    expect(body.asOf).toBeNull();
+    expect(status.fetchedAt).toBeNull();
+    expect(status.lastAttemptAt).not.toBeNull();
+    expect(status.health).toBe("down");
   });
 
   it("รอบ alarm หลังจากนั้นตั้งนัดครั้งถัดไปต่อได้ ไม่หยุดถาวรเพราะรอบที่ล้ม", async () => {

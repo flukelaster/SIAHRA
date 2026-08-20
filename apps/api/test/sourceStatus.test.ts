@@ -206,6 +206,11 @@ describe("ObservationCacheDO.status()", () => {
       "INSERT OR REPLACE INTO waterlevel (station_id, province_code, situation_level, observed_at, payload) VALUES (1, '50', NULL, ?, '{}')",
       iso(offsetMs),
     );
+  const rainfallStation = (ctx: DurableObjectState, offsetMs: number) =>
+    ctx.storage.sql.exec(
+      "INSERT OR REPLACE INTO rainfall (station_id, province_code, rain_24h, observed_at, payload) VALUES (1, '50', NULL, ?, '{}')",
+      iso(offsetMs),
+    );
 
   it("ยังไม่เคยดึง → unknown และ fetchedAt เป็น null", async () => {
     const s = await thaiwaterStatus("tw-unknown", () => {});
@@ -261,6 +266,43 @@ describe("ObservationCacheDO.status()", () => {
       station(ctx, -40 * MIN);
     });
     expect(s.health).toBe<SourceHealth>("ok");
+  });
+
+  it("สถานะเขื่อนที่พังไม่ทับสถานะอินพุต exposure ที่ยังปกติ", async () => {
+    const s = await thaiwaterStatus("tw-dams-only", (ctx) => {
+      writeMeta(ctx, "fetchedAt", iso(-3 * MIN));
+      writeMeta(ctx, "rainfallFetchedAt", iso(-3 * MIN));
+      writeMeta(ctx, "waterlevelFetchedAt", iso(-3 * MIN));
+      writeMeta(ctx, "damsError", "ThaiWater analyst/dam shape changed");
+      rainfallStation(ctx, -40 * MIN);
+      station(ctx, -40 * MIN);
+    });
+    expect(s.health).toBe<SourceHealth>("degraded");
+    expect(s.detail.rainfallHealth).toBe<SourceHealth>("ok");
+    expect(s.detail.waterlevelHealth).toBe<SourceHealth>("ok");
+  });
+
+  it("ความล้มเหลวของ water-level feed ปรากฏในสถานะอินพุต exposure", async () => {
+    const s = await thaiwaterStatus("tw-waterlevel-input-failed", (ctx) => {
+      writeMeta(ctx, "fetchedAt", iso(-3 * MIN));
+      writeMeta(ctx, "rainfallFetchedAt", iso(-3 * MIN));
+      writeMeta(ctx, "waterlevelFetchedAt", iso(-3 * MIN));
+      writeMeta(ctx, "waterlevelError", "ThaiWater waterlevel_load failed: 503");
+      rainfallStation(ctx, -40 * MIN);
+      station(ctx, -40 * MIN);
+    });
+    expect(s.detail.rainfallHealth).toBe<SourceHealth>("ok");
+    expect(s.detail.waterlevelHealth).toBe<SourceHealth>("degraded");
+  });
+
+  it("metadata ของ feed ที่ยังไม่มีไม่ถูกอ้างว่าเป็นข้อมูลใหม่", async () => {
+    const s = await thaiwaterStatus("tw-feed-metadata-missing", (ctx) => {
+      writeMeta(ctx, "fetchedAt", iso(-3 * MIN));
+      rainfallStation(ctx, -40 * MIN);
+      station(ctx, -40 * MIN);
+    });
+    expect(s.detail.rainfallHealth).toBe<SourceHealth>("unknown");
+    expect(s.detail.waterlevelHealth).toBe<SourceHealth>("unknown");
   });
 });
 

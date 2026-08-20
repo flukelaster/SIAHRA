@@ -39,6 +39,23 @@ function routeFetch(...routes: FetchRoute[]): void {
 const jsonResponse = (body: unknown): Response =>
   new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } });
 
+/** Keep the fixture's intended dam rows inside the production 48 h cutoff. */
+function damsAt(nowMs: number): typeof damFixture {
+  const bangkokStamp = (offsetMs: number) => {
+    const d = new Date(nowMs + offsetMs + 7 * 60 * 60 * 1000);
+    const p = (n: number) => String(n).padStart(2, "0");
+    return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
+  };
+  return {
+    ...damFixture,
+    data: {
+      ...damFixture.data,
+      dam_daily: damFixture.data.dam_daily.map((dam) => ({ ...dam, dam_date: bangkokStamp(-60 * 60 * 1000) })),
+      dam_medium: damFixture.data.dam_medium.map((dam) => ({ ...dam, dam_date: bangkokStamp(-2 * 60 * 60 * 1000) })),
+    },
+  };
+}
+
 const thaiwaterRoutes = (rain: unknown, water: unknown, dam: unknown): FetchRoute => (url) => {
   if (url.includes("rain_24h")) return jsonResponse(rain);
   if (url.includes("waterlevel_load")) return jsonResponse(water);
@@ -93,6 +110,12 @@ describe("ObservationCacheDO: payload ผิดรูปไม่แตะแถ
     expect(status.health).toBe("degraded");
     expect(status.lastError).toBeTruthy();
     expect(status.detail.rainfallStations).toBe(1);
+    expect(status.detail.rainfallFetchedAt).toBe(before.fetchedAt);
+    expect(status.detail.waterlevelFetchedAt).toBe(before.fetchedAt);
+    expect(status.detail.rainfallError).toContain("rain_24h");
+    expect(status.detail.waterlevelError).toContain("waterlevel_load");
+    expect(status.detail.rainfallHealth).toBe("degraded");
+    expect(status.detail.waterlevelHealth).toBe("degraded");
     // ต้องไหลผ่านบันไดเดิม: มี lastError ค้างอยู่ = /health ไม่มีทางเป็น ok
     expect(healthOk([status])).toBe(false);
   });
@@ -123,8 +146,11 @@ describe("ObservationCacheDO: payload ผิดรูปไม่แตะแถ
   });
 
   it("เขื่อน: payload ที่เหลือศูนย์แถวต้องไม่ล้างตารางเขื่อนทิ้ง", async () => {
+    // Capture one clock for this test so both fixture rows remain valid under
+    // the production age cutoff without coupling the assertion to wall time.
+    const dams = damsAt(Date.now());
     const stubDam = env.OBSERVATION_CACHE.getByName("obs-dams");
-    routeFetch(thaiwaterRoutes(rainFixture, waterFixture, damFixture));
+    routeFetch(thaiwaterRoutes(rainFixture, waterFixture, dams));
     await runInDurableObject(stubDam, (instance) => instance.getDams(null));
     const before = await runInDurableObject(stubDam, (_instance, ctx) => countRows(ctx, "dams"));
     expect(before).toBe(2);
@@ -149,7 +175,7 @@ describe("ObservationCacheDO: payload ผิดรูปไม่แตะแถ
 
     // ...และต้องหายไปเมื่อต้นทางกลับมาปกติ ไม่ใช่ค้างจน /health ไม่มีวันเป็น ok อีก
     // (เลื่อนเวลาที่ลองล่าสุดให้พ้นระยะเว้น 5 นาที เหมือนรอบถัดไปในชีวิตจริง)
-    routeFetch(thaiwaterRoutes(rainFixture, waterFixture, damFixture));
+    routeFetch(thaiwaterRoutes(rainFixture, waterFixture, dams));
     await runInDurableObject(stubDam, (_instance, ctx) => {
       ctx.storage.sql.exec("DELETE FROM meta WHERE key = 'damsFetchedAt'");
       ctx.storage.sql.exec(

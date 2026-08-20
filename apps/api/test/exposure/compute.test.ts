@@ -101,6 +101,34 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+describe("namespace ของสถานี", () => {
+  it("ไม่รวมฝนกับระดับน้ำเพียงเพราะรหัสตัวเลขตรงกัน", () => {
+    const run = computeExposure(
+      obs({
+        rainfall: [rain({ id: 42, rain24h: 120, observedAt: "2026-08-19T02:00:00.000Z" })],
+        waterlevel: [water({ id: 42, freeboardM: 4, observedAt: "2026-08-19T02:20:00.000Z" })],
+      }),
+      [],
+      T,
+      NOW,
+    );
+
+    expect(run.stations).toHaveLength(2);
+    expect(run.stations).toEqual([
+      expect.objectContaining({
+        stationId: 42,
+        stationKind: "rainfall",
+        factors: expect.objectContaining({ rain24hMm: 120, freeboardM: null }),
+      }),
+      expect.objectContaining({
+        stationId: 42,
+        stationKind: "waterlevel",
+        factors: expect.objectContaining({ rain24hMm: null, freeboardM: 4 }),
+      }),
+    ]);
+  });
+});
+
 /**
  * หนึ่งเทสต่อหนึ่งแถวของตาราง `docs/methodology/flood-exposure.md` — ถ้าตัวเลขในเอกสาร
  * กับในโค้ดเลื่อนออกจากกัน แถวใดแถวหนึ่งจะแดงทันที
@@ -259,7 +287,7 @@ describe("เวลา: fetchedAt / computedAt / observedAt เป็นคน�
     expect(run.stations).toHaveLength(1);
   });
 
-  it("observedAt ของสถานีคือค่าที่เก่าที่สุดในบรรดาปัจจัยที่มี (ระเบียนไม่สดกว่าความจริง)", () => {
+  it("สถานีคนละ namespace เก็บ observedAt ของตัวเอง ไม่ลดความสดของกันและกัน", () => {
     const run = computeExposure(
       obs({
         rainfall: [rain({ id: 5, rain24h: 1, observedAt: "2026-08-19T00:00:00.000Z" })],
@@ -269,7 +297,10 @@ describe("เวลา: fetchedAt / computedAt / observedAt เป็นคน�
       T,
       NOW,
     );
-    expect(run.stations[0].observedAt).toBe("2026-08-19T00:00:00.000Z");
+    expect(run.stations).toEqual([
+      expect.objectContaining({ stationKind: "rainfall", observedAt: "2026-08-19T00:00:00.000Z" }),
+      expect.objectContaining({ stationKind: "waterlevel", observedAt: "2026-08-19T02:20:00.000Z" }),
+    ]);
   });
 
   it("layer.observedAt คือค่าที่ใหม่ที่สุดในบรรดาสถานี", () => {
@@ -315,7 +346,7 @@ describe("ความเป็น deterministic", () => {
     expect(b.runId).toBe(a.runId);
   });
 
-  it("สลับลำดับที่ต้นทางส่งมา → runId เดิม (สถานีถูกเรียงตาม stationId ก่อนเสมอ)", () => {
+  it("สลับลำดับที่ต้นทางส่งมา → runId เดิม (สถานีถูกเรียงตาม namespace แล้ว stationId)", () => {
     const a = computeExposure(observations, history, T, NOW);
     const shuffled = obs({
       rainfall: [...observations.rainfall].reverse(),
@@ -323,7 +354,11 @@ describe("ความเป็น deterministic", () => {
     });
     const b = computeExposure(shuffled, history, T, NOW);
     expect(b.runId).toBe(a.runId);
-    expect(b.stations.map((s) => s.stationId)).toEqual([3, 7, 12]);
+    expect(b.stations.map((s) => [s.stationKind, s.stationId])).toEqual([
+      ["rainfall", 3],
+      ["rainfall", 12],
+      ["waterlevel", 7],
+    ]);
   });
 
   it("ต้นทางส่งสถานีซ้ำ: สลับลำดับแล้วยังได้ค่าเดิมและ runId เดิม", () => {
@@ -355,7 +390,9 @@ describe("ความเป็น deterministic", () => {
       waterlevel: [water({ id: 7, freeboardM: 0.51, situationLevel: 4 })],
     });
     const b = computeExposure(nudged, history, T, NOW);
-    expect(b.stations[1].level).toBe(a.stations[1].level);
+    expect(b.stations.find((s) => s.stationKind === "waterlevel")?.level).toBe(
+      a.stations.find((s) => s.stationKind === "waterlevel")?.level,
+    );
     expect(b.runId).not.toBe(a.runId);
   });
 
@@ -404,7 +441,7 @@ describe("provinceCode: สำเนา ณ เวลาคำนวณ", () => 
     expect(run.stations[0].provinceCode).toBeNull();
   });
 
-  it("สถานีเดียวกันที่รายงานทั้งฝนและระดับน้ำ ยึดจังหวัดจากระเบียนระดับน้ำ", () => {
+  it("รหัสซ้ำข้าม namespace คงจังหวัดและพิกัดของแต่ละระเบียน", () => {
     const run = computeExposure(
       obs({
         rainfall: [rain({ id: 6, station: stationRef({ id: 6, provinceCode: "16", lat: 15, lon: 100 }) })],
@@ -414,9 +451,10 @@ describe("provinceCode: สำเนา ณ เวลาคำนวณ", () => 
       T,
       NOW,
     );
-    expect(run.stations).toHaveLength(1);
-    expect(run.stations[0].provinceCode).toBe("17");
-    expect([run.stations[0].lat, run.stations[0].lon]).toEqual([16, 101]);
+    expect(run.stations).toEqual([
+      expect.objectContaining({ stationKind: "rainfall", provinceCode: "16", lat: 15, lon: 100 }),
+      expect.objectContaining({ stationKind: "waterlevel", provinceCode: "17", lat: 16, lon: 101 }),
+    ]);
   });
 });
 
@@ -612,10 +650,10 @@ describe("deterministic: ลำดับของอินพุตต้อง�
       );
       ids.add(run.runId);
       bodies.add(JSON.stringify(run));
-      const s9 = run.stations.find((s) => s.stationId === 9);
+      const s9 = run.stations.find((s) => s.stationKind === "rainfall" && s.stationId === 9);
       expect(s9?.factors.rain1hMm).toBe(5);
-      // ระเบียนระดับน้ำที่ชนะคือตัวที่เวลาใหม่กว่า (02:20) — ฝั่งฝนไม่มีเวลา จึงต้องไม่ลบทิ้ง
-      expect(s9?.observedAt).toBe("2026-08-19T02:20:00.000Z");
+      // สถานีฝนไม่มีเวลา จึงคง null; เวลาของสถานีน้ำคนละ namespace ห้ามถูกนำมาเติม
+      expect(s9?.observedAt).toBeNull();
     }
     expect([...ids]).toHaveLength(1);
     expect([...bodies]).toHaveLength(1);

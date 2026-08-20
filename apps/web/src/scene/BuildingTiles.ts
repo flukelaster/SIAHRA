@@ -117,11 +117,10 @@ export class BuildingTileLayer {
   update(
     visibleTerrain: { z: number; x: number; y: number }[],
     camera: THREE.Camera,
-    worldScaleY: number,
     now: number,
   ) {
     if (this.disposed) return;
-    if (!detailTilesAllowed(camera.position.y, worldScaleY)) {
+    if (!detailTilesAllowed(camera.position.y)) {
       if (this.visibleSet.size > 0) {
         for (const id of this.visibleSet) {
           const t = this.tiles.get(id);

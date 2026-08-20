@@ -20,6 +20,7 @@ const NO_FACTORS: ExposureFactors = {
 function station(factors: Partial<ExposureFactors>, level: StationExposure["level"] = "low"): StationExposure {
   return {
     stationId: 1,
+    stationKind: "rainfall",
     provinceCode: "14",
     lat: 14.4,
     lon: 100.5,

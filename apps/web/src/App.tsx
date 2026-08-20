@@ -33,6 +33,7 @@ import type { CameraPose } from "./scene/setupScene";
 import type { QualityLevel, QualityMode } from "./scene/quality";
 import { formatFullDateTime } from "./lib/time";
 import { damDisplayName } from "./lib/damName";
+import { exposureInputsAreDegraded } from "./lib/exposureInputHealth";
 import { useLang } from "./i18n/context";
 
 const DEFAULT_PROVINCE_CODE = "10"; // Bangkok
@@ -133,12 +134,9 @@ export default function App() {
     exposure.failing ||
     apiHealth.apiDown ||
     (exposureSource !== null && exposureSource.health !== "ok");
-  // run ของ exposure คำนวณจากค่า ThaiWater โดยตรงเพียงแหล่งเดียว (ดู `sourceIds:
-  // ["thaiwater"]` ใน apps/api/src/exposure/compute.ts) — endpoint ของ exposure เอง
-  // อาจตอบว่า "ok" ได้ทั้งที่ครึ่งหนึ่งของอินพุตที่ใช้คำนวณ run นั้นเป็นค่าเก่า/บางส่วน
-  // (sub-feed หนึ่งของ ThaiWater ล่ม แต่อีก sub-feed สำเร็จ → ObservationCacheDO
-  // เผยแพร่ run ใหม่จากข้อมูลครึ่งเดียว) แยกไว้เป็นตัวแปรของตัวเองเพื่อให้ legend บอก
-  // เหตุผลที่แม่นกว่า "ไม่มีรอบใหม่" เฉย ๆ ได้ (ดู `ExposureLegendState.inputsDegraded`)
+  // exposure ใช้เฉพาะฝนและระดับน้ำ — ไม่ใช่ทุกอย่างที่ถูกรวมไว้ใต้ source ThaiWater
+  // (เช่น error ของเขื่อน) จึงต้องอ่านสุขภาพของสอง sub-feed ตรง ๆ; ค่าที่ขาดจาก
+  // backend รุ่นเก่าถูกถือว่าไม่ยืนยัน ไม่ใช่เดาว่าอินพุตพร้อม
   //
   // `exposureOwnNoNewRun` กับ `exposureInputsDegraded` เกิดพร้อมกันได้จริง (ไม่ใช่กรณี
   // แปลก): ThaiWater ล่มทั้งหมด → ObservationCacheDO ไม่เผยแพร่ run ใหม่เลย (own = true)
@@ -146,7 +144,7 @@ export default function App() {
   // เลือกจากทั้งสองสัญญาณแยกกัน ไม่ใช่พับเป็นตัวเดียวแล้วเดาสาเหตุจากมันทีหลัง
   // (`ExposureDetails` ให้ `noRunSince` ขึ้นก่อนเสมอเมื่อ `exposureOwnNoNewRun` เป็นจริง
   // — ข้อเท็จจริงที่หนักกว่า: "ไม่มีรอบใหม่" ต้องไม่ถูกกลบด้วย "อินพุตอาจไม่ครบ")
-  const exposureInputsDegraded = thaiwater !== null && thaiwater.health !== "ok";
+  const exposureInputsDegraded = exposureInputsAreDegraded(thaiwater);
   // ใช้หรี่ชั้นบนแผนที่ (`exposureStale` prop): หรี่ทุกครั้งที่สิ่งที่วาดอยู่อาจไม่ใช่
   // ของล่าสุดหรือคำนวณจากอินพุตที่ไม่ครบ — ไม่ใช่ค่าที่ใช้เลือกข้อความใน legend โดยตรง
   const exposureNoNewRun = exposureOwnNoNewRun || exposureInputsDegraded;

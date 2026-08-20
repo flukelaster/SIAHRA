@@ -56,18 +56,14 @@ describe("shouldSplit", () => {
 
 describe("detailTilesAllowed", () => {
   it("เปิดใต้เพดาน ปิดเหนือเพดาน", () => {
-    expect(detailTilesAllowed(DETAIL_TILE_ALTITUDE_GATE_M - 1, 1)).toBe(true);
-    expect(detailTilesAllowed(DETAIL_TILE_ALTITUDE_GATE_M, 1)).toBe(true);
-    expect(detailTilesAllowed(DETAIL_TILE_ALTITUDE_GATE_M + 1, 1)).toBe(false);
+    expect(detailTilesAllowed(DETAIL_TILE_ALTITUDE_GATE_M - 1)).toBe(true);
+    expect(detailTilesAllowed(DETAIL_TILE_ALTITUDE_GATE_M)).toBe(true);
+    expect(detailTilesAllowed(DETAIL_TILE_ALTITUDE_GATE_M + 1)).toBe(false);
   });
 
-  it("ไม่ขึ้นกับ vertical exaggeration — 24 กม. จริงยังผ่านที่ 3×", () => {
-    expect(detailTilesAllowed(24000 * 3, 3)).toBe(true);
-    expect(detailTilesAllowed(26000 * 3, 3)).toBe(false);
-    expect(detailTilesAllowed(24000 * 0.5, 0.5)).toBe(true);
-  });
-
-  it("worldScaleY เป็นศูนย์ไม่ทำให้ได้ NaN", () => {
-    expect(detailTilesAllowed(1000, 0)).toBe(false);
+  it("ใช้ความสูงจริงของกล้อง ไม่ใช่ vertical exaggeration ของ world", () => {
+    // การยืด terrain เป็น 3× ไม่ได้ยืดกล้อง ซึ่งอยู่นอก world group
+    expect(detailTilesAllowed(24000)).toBe(true);
+    expect(detailTilesAllowed(26000)).toBe(false);
   });
 });

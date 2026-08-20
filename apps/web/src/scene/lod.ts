@@ -50,14 +50,13 @@ export const DETAIL_TILE_ALTITUDE_GATE_M = 25000;
 /**
  * กล้องอยู่ต่ำพอที่จะสตรีมชั้นรายละเอียดหรือยัง
  *
- * `cameraY` อยู่ในหน่วยของฉากซึ่งถูกยืดตาม vertical exaggeration ของกลุ่ม
- * `world` แล้ว จึงต้องหารกลับด้วย `worldScaleY` — ไม่อย่างนั้นที่ exaggeration
- * 3× เพดาน 25 กม. จะไปทำงานจริงที่ ~8 กม. และอาคารจะหายตั้งแต่ยังมองเห็นอยู่
+ * กล้องอยู่นอกกลุ่ม `world` ที่ถูกยืดแนวดิ่ง: `cameraY` จึงเป็นความสูงจริงใน
+ * เมตรอยู่แล้ว การเอา vertical exaggeration มาหารจะย้ายเพดาน 25 กม. ตามการ
+ * ตกแต่งภูมิประเทศ และทำให้ชั้นรายละเอียดหายเร็วหรืออยู่นานเกินจริง
  */
 export function detailTilesAllowed(
   cameraY: number,
-  worldScaleY: number,
   gateM: number = DETAIL_TILE_ALTITUDE_GATE_M,
 ): boolean {
-  return cameraY / Math.max(1e-6, worldScaleY) <= gateM;
+  return cameraY <= gateM;
 }
