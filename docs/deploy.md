@@ -94,7 +94,9 @@ server-side copy ในฝั่ง R2 ไม่ต้องดึงไบต�
 scripts/upload-tiles.sh --version=2026-08-17 --copy --smoke   # ก๊อปไฟล์เดียวแล้ว HEAD ดูก่อน
 scripts/upload-tiles.sh --version=2026-08-17 --copy           # ก๊อปทั้งชุด
 ```
-**ลำดับของการปล่อยรุ่น** (ต้องก๊อปขึ้น R2 ให้เสร็จก่อน manifest จะชี้ไปหา) และนโยบาย "prefix เดิม
+แต่ปกติ **ไม่ต้องเรียกสองคำสั่งนี้เองตอนปล่อยรุ่น**: `scripts/release-dataset.sh` เป็นตัวเรียงให้
+ทั้ง build → checksum → upload → verify → manifest diff และหยุดทันทีที่ขั้นไหนไม่ผ่าน — ขั้นตอน
+เต็มกับวิธีถอยอยู่ที่ [`docs/dataset-release.md`](./dataset-release.md) ส่วนนโยบาย "prefix เดิม
 ห้ามลบ" อยู่ที่ [`docs/dataset.md` §7](./dataset.md) — สคริปต์ทั้งสองโหมดเป็น append-only
 (`rclone copy` ไม่มี `sync` แล้ว) จึงไม่ลบไฟล์บน R2 ให้เองไม่ว่ากรณีใด
 
@@ -119,11 +121,21 @@ URL แบบมีรุ่นแปลงเป็น key แบบมีร�
 path อื่นส่งต่อ `env.ASSETS.fetch(request)` ; tile ที่ไม่มีใน R2 ตอบ **404** (ห้ามปล่อยให้ตกไป SPA
 fallback — loader จะได้ HTML มาแทน binary แล้วพังเงียบ ๆ ซึ่งเป็นอาการที่เจอบน prod ตอนแรก)
 
-**ไม่ต้องตั้ง `run_worker_first`** — ทดสอบใน `wrangler dev` แล้วว่า `not_found_handling:
-"single-page-application"` ตอบเฉพาะ request ที่เป็น *navigation* (wrangler log ว่า
-`Sec-Fetch-Mode: navigate`) ส่วน `fetch()` ของ tile ที่ไม่ใช่ asset ตกมาถึง Worker เอง จึงได้ทั้ง
-สองอย่าง: SPA route ลึก ๆ ยังคืน `index.html` และ manifest ยังมาจาก asset layer โดยไม่กิน Worker
-invocation (ถ้าเจอ tile ตอบ `200 text/html` แปลว่ากติกานี้เปลี่ยน ให้กลับมาใส่ `run_worker_first`)
+**ไม่ต้องตั้ง `run_worker_first`** — เก็บไว้เพราะ manifest/hillshade ที่ track ไว้ใต้ `/aoi/` ยัง
+มาจาก asset layer โดยไม่กิน Worker invocation ส่วนพฤติกรรมของ SPA fallback มี **สองผลการวัดที่ไม่
+ตรงกัน เก็บไว้ทั้งคู่** (อย่าลบอันใดอันหนึ่งทิ้ง):
+
+- `wrangler dev` (ตอนที่เขียนบรรทัดนี้): `not_found_handling: "single-page-application"` ตอบเฉพาะ
+  request ที่เป็น *navigation* (wrangler log ว่า `Sec-Fetch-Mode: navigate`) ส่วน `fetch()` ของ
+  tile ที่ไม่ใช่ asset ตกมาถึง Worker เอง
+- **prod วัดจริง 2026-08-20 (`curl -I`)**: ไม่เป็นแบบนั้น — path ที่ Worker ที่ deploy อยู่ไม่รับ
+  (เช่น `/aoi/11/v/2026-08-17/terrain/0/0_0.bin`) ตอบ `200 text/html` คือ `index.html`
+  **ไม่ใช่ 404** แม้จะส่ง `Accept: application/octet-stream` มาก็ตาม ส่วน path ที่ Worker รับ
+  ยังมาถึง Worker ปกติ (`/aoi/11/terrain/0/9999_9999.bin` → `404 text/plain` จาก Worker เอง)
+
+สาเหตุของความต่างยัง **ไม่ได้พิสูจน์** (อาจเป็น `env.ASSETS.fetch(request)` ของ Worker เองที่เป็น
+คนคืน shell ก็ได้ — ดูคอมเมนต์ใน `apps/web/wrangler.jsonc`) แต่ผลที่ต้องยึดคือ: **สถานะอย่างเดียว
+พิสูจน์ไม่ได้ว่าไทล์ถึงจริง** ทุกจุดที่ยิงไทล์จึงต้องเช็ค `application/octet-stream` ด้วย
 
 ## 3. wrangler.jsonc / secrets
 ทั้งหมดนี้อยู่ที่ `apps/api/wrangler.jsonc` — `apps/web/wrangler.jsonc` ไม่มี secret และไม่มี binding

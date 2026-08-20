@@ -166,7 +166,8 @@ If `nextAttemptAt` is `null` for a source, no alarm is scheduled — the next cr
 | `archive/index/{YYYY-MM-DD}.json` | `ObservationCacheDO` | Which of the above exist for that day — backs `/api/v1/archive/days` |
 | `exposure/runs/{runId}.json.gz` | `ObservationCacheDO`, after a refresh whose result changed | One immutable flood-exposure run (E10.3), gzip JSON — **write-once, never rewritten** |
 | `radar/tmd-composite/{frame time, ISO with `:` and `.` replaced by `-`}.png` | `RadarDO`, per new frame | One TMD composite frame, pruned after 30 days |
-| `aoi/{PP}/{terrain,buildings,features,landcover}/{z}/{x}_{y}.bin` | uploaded by `scripts/upload-tiles.sh` | Terrain and feature tiles served by **siahra-web**, not the API |
+| `aoi/{PP}/{terrain,buildings,features,landcover}/{z}/{x}_{y}.bin` | uploaded by `scripts/upload-tiles.sh` | Terrain and feature tiles served by **siahra-web**, not the API. The legacy unversioned prefix — clients that cached it keep asking for it, so it is never deleted |
+| `aoi/{PP}/v/{ver}/{terrain,buildings,features,landcover}/{z}/{x}_{y}.bin` | `scripts/release-dataset.sh` (stage 3, via `upload-tiles.sh --version=`) | The same tiles under a dataset version (E9.2), which is what `manifest.json`'s `urlTemplate` points at. Served `immutable` for a year, so a version name is **never reused for different bytes** and a released prefix is never deleted — the policy and the one narrow exception are in [`docs/dataset.md` §7](./dataset.md); the release procedure is [`docs/dataset-release.md`](./dataset-release.md) |
 
 ```bash
 cd apps/api

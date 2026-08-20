@@ -40,13 +40,40 @@
   // rejected with 403, so don't publish one.
   "workers_dev": false,
 
-  // Deliberately NO `run_worker_first`: verified in `wrangler dev` that
-  // `not_found_handling: "single-page-application"` only answers *navigation*
-  // requests (wrangler logs `Sec-Fetch-Mode: navigate` when it applies). A
-  // `fetch()` for a tile that is not in the asset bundle falls through to the
-  // Worker instead, which is what we want — and it means the tracked static
-  // files under /aoi/ keep being served by the asset layer without paying a
-  // Worker invocation. Re-check this if the SPA fallback ever swallows a tile
-  // request (symptom: tile URLs answering `200 text/html`).
+  // Deliberately NO `run_worker_first`. Two observations, and they do NOT
+  // agree — keep both, and trust the production one when it matters:
+  //
+  //  - `wrangler dev` (recorded when this line was written): the SPA fallback
+  //    of `not_found_handling: "single-page-application"` only answered
+  //    *navigation* requests (wrangler logs `Sec-Fetch-Mode: navigate` when it
+  //    applies), so a `fetch()` for a tile missing from the asset bundle fell
+  //    through to the Worker.
+  //  - **production, measured 2026-08-20 with `curl -I`**: it does NOT behave
+  //    that way. `/aoi/11/v/2026-08-17/terrain/0/0_0.bin` (a path the deployed
+  //    Worker's `parseTilePath` does not claim) answers `200 text/html` —
+  //    index.html — even with `Accept: application/octet-stream`, and so does
+  //    any other unclaimed extension-bearing path. It never 404s. Only paths
+  //    the Worker *does* claim reach it (`/aoi/11/terrain/0/9999_9999.bin` →
+  //    `404 text/plain` from the Worker's own miss branch).
+  //
+  // The cause of the divergence is NOT established here — only the behaviour
+  // is. One untested hypothesis worth checking first if anyone ever digs in:
+  // in production the shell may be coming out of this Worker's own
+  // `if (!tile) return env.ASSETS.fetch(request)` fallthrough (worker/index.ts)
+  // rather than from the asset layer answering ahead of it, in which case
+  // `not_found_handling` is what turns that fallthrough into index.html. Both
+  // stories fit every measurement above equally well; do not write either one
+  // down as fact without a test that separates them.
+  //
+  // What follows operationally, either way: a path this Worker does not claim
+  // gets the SPA shell, not a 404, so **status alone can never prove a tile is
+  // reachable** — every tile probe in scripts/{release-dataset,upload-tiles,
+  // verify-tiles}.sh requires `application/octet-stream` as well. Anything
+  // relying on a tile URL 404ing in production is wrong today.
+  //
+  // `run_worker_first` stays off regardless: it would put a Worker invocation
+  // in front of every tracked static file under /aoi/ (manifest.json,
+  // boundary.geojson, hillshade.png, the terrain.bin overview), and measured
+  // above, the tile paths the Worker claims reach it as things stand.
   "observability": { "enabled": true }
 }

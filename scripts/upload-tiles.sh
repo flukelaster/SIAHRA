@@ -132,11 +132,27 @@ dest() {  # $1=province [$2=layer]
 }
 
 # ตรวจผ่าน Worker ว่า URL ที่ client จะใช้จริงตอบ 200 (HEAD เท่านั้น — ดู verify-tiles.sh)
+#
+# **สถานะอย่างเดียวไม่พอ และเคยพลาดมาแล้ว**: asset layer ของ siahra-web ตั้ง
+# `not_found_handling: "single-page-application"` ไว้ path ที่ Worker ไม่รับ (เช่น /v/{ver}
+# บน Worker รุ่นก่อน E9.2) จึงได้ `200 text/html` = หน้า index.html ไม่ใช่ 404
+# วัดจริงบน prod 2026-08-20: /aoi/11/v/2026-08-17/terrain/0/0_0.bin → 200 text/html
+# ไทล์จริงเป็น application/octet-stream เสมอ (Worker ตั้งเองใน worker/index.ts) การเช็ค
+# content-type จึงเป็นเส้นเดียวที่แยก "ไบต์ถึงจริง" ออกจาก "SPA shell ใต้ URL immutable 1 ปี"
 probe() {  # $1 = path ใต้ https://siahra-radar.co
-  local code
-  code=$(curl -sk -o /dev/null -w '%{http_code}' -I "https://siahra-radar.co$1")
-  echo "$1 -> $code"
-  [ "$code" = "200" ]
+  local out code ctype
+  out=$(curl -sk -m 20 -o /dev/null -w '%{http_code} %{content_type}' -I "https://siahra-radar.co$1" 2>/dev/null || true)
+  code="${out%% *}"
+  ctype=""
+  case "$out" in *' '*) ctype="${out#* }" ;; esac
+  ctype="${ctype%%;*}"   # ตัด `;charset=…` ออก
+  echo "$1 -> ${code:-000} ${ctype:-ไม่มี content-type}"
+  # ยิงไม่ออก/อ่านไม่ได้ ก็คือไม่ผ่าน — ห้ามนับเป็นผ่านเด็ดขาด (ของที่ตามมาคืออัป 5.6 GB)
+  [ "$code" = "200" ] || return 1
+  case "$ctype" in application/octet-stream) return 0 ;; esac
+  echo "   200 แต่ content-type เป็น \"${ctype:-ไม่มี}\" ไม่ใช่ application/octet-stream" >&2
+  echo "   = asset layer ตอบ index.html แทน ไม่ใช่ไทล์ — ถือว่าไม่ผ่าน" >&2
+  return 1
 }
 
 if [ "$SMOKE" = "1" ]; then
@@ -148,19 +164,19 @@ if [ "$SMOKE" = "1" ]; then
   if [ -z "$VERSION" ]; then
     echo "== smoke (prefix เดิม): $key =="
     rclone copyto "$src" "r2:$BUCKET/$PREFIX/$key" "${COMMON_BASE[@]}"
-    probe "/aoi/$key" || { echo "ยังไม่ 200 — อย่าเพิ่งอัปเต็มชุด" >&2; exit 1; }
+    probe "/aoi/$key" || { echo "ยังไม่ผ่าน (ดูบรรทัดบน) — อย่าเพิ่งอัปเต็มชุด" >&2; exit 1; }
   elif [ "$MODE" = "copy" ]; then
     echo "== smoke (server-side copy → v/$VERSION): $key =="
     rclone copyto "r2:$BUCKET/$PREFIX/$key" "r2:$BUCKET/$PREFIX/$p/v/$VERSION/$rest" "${COMMON_BASE[@]}"
     probe "/aoi/$p/v/$VERSION/$rest" || {
-      echo "ยังไม่ 200 — เช็คสองข้อก่อนก๊อปทั้งชุด: (1) siahra-web ที่ deploy อยู่มี worker/tilePath.ts" >&2
+      echo "ยังไม่ผ่าน (ดูบรรทัดบน) — เช็คสองข้อก่อนก๊อปทั้งชุด: (1) siahra-web ที่ deploy อยู่มี worker/tilePath.ts" >&2
       echo "ของ E9.2 แล้วหรือยัง (รุ่นเก่าไม่รู้จัก /v/) (2) ไฟล์ต้นทาง $key มีอยู่จริงบน R2 ไหม" >&2
       exit 1
     }
   else
     echo "== smoke (อัปจากเครื่องนี้ → v/$VERSION): $key =="
     rclone copyto "$src" "r2:$BUCKET/$PREFIX/$p/v/$VERSION/$rest" "${COMMON_BASE[@]}"
-    probe "/aoi/$p/v/$VERSION/$rest" || { echo "ยังไม่ 200 — อย่าเพิ่งรันเต็ม" >&2; exit 1; }
+    probe "/aoi/$p/v/$VERSION/$rest" || { echo "ยังไม่ผ่าน (ดูบรรทัดบน) — อย่าเพิ่งรันเต็ม" >&2; exit 1; }
   fi
   echo "== prefix เดิมต้องยังตอบ 200 อยู่ (ห้ามหาย — docs/dataset.md §7) =="
   probe "/aoi/$key" || { echo "prefix เดิมพัง — หยุดทันที" >&2; exit 1; }

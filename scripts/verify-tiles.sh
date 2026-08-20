@@ -16,6 +16,13 @@
 #
 # ใช้ HEAD + `curl -k` เพราะเครื่องที่ deploy อยู่หลัง TLS-inspecting filter — GET body จะถูก
 # แทนด้วยหน้า 403 ของ filter (ดู docs/deploy.md §6) ส่วน status ของ HEAD ยังเชื่อถือได้
+#
+# **"200" อย่างเดียวไม่ใช่ผ่าน** — ต้องเป็น `200 application/octet-stream` เท่านั้น
+# asset layer ของ siahra-web ตั้ง `not_found_handling: "single-page-application"` ไว้ path
+# ที่ Worker ไม่รับจึงได้ `200 text/html` (= index.html) แทนที่จะเป็น 404 วัดจริงบน prod
+# 2026-08-20: `/aoi/11/v/2026-08-17/terrain/0/0_0.bin` → `200 text/html` ขณะที่ไทล์จริงที่
+# path เดิม → `200 application/octet-stream` การนับแค่ "^200 " จึงเคยทำให้ทั้งชุดที่ยังไม่ได้
+# อัปเลย "ผ่าน" ครบทุก path — ซึ่งเป็นข้อผิดพลาดที่ปลดล็อกให้ manifest ไปชี้รุ่นที่ยังไม่มีไบต์
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -78,25 +85,72 @@ paths=$(
 
 echo "ตรวจ $(echo "$paths" | grep -c .) path จาก ${#provinces[@]} จังหวัด ที่ $HOST"
 
+# ผลออกมาสามคอลัมน์เสมอ: `code ctype path` — ctype ตัด `;charset=…` ทิ้ง และเป็น "-" เมื่อ
+# ยิงไม่ออก (curl พัง/TLS filter) ซึ่งต้องนับเป็น "ไม่ผ่าน" ไม่ใช่ข้ามเงียบ ๆ
+#
+# ส่ง path เป็น "อาร์กิวเมนต์" (-n 1) ไม่ใช่ -I{}: xargs ของ BSD เก็บสตริงแทนที่ของ -I ได้
+# แค่ 255 ไบต์ (-S) พอตัวคำสั่งยาวขึ้นบวกกับ path แบบมีรุ่นที่ยาวกว่าเดิม 13 ตัวอักษร มันจะ
+# ตาย "command line cannot be assembled, too long" — วัดมาแล้ว: path เดิม 8 อันรอด แบบมีรุ่นไม่รอด
+# และผลคือ **ผ่านทั้งที่แทบไม่ได้ยิงอะไรเลย** (เหลือผลกลับมาอันเดียวจาก 16) ซึ่งเป็นความล้มเหลว
+# ชนิดเดียวกับที่ทั้งไฟล์นี้มีไว้กัน — จำนวนผลจึงถูกนับเทียบกับจำนวน path ข้างล่างด้วย
+export HOST
 results=$(
   echo "$paths" | grep . |
-  xargs -P 12 -I{} sh -c 'printf "%s %s\n" "$(curl -sk -o /dev/null -w "%{http_code}" -I "'"$HOST"'{}")" "{}"'
+  xargs -P 12 -n 1 sh -c '
+    u=$1
+    r=$(curl -sk -m 20 -o /dev/null -w "%{http_code} %{content_type}" -I "$HOST$u" 2>/dev/null)
+    set -- $r
+    c="${2:-}"; c="${c%%;*}"
+    printf "%s %s %s\n" "${1:-000}" "${c:--}" "$u"
+  ' _
 )
 
 echo "$keys" | grep MISSING_LOCAL || true
-bad=$(echo "$results" | grep -v '^200 ' || true)
-okn=$(echo "$results" | grep -c '^200 ' || true)
+
+# ผลต้องกลับมาครบเท่าจำนวนที่ตั้งใจยิง — ขาดไปแม้อันเดียวแปลว่ามีอะไรตายกลางทาง
+# (xargs/curl/เชลล์) และ "ตรวจไม่ครบ" ต้องไม่มีวันอ่านว่า ✅
+want=$(echo "$paths" | grep -c . || true)
+got=$(echo "$results" | grep -c . || true)
+# ยิงศูนย์ path แล้วพิมพ์ ✅ คือคำโกหกที่แนบเนียนที่สุดของสคริปต์ตรวจสอบ:
+# want==got==0 ผ่าน guard ข้างล่างได้สบาย ๆ เพราะ "ครบ" ตามตัวเลข ที่นี่จึงตัดจบก่อน
+# (เกิดได้จริงเมื่อจังหวัดนั้นไม่มีโฟลเดอร์ layer เลย — จะเห็น MISSING_LOCAL ข้างบน)
+if [ "$want" = "0" ]; then
+  echo >&2
+  echo "ไม่ได้ตรวจอะไรเลย: ไม่มี path ให้ยิงสักอัน — ไม่ผ่าน" >&2
+  echo "(ดูบรรทัด MISSING_LOCAL ข้างบน: dataset ในเครื่องไม่มีชั้นที่จะตรวจ)" >&2
+  exit 1
+fi
+if [ "$want" != "$got" ]; then
+  echo
+  echo "ยิงได้ไม่ครบ: ตั้งใจตรวจ $want path แต่มีผลกลับมา $got — ถือว่าไม่ผ่าน" >&2
+  echo "(มีอะไรล้มกลางทาง เช่น xargs หรือ curl — ผลที่ไม่ครบสรุปไม่ได้ว่าไบต์ขึ้นครบ)" >&2
+  exit 1
+fi
+# ผ่าน = 200 **และ** เป็นไบต์ไทล์จริง `200 text/html` คือ SPA shell ของ asset layer (ดูหัวไฟล์)
+# ตรงตัวพิมพ์ ไม่ใช้ -i: `upload-tiles.sh` probe() และ worker_precondition ใน
+# `release-dataset.sh` เทียบแบบตรงตัวพิมพ์ทั้งคู่ เอกสารก็เขียนว่าเป็นกฎเดียวกัน
+# ทั้งสามจุด ถ้าที่นี่หลวมกว่า จะมี response ที่ตรงนี้บอกผ่านแต่อีกสองที่บอกไม่ผ่าน
+OK_RE='^200 application/octet-stream '
+bad=$(echo "$results" | grep -v "$OK_RE" || true)
+okn=$(echo "$results" | grep -c "$OK_RE" || true)
+ok_lines=$(echo "$results" | grep "$OK_RE" || true)
 
 echo
-echo "200: $okn (prefix เดิม $(echo "$results" | grep '^200 ' | grep -vc '/v/'), แบบมีรุ่น $(echo "$results" | grep '^200 ' | grep -c '/v/'))"
+echo "200: $okn (prefix เดิม $(echo "$ok_lines" | grep . | grep -vc '/v/'), แบบมีรุ่น $(echo "$ok_lines" | grep . | grep -c '/v/'))"
 if [ -n "$bad" ]; then
   echo "ไม่ผ่าน:"
   echo "$bad"
   echo
-  echo "จังหวัดที่ยังขาด: $(echo "$bad" | awk '{split($2,a,"/"); print a[3]}' | sort -u | tr '\n' ' ')"
+  echo "จังหวัดที่ยังขาด: $(echo "$bad" | awk '{split($3,a,"/"); print a[3]}' | sort -u | tr '\n' ' ')"
   # แยกให้เห็นว่าพังฝั่งไหน: prefix เดิมพัง = ของเก่าหายไป (ร้ายแรงกว่า), แบบมีรุ่นพัง
   # = ยังไม่ได้ก๊อปขึ้น R2 หรือ Worker ที่ deploy อยู่ยังไม่รู้จัก /v/ (ต้องมี E9.2)
   echo "  prefix เดิมไม่ผ่าน $(echo "$bad" | grep -vc '/v/') · แบบมีรุ่นไม่ผ่าน $(echo "$bad" | grep -c '/v/')"
+  shell_n=$(echo "$bad" | grep -c '^200 text/html ' || true)
+  unread_n=$(echo "$bad" | grep -c '^000 ' || true)
+  # สองกรณีนี้ต้องอธิบายเป็นคำ ไม่ใช่ปล่อยให้อ่านเป็น "404 ธรรมดา"
+  [ "$shell_n" -gt 0 ] && echo "  ในนั้นมี $shell_n path ที่ตอบ 200 แต่เป็น text/html = index.html ของ asset layer
+  ไม่ใช่ไทล์ — Worker ที่ deploy อยู่ไม่รับ path รูปนี้ (ต้อง deploy E9.2 ก่อน) หรือไบต์ยังไม่ขึ้น R2"
+  [ "$unread_n" -gt 0 ] && echo "  และอีก $unread_n path ที่ยิงไม่ออกเลย (curl พัง/TLS filter) — อ่านไม่ได้ ≠ ผ่าน"
   exit 1
 fi
-echo "ครบทุก path ที่ตรวจ ✅"
+echo "ครบทุก path ที่ตรวจ (200 + application/octet-stream) ✅"
