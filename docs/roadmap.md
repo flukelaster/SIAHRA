@@ -506,14 +506,19 @@ needs.deploy-web.result == 'skipped')`.
 3. `npm run build -w apps/web` still succeeds within the existing CI budget.
 
 #### E8.3 — Stop shipping the legacy `buildings.geojson`
-- Touches: delete `apps/web/public/aoi/*/buildings.geojson`, make `AoiManifest.buildings.url` optional, remove the legacy path in `BuildingLayer.ts` or make it an R2 fallback, `apps/etl/src/writeManifest.ts`, `docs/deploy.md`
+- Touches: delete `apps/web/public/aoi/[0-9][0-9]/buildings.geojson` (**not** `chiangmai-old-city`) and drop the now-dangling `buildings.url` from those 77 manifests, make `AoiManifest.buildings.url` optional, keep the legacy path in `BuildingLayer.ts` as the no-tiles fallback, new `scripts/check-building-tiles.mjs` (gate, wired into `deploy:web`), `apps/etl/src/{writeManifest,buildAllProvinces,buildProvinceBuildings}.ts`, `docs/deploy.md`
 - Depends: —
 - Size: M
 - Risk: the blobs stay in git history (accepted; see the Deferred section)
 - Issue: _(not yet filed)_
 
 1. A script asserts that all 77 manifests carry `buildings.tiles` before anything is deleted.
-2. `du -sh apps/web/public/aoi` drops by at least 600 MB.
+2. `du -sh apps/web/public/aoi` drops from 262M to 98M — the 77 province `buildings.geojson`
+   files are 164M of it (`du -ch apps/web/public/aoi/[0-9][0-9]/buildings.geojson`; 171,814,671
+   apparent bytes = 163.9 MiB). Every figure with an `M` suffix here is `du`, i.e. MiB. The
+   "at least 600 MB" written here originally was impossible: the whole directory only ever
+   held 262M. `chiangmai-old-city/buildings.geojson` (6.5 MiB) stays — that AOI has no tile
+   pyramid, so its GeoJSON is still the only way it renders buildings.
 3. A three-province playwright spot check still renders buildings.
 4. `AoiManifest.buildings.url` is optional in shared-types and every consumer tolerates its absence.
 

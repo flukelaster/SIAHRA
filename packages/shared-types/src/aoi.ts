@@ -158,11 +158,18 @@ export interface AoiManifest {
    * can state it instead of implying province-wide coverage.
    */
   buildings: {
-    url: string;
+    /**
+     * Legacy urban-core GeoJSON, extruded on the client. Optional since E8.3:
+     * provinces ship `tiles` instead and their `buildings.geojson` is no
+     * longer published, so no province manifest carries a `url` any more —
+     * only the small demo AOIs built by `buildAoi.ts` do. A consumer must
+     * prefer `tiles` and use `url` only when `tiles` is absent.
+     */
+    url?: string;
     count?: number;
     coverage?: "full-aoi" | "urban-core";
     coverageBbox?: { minLon: number; maxLon: number; minLat: number; maxLat: number };
-    /** Optional whole-province LOD tiles; the fields above stay as the fallback. */
+    /** Whole-province LOD tiles; `url` above is the fallback when this is absent. */
     tiles?: BuildingTilePyramid;
   } | null;
   /** Province outline polygon (GeoJSON, WGS84) for map framing. */

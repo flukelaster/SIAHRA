@@ -91,10 +91,8 @@ export interface ProvinceBuildingsResult {
 export async function buildProvinceBuildings(
   aoi: AoiDefinition,
   thailandOsmPbfPath: string,
-  outDir: string,
 ): Promise<ProvinceBuildingsResult> {
   mkdirSync(WORK_DIR, { recursive: true });
-  mkdirSync(outDir, { recursive: true });
 
   const id = aoi.aoiId;
   const bboxArg = `${aoi.bbox.minLon},${aoi.bbox.minLat},${aoi.bbox.maxLon},${aoi.bbox.maxLat}`;
@@ -202,7 +200,11 @@ export async function buildProvinceBuildings(
   );
 
   if (existsSync(projectedPath)) rmSync(projectedPath);
-  const finalPath = path.join(outDir, "buildings.geojson");
+  // E8.3 — ผลลัพธ์ลงใน WORK_DIR (gitignored) ไม่ใช่ `apps/web/public/aoi/{code}`
+  // อีกแล้ว: จังหวัดแสดงอาคารจาก tile pyramid ล้วน ๆ ไฟล์นี้จึงไม่ถูกเผยแพร่
+  // (เขียนไว้เพื่อการตรวจสอบ/ดีบักเท่านั้น) ตัว tile builder อ่านจาก
+  // `p{id}-buildings-raw.geojson` คนละไฟล์กัน จึงไม่กระทบกัน
+  const finalPath = path.join(WORK_DIR, `p${id}-buildings.geojson`);
 
   if (subsetFeatures.length === 0) {
     writeFileSync(finalPath, JSON.stringify({ type: "FeatureCollection", features: [] }));

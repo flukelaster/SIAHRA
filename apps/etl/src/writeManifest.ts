@@ -25,6 +25,9 @@ export function writeManifest(
       maxZ: terrain.maxZ,
       demType: "DSM",
     },
+    // AOI สาธิตขนาดเล็ก (buildAoi.ts) ยังใช้ geojson ก้อนเดียวอยู่ และยังเผยแพร่
+    // ไฟล์นั้นจริง — `url` จึงยังต้องเขียน ต่างจาก build ระดับจังหวัดใน
+    // buildAllProvinces.ts ที่ใช้ tile pyramid แล้วเลิกเขียน url ไปตั้งแต่ E8.3
     buildings: hasBuildings ? { url: `/aoi/${aoi.aoiId}/buildings.geojson` } : null,
     version: new Date().toISOString().slice(0, 10),
   };

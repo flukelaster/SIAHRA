@@ -49,13 +49,19 @@ R2 bucket `siahra-geodata` ตรวจแล้วว่า `/api/v1/health` �
 ยังปล่อยว่าง (same-origin เท่านั้น) ได้ตามเดิม
 
 deploy แยกกันได้จริง — แก้ UI แล้ว deploy web ไม่แตะ Durable Objects, แก้ API แล้ว deploy api
-ไม่ต้องอัปโหลด asset bundle ~310 MB ซ้ำ **และตอนนี้ `.github/workflows/deploy.yml` ทำให้อัตโนมัติแล้ว**
+ไม่ต้องอัปโหลด asset bundle ~98 MiB ซ้ำ **และตอนนี้ `.github/workflows/deploy.yml` ทำให้อัตโนมัติแล้ว**
 — merge เข้า `main` แล้ว job จะ diff ไฟล์ที่เปลี่ยนกับ `HEAD^` แล้วสั่ง deploy เฉพาะ Worker ที่แตะ
 (ต้องตั้ง repo secret `CLOUDFLARE_API_TOKEN` และ `CLOUDFLARE_ACCOUNT_ID` ก่อนถึงจะรันผ่าน) รันมือได้เหมือนเดิมถ้าต้องการ:
 ```bash
-npm run deploy:web    # build apps/web แล้ว wrangler deploy ใน apps/web
+npm run deploy:web    # check:aoi → build apps/web → wrangler deploy ใน apps/web
 npm run deploy:api    # wrangler deploy ใน apps/api (ไม่ต้องมี dist)
 ```
+`deploy:web` เริ่มด้วย `npm run check:aoi` (= `node scripts/check-building-tiles.mjs`) เสมอ —
+ด่านของ E8.3 ที่ยืนยันว่าทั้ง 77 จังหวัดยังมี `buildings.tiles` (อย่างน้อย 1 level) ใน manifest
+ก่อนจะ deploy ชุดข้อมูลที่ไม่มี `buildings.geojson` แล้ว และยืนยันว่า AOI ที่ยังใช้ geojson อยู่
+(`chiangmai-old-city`) ยังมีไฟล์ที่ `buildings.url` ชี้อยู่จริง — manifest ที่โฆษณา url ไปยังไฟล์
+ที่ไม่ได้ ship คือแหล่งข้อมูลตาย จึงถือว่าสอบตก รันมือได้ตลอด: `npm run check:aoi`
+(ตั้งใจไม่ทำเป็น job ใน `ci.yml` — นี่คือ invariant ของชุดข้อมูลใน working tree ไม่ใช่ของโค้ด)
 ทั้งสองตัวตั้ง `"workers_dev": false` — มีแต่ host เดียวคือ `siahra-radar.co` เพราะ same-origin guard
 ใน `apps/api/src/rateLimit.ts` คิดบนสมมติฐานนั้น (ถ้าอยากให้ `www` ใช้ได้ด้วย ให้ redirect www → apex
 ที่ระดับ DNS/Redirect Rules ไม่ใช่เพิ่ม route ให้ Worker)
@@ -135,7 +141,7 @@ invocation (ถ้าเจอ tile ตอบ `200 text/html` แปลว่า
 
 ## 4. Build + deploy (สองคำสั่งอิสระ)
 ```bash
-npm run deploy:web    # build -> apps/web/dist (~310 MB, < 20,000 ไฟล์, ไฟล์ใหญ่สุด < 25 MiB) แล้ว deploy siahra-web
+npm run deploy:web    # check:aoi -> build -> apps/web/dist (~98 MiB, < 20,000 ไฟล์, ไฟล์ใหญ่สุด < 25 MiB) แล้ว deploy siahra-web
 npm run deploy:api    # deploy siahra-api เท่านั้น — ไม่แตะ asset bundle, ไม่ต้องมี dist ในเครื่อง
 ```
 ครั้งแรกต้องรันทั้งคู่ (คนละ Worker คนละ route) หลังจากนั้นรันเฉพาะฝั่งที่แก้

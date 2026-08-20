@@ -98,7 +98,6 @@
     }
   },
   "buildings": {
-    "url": "/aoi/43/buildings.geojson",
     "count": 320,
     "coverage": "urban-core",
     "coverageBbox": {

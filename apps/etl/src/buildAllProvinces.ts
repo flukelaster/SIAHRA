@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { AoiManifest } from "@siahra/shared-types";
 import { buildProvinceBuildings } from "./buildProvinceBuildings.js";
@@ -20,7 +20,6 @@ const REQUIRED_FILES = [
   "terrain.bin",
   "terrain.hdr",
   "hillshade.png",
-  "buildings.geojson",
   "boundary.geojson",
 ];
 
@@ -28,11 +27,28 @@ const force = process.argv.includes("--force");
 const onlyArg = process.argv.find((a) => a.startsWith("--only="));
 const only = onlyArg ? onlyArg.slice("--only=".length).split(",") : null;
 
+/**
+ * "สร้างครบแล้ว" = ไฟล์ที่ยัง ship อยู่ครบ **และ** manifest ประกาศ tile pyramid
+ * ของอาคารไว้จริง
+ *
+ * E8.3 ถอด `buildings.geojson` ออกจากรายการนี้ เพราะไฟล์นั้นไม่ถูกเผยแพร่แล้ว
+ * (ถ้าปล่อยไว้ ทุกจังหวัดจะดู "ไม่ครบ" แล้วถูก rebuild ใหม่หมด) แต่จะเช็คแค่ไฟล์
+ * อย่างเดียวก็ไม่ได้: tile ของอาคารอยู่ใน `apps/etl/data/tiles` ไม่ใช่ `outDir`
+ * จึงมองเห็นได้ทางเดียวคืออ่านจาก manifest — และจังหวัดที่ไม่มีอาคารเลย
+ * (`buildings: null`) ต้องนับว่าครบ ไม่งั้นจะ rebuild ทุกรอบไม่จบ
+ */
 function isComplete(dir: string): boolean {
-  return REQUIRED_FILES.every((f) => {
+  const filesOk = REQUIRED_FILES.every((f) => {
     const p = path.join(dir, f);
     return existsSync(p) && statSync(p).size > 0;
   });
+  if (!filesOk) return false;
+  try {
+    const manifest = JSON.parse(readFileSync(path.join(dir, "manifest.json"), "utf8")) as AoiManifest;
+    return manifest.buildings === null || (manifest.buildings?.tiles?.levels?.length ?? 0) > 0;
+  } catch {
+    return false;
+  }
 }
 
 const osmPbf = await fetchThailandOsm();
@@ -83,7 +99,7 @@ for (const b of targets) {
 
     const terrain = await buildProvinceTerrain(aoi, VRT_PATH, outDir);
     const tiles = await buildProvinceTerrainTiles(aoi, VRT_PATH, outDir, `/aoi/${b.code}`);
-    const buildings = await buildProvinceBuildings(aoi, osmPbf, outDir);
+    const buildings = await buildProvinceBuildings(aoi, osmPbf);
     const buildingTiles = await buildProvinceBuildingTiles(aoi, tiles.pyramid, `/aoi/${b.code}`);
     const featureTiles = await buildProvinceFeatureTiles(aoi, tiles.pyramid, `/aoi/${b.code}`);
     writeBoundaryGeojson(b, outDir);
@@ -108,7 +124,8 @@ for (const b of targets) {
         tiles: tiles.pyramid,
       },
       buildings: {
-        url: `/aoi/${b.code}/buildings.geojson`,
+        // ไม่มี `url` อีกแล้ว (E8.3) — จังหวัดใช้ tile pyramid ล้วน ๆ และ
+        // `buildings.geojson` ไม่ถูกเผยแพร่ ถ้ายังเขียน url ไว้ก็จะเป็นลิงก์ตาย
         count: buildings.buildingCount,
         coverage: buildings.coverage,
         coverageBbox: buildings.coverageBbox,
