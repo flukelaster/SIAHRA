@@ -23,10 +23,10 @@
 <br/>
 
 <p align="center">
-  <img src="docs/images/hero-chiangmai.png" alt="SIAHRA 3D map of Chiang Mai province showing real terrain relief across the mountain valley, road networks, a live earthquake marker and the full data-layer legend" width="100%" />
+  <img src="docs/images/hero-nakhonratchasima.png" alt="SIAHRA 3D map of Nakhon Ratchasima province: satellite imagery draped over real terrain, GISTDA flood extent picked out in blue across the western districts, a TMD rain-radar sweep, labelled tambon callouts giving flooded area in rai, an earthquake marker, the 72-hour water-level timeline and the layer panel with each layer's data-honesty subtitle" width="100%" />
 </p>
 
-<p align="center"><sub>Chiang Mai province in the live 3D viewport — real terrain relief, road networks, a live earthquake marker and the full data-layer legend.</sub></p>
+<p align="center"><sub>Nakhon Ratchasima in the live 3D viewport — GISTDA satellite flood extent over real terrain, a TMD radar sweep, 49 gauge stations reporting measured levels, and every panel stamped with when its data was fetched.</sub></p>
 
 <table align="center">
   <tr>
