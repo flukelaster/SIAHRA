@@ -18,10 +18,17 @@ describe("/hazards/latest ถูกถอดออกแล้ว (E5.2)", () =>
     await expect(res.json()).resolves.toMatchObject({ error: "Not found" });
   });
 
-  it("ไม่กระทบเส้นทาง provinces ตัวอื่นในตาราง", async () => {
-    // เส้นทางนี้ยังต้องอยู่ (แตะ DO จริงจึงเช็คแค่ว่าไม่ใช่ 404/405)
-    const res = await workerFetch("https://example.com/api/v1/provinces/10/flood-extent");
-    expect([404, 405]).not.toContain(res.status);
+  it("ไม่กระทบเส้นทาง provinces ตัวอื่นในตาราง", () => {
+    // เช็คที่ตาราง route ตรง ๆ แทนการยิงคำขอจริง — ยิงจริงเคยแตะ FloodExtentDO
+    // ซึ่งบน cold start ไปเรียก fetch ต้นทาง GISTDA จริงด้วย (ไม่ได้ mock ในเทส
+    // นี้) แม้ ensureFresh() จะไม่รอเกิน COLD_START_WAIT_MS (3s) แต่ overhead
+    // ของ DO cold init + network บน CI runner ที่โหลดสูงเคยดันเวลารวมเกิน
+    // testTimeout ค่าเริ่มต้นของ vitest (5s) ไปได้ — ที่ต้องยืนยันจริง ๆ คือ
+    // เส้นทางยังอยู่ในตาราง ไม่ใช่ต้นทางตอบอะไรมา จึงเช็คตรงนี้แทน ไม่ต้องพึ่ง DO/network เลย
+    const match = routes.find(
+      (r) => r.method === "GET" && r.pattern.test("/api/v1/provinces/10/flood-extent"),
+    );
+    expect(match).toBeDefined();
   });
 });
 
