@@ -141,6 +141,13 @@ function newer(a: string | null, b: string | null): string | null {
   return Date.parse(a) >= Date.parse(b) ? a : b;
 }
 
+/** ผลของ `freeboardTrend` — พก `earliestMs` ของจุดเก่าสุดที่ใช้จริงติดมาด้วย เพื่อให้
+ * ผู้เรียกคำนวณ `observedAt` ของสถานีได้ถูกต้อง (ดูหมายเหตุที่จุดเรียกใน `computeExposure`) */
+interface FreeboardTrend {
+  readonly trend: number;
+  readonly earliestMs: number;
+}
+
 /**
  * อัตราการเปลี่ยนของ freeboard (ม./ชม.) จากจุดแรกกับจุดสุดท้ายในหน้าต่างย้อนหลัง
  *
@@ -158,7 +165,7 @@ function freeboardTrend(
   points: readonly WaterLevelHistoryPoint[] | undefined,
   windowH: number,
   nowMs: number,
-): number | null {
+): FreeboardTrend | null {
   if (!points || points.length < 2) return null;
   const fromMs = nowMs - windowH * 3_600_000;
   const usable = points
@@ -175,7 +182,7 @@ function freeboardTrend(
   const hours = (last.ms - first.ms) / 3_600_000;
   if (hours <= 0) return null;
   // freeboard = ตลิ่ง − ระดับน้ำ ดังนั้นระดับน้ำขึ้น 1 ม./ชม. = freeboard −1 ม./ชม.
-  return round3(-(last.value - first.value) / hours);
+  return { trend: round3(-(last.value - first.value) / hours), earliestMs: first.ms };
 }
 
 /** ปัดเป็นมิลลิเมตรต่อชั่วโมง เพื่อไม่ให้เศษทศนิยมลอยทำให้ runId เปลี่ยนโดยไม่มีเหตุ */
@@ -188,6 +195,24 @@ function observedMs(t: string | null): number {
   if (t === null) return Number.NEGATIVE_INFINITY;
   const ms = Date.parse(t);
   return Number.isNaN(ms) ? Number.NEGATIVE_INFINITY : ms;
+}
+
+/**
+ * เวลาวัดที่ "เก่าที่สุด" ในบรรดาปัจจัยที่ "มีจริง" ของสถานีหนึ่ง — ใช้คำนวณ
+ * `StationExposure.observedAt` ตามสัญญาใน `packages/shared-types/src/exposure.ts`:
+ * ค่านี้ต้องเก่าไม่น้อยกว่าปัจจัยใดปัจจัยหนึ่งที่ประกอบขึ้นเป็นระดับ (ไม่ใช่แค่ค่า
+ * ล่าสุดตัวเดียว) `freeboardTrendMPerH` มาจากจุดประวัติที่อาจเก่ากว่าค่าล่าสุดของ
+ * ระดับน้ำ (`w.observedAt`) จึงต้องถูกนับรวมด้วยถ้ามันมีอยู่จริง
+ *
+ * ใช้ `observedMs()` แปลงแต่ละค่าแล้ว**กรองเอาเฉพาะค่าที่จำกัด (finite) ออกก่อน**
+ * ถึงจะหาค่าน้อยสุด — ห้าม `Math.min` ตรง ๆ บนค่าที่ยังไม่กรอง เพราะ `observedMs(null)`
+ * คืน `-Infinity` ซึ่งจะ "ชนะ" ทุกครั้งทั้งที่ไม่มีเวลาจริงอยู่เลย (ปัจจัยที่ไม่มีเวลา
+ * ต้องถูกข้าม ไม่ใช่ถูกนับเป็น "เก่าที่สุดเท่าที่จะเป็นไปได้")
+ */
+function oldestObservedIso(candidates: readonly (string | null)[]): string | null {
+  const finiteMs = candidates.map(observedMs).filter((ms) => Number.isFinite(ms));
+  if (finiteMs.length === 0) return null;
+  return new Date(Math.min(...finiteMs)).toISOString();
 }
 
 /**
@@ -287,6 +312,13 @@ export function computeExposure(
   }
 
   const merged = new Map<string, Merged>();
+  // เวลาที่วัดจริง**ล่าสุด**ในบรรดาสถานี (ไม่ถูกถอยหลังตาม `freeboardTrendMPerH`) —
+  // นี่คือค่าที่ใช้เป็น `layer.observedAt` (นิยามเดียวกับ `ObservationSummary.latestObservedAt`)
+  // ต้องคิดจากเวลาดิบที่ต้นทางส่งมาตรง ๆ ระหว่างประกอบสถานี **ไม่ใช่** จาก
+  // `StationExposure.observedAt` หลังถูกถอยหลังแล้ว มิฉะนั้น layer ทั้งชั้นจะแก่ตัว
+  // ไปตาม `historyWindowH` ของสถานีที่แก่ที่สุดโดยไม่มีเหตุผล (นี่คือคนละสัญญากับ
+  // `StationExposure.observedAt` ซึ่งต้อง "ไม่ใหม่กว่า" ปัจจัยที่ใช้จริงของสถานีนั้น)
+  let latestObservedAt: string | null = null;
 
   // รหัสสถานีฝนและระดับน้ำอยู่คนละ namespace ของ ThaiWater — เลขที่ตรงกันจึงไม่ใช่
   // หลักฐานว่าเป็นสถานีเดียวกัน และห้ามนำปัจจัยของคนละสถานีมารวมเป็นหมุดเดียว
@@ -309,17 +341,27 @@ export function computeExposure(
       },
       observedAt: r.observedAt,
     });
+    latestObservedAt = newer(latestObservedAt, r.observedAt);
   }
 
   for (const w of dedupe(observations.waterlevel)) {
-    const trend = freeboardTrend(history.get(w.station.id), thresholds.historyWindowH, nowMs);
+    const trendResult = freeboardTrend(history.get(w.station.id), thresholds.historyWindowH, nowMs);
     const factors: ExposureFactors = {
       rain1hMm: null,
       rain24hMm: null,
       freeboardM: w.freeboardM,
-      freeboardTrendMPerH: trend,
+      freeboardTrendMPerH: trendResult?.trend ?? null,
       situationLevel: w.situationLevel,
     };
+    // `observedAt` ของสถานีต้อง "ไม่ใหม่กว่า" ปัจจัยใดปัจจัยหนึ่งที่ใช้จริง — ถ้ามี
+    // trend ต้องเทียบกับเวลาของจุดประวัติที่เก่าที่สุดที่ trend ใช้ด้วย ไม่ใช่แค่เวลา
+    // ของค่าระดับน้ำล่าสุดตัวเดียว (ดู `oldestObservedIso`) — แต่ `latestObservedAt`
+    // ของทั้งชั้นต้องยึดเวลาดิบ `w.observedAt` เท่านั้น ไม่ใช่ผลถอยหลังนี้ (ดูหมายเหตุ
+    // ที่ประกาศตัวแปรข้างบน)
+    const observedAt = oldestObservedIso([
+      w.observedAt,
+      trendResult === null ? null : new Date(trendResult.earliestMs).toISOString(),
+    ]);
     merged.set(`waterlevel:${w.station.id}`, {
       stationId: w.station.id,
       stationKind: "waterlevel",
@@ -327,8 +369,9 @@ export function computeExposure(
       lat: w.station.lat,
       lon: w.station.lon,
       factors,
-      observedAt: w.observedAt,
+      observedAt,
     });
+    latestObservedAt = newer(latestObservedAt, w.observedAt);
   }
 
   const stations: StationExposure[] = [...merged.values()]
@@ -350,10 +393,8 @@ export function computeExposure(
       observedAt: m.observedAt,
     }));
 
-  // เวลาวัดของทั้งชั้น = ค่าที่ใหม่ที่สุดในบรรดาสถานี (นิยามเดียวกับ
-  // `ObservationSummary.latestObservedAt`) — ไม่ใช่ `now` และไม่ใช่ `fetchedAt`
-  let latestObservedAt: string | null = null;
-  for (const s of stations) latestObservedAt = newer(latestObservedAt, s.observedAt);
+  // `latestObservedAt` คำนวณไว้แล้วระหว่างประกอบ `merged` ข้างบน (จากเวลาดิบ ไม่ใช่
+  // `stations[].observedAt` ที่อาจถูกถอยหลังแล้ว) — ไม่ใช่ `now` และไม่ใช่ `fetchedAt`
 
   const computedAt = new Date(nowMs).toISOString();
   const inputs = {

@@ -318,9 +318,65 @@ describe("เวลา: fetchedAt / computedAt / observedAt เป็นคน�
     expect(run.layer.observedAt).toBe("2026-08-19T02:10:00.000Z");
   });
 
+  it("layer.observedAt ยึดเวลาดิบของการอ่านล่าสุด ไม่ถูกถอยหลังตาม freeboardTrendMPerH ของสถานี", () => {
+    // สถานีนี้ถูกถอยหลังไปที่ 01:00 (ดูเทสถัดไป) แต่ตัวชั้นทั้งหมดต้องยังอ่านว่าใหม่ที่สุด
+    // คือ 02:20 (เวลาอ่านค่าระดับน้ำจริง) — ไม่ใช่ผลของการถอยหลังระดับสถานี ซึ่งเป็น
+    // คนละสัญญากับ `StationExposure.observedAt` (ดูหมายเหตุใน compute.ts)
+    const history: StationHourlyLevels[] = [
+      {
+        stationId: 9,
+        points: [
+          { t: "2026-08-19T01:00:00.000Z", value: 3, discharge: null },
+          { t: "2026-08-19T02:00:00.000Z", value: 3.5, discharge: null },
+        ],
+      },
+    ];
+    const run = computeExposure(
+      obs({ waterlevel: [water({ id: 9, freeboardM: 1, observedAt: "2026-08-19T02:20:00.000Z" })] }),
+      history,
+      T,
+      NOW,
+    );
+    expect(run.stations[0].observedAt).toBe("2026-08-19T01:00:00.000Z");
+    expect(run.layer.observedAt).toBe("2026-08-19T02:20:00.000Z");
+  });
+
   it("สถานีที่ต้นทางไม่ได้ส่งเวลามา → observedAt เป็น null ไม่ใช่ now", () => {
     const run = computeExposure(obs({ rainfall: [rain({ id: 4, observedAt: null })] }), [], T, NOW);
     expect(run.stations[0].observedAt).toBeNull();
+  });
+
+  it("มี freeboardTrendMPerH → observedAt ต้องเก่าเท่ากับจุดประวัติที่เก่าที่สุดที่ trend ใช้ ไม่ใช่แค่เวลาของค่าระดับน้ำล่าสุด", () => {
+    // ค่าระดับน้ำล่าสุดอ่านตอน 02:20 แต่ trend คำนวณจากจุดย้อนหลังตั้งแต่ 01:00 —
+    // run นี้จึง "ไม่ใหม่กว่า" 01:00 แม้ค่าตัวที่แสดง (freeboardM) จะอ่านทีหลังก็ตาม
+    const history: StationHourlyLevels[] = [
+      {
+        stationId: 9,
+        points: [
+          { t: "2026-08-19T01:00:00.000Z", value: 3, discharge: null },
+          { t: "2026-08-19T02:00:00.000Z", value: 3.5, discharge: null },
+        ],
+      },
+    ];
+    const run = computeExposure(
+      obs({ waterlevel: [water({ id: 9, freeboardM: 1, observedAt: "2026-08-19T02:20:00.000Z" })] }),
+      history,
+      T,
+      NOW,
+    );
+    expect(run.stations[0].factors.freeboardTrendMPerH).toBe(-0.5);
+    expect(run.stations[0].observedAt).toBe("2026-08-19T01:00:00.000Z");
+  });
+
+  it("ไม่มี freeboardTrendMPerH (trend เป็น null) → observedAt ยังเป็นเวลาของค่าระดับน้ำล่าสุดตามเดิม", () => {
+    const run = computeExposure(
+      obs({ waterlevel: [water({ id: 9, freeboardM: 1, observedAt: "2026-08-19T02:20:00.000Z" })] }),
+      [],
+      T,
+      NOW,
+    );
+    expect(run.stations[0].factors.freeboardTrendMPerH).toBeNull();
+    expect(run.stations[0].observedAt).toBe("2026-08-19T02:20:00.000Z");
   });
 });
 

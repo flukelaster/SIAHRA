@@ -37,14 +37,24 @@ export function readInitialLang(): Lang {
   return readStoredLang() ?? DEFAULT_LANG;
 }
 
-/** ภาษาที่จำไว้ (แท็บนี้ก่อน แล้วค่อยเป็นตัวเลือกถาวร) — null = ไม่เคยจำอะไรไว้ */
+/**
+ * ภาษาที่จำไว้ (แท็บนี้ก่อน แล้วค่อยเป็นตัวเลือกถาวร) — null = ไม่เคยจำอะไรไว้
+ *
+ * `window.sessionStorage`/`window.localStorage` เป็น getter ตาม spec — นโยบาย
+ * เบราว์เซอร์หรือ sandbox บางที่ (เช่น iframe ที่ปิด storage) โยน `SecurityError`
+ * ได้ตั้งแต่ตอน**อ่าน property** ไม่ใช่แค่ตอนเรียก `.getItem()` การอ่าน property
+ * จึงต้องอยู่ใน `try` เดียวกับ `.getItem()` ห้ามสร้าง array literal ที่มีทั้งสอง
+ * ตัวไว้ก่อนเข้า loop เพราะนั่นจะประเมิน getter ทั้งคู่นอก try แล้วโยนทิ้ง
+ * `readInitialLang()` ทั้งฟังก์ชันไปเลย (ไม่มี fallback เป็นภาษาไทยตามที่ตั้งใจไว้)
+ */
 function readStoredLang(): Lang | null {
-  for (const store of [window.sessionStorage, window.localStorage]) {
+  for (const kind of ["session", "local"] as const) {
     try {
+      const store = kind === "session" ? window.sessionStorage : window.localStorage;
       const stored = store.getItem(LANG_STORAGE_KEY);
       if (isLang(stored)) return stored;
     } catch {
-      // storage ถูกปิด (โหมดส่วนตัว/นโยบายองค์กร) — ข้ามไป ไม่ใช่ล้มทั้งหน้า
+      // storage ถูกปิด (โหมดส่วนตัว/นโยบายองค์กร/sandbox) — ข้ามไป ไม่ใช่ล้มทั้งหน้า
     }
   }
   return null;
@@ -57,9 +67,12 @@ function readStoredLang(): Lang | null {
  */
 export function rememberLang(lang: Lang, source: "choice" | "link"): void {
   if (typeof window === "undefined") return;
-  const stores = source === "choice" ? [window.sessionStorage, window.localStorage] : [window.sessionStorage];
-  for (const store of stores) {
+  // เหมือน readStoredLang(): ต้องอ่าน property ของ storage **ใน** try เดียวกับ
+  // .setItem() ไม่ใช่สร้าง array literal ไว้ก่อน เพราะ getter เองก็โยนได้
+  const kinds = source === "choice" ? (["session", "local"] as const) : (["session"] as const);
+  for (const kind of kinds) {
     try {
+      const store = kind === "session" ? window.sessionStorage : window.localStorage;
       store.setItem(LANG_STORAGE_KEY, lang);
     } catch {
       // เก็บไม่ได้ก็ยังสลับภาษาในหน้านี้ได้ตามปกติ

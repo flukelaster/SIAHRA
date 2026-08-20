@@ -260,16 +260,19 @@ function ExposureDetails({
     );
   } else if (run === null) {
     // `noRunReason` แยกกันเฉพาะตอน `noNewRun` เป็นจริง (มี 503 มาให้อ่านแล้ว) —
-    // "never-published" (หรือไม่รู้เหตุผลเลย ซึ่งเป็นค่าเริ่มต้นที่ปลอดภัยกว่า) ใช้
-    // ข้อความเดิม ส่วน "missing"/"error" ต้องมีข้อความของตัวเอง ห้ามยืม noRunEver
-    // เพราะนั่นคือการอ้างว่า "ไม่เคยมี run" ทั้งที่เซิร์ฟเวอร์ไม่ได้พูดแบบนั้น
-    status = !noNewRun ? null : noRunReason === "missing" || noRunReason === "error" ? (
-      <span className="text-[10px] text-[var(--color-risk-medium)]">
-        {t("legend.exposure.runUnavailable")}
-      </span>
-    ) : (
+    // "noRunEver" ("ยังไม่เคยได้รับผลคำนวณ") ต้องขึ้นเฉพาะตอนที่ reason เป็น
+    // "never-published" **เป๊ะ** เท่านั้น ทุกกรณีอื่น ("missing"/"error" หรือ `null`
+    // ซึ่งแปลว่าไม่รู้เหตุผลเลย เช่น 429 rate-limit ที่ไม่มี field `reason` ให้อ่าน —
+    // ดู apps/api/src/router.ts) ต้องขึ้น "runUnavailable" เพราะเราไม่รู้จริง ๆ ว่า
+    // run เคยมีอยู่ไหม การเดาว่า "never-published" ในกรณีที่ไม่รู้เหตุผลเป็นการอ้าง
+    // ข้อเท็จจริงที่เจาะจงเกินกว่าที่รู้จริง ไม่ใช่ค่าเริ่มต้นที่ปลอดภัย
+    status = !noNewRun ? null : noRunReason === "never-published" ? (
       <span className="text-[10px] text-[var(--color-fg-muted)]">
         {t("legend.exposure.noRunEver")}
+      </span>
+    ) : (
+      <span className="text-[10px] text-[var(--color-risk-medium)]">
+        {t("legend.exposure.runUnavailable")}
       </span>
     );
   } else if (noNewRun) {
