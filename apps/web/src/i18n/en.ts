@@ -125,6 +125,7 @@ export const en: Record<keyof typeof th, string> = {
   "topbar.shareTitle": "Copy a link to this view",
   "topbar.snapshotTitle": "Save a map image",
   "topbar.sources": "Data sources",
+  "topbar.repoTitle": "Source code on GitHub (open source)",
 
   // ── Province picker ───────────────────────────────────────────────────
   "province.select": "Select a province",

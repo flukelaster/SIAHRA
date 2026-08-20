@@ -2,6 +2,7 @@ import { Camera, Check, Link2, Search } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { BRAND } from "../../branding";
 import { BrandMark } from "./BrandMark";
+import { GithubMark } from "./GithubMark";
 import { LanguageToggle } from "./LanguageToggle";
 import type { Province } from "../../data/types";
 import { useLang } from "../../i18n/context";
@@ -17,7 +18,7 @@ export interface SearchPlace {
   lat: number;
 }
 
-/** Floating header bar over the map: brand, search (province/amphoe/station/dam), share, snapshot. */
+/** Floating header bar over the map: brand, search (province/amphoe/station/dam), share, snapshot, source repo. */
 export function TopBar({
   provinces,
   places,
@@ -167,6 +168,18 @@ export function TopBar({
         >
           <Camera size={14} />
         </button>
+        {/* ทางเข้าซอร์สโค้ด — โครงการเป็นโอเพนซอร์ส ลิงก์จึงอยู่ในแถบบนตลอด
+            รวมถึงจอแคบ (ปุ่มไอคอนล้วน กินที่เท่าปุ่มบันทึกภาพ) */}
+        <a
+          href={BRAND.repoUrl}
+          target="_blank"
+          rel="noreferrer noopener"
+          title={t("topbar.repoTitle")}
+          aria-label={t("topbar.repoTitle")}
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-[var(--color-fg-muted)] transition-colors hover:border-white/25 hover:text-[var(--color-fg)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]"
+        >
+          <GithubMark size={15} />
+        </a>
       </div>
 
       <LanguageToggle compact={compact} />

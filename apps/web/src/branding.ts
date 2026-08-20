@@ -11,6 +11,14 @@ export const BRAND = {
   /** Browser tab / document title. */
   documentTitle: "SIAHRA — Spatial Intelligence Atlas for Hazard & Resilience Analytics",
   copyrightYear: 2026,
+  /**
+   * Public source repository. The app is open source, so the header carries a
+   * link back to it — one URL, declared here with the rest of the identity
+   * rather than typed into a component. (Unrelated to `methodologyUrl`, which
+   * stays on the in-app `/methodology` page by the decision in
+   * docs/roadmap.md §4.)
+   */
+  repoUrl: "https://github.com/flukelaster/SIAHRA",
 } as const;
 
 /**

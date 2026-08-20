@@ -121,6 +121,7 @@ export const th = {
   "topbar.shareTitle": "คัดลอกลิงก์มุมมองนี้",
   "topbar.snapshotTitle": "บันทึกภาพแผนที่",
   "topbar.sources": "แหล่งข้อมูล",
+  "topbar.repoTitle": "ซอร์สโค้ดบน GitHub (โอเพนซอร์ส)",
 
   // ── ตัวเลือกจังหวัด ───────────────────────────────────────────────────
   "province.select": "เลือกจังหวัด",
