@@ -4,6 +4,8 @@
  * and a circuit breaker that pauses the whole queue after repeated 429/5xx
  * so we back off instead of piling on a struggling public API.
  */
+import { logWarn } from "../log.js";
+
 export interface UpstreamQueueOptions {
   concurrency: number;
   minGapMs: number;
@@ -111,7 +113,7 @@ export class UpstreamQueue {
             if (this.failures >= this.opts.tripAfter) {
               this.pausedUntil = Date.now() + this.opts.pauseMs;
               this.failures = 0;
-              console.error(JSON.stringify({ level: "warn", message: "upstream queue paused", untilMs: this.pausedUntil }));
+              logWarn("upstream queue paused", { untilMs: this.pausedUntil });
             }
           }
           job.reject(err);

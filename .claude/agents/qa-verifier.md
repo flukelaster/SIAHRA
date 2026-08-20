@@ -17,11 +17,21 @@ git add -A -N && git diff HEAD --stat && git diff HEAD
 
 ## 1. The same gate as CI (`.github/workflows/ci.yml`) — run the whole set every round, not only what failed last time
 ```
-cd apps/web && npx oxlint src
+cd apps/web && npx oxlint src worker
 cd apps/web && npx tsc -b
 cd apps/api && npx tsc --noEmit
+cd apps/api && npx tsc -p test/tsconfig.json --noEmit
 cd apps/etl && npx tsc --noEmit
+npm test
 ```
+`npm test` runs both workspaces from the repo root: `apps/api` under workerd via
+`@cloudflare/vitest-pool-workers`, `apps/web` as pure modules in a node environment.
+Neither needs a dev server, a browser or the network — if a test reaches for one, that
+is a defect in the test, because CI has none of the three.
+
+The test-project typecheck is separate on purpose: `apps/api/tsconfig.json` includes only
+`src`, so without `-p test/tsconfig.json` the vitest sources are never type-checked and a
+type error can sit in them indefinitely while every gate reports green.
 Then run the **entire `Build` job every round, whatever the diff touched** — `Build` in `ci.yml` always runs, and it is more than a vite build:
 ```
 npm run build -w apps/web

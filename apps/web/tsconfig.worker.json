@@ -21,5 +21,8 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["worker", "worker-configuration.d.ts"]
+  "include": ["worker", "worker-configuration.d.ts"],
+  // เทสรันด้วย vitest เหมือนฝั่ง src (ดู tsconfig.app.json) — ไม่เอาเข้า build
+  // graph ไม่งั้นต้องลาก types ของ vitest เข้ามาใน tsconfig ของ Worker
+  "exclude": ["worker/**/*.test.ts"]
 }

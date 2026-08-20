@@ -1,15 +1,30 @@
 import { DurableObject } from "cloudflare:workers";
-import type { RadarFramesResponse, SourceStatus } from "@siahra/shared-types";
+import { SOURCES, type RadarFramesResponse, type SourceStatus } from "@siahra/shared-types";
 import {
   RADAR_BOUNDS,
   RADAR_SIZE,
   fetchRadarFrame,
   fetchRadarIndex,
 } from "../ingestion/tmdRadar.js";
+import { deriveSourceHealth } from "../sourceHealth.js";
+import { errorText, logInfo, logWarn } from "../log.js";
 
 const REFRESH_MS = 5 * 60 * 1000;
 const RETRY_MS = 60 * 1000;
-const STALE_AFTER_MS = 90 * 60 * 1000;
+/**
+ * เพดานอายุของ "เฟรมใหม่สุด" ก่อนถือว่า `delayed` — ต้นทางผลิตเฟรมทุก 15 นาที
+ * (วัดจริง 2026-08-19: ดัชนีเป็นกริด :00/:15/:30/:45 และมี 90 เฟรมใน 24 ชม.
+ * จาก 96 ช่อง คือหายเป็นครั้งคราว) และเผยแพร่ช้ากว่าเวลาเฟรมราว 40 นาที
+ * 90 นาที = ค่าที่โค้ดเดิมใช้เทียบกับอายุเฟรมอยู่แล้ว ครอบคลุมช่องที่หายติดกัน
+ * สองสามช่องโดยไม่แจ้งเตือนผิด — งานนี้เพียงเรียกมันด้วยชื่อที่ตรงความหมาย
+ */
+const OBSERVED_LAG_MS = 90 * 60 * 1000;
+/**
+ * เพดานของ "รอบดึงที่สำเร็จ" (คนละเรื่องกับอายุเฟรม) — รีเฟรชทุก 5 นาที ลองใหม่
+ * ทุก 1 นาทีเมื่อพลาด ดังนั้นเงียบเกิน 15 นาที = พลาดสามรอบติด ถือว่า `stale`
+ */
+const FETCH_STALE_AFTER_MS = 15 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
 /** Frames older than this are dropped from R2 and the index. */
 const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const R2_PREFIX = "radar/tmd-composite/";
@@ -83,14 +98,25 @@ export class RadarDO extends DurableObject<Env> {
   private async refresh(): Promise<boolean> {
     const nowMs = Date.now();
     this.writeMeta("lastAttemptAt", new Date(nowMs).toISOString());
-    let slots;
+    let index;
     try {
-      slots = await fetchRadarIndex();
+      index = await fetchRadarIndex();
     } catch (err) {
       this.writeMeta("lastError", String(err).slice(0, 200));
       return false;
     }
+    const slots = index.slots;
+    // ต้นทางบอกเวลาเผยแพร่มาบ้างไม่บอกบ้าง — ไม่บอกคือ null ไม่ใช่เวลาเดิมที่ค้างอยู่
+    this.writeMeta("publishedAt", index.publishedAt);
     let added = 0;
+    /**
+     * เฟรมที่ตรวจไม่ผ่าน/โหลดไม่ได้ ต้อง "ข้ามแล้วมองเห็น" ไม่ใช่ข้ามเงียบ ๆ
+     * ตัวนับใน `detail` อย่างเดียวไม่พอ เพราะ SourceStatusBar แสดงเฉพาะ `health`
+     * กับ `lastError` — ถ้าไม่ตั้ง lastError ผู้ใช้จะไม่รู้อะไรเลยจนกว่าเฟรมที่
+     * ยังเก็บไว้จะเก่าจนกลายเป็น stale ไปเอง (E4.4 AC 3)
+     */
+    const skipped: string[] = [];
+    const skippedDetail: string[] = [];
     for (const slot of slots) {
       const have = this.ctx.storage.sql.exec<FrameRow>("SELECT key FROM frames WHERE ts_ms = ?", slot.tsMs).toArray()[0];
       if (have) continue;
@@ -98,10 +124,13 @@ export class RadarDO extends DurableObject<Env> {
         const png = await fetchRadarFrame(slot.file);
         const key = `${R2_PREFIX}${new Date(slot.tsMs).toISOString().replace(/[:.]/g, "-")}.png`;
         await this.env.HAZARD_BUCKET.put(key, png, { httpMetadata: { contentType: "image/png" } });
+        logInfo("r2 put", { key, bytes: png.byteLength, tsMs: slot.tsMs });
         this.ctx.storage.sql.exec("INSERT OR REPLACE INTO frames (ts_ms, key) VALUES (?, ?)", slot.tsMs, key);
         added++;
       } catch (err) {
-        console.error(JSON.stringify({ level: "warn", message: "radar frame fetch failed", file: slot.file, error: String(err) }));
+        skipped.push(slot.file);
+        skippedDetail.push(`${slot.file} (${String(err)})`);
+        logWarn("radar frame skipped", { file: slot.file, error: errorText(err) });
       }
     }
     // Prune old frames from both the index and R2.
@@ -113,8 +142,17 @@ export class RadarDO extends DurableObject<Env> {
       this.ctx.storage.sql.exec("DELETE FROM frames WHERE ts_ms = ?", row.ts_ms);
     }
     this.writeMeta("fetchedAt", new Date(nowMs).toISOString());
-    this.writeMeta("lastError", null);
-    if (added > 0) console.log(JSON.stringify({ level: "info", message: "radar frames added", added }));
+    // เขียนทับทุกรอบที่เดินมาถึงตรงนี้ รวมถึงกรณี 0 — ตัวเลขของรอบก่อนต้องไม่ค้าง
+    // (รอบที่ดึง "ดัชนี" ไม่สำเร็จจะ return ไปก่อนหน้านี้ และคงค่าเดิมไว้ตามเจตนา:
+    //  เรายังไม่ได้ตรวจเฟรมใด ๆ ในรอบนั้นเลย จึงไม่มีข้อมูลใหม่มาแทนที่)
+    this.writeMeta("skippedFrames", String(skipped.length));
+    this.writeMeta(
+      "lastError",
+      skipped.length === 0
+        ? null
+        : `radar frames skipped (${skipped.length}/${slots.length}): ${skippedDetail.join("; ")}`.slice(0, 200),
+    );
+    if (added > 0) logInfo("radar frames added", { added });
     return true;
   }
 
@@ -133,8 +171,9 @@ export class RadarDO extends DurableObject<Env> {
         epistemicClass: "observed",
         liveOrStatic: "live",
         observedAt: newest,
+        publishedAt: this.readMeta("publishedAt"),
         fetchedAt,
-        staleAfterSeconds: STALE_AFTER_MS / 1000,
+        staleAfterSeconds: OBSERVED_LAG_MS / 1000,
         sourceIds: ["tmd-radar"],
       },
       bounds: RADAR_BOUNDS,
@@ -156,20 +195,37 @@ export class RadarDO extends DurableObject<Env> {
   async status(): Promise<SourceStatus> {
     const fetchedAt = this.readMeta("fetchedAt");
     const lastError = this.readMeta("lastError");
+    const nowMs = Date.now();
     const newest = this.ctx.storage.sql.exec<{ t: number | null }>("SELECT MAX(ts_ms) AS t FROM frames").toArray()[0]?.t ?? null;
-    const count = this.ctx.storage.sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM frames").toArray()[0]?.n ?? 0;
-    const age = newest ? Date.now() - newest : Infinity;
-    const health = !fetchedAt ? (lastError ? "down" : "unknown") : age > STALE_AFTER_MS ? "stale" : lastError ? "degraded" : "ok";
+    // frames24h ต้องนับเฉพาะเฟรมที่อยู่ใน 24 ชม.จริง ๆ — ตารางเก็บย้อนหลัง 30 วัน
+    // การนับทั้งตารางเคยทำให้ตัวเลขนี้โตขึ้นเรื่อย ๆ ทั้งที่เรดาร์หยุดส่งไปแล้ว
+    const count =
+      this.ctx.storage.sql
+        .exec<{ n: number }>("SELECT COUNT(*) AS n FROM frames WHERE ts_ms >= ?", nowMs - DAY_MS)
+        .toArray()[0]?.n ?? 0;
+    const latestObservedAt = newest ? new Date(newest).toISOString() : null;
+    const health = deriveSourceHealth({
+      nowMs,
+      fetchedAt,
+      lastError,
+      latestObservedAt,
+      staleAfterSeconds: FETCH_STALE_AFTER_MS / 1000,
+      observedLagSeconds: OBSERVED_LAG_MS / 1000,
+    });
+    const alarmAtMs = await this.ctx.storage.getAlarm();
     return {
       id: "tmd-radar",
-      labelTh: "เรดาร์ฝน (กรมอุตุนิยมวิทยา)",
+      labelTh: SOURCES["tmd-radar"].nameTh,
+      labelEn: SOURCES["tmd-radar"].nameEn,
       health,
       fetchedAt,
-      latestObservedAt: newest ? new Date(newest).toISOString() : null,
+      latestObservedAt,
       lastAttemptAt: this.readMeta("lastAttemptAt"),
       lastError,
-      detail: { frames24h: count },
-      staleAfterSeconds: STALE_AFTER_MS / 1000,
+      detail: { frames24h: count, skippedFrames: Number(this.readMeta("skippedFrames") ?? "0") },
+      staleAfterSeconds: FETCH_STALE_AFTER_MS / 1000,
+      observedLagSeconds: OBSERVED_LAG_MS / 1000,
+      nextAttemptAt: alarmAtMs === null ? null : new Date(alarmAtMs).toISOString(),
     };
   }
 }

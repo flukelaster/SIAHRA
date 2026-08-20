@@ -2,6 +2,7 @@ import * as THREE from "three";
 import type { AoiManifest, FeatureTilePyramid, TerrainTilePyramid } from "@siahra/shared-types";
 import type { LocalProjection } from "./localProjection";
 import { createWaterMaterial } from "./waterMaterial";
+import { detailTilesAllowed } from "./lod";
 import type { FeatureTileJob, FeatureTileMesh } from "../workers/featureTiles.worker";
 
 /**
@@ -126,8 +127,26 @@ export class FeatureTileLayer {
     return (bits[idx >> 3] & (1 << (idx & 7))) !== 0;
   }
 
-  update(visibleTerrain: { z: number; x: number; y: number }[], now: number) {
+  /**
+   * เหนือเพดานความสูง (scene/lod.ts) ถนนและแหล่งน้ำปิดทั้งชั้น — ทั้งหยุดขอไทล์
+   * ใหม่และถอด mesh ที่ต่ออยู่ออก (ดูเหตุผลใน BuildingTileLayer.update)
+   */
+  update(
+    visibleTerrain: { z: number; x: number; y: number }[],
+    camera: THREE.Camera,
+    now: number,
+  ) {
     if (this.disposed) return;
+    if (!detailTilesAllowed(camera.position.y)) {
+      if (this.visibleSet.size > 0) {
+        for (const id of this.visibleSet) {
+          const t = this.tiles.get(id);
+          if (t) this.detach(t);
+        }
+        this.visibleSet = new Set();
+      }
+      return;
+    }
     const next = new Set<string>();
     const wanted: Tile[] = [];
     for (const k of visibleTerrain) {

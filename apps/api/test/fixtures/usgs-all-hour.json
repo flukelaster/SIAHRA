@@ -1,0 +1,38 @@
+{
+  "type": "FeatureCollection",
+  "metadata": { "generated": 1755600000000, "title": "USGS All Earthquakes, Past Hour", "count": 2 },
+  "features": [
+    {
+      "type": "Feature",
+      "id": "us7000abcd",
+      "properties": {
+        "mag": 4.6,
+        "place": "22 km NNW of Mae Hong Son, Thailand",
+        "time": 1755599400000,
+        "updated": 1755599900000,
+        "status": "reviewed",
+        "tsunami": 0,
+        "magType": "mb",
+        "type": "earthquake",
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000abcd"
+      },
+      "geometry": { "type": "Point", "coordinates": [98.02, 19.44, 10.0] }
+    },
+    {
+      "type": "Feature",
+      "id": "us7000abce",
+      "properties": {
+        "mag": null,
+        "place": null,
+        "time": 1755598000000,
+        "updated": 1755598100000,
+        "status": "automatic",
+        "tsunami": 0,
+        "magType": null,
+        "type": "quarry blast",
+        "url": null
+      },
+      "geometry": { "type": "Point", "coordinates": [100.5, 13.75, 0.0] }
+    }
+  ]
+}

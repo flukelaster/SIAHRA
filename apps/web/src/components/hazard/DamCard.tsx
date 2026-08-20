@@ -1,6 +1,11 @@
 import { Database, Info } from "lucide-react";
 import type { DamsState } from "../../hooks/useDams";
 import { Panel } from "../ui/Panel";
+import { formatNumber } from "../../lib/number";
+import { formatDateTime } from "../../lib/time";
+import { useLang } from "../../i18n/context";
+import { resolveError } from "../../lib/errorMessage";
+import { damDisplayName } from "../../lib/damName";
 
 function pctClass(p: number | null): string {
   if (p === null) return "text-[var(--color-fg-muted)]";
@@ -12,6 +17,7 @@ function pctClass(p: number | null): string {
 
 /** Reservoir storage in the selected province — ThaiWater's published values, verbatim. */
 export function DamCard({ state }: { state: DamsState }) {
+  const { lang, t } = useLang();
   const { data, loading, error } = state;
   const dams = [...(data?.dams ?? [])].sort((a, b) => {
     if (a.kind !== b.kind) return a.kind === "large" ? -1 : 1;
@@ -19,20 +25,20 @@ export function DamCard({ state }: { state: DamsState }) {
   });
   return (
     <Panel
-      title="เขื่อนและอ่างเก็บน้ำ"
+      title={t("dam.title")}
       icon={<Database size={16} className="text-[var(--color-accent)]" aria-hidden="true" />}
       headerAction={
         <span className="text-[11px] text-[var(--color-fg-muted)]">
-          {loading && !data ? "กำลังโหลด..." : `${dams.length} แห่ง`}
+          {loading && !data ? t("common.loading") : t("dam.count", { n: dams.length })}
         </span>
       }
     >
       <div className="flex flex-col gap-3">
         {error && !data ? (
-          <p className="rounded-lg bg-[var(--color-danger)]/10 px-2.5 py-2 text-xs text-[var(--color-danger)]">{error}</p>
+          <p className="rounded-lg bg-[var(--color-danger)]/10 px-2.5 py-2 text-xs text-[var(--color-danger)]">{resolveError(t, error)}</p>
         ) : dams.length === 0 && !loading ? (
           <p className="rounded-lg bg-[var(--color-bg-elevated)] px-2.5 py-3 text-center text-xs text-[var(--color-fg-muted)]">
-            ไม่มีเขื่อน/อ่างเก็บน้ำที่รายงานในจังหวัดนี้
+            {t("dam.none")}
           </p>
         ) : (
           <ul className="max-h-56 overflow-y-auto pr-0.5">
@@ -42,18 +48,13 @@ export function DamCard({ state }: { state: DamsState }) {
                   {d.storagePercent !== null ? `${d.storagePercent.toFixed(0)}%` : "—"}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs text-[var(--color-fg)]">
-                    {d.kind === "large" ? "เขื่อน" : ""}
-                    {d.nameTh ?? d.nameEn ?? `#${d.id}`}
-                  </p>
+                  <p className="truncate text-xs text-[var(--color-fg)]">{damDisplayName(d, lang, t)}</p>
                   <p className="truncate text-[11px] text-[var(--color-fg-subtle)]">
-                    {d.storageMcm !== null ? `${d.storageMcm.toLocaleString("th-TH", { maximumFractionDigits: 0 })} ล้าน ลบ.ม.` : ""}
-                    {d.maxStorageMcm !== null ? ` / ${d.maxStorageMcm.toLocaleString("th-TH", { maximumFractionDigits: 0 })}` : ""}
-                    {d.inflowMcm !== null ? ` · น้ำไหลเข้า ${d.inflowMcm.toFixed(1)}` : ""}
-                    {d.releasedMcm !== null ? ` · ระบาย ${d.releasedMcm.toFixed(1)}` : ""}
-                    {d.observedAt
-                      ? ` · ${new Date(d.observedAt).toLocaleString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
-                      : ""}
+                    {d.storageMcm !== null ? `${formatNumber(lang, d.storageMcm)} ${t("unit.mcm")}` : ""}
+                    {d.maxStorageMcm !== null ? ` / ${formatNumber(lang, d.maxStorageMcm)}` : ""}
+                    {d.inflowMcm !== null ? t("dam.inflow", { n: d.inflowMcm.toFixed(1) }) : ""}
+                    {d.releasedMcm !== null ? t("dam.released", { n: d.releasedMcm.toFixed(1) }) : ""}
+                    {d.observedAt ? ` · ${formatDateTime(lang, d.observedAt)}` : ""}
                   </p>
                 </div>
               </li>
@@ -62,7 +63,7 @@ export function DamCard({ state }: { state: DamsState }) {
         )}
         <p className="flex items-start gap-1.5 rounded-lg bg-[var(--color-bg-elevated)] px-2.5 py-2 text-[11px] text-[var(--color-fg-muted)]">
           <Info size={13} className="mt-0.5 shrink-0 text-[var(--color-fg-subtle)]" aria-hidden="true" />
-          ปริมาณน้ำเก็บกักตามที่กรมชลประทาน/กฟผ. รายงานผ่าน ThaiWater (สสน.) — เฉพาะค่าที่รายงานภายใน 48 ชม.
+          {t("dam.note")}
         </p>
       </div>
     </Panel>

@@ -1,6 +1,7 @@
 import { Check, Search } from "lucide-react";
 import { useState } from "react";
 import type { Province } from "../../data/types";
+import { useLang } from "../../i18n/context";
 
 export function ProvinceSelector({
   provinces,
@@ -11,6 +12,7 @@ export function ProvinceSelector({
   selected: Province;
   onSelect: (p: Province) => void;
 }) {
+  const { lang, t } = useLang();
   const [query, setQuery] = useState("");
   const q = query.trim();
   const filtered = q
@@ -22,8 +24,8 @@ export function ProvinceSelector({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-baseline justify-between">
-        <p className="text-xs font-medium text-[var(--color-fg-muted)]">เลือกจังหวัด</p>
-        <p className="text-[10px] text-[var(--color-fg-subtle)]">{provinces.length} จังหวัด</p>
+        <p className="text-xs font-medium text-[var(--color-fg-muted)]">{t("province.select")}</p>
+        <p className="text-[10px] text-[var(--color-fg-subtle)]">{t("province.count", { n: provinces.length })}</p>
       </div>
 
       <label className="relative block">
@@ -36,8 +38,8 @@ export function ProvinceSelector({
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="ค้นหาจังหวัด..."
-          aria-label="กรองรายชื่อจังหวัด"
+          placeholder={t("province.searchPlaceholder")}
+          aria-label={t("province.searchAria")}
           className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] py-1.5 pr-2.5 pl-8 text-sm text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]"
         />
       </label>
@@ -57,7 +59,7 @@ export function ProvinceSelector({
                     : "text-[var(--color-fg-muted)] hover:bg-[var(--color-panel-2)] hover:text-[var(--color-fg)]"
                 }`}
               >
-                <span className="truncate">{p.nameTh}</span>
+                <span className="truncate">{lang === "th" ? p.nameTh : p.nameEn}</span>
                 {isSelected ? <Check size={14} className="shrink-0" aria-hidden="true" /> : null}
               </button>
             </li>
@@ -65,7 +67,7 @@ export function ProvinceSelector({
         })}
         {filtered.length === 0 ? (
           <li className="px-2.5 py-3 text-center text-xs text-[var(--color-fg-subtle)]">
-            ไม่พบจังหวัดที่ค้นหา
+            {t("province.notFound")}
           </li>
         ) : null}
       </ul>

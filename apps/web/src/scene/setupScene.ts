@@ -74,7 +74,27 @@ export interface SceneHandles {
   /** Called whenever the camera moves; heading is degrees clockwise from north. */
   onCameraChange: (fn: (headingDeg: number) => void) => () => void;
   viewportHeightPx: () => number;
+  /** ตัวนับสำหรับดีบัก (DEV เท่านั้น) — ดู SceneDebug */
+  debug: SceneDebug;
   dispose: () => void;
+}
+
+/**
+ * ที่รวมตัวนับสำหรับดีบักใน DEV — เปิดผ่าน `__siahraHandles.debug.snapshot()`
+ *
+ * มีไว้เพื่อให้ "นับได้" แทนที่จะ "กะเอาจากภาพ": จำนวนครั้งที่ LOD สลับ
+ * split/merge, จำนวน mesh ที่สร้าง/คืน และตัวเลขจาก `renderer.info` ซึ่งเป็น
+ * หลักฐานว่าฮิสเทอรีซิสไม่ได้เปลี่ยนอาการกระพริบให้กลายเป็นการรั่วของ GPU
+ *
+ * `renderer` ถูกสร้างใหม่ทุกครั้งที่สลับจังหวัด (effect ใน Map3DCanvas ผูกกับ
+ * `aoiId`) ตัวเลขใน `renderer.info` จึงรีเซ็ตตามไปด้วย — การเทียบข้ามจังหวัด
+ * ต้องดูที่ค่า "คงตัว" ของแต่ละรอบคู่กับตัวนับ created/disposed ของ provider
+ */
+export interface SceneDebug {
+  /** ผู้ผลิตตัวเลขลงทะเบียนไว้ที่นี่ คืนฟังก์ชันถอนการลงทะเบียน */
+  register: (name: string, read: () => unknown) => () => void;
+  /** อ่านทุกตัวนับในครั้งเดียว */
+  snapshot: () => Record<string, unknown>;
 }
 
 const BG = 0x070b14;
@@ -532,7 +552,35 @@ export function setupScene(container: HTMLDivElement): SceneHandles {
   const resizeObserver = new ResizeObserver(applySize);
   resizeObserver.observe(container);
 
+  const debugReaders = new Map<string, () => unknown>();
+  const debug: SceneDebug = {
+    register: (name, read) => {
+      debugReaders.set(name, read);
+      return () => debugReaders.delete(name);
+    },
+    snapshot: () => {
+      const out: Record<string, unknown> = {
+        renderer: {
+          geometries: renderer.info.memory.geometries,
+          textures: renderer.info.memory.textures,
+          programs: renderer.info.programs?.length ?? 0,
+          calls: renderer.info.render.calls,
+          triangles: renderer.info.render.triangles,
+        },
+      };
+      for (const [name, read] of debugReaders) {
+        try {
+          out[name] = read();
+        } catch (err) {
+          out[name] = { error: String(err) };
+        }
+      }
+      return out;
+    },
+  };
+
   const dispose = () => {
+    debugReaders.clear();
     cancelAnimationFrame(frameId);
     resizeObserver.disconnect();
     controls.dispose();
@@ -582,6 +630,7 @@ export function setupScene(container: HTMLDivElement): SceneHandles {
       return () => cameraFns.delete(fn);
     },
     viewportHeightPx: () => container.clientHeight,
+    debug,
     dispose,
   };
   if (import.meta.env.DEV) {

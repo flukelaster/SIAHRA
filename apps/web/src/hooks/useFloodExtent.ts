@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import type { FloodExtentResponse } from "@siahra/shared-types";
+import { errorMessage, type ErrorMessage } from "../lib/errorMessage";
 
 export interface FloodExtentState {
   data: FloodExtentResponse | null;
   loading: boolean;
-  error: string | null;
+  error: ErrorMessage | null;
 }
 
 const REFRESH_MS = 10 * 60 * 1000;
@@ -38,7 +39,7 @@ export function useFloodExtent(provinceCode: string | null): FloodExtentState {
         timer = window.setTimeout(load, data.retrievedAt ? REFRESH_MS : RETRY_MS);
       } catch (err) {
         if (cancelled || controller.signal.aborted) return;
-        setState((s) => ({ ...s, loading: false, error: err instanceof Error ? err.message : "โหลดไม่สำเร็จ" }));
+        setState((s) => ({ ...s, loading: false, error: errorMessage(err, "error.loadFailed") }));
         timer = window.setTimeout(load, RETRY_MS);
       }
     };

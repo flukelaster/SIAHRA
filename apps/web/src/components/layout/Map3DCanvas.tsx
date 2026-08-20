@@ -2,11 +2,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import type {
   AoiManifest,
+  AoiProvenance,
   DamObservation,
   EarthquakeEvent,
   FloodExtentResponse,
   ObservationsResponse,
+  ProvinceExposureResponse,
   RadarFramesResponse,
+  SourceId,
 } from "@siahra/shared-types";
 import { buildBoundaryOutline, type BoundaryOutlineResult } from "../../scene/BoundaryOutline";
 import { buildBuildingLayer } from "../../scene/BuildingLayer";
@@ -20,9 +23,10 @@ import { pickAt, type PickResult } from "../../scene/picking";
 import { QualityManager, type QualityLevel, type QualityMode } from "../../scene/quality";
 import { InfoPopup } from "../map/InfoPopup";
 import { buildEarthquakeMarkers, type EarthquakeMarkerResult } from "../../scene/EarthquakeMarkers";
+import { buildExposureMarkers, type ExposureMarkerResult } from "../../scene/ExposureMarkers";
 import { declutterLabels, disposeLabels, makeLabel, makePlaceLabel } from "../../scene/labels";
 import { CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
-import { AoiNotBuiltError, loadAoiManifest } from "../../scene/loadAoiManifest";
+import { AoiNotBuiltError, loadAoiManifest, type TerrainIntegrity } from "../../scene/loadAoiManifest";
 import { DEFAULT_IMAGERY_PROVIDER, loadImagery, planImagery } from "../../scene/SatelliteImagery";
 import {
   setupScene,
@@ -34,11 +38,21 @@ import {
 import { buildStationMarkers, type StationMarkerResult } from "../../scene/StationMarkers";
 import { buildTerrainMesh, type TerrainField } from "../../scene/TerrainMesh";
 import { createTerrainSharedUniforms } from "../../scene/terrainMaterial";
-import { TerrainTileTree, type TerrainTileStats } from "../../scene/TerrainTiles";
+import { disposedTreeCounters, TerrainTileTree, type TerrainTileStats } from "../../scene/TerrainTiles";
+import { formatNumber } from "../../lib/number";
+import { useLang } from "../../i18n/context";
+import type { MessageKey } from "../../i18n";
+import { errorMessage, resolveError, type ErrorMessage } from "../../lib/errorMessage";
+import { ILLUSTRATIVE_HATCH_PERIOD_PX } from "../../lib/illustrativeStyle";
 
 export interface MapLayers {
   imagery: boolean;
   lowland: boolean;
+  /**
+   * ระดับการเผชิญน้ำ (ภาพประกอบ) — E10.4 **ปิดไว้เป็นค่าเริ่มต้น** ชั้นนี้เป็นชั้นที่
+   * เราคำนวณเอง จึงไม่ควรถูกเปิดให้ใครโดยไม่ได้ตั้งใจกด
+   */
+  exposure: boolean;
   hazard: boolean;
   stations: boolean;
   buildings: boolean;
@@ -60,13 +74,32 @@ export interface MapInfo {
   nativeCellSizeM: number | null;
   buildingCount: number;
   coverage: "full-aoi" | "urban-core";
-  imagery: { attribution: string; zoom: number; loaded: number; total: number } | null;
+  imagery: { sourceId: SourceId; attribution: string; zoom: number; loaded: number; total: number } | null;
   stationCount: number;
   hazardCount: number;
   earthquakeCount: number;
-  lowlandShare: number;
+  /**
+   * สัดส่วนพื้นที่ลุ่มต่ำ — `null` เมื่อชั้นนี้ถูกปิดเพราะ terrain.bin ไม่ผ่าน
+   * การตรวจลายเซ็น (ห้ามรายงาน 0 ซึ่งอ่านว่า "ไม่มีพื้นที่ลุ่มต่ำเลย")
+   */
+  lowlandShare: number | null;
   /** Time of the radar frame currently drawn, if any. */
   radarFrameAt: string | null;
+  /**
+   * ที่มาของชุดข้อมูลจาก manifest (E9.1) — `null` เมื่อ manifest ยังไม่มี
+   * provenance (manifest รุ่นก่อน E9.1 ต้องใช้ได้ตลอดไป)
+   */
+  provenance: AoiProvenance | null;
+  /** ผลตรวจ sha256 ของ terrain.bin — `"unknown"` ไม่ปิดชั้นใด */
+  terrainIntegrity: TerrainIntegrity;
+  /**
+   * ข้อความล้มเหลวของชั้นอาคาร geojson แบบเก่า (E8.3 — เฉพาะ AOI สาธิตที่ยังไม่มี
+   * tile pyramid) เมื่อ `buildings.url` โหลด/แปลงไม่สำเร็จ — `null` เมื่อโหลดสำเร็จ,
+   * ไม่มีข้อมูลอาคารสำหรับ AOI นี้อยู่แล้ว, หรือ AOI นี้ใช้ tile pyramid แทน
+   * (ซึ่งสตรีมเองและไม่ผ่านเส้นทางนี้เลย) ต้องไม่หายเงียบเป็นแค่ console.warn
+   * เพราะผู้ใช้ทั่วไปไม่เปิด console — legend ต้องบอกว่าชั้นนี้หายไปเพราะโหลดพลาด
+   */
+  buildingsError: string | null;
 }
 
 /** Imperative map controls exposed to the shell (search fly-to, permalink, capture). */
@@ -77,11 +110,15 @@ export interface MapApi {
   captureImage: (footer: string) => Promise<Blob | null>;
 }
 
+/**
+ * สถานะการโหลดเก็บเป็น "คีย์" ไม่ใช่ข้อความที่แปลแล้ว — ไม่อย่างนั้นข้อความที่ตั้ง
+ * ตอนเริ่มโหลดจะค้างเป็นภาษาเดิมเมื่อผู้ใช้กดสลับภาษาระหว่างที่ฉากยังโหลดอยู่
+ */
 type LoadState =
-  | { status: "loading"; label: string; progress?: number }
+  | { status: "loading"; labelKey: MessageKey; progress?: number }
   | { status: "ready" }
   | { status: "not-built" }
-  | { status: "error"; message: string };
+  | { status: "error"; message: ErrorMessage };
 
 const MAX_STATION_LABELS = 10;
 
@@ -92,6 +129,8 @@ export function Map3DCanvas({
   floodExtent,
   dams,
   radar,
+  exposure,
+  exposureStale = false,
   atIso,
   exaggeration,
   layers,
@@ -111,6 +150,10 @@ export function Map3DCanvas({
   floodExtent: FloodExtentResponse | null;
   dams: DamObservation[];
   radar: RadarFramesResponse | null;
+  /** run ล่าสุดของ "ระดับการเผชิญน้ำ (ภาพประกอบ)" — null = ยังไม่มี/ชั้นถูกปิด */
+  exposure: ProvinceExposureResponse | null;
+  /** true = ไม่มีผลคำนวณรอบใหม่ → ชั้นและหมุดหรี่ลง แต่ไม่หายไป */
+  exposureStale?: boolean;
   /** Timeline position (null = live). */
   atIso: string | null;
   /** Camera pose to restore (permalink) instead of the default framing. */
@@ -127,10 +170,11 @@ export function Map3DCanvas({
   onSceneReady?: (handles: SceneHandles | null) => void;
   onInfo?: (info: MapInfo | null) => void;
 }) {
+  const { lang, t } = useLang();
   const containerRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<LoadState>({
     status: "loading",
-    label: "กำลังโหลดข้อมูลภูมิประเทศ...",
+    labelKey: "scene.loadingTerrain",
   });
   const [imageryProgress, setImageryProgress] = useState<number | null>(null);
   const [tileStats, setTileStats] = useState<TerrainTileStats | null>(null);
@@ -154,6 +198,9 @@ export function Map3DCanvas({
   const quakesRef = useRef<EarthquakeMarkerResult | null>(null);
   const floodMaskRef = useRef<FloodMask | null>(null);
   const damsRef = useRef<DamMarkerResult | null>(null);
+  const exposureRef = useRef<ExposureMarkerResult | null>(null);
+  /** ถอนตัวนับดีบักของชั้นการเผชิญน้ำ (DEV) เมื่อ run เปลี่ยนหรือฉากถูกทิ้ง */
+  const exposureDebugRef = useRef<(() => void) | null>(null);
   const radarRef = useRef<RadarOverlay | null>(null);
   const qualityRef = useRef<QualityManager | null>(null);
   const qualityCbRef = useRef(onQualityLevel);
@@ -270,6 +317,14 @@ export function Map3DCanvas({
             if (!cancelled) setTileStats(st);
           };
           quality.setTree(tree);
+          // ตัวนับ LOD สำหรับ DEV — ให้ QA นับการสลับ split/merge และคู่
+          // created/disposed ของ mesh ได้ แทนที่จะดูด้วยตา (registry ถูกล้าง
+          // ใน handles.dispose() จึงไม่ต้องถอนเอง)
+          if (import.meta.env.DEV) {
+            const t = tree;
+            handles.debug.register("lod", () => t.lodCounters);
+            handles.debug.register("lodDisposedTrees", () => disposedTreeCounters);
+          }
           handles.world.add(tree.group);
           if (manifest.buildings?.tiles) {
             buildingTiles = new BuildingTileLayer(manifest, terrain.projection);
@@ -295,6 +350,36 @@ export function Map3DCanvas({
         handles.frameTerrain(manifest, terrain.minZ, safeAreaRef.current);
         if (initialPoseRef.current) handles.setPose(initialPoseRef.current);
         terrainRef.current = { manifest, terrain, imagery: null, tiles: tree, buildingTiles, featureTiles, vegetation };
+        // ตัวนับแชนแนล overlay สำหรับ DEV — ให้ QA ตรวจได้ด้วยตัวเลขว่าเมื่อ
+        // terrain.bin ไม่ผ่านการตรวจลายเซ็น แชนแนล R (พื้นที่ลุ่มต่ำ) เป็นศูนย์จริง
+        // ขณะที่ G (ฮาโลจากค่าตรวจวัด) และ B (มาสก์จังหวัด) ยังอยู่ครบ
+        if (import.meta.env.DEV) {
+          const ov = terrain.overlay;
+          const integrity = terrain.integrity;
+          handles.debug.register("overlay", () => {
+            let r = 0;
+            let g = 0;
+            let b = 0;
+            for (let i = 0; i < ov.data.length; i += 4) {
+              if (ov.data[i] > 0) r++;
+              if (ov.data[i + 1] > 0) g++;
+              if (ov.data[i + 2] > 0) b++;
+            }
+            // ชั้นการเผชิญน้ำอยู่คนละ texture — นับแยกเพื่อให้ QA ยืนยันด้วยตัวเลขได้
+            // ว่ามันดับจริงเมื่อ terrain.bin ไม่ผ่านการตรวจลายเซ็น
+            const ex = ov.exposureTexture.image.data as Uint8Array;
+            let exR = 0;
+            for (let i = 0; i < ex.length; i += 4) if (ex[i] > 0) exR++;
+            return {
+              integrity,
+              lowlandShare: ov.lowlandShare,
+              nonZeroR: r,
+              nonZeroG: g,
+              nonZeroB: b,
+              exposureNonZero: exR,
+            };
+          });
+        }
         const proj = terrain.projection;
         const h0 = handles;
         onApi?.({
@@ -314,13 +399,21 @@ export function Map3DCanvas({
           buildingCount: buildingTiles?.count ?? manifest.buildings?.count ?? 0,
           coverage: buildingTiles ? "full-aoi" : (manifest.buildings?.coverage ?? "full-aoi"),
           imagery: tree
-            ? { attribution: tree.attribution, zoom: -1, loaded: 0, total: 0 }
+            ? { sourceId: tree.imagerySourceId, attribution: tree.attribution, zoom: -1, loaded: 0, total: 0 }
             : null,
           stationCount: 0,
           hazardCount: 0,
           earthquakeCount: 0,
           lowlandShare: terrain.overlay.lowlandShare,
           radarFrameAt: null,
+          // ทั้งสองฟิลด์ผูกกับ manifest ก้อนนี้ จึงถูกล้างพร้อมกันตอนสลับจังหวัด
+          // (cleanup ของ effect เรียก onInfo?.(null))
+          provenance: manifest.provenance ?? null,
+          terrainIntegrity: terrain.integrity,
+          // ยังไม่รู้ผลของชั้นอาคารแบบเก่า ณ จุดนี้ (ยิ่งกว่านั้น AOI ที่มี tile
+          // pyramid ไม่มีวันเรียก buildBuildingLayer เลย) — ตั้ง null ไว้ก่อน แล้ว
+          // ให้ publishInfo() แก้ทีหลังถ้าเข้าเส้นทาง legacy จริง ๆ
+          buildingsError: null,
         };
         onInfo?.(infoRef.current);
 
@@ -347,8 +440,8 @@ export function Map3DCanvas({
             tree.update(h.camera, h.world.scale.y, container.clientHeight);
             const keys = tree.visibleTileKeys();
             const now = performance.now();
-            buildingTiles?.update(keys, now);
-            featureTiles?.update(keys, now);
+            buildingTiles?.update(keys, h.camera, now);
+            featureTiles?.update(keys, h.camera, now);
             vegetation?.update(keys, h.camera, now);
           }
           const d = h.camera.position.distanceTo(h.controls.target) / frameDistance;
@@ -357,6 +450,11 @@ export function Map3DCanvas({
             1,
             THREE.MathUtils.smoothstep(d, 0.12, 0.45),
           );
+          // ลายเส้นของชั้น "ภาพประกอบ" วัดเป็นพิกเซลบนจอ จึงต้องคูณ pixelRatio
+          // ที่ preset คุณภาพเปลี่ยนได้ตลอด (scene/quality.ts) ให้ระยะห่างบนจอ
+          // เท่ากับสัญลักษณ์ใน legend เสมอ
+          terrain.material.uniforms.uHatchPx.value =
+            ILLUSTRATIVE_HATCH_PERIOD_PX * h.renderer.getPixelRatio();
           if (heavy) {
             const all: CSS2DObject[] = [];
             const collect = (g: THREE.Object3D | null | undefined) =>
@@ -367,6 +465,9 @@ export function Map3DCanvas({
             collect(floodLabelsRef.current);
             collect(damsRef.current?.labels);
             collect(quakesRef.current?.group);
+            // ป้าย "ไม่มีข้อมูลจัดลำดับ" ของชั้นการเผชิญน้ำต้องเข้าคิวจัดที่ร่วมกับ
+            // ป้ายอื่น ไม่งั้นสถานีที่อยู่ใกล้กันจะพิมพ์ทับกันจนอ่านไม่ออกทั้งกอง
+            collect(exposureRef.current?.labels);
             if (all.length > 0) {
               declutterLabels(all, h.camera, container.clientWidth, container.clientHeight);
             }
@@ -395,6 +496,7 @@ export function Map3DCanvas({
             setImageryProgress(null);
             publishInfo({
               imagery: {
+                sourceId: plan.provider.sourceId,
                 attribution: plan.provider.attribution,
                 zoom: plan.zoom,
                 loaded: result.loadedTiles,
@@ -419,15 +521,24 @@ export function Map3DCanvas({
         // Legacy urban-core footprints only when the province has no
         // building tile pyramid (tiles stream on their own).
         if (!buildingTiles) {
-          setState({ status: "loading", label: "กำลังสร้างอาคาร...", progress: 0 });
-          const buildings = await buildBuildingLayer(manifest, terrain.sample, (done, total) => {
-            if (cancelled) return;
-            setState({
-              status: "loading",
-              label: "กำลังสร้างอาคาร...",
-              progress: total > 0 ? Math.round((done / total) * 100) : 0,
-            });
-          });
+          setState({ status: "loading", labelKey: "scene.buildingBuild", progress: 0 });
+          const buildings = await buildBuildingLayer(
+            manifest,
+            terrain.sample,
+            (done, total) => {
+              if (cancelled) return;
+              setState({
+                status: "loading",
+                labelKey: "scene.buildingBuild",
+                progress: total > 0 ? Math.round((done / total) * 100) : 0,
+              });
+            },
+            // มี url แต่โหลด/แปลงพัง — terrain ยังใช้งานได้ตามปกติ (ไม่ throw ทั้งฉาก)
+            // แต่ต้องโผล่ใน legend ด้วย ไม่ใช่แค่ log ที่เงียบสำหรับผู้ใช้ทั่วไป
+            (message) => {
+              if (!cancelled) publishInfo({ buildingsError: message });
+            },
+          );
           if (cancelled || !handles) return;
           if (buildings) {
             buildingsRef.current = buildings.mesh;
@@ -444,7 +555,7 @@ export function Map3DCanvas({
         }
         setState({
           status: "error",
-          message: err instanceof Error ? err.message : "โหลดแผนที่ 3 มิติไม่สำเร็จ",
+          message: errorMessage(err, "scene.loadError"),
         });
       }
     })();
@@ -476,6 +587,10 @@ export function Map3DCanvas({
       if (damsRef.current) disposeLabels(damsRef.current.labels);
       damsRef.current?.dispose();
       damsRef.current = null;
+      exposureDebugRef.current?.();
+      exposureDebugRef.current = null;
+      exposureRef.current?.dispose();
+      exposureRef.current = null;
       radarRef.current?.dispose();
       radarRef.current = null;
       qualityRef.current = null;
@@ -541,6 +656,10 @@ export function Map3DCanvas({
     const labels = new THREE.Group();
     labels.name = "station-labels";
     const proj = terrain.projection;
+    // ชื่อสถานีมาจากต้นทาง (nameTh/nameEn) — เลือกฟิลด์ตามภาษา ไม่ได้แปลเอง
+    const stationLabel = (st: { nameTh: string | null; nameEn: string | null; id: number }) =>
+      (lang === "th" ? (st.nameTh ?? st.nameEn) : (st.nameEn ?? st.nameTh)) ??
+      t("water.stationFallback", { id: st.id });
     const candidates: { lon: number; lat: number; title: string; sub: string; tone: "warning" | "severe"; rank: number }[] = [];
     for (const w of observations.waterlevel) {
       const lvl = w.situationLevel ?? 0;
@@ -550,8 +669,11 @@ export function Map3DCanvas({
         candidates.push({
           lon: w.station.lon,
           lat: w.station.lat,
-          title: w.station.nameTh ?? `สถานี ${w.station.id}`,
-          sub: w.freeboardM <= 0 ? `สูงกว่าตลิ่ง ${Math.abs(w.freeboardM).toFixed(2)} ม. (ค่าย้อนหลัง)` : `ต่ำกว่าตลิ่ง ${w.freeboardM.toFixed(2)} ม. (ค่าย้อนหลัง)`,
+          title: stationLabel(w.station),
+          sub:
+            w.freeboardM <= 0
+              ? t("scene.aboveBankHistorical", { n: Math.abs(w.freeboardM).toFixed(2) })
+              : t("scene.belowBankHistorical", { n: w.freeboardM.toFixed(2) }),
           tone: w.freeboardM <= 0 ? "severe" : "warning",
           rank: w.freeboardM <= 0 ? 100 : 60,
         });
@@ -561,8 +683,8 @@ export function Map3DCanvas({
       candidates.push({
         lon: w.station.lon,
         lat: w.station.lat,
-        title: w.station.nameTh ?? `สถานี ${w.station.id}`,
-        sub: lvl >= 5 ? "ล้นตลิ่ง (ตรวจวัดจริง)" : "น้ำมาก (ตรวจวัดจริง)",
+        title: stationLabel(w.station),
+        sub: lvl >= 5 ? t("scene.overflowObserved") : t("scene.highWaterObserved"),
         tone: lvl >= 5 ? "severe" : "warning",
         rank: lvl >= 5 ? 100 : 60,
       });
@@ -573,8 +695,8 @@ export function Map3DCanvas({
       candidates.push({
         lon: r.station.lon,
         lat: r.station.lat,
-        title: r.station.nameTh ?? `สถานี ${r.station.id}`,
-        sub: `ฝน 24 ชม. ${mm.toFixed(0)} มม.`,
+        title: stationLabel(r.station),
+        sub: t("scene.rain24h", { n: mm.toFixed(0) }),
         tone: mm >= 90 ? "severe" : "warning",
         rank: mm,
       });
@@ -611,7 +733,7 @@ export function Map3DCanvas({
       const [x, z] = proj.lonLatToLocal(acc.lon / acc.n, acc.lat / acc.n);
       if (!proj.insideGrid(x, z)) continue;
       // Bangkok's districts are เขต, everywhere else อำเภอ.
-      const prefix = manifest.provinceCode === "10" ? "เขต" : "อ.";
+      const prefix = t(manifest.provinceCode === "10" ? "province.prefix.khet" : "province.prefix.amphoe");
       const display = /^(อ\.|เขต|อำเภอ)/.test(name) ? name : `${prefix}${name}`;
       labels.add(
         makePlaceLabel(display, new THREE.Vector3(x, terrain.sample(x, z) + 20, z), -100 + acc.n),
@@ -626,7 +748,7 @@ export function Map3DCanvas({
     );
     publishInfo({ stationCount: result.visibleCount, hazardCount: haloCount });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [observations, state.status]);
+  }, [observations, state.status, lang, t]);
 
   // Earthquake epicentres inside the province.
   useEffect(() => {
@@ -639,7 +761,7 @@ export function Map3DCanvas({
       quakesRef.current.dispose();
       quakesRef.current = null;
     }
-    const result = buildEarthquakeMarkers(loaded.manifest, earthquakes, loaded.terrain.sample);
+    const result = buildEarthquakeMarkers(loaded.manifest, earthquakes, loaded.terrain.sample, t);
     if (result.count > 0) {
       handles.world.add(result.group);
       const untick = handles.addTicker(result.tick);
@@ -654,7 +776,7 @@ export function Map3DCanvas({
     }
     publishInfo({ earthquakeCount: result.count });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [earthquakes, state.status]);
+  }, [earthquakes, state.status, t]);
 
   // Popup follows its 3D anchor: projected every frame onto the container
   // (kept out of CSS2DRenderer so it always paints above the map labels).
@@ -722,7 +844,7 @@ export function Map3DCanvas({
       damsRef.current = null;
     }
     if (dams.length === 0) return;
-    const result = buildDamMarkers(loaded.manifest, dams, loaded.terrain.sample, handles.viewportHeightPx());
+    const result = buildDamMarkers(loaded.manifest, dams, loaded.terrain.sample, handles.viewportHeightPx(), lang, t);
     result.applyExaggeration(handles.getExaggeration());
     result.dots.visible = layers.dams;
     result.labels.visible = layers.dams;
@@ -730,7 +852,69 @@ export function Map3DCanvas({
     handles.world.add(result.labels);
     damsRef.current = result;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dams, state.status]);
+  }, [dams, state.status, lang, t]);
+
+  // ระดับการเผชิญน้ำ (ภาพประกอบ) — E10.4
+  //
+  // สองส่วนที่ต้องไปด้วยกันเสมอ:
+  //   1. texture ที่ shader ระบายลงบนภูมิประเทศ **โดยถูกคุมด้วยแชนแนลพื้นที่ลุ่มต่ำ**
+  //   2. หมุดของทุกสถานีใน run ซึ่ง *ไม่* ถูกคุมด้วยพื้นที่ลุ่มต่ำ เพราะสถานีที่
+  //      "ไม่มีปัจจัยใดวัดได้" ต้องเห็นได้เสมอ ไม่ว่าจะอยู่บนที่ดอนแค่ไหน
+  //
+  // `terrain.bin` ที่ไม่ผ่านการตรวจลายเซ็น (E9.1) ปิดทั้งสองส่วน: ตัวระบายดับเองเพราะ
+  // แชนแนลพื้นที่ลุ่มต่ำเป็นศูนย์อยู่แล้ว ส่วนหมุด **ไม่ได้ถูกปิดเอง** จึงต้องกันไว้ที่นี่
+  // ตรง ๆ — ระดับความสูงที่ใช้วางหมุดมาจาก DEM ก้อนเดียวกับที่เชื่อไม่ได้
+  useEffect(() => {
+    const handles = sceneRef.current;
+    const loaded = terrainRef.current;
+    if (!handles || !loaded) return;
+    const u = loaded.terrain.material.uniforms;
+    exposureDebugRef.current?.();
+    exposureDebugRef.current = null;
+    if (exposureRef.current) {
+      handles.markers.remove(exposureRef.current.dots);
+      handles.world.remove(exposureRef.current.labels);
+      exposureRef.current.dispose();
+      exposureRef.current = null;
+    }
+    const trusted = loaded.terrain.integrity !== "mismatch";
+    const stations = trusted ? (exposure?.stations ?? null) : null;
+    const painted = loaded.terrain.overlay.updateExposure(stations);
+    // `null` = ยังไม่มี run ให้วาด (หรือ DEM เชื่อไม่ได้) — เป็นค่าที่บล็อกการเปิดชั้น
+    // จากเอฟเฟกต์สวิตช์ข้างล่างด้วย ไม่ใช่แค่ปล่อย texture ศูนย์ทิ้งไว้
+    u.uExposure.value = stations ? loaded.terrain.overlay.exposureTexture : null;
+    u.uShowExposure.value = layers.exposure && stations !== null ? 1 : 0;
+    u.uExposureStale.value = exposureStale ? 1 : 0;
+    if (!stations || stations.length === 0) return;
+
+    const result = buildExposureMarkers(
+      loaded.manifest,
+      stations,
+      loaded.terrain.sample,
+      handles.viewportHeightPx(),
+      t,
+    );
+    result.applyExaggeration(handles.getExaggeration());
+    result.setDimmed(exposureStale);
+    result.dots.visible = layers.exposure;
+    result.labels.visible = layers.exposure;
+    handles.markers.add(result.dots);
+    handles.world.add(result.labels);
+    exposureRef.current = result;
+    // ตัวนับสำหรับ DEV — ให้ตรวจได้ด้วยตัวเลขว่าสถานีที่ "ไม่มีปัจจัยใดวัดได้" ถูกนับ
+    // แยกจากแถบต่ำสุดที่วัดได้จริง (E10.4 ข้อ 8) ไม่ใช่ยุบรวมกันเป็นคำว่า low คำเดียว
+    if (import.meta.env.DEV) {
+      exposureDebugRef.current = handles.debug.register("exposure", () => ({
+        runId: exposure?.runId ?? null,
+        computedAt: exposure?.computedAt ?? null,
+        stale: exposureStale,
+        drawn: result.counts,
+        paintedHalos: painted.bandedCount,
+        noDataStations: painted.noDataCount,
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exposure, exposureStale, state.status, lang, t]);
 
   // GISTDA satellite flood extent -> shader mask + tambon labels.
   useEffect(() => {
@@ -771,8 +955,10 @@ export function Map3DCanvas({
       if (!proj.insideGrid(x, z)) continue;
       labels.add(
         makeLabel(
-          tambonTh ?? "พื้นที่น้ำท่วม",
-          floodAreaRai !== null ? `น้ำท่วม ${Math.round(floodAreaRai).toLocaleString("th-TH")} ไร่ (ภาพดาวเทียม)` : "น้ำท่วม (ภาพดาวเทียม)",
+          tambonTh ?? t("scene.floodArea"),
+          floodAreaRai !== null
+            ? t("scene.floodAreaRai", { n: formatNumber(lang, Math.round(floodAreaRai)) })
+            : t("scene.floodPlain"),
           "info",
           new THREE.Vector3(x, loaded.terrain.sample(x, z) + 30, z),
           40 + (floodAreaRai ?? 0) / 1000,
@@ -783,7 +969,7 @@ export function Map3DCanvas({
     labels.visible = layers.floodExtent;
     floodLabelsRef.current = labels;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [floodExtent, state.status]);
+  }, [floodExtent, state.status, lang, t]);
 
   useEffect(() => {
     const handles = sceneRef.current;
@@ -791,6 +977,7 @@ export function Map3DCanvas({
     handles.setExaggeration(exaggeration);
     markersRef.current?.applyExaggeration(exaggeration);
     damsRef.current?.applyExaggeration(exaggeration);
+    exposureRef.current?.applyExaggeration(exaggeration);
   }, [exaggeration, state.status]);
 
   useEffect(() => {
@@ -810,6 +997,16 @@ export function Map3DCanvas({
       const u = loaded.terrain.material.uniforms;
       u.uShowLowland.value = layers.lowland ? 1 : 0;
       u.uShowHazard.value = layers.hazard ? 1 : 0;
+      // ชั้นการเผชิญน้ำถูกปิดทันทีเมื่อ terrain.bin ไม่ผ่านการตรวจลายเซ็น — เงื่อนไข
+      // เดียวกับตอนสร้าง เพื่อไม่ให้การกดสวิตช์เปิดมันกลับมาได้
+      u.uShowExposure.value =
+        layers.exposure && loaded.terrain.integrity !== "mismatch" && u.uExposure.value !== null
+          ? 1
+          : 0;
+      if (exposureRef.current) {
+        exposureRef.current.dots.visible = layers.exposure;
+        exposureRef.current.labels.visible = layers.exposure;
+      }
       const desired = layers.imagery ? loaded.imagery : null;
       if (loaded.terrain.material.material.map !== desired) loaded.terrain.material.setImagery(desired);
       loaded.tiles?.setImageryEnabled(layers.imagery);
@@ -855,7 +1052,7 @@ export function Map3DCanvas({
           <p className="text-xs text-white/90">
             {state.status === "loading" ? (
               <>
-                {state.label}
+                {t(state.labelKey)}
                 {typeof state.progress === "number" ? (
                   <span className="tabular-nums text-white/60"> {state.progress}%</span>
                 ) : null}
@@ -864,12 +1061,12 @@ export function Map3DCanvas({
             {state.status === "loading" && imageryProgress !== null ? " · " : ""}
             {imageryProgress !== null ? (
               <>
-                กำลังโหลดภาพดาวเทียม{" "}
+                {t("scene.loadingImagery")}{" "}
                 <span className="tabular-nums text-white/60">{imageryProgress}%</span>
               </>
             ) : null}
             {state.status !== "loading" && imageryProgress === null && tileStats?.visible === 0
-              ? "กำลังโหลดภูมิประเทศความละเอียดสูง..."
+              ? t("scene.loadingHiRes")
               : null}
           </p>
         </div>
@@ -878,10 +1075,10 @@ export function Map3DCanvas({
       {state.status === "not-built" ? (
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 px-8 text-center">
           <p className="text-sm text-[var(--color-fg-muted)]">
-            ยังไม่ได้ประมวลผลภูมิประเทศของจังหวัดนี้
+            {t("scene.notBuiltTitle")}
           </p>
           <p className="text-xs text-[var(--color-fg-subtle)]">
-            ข้อมูลตรวจวัดยังแสดงตามปกติในแผงด้านข้าง
+            {t("scene.notBuiltBody")}
           </p>
         </div>
       ) : null}
@@ -889,7 +1086,7 @@ export function Map3DCanvas({
       {state.status === "error" ? (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <p className="max-w-sm rounded-xl border border-red-400/30 bg-black/80 px-4 py-3 text-center text-sm text-red-300 backdrop-blur-md">
-            {state.message}
+            {resolveError(t, state.message)}
           </p>
         </div>
       ) : null}

@@ -98,7 +98,6 @@
     }
   },
   "buildings": {
-    "url": "/aoi/86/buildings.geojson",
     "count": 5168,
     "coverage": "urban-core",
     "coverageBbox": {
@@ -220,6 +219,48 @@
       "80": 0.536,
       "90": 0,
       "95": 0.011
+    }
+  },
+  "provenance": {
+    "datasetVersion": "2026-08-17",
+    "generatedAt": "2026-08-20T04:05:41.000Z",
+    "sources": {
+      "terrain": {
+        "builtAt": "2026-08-17T02:52:58.000Z",
+        "sourceIds": [
+          "copernicus-dem"
+        ]
+      },
+      "roads": {
+        "builtAt": "2026-08-17T03:34:08.000Z",
+        "sourceIds": [
+          "osm"
+        ],
+        "publishedAt": "2026-08-15T20:21:20.000Z"
+      },
+      "water": {
+        "builtAt": "2026-08-17T03:34:08.000Z",
+        "sourceIds": [
+          "osm"
+        ],
+        "publishedAt": "2026-08-15T20:21:20.000Z"
+      },
+      "buildings": {
+        "builtAt": "2026-08-17T03:16:30.000Z",
+        "sourceIds": [
+          "osm"
+        ],
+        "publishedAt": "2026-08-15T20:21:20.000Z"
+      },
+      "trees": {
+        "builtAt": "2026-08-17T05:04:43.000Z",
+        "sourceIds": [
+          "worldcover"
+        ]
+      }
+    },
+    "checksums": {
+      "terrain.bin": "d4bc08287dd54462881d7047570f753aa87a9a9019292580ac5dcd89b1a355b9"
     }
   }
 }

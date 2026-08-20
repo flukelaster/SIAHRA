@@ -1,4 +1,5 @@
 import type { WaterLevelHistoryPoint } from "@siahra/shared-types";
+import { useT } from "../../i18n/context";
 
 /**
  * Tiny inline SVG line chart for a station's 72 h water level. Optional
@@ -15,12 +16,13 @@ export function Sparkline({
   width?: number;
   height?: number;
 }) {
+  const t = useT();
   // Long series (30 days at 10 min = 4,320 pts) are thinned for the tiny chart.
   const allValid = points.filter((p) => p.value !== null) as (WaterLevelHistoryPoint & { value: number })[];
   const stride = Math.max(1, Math.ceil(allValid.length / 600));
   const valid = stride === 1 ? allValid : allValid.filter((_, i) => i % stride === 0 || i === allValid.length - 1);
   if (valid.length < 2) {
-    return <p className="text-[11px] text-[var(--color-fg-subtle)]">ไม่มีข้อมูลย้อนหลังเพียงพอ</p>;
+    return <p className="text-[11px] text-[var(--color-fg-subtle)]">{t("water.sparkline.none")}</p>;
   }
   const t0 = Date.parse(valid[0].t);
   const t1 = Date.parse(valid[valid.length - 1].t);
@@ -42,11 +44,11 @@ export function Sparkline({
   const d = valid.map((p, i) => `${i === 0 ? "M" : "L"}${x(Date.parse(p.t)).toFixed(1)},${y(p.value).toFixed(1)}`).join(" ");
   const last = valid[valid.length - 1];
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="h-16 w-full" role="img" aria-label="กราฟระดับน้ำ 72 ชั่วโมง">
+    <svg viewBox={`0 0 ${width} ${height}`} className="h-16 w-full" role="img" aria-label={t("water.sparkline.aria")}>
       {bankMsl !== null ? (
         <>
           <line x1={pad} x2={width - pad} y1={y(bankMsl)} y2={y(bankMsl)} stroke="#ef4444" strokeDasharray="3 3" strokeWidth={1} />
-          <text x={width - pad} y={y(bankMsl) - 3} textAnchor="end" fontSize={9} fill="#fca5a5">ตลิ่งต่ำสุด</text>
+          <text x={width - pad} y={y(bankMsl) - 3} textAnchor="end" fontSize={9} fill="#fca5a5">{t("water.sparkline.bank")}</text>
         </>
       ) : null}
       <path d={d} fill="none" stroke="#38bdf8" strokeWidth={1.6} />

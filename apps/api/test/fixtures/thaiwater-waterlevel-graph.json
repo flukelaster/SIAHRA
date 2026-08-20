@@ -1,0 +1,10 @@
+{
+  "result": "OK",
+  "data": {
+    "graph_data": [
+      { "datetime": "2026-08-19 08:00", "value": 13.41, "discharge": 220.5 },
+      { "datetime": "2026-08-19 08:10", "value": "13.42", "discharge": null },
+      { "datetime": null, "value": null, "discharge": null }
+    ]
+  }
+}

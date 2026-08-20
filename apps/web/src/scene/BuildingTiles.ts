@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { AoiManifest, BuildingTilePyramid, TerrainTilePyramid } from "@siahra/shared-types";
 import type { LocalProjection } from "./localProjection";
+import { detailTilesAllowed } from "./lod";
 import type { BuildingTileJob, BuildingTileMesh } from "../workers/buildingTiles.worker";
 
 /**
@@ -106,9 +107,30 @@ export class BuildingTileLayer {
     return (bits[idx >> 3] & (1 << (idx & 7))) !== 0;
   }
 
-  /** Called with the terrain tree's currently drawn tile keys. */
-  update(visibleTerrain: { z: number; x: number; y: number }[], now: number) {
+  /**
+   * Called with the terrain tree's currently drawn tile keys.
+   *
+   * เหนือเพดานความสูง (scene/lod.ts) ชั้นนี้ปิดทั้งชั้น: ไม่ขอไทล์ใหม่ **และ**
+   * ถอด mesh ที่ต่ออยู่ออกจากฉาก การข้ามแค่การโหลดอย่างเดียวไม่ช่วยอะไร เพราะ
+   * อาคารที่โหลดไว้แล้วจะยังถูกวาดต่อที่ 30 กม.
+   */
+  update(
+    visibleTerrain: { z: number; x: number; y: number }[],
+    camera: THREE.Camera,
+    now: number,
+  ) {
     if (this.disposed) return;
+    if (!detailTilesAllowed(camera.position.y)) {
+      if (this.visibleSet.size > 0) {
+        for (const id of this.visibleSet) {
+          const t = this.tiles.get(id);
+          if (t?.mesh?.parent) this.group.remove(t.mesh);
+        }
+        this.visibleSet = new Set();
+      }
+      this.onStats?.({ visible: 0, buildings: 0, loading: this.loadingCount });
+      return;
+    }
     const next = new Set<string>();
     const wanted: Tile[] = [];
     for (const k of visibleTerrain) {

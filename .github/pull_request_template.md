@@ -18,7 +18,7 @@ SIAHRA PR conventions:
 
 
 ## Checklist
-- [ ] `npx tsc -b` (apps/web), `npx tsc --noEmit` (apps/api, apps/etl), `npx oxlint src` (apps/web) pass locally
+- [ ] `npx tsc -b` (apps/web), `npx tsc --noEmit` (apps/api, apps/etl), `npx oxlint src worker` (apps/web) pass locally
 - [ ] Ran through `/implement` (QA verdict green, docs synced) — or explain why not
 - [ ] New/changed hazard layers declare the right `HazardLayerDescriptor` kind (observed / static-reference / illustrative / probabilistic) and the UI shows `fetchedAt`/`observedAt`
 - [ ] No self-invented forecast numbers; stale data and dead sources stay visible instead of disappearing

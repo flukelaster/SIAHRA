@@ -10,8 +10,10 @@ import { TopBar, type SearchPlace } from "./components/layout/TopBar";
 import { PROVINCES } from "./data/provinces";
 import { aoiIdForProvince } from "./data/types";
 import { useApiHealth, sourceStatus } from "./hooks/useApiHealth";
+import { useLayerDescriptors } from "./hooks/useLayerDescriptors";
 import { useEarthquakeFeed } from "./hooks/useEarthquakeFeed";
 import { useDams } from "./hooks/useDams";
+import { useFloodExposure } from "./hooks/useFloodExposure";
 import { useFloodExtent } from "./hooks/useFloodExtent";
 import { useRadar } from "./hooks/useRadar";
 import { TimelineBar } from "./components/layout/TimelineBar";
@@ -29,6 +31,10 @@ import { EarthquakeLiveCard } from "./components/hazard/EarthquakeLiveCard";
 import { BRAND, DATA_ATTRIBUTION_TH } from "./branding";
 import type { CameraPose } from "./scene/setupScene";
 import type { QualityLevel, QualityMode } from "./scene/quality";
+import { formatFullDateTime } from "./lib/time";
+import { damDisplayName } from "./lib/damName";
+import { exposureInputsAreDegraded } from "./lib/exposureInputHealth";
+import { useLang } from "./i18n/context";
 
 const DEFAULT_PROVINCE_CODE = "10"; // Bangkok
 
@@ -45,6 +51,13 @@ const COMPACT_DOCK_H = 120;
 const DEFAULT_LAYERS: MapLayers = {
   imagery: true,
   lowland: true,
+  /**
+   * E10.4 — ชั้นเดียวที่ **ปิดไว้เป็นค่าเริ่มต้น** ชั้นนี้เป็นสิ่งที่เราคำนวณเอง
+   * ไม่ใช่สิ่งที่ใครวัดมา จึงต้องเป็นการกดเปิดของผู้ใช้เสมอ ไม่ใช่ของแถมที่ติดมา
+   * (ผลข้างเคียงที่ตั้งใจ: `?layers=` จะปรากฏใน permalink เสมอ เพราะมีชั้นที่ปิดอยู่
+   *  หนึ่งชั้น — ซึ่งเป็นความหมายเดิมของพารามิเตอร์นั้นทุกประการ)
+   */
+  exposure: false,
   hazard: true,
   stations: true,
   buildings: true,
@@ -57,10 +70,17 @@ const DEFAULT_LAYERS: MapLayers = {
   trees: true,
 };
 
+/**
+ * ค่าเริ่มต้นในรูป `Record` สำหรับ permalink codec — สร้างครั้งเดียวที่โมดูล ไม่ใช่
+ * ทุกเรนเดอร์ (`MapLayers` ไม่มี index signature จึงต้องคัดลอกออกมา)
+ */
+const DEFAULT_LAYERS_RECORD: Record<string, boolean> = { ...DEFAULT_LAYERS };
+
 /** Parsed once at startup; a shared link restores province, camera, layers and time. */
 const INITIAL = readPermalink();
 
 export default function App() {
+  const { lang, t } = useLang();
   const [provinceCode, setProvinceCode] = useState(INITIAL.provinceCode ?? DEFAULT_PROVINCE_CODE);
   const [layers, setLayers] = useState<MapLayers>(() => {
     if (!INITIAL.layers) return DEFAULT_LAYERS;
@@ -88,23 +108,105 @@ export default function App() {
     () => PROVINCES.find((p) => p.code === provinceCode) ?? PROVINCES[0],
     [provinceCode],
   );
+  /** ชื่อจังหวัดมาจาก data/provinces.ts ที่มีทั้งสองภาษาอยู่แล้ว */
+  const provinceName = lang === "th" ? province.nameTh : province.nameEn;
   const observations = useObservations(provinceCode, atIso);
   const dams = useDams(provinceCode);
   const radar = useRadar(layers.radar);
   const earthquakes = useEarthquakeFeed();
   const apiHealth = useApiHealth();
   const floodExtent = useFloodExtent(provinceCode);
+  // ชั้นปิดอยู่ = ไม่ยิงคำขอเลยแม้แต่ครั้งเดียว (รูปแบบเดียวกับ useRadar)
+  const exposure = useFloodExposure(provinceCode, layers.exposure);
   const thaiwater = sourceStatus(apiHealth.health, "thaiwater");
   // Stale/failed station data is drawn dimmed so nobody reads an old reading as current.
-  const observationsStale =
-    apiHealth.apiDown || (thaiwater !== null && thaiwater.health !== "ok");
+  // เงื่อนไข `!== "ok"` ครอบ `delayed` ด้วยโดยตั้งใจ (E3.3): ต้นทางตอบปกติแต่ค่า
+  // ตรวจวัดล่าสุดเก่ากว่าคาบที่ควรเป็น ก็ยังเป็นค่าเก่าที่ห้ามอ่านว่าเป็นปัจจุบัน
+  // และรูปแบบนี้ยัง fail-safe กับสถานะใหม่ที่จะเพิ่มเข้ามาในอนาคต
+  //
+  // จงใจอ่านเฉพาะสุขภาพของ sub-feed ฝน/ระดับน้ำ (`exposureInputsAreDegraded`) ไม่ใช่
+  // `thaiwater.health` โดยรวม (review round 8): `status()` ฝั่ง backend พับ
+  // `damsError` เข้า `lastError`/`health` โดยตั้งใจเพื่อให้ SourceStatusBar เห็น
+  // ความล้มเหลวของเขื่อน — แต่ผลคือถ้าใช้ `thaiwater.health` ตรงนี้ เขื่อนล่มตัวเดียว
+  // (ฝน/ระดับน้ำยังสดปกติ) จะไปหรี่หมุดฝน/ระดับน้ำที่ไม่เกี่ยวข้องเลย ความล้มเหลวของ
+  // เขื่อนมีป้ายของตัวเองอยู่แล้วที่ `DamCard` จึงไม่จำเป็นต้องยืมสัญญาณนี้มาบอกซ้ำ
+  // ใช้ตัวตัดสินเดียวกับ `exposureInputsDegraded` ด้านล่างเพราะเป็นเกณฑ์เดียวกันเป๊ะ
+  // (ทั้งสองจุดต้องการรู้แค่ "ฝนกับระดับน้ำเองยังโอเคอยู่ไหม" ไม่ใช่ ThaiWater โดยรวม)
+  const observationsStale = apiHealth.apiDown || exposureInputsAreDegraded(thaiwater);
+  // ชั้นการเผชิญน้ำมีแหล่งข้อมูลของตัวเองใน /health (E10.3) — `delayed` คือ "ไม่มี run
+  // ใหม่เกิน 30 นาที" ซึ่งต้องหรี่ชั้นและบอกเวลาของรอบล่าสุดเหมือนกับตอนดึงไม่สำเร็จ
+  const exposureSource = sourceStatus(apiHealth.health, "exposure-illustrative");
+  // เหตุผลของ "ไม่มีรอบใหม่" ที่มาจากตัว exposure/การดึงเอง — เก็บชื่อไว้แยกจากตัว OR
+  // รวมด้านล่าง เพราะ legend ต้องบอกเหตุผลได้แม่นกว่า "ไม่มีรอบใหม่" เฉย ๆ (ดูหมายเหตุถัดไป)
+  const exposureOwnNoNewRun =
+    exposure.failing ||
+    apiHealth.apiDown ||
+    (exposureSource !== null && exposureSource.health !== "ok");
+  // exposure ใช้เฉพาะฝนและระดับน้ำ — ไม่ใช่ทุกอย่างที่ถูกรวมไว้ใต้ source ThaiWater
+  // (เช่น error ของเขื่อน) จึงต้องอ่านสุขภาพของสอง sub-feed ตรง ๆ; ค่าที่ขาดจาก
+  // backend รุ่นเก่าถูกถือว่าไม่ยืนยัน ไม่ใช่เดาว่าอินพุตพร้อม
+  //
+  // `exposureOwnNoNewRun` กับ `exposureInputsDegraded` เกิดพร้อมกันได้จริง (ไม่ใช่กรณี
+  // แปลก): ThaiWater ล่มทั้งหมด → ObservationCacheDO ไม่เผยแพร่ run ใหม่เลย (own = true)
+  // **และ** thaiwater เองก็ผิดปกติ (inputsDegraded = true) พร้อมกัน — ข้อความจึงต้อง
+  // เลือกจากทั้งสองสัญญาณแยกกัน ไม่ใช่พับเป็นตัวเดียวแล้วเดาสาเหตุจากมันทีหลัง
+  // (`ExposureDetails` ให้ `noRunSince` ขึ้นก่อนเสมอเมื่อ `exposureOwnNoNewRun` เป็นจริง
+  // — ข้อเท็จจริงที่หนักกว่า: "ไม่มีรอบใหม่" ต้องไม่ถูกกลบด้วย "อินพุตอาจไม่ครบ")
+  const exposureInputsDegraded = exposureInputsAreDegraded(thaiwater);
+  // ใช้หรี่ชั้นบนแผนที่ (`exposureStale` prop): หรี่ทุกครั้งที่สิ่งที่วาดอยู่อาจไม่ใช่
+  // ของล่าสุดหรือคำนวณจากอินพุตที่ไม่ครบ — ไม่ใช่ค่าที่ใช้เลือกข้อความใน legend โดยตรง
+  const exposureNoNewRun = exposureOwnNoNewRun || exposureInputsDegraded;
+  // ชั้นถูกหรี่ในทุกกรณีที่สิ่งที่วาดอยู่อาจไม่ใช่ของล่าสุด (`exposureNoNewRun`)
+  // แต่ข้อความใน legend ต้องแยก "เราถามไม่ได้" ออกจาก "เซิร์ฟเวอร์บอกว่าไม่มีรอบใหม่"
+  // — `exposure.apiUnreachable` เป็น true เฉพาะตอน fetch() เองไปไม่ถึงเซิร์ฟเวอร์
+  // (ไม่ใช่ทุก `exposure.failing`: 503 "ยังไม่เคยมี run" ก็นับเป็น failing แต่เป็น
+  // คำตอบจริงจาก API ที่ตอบสำเร็จ ไม่ใช่ "ติดต่อไม่ได้")
+  const exposureApiUnreachable = exposure.apiUnreachable || apiHealth.apiDown;
+  const exposureLegend = {
+    run: exposure.data,
+    // ตั้งใจส่งเหตุผล "ของตัวเอง" เท่านั้น ไม่ใช่ `exposureNoNewRun` ที่รวม
+    // inputsDegraded เข้าไปแล้ว — ไม่งั้น legend จะเลือกข้อความ "noRunSince" ผิดจังหวะ
+    // ตอน run===null ทั้งที่คำขอยังไม่กลับมา เพียงเพราะ thaiwater ไม่ปกติ ณ ขณะนั้นพอดี
+    noNewRun: exposureOwnNoNewRun,
+    apiUnreachable: exposureApiUnreachable,
+    inputsDegraded: exposureInputsDegraded,
+    // เหตุผลของ 503 ล่าสุด (เมื่อยังไม่มี run ในเครื่องเลย) มาจาก hook ตรง ๆ — App.tsx
+    // ไม่แปล/ไม่เดาเพิ่ม แค่ส่งต่อไปให้ MapLegend เลือกข้อความให้ตรงกับสามข้อเท็จจริง
+    // ที่ backend แยกไว้ (ดูคำอธิบายที่ useFloodExposure.ts)
+    noRunReason: exposure.noRunReason,
+  };
   const aoiId = aoiIdForProvince(provinceCode);
+  // ป้ายชนิดความรู้ + เวลาของแต่ละชั้นใน legend มาจาก descriptor ที่ backend ประกาศ
+  // (หรือจาก data/staticLayerDescriptors.ts สำหรับชั้นคงที่) — อายุคำนวณตอนเรนเดอร์
+  const layerDescriptors = useLayerDescriptors({
+    observations,
+    radar,
+    floodExtent,
+    dams,
+    exposure,
+    health: apiHealth.health,
+    // เวลาที่ artefact ของชั้นคงที่ถูก build มาจาก manifest ของจังหวัดที่แสดงอยู่
+    // (null ตอนยังไม่โหลด/manifest รุ่นก่อน E9.1 → legend คงข้อความ "ไม่ได้บันทึกเวลา")
+    provenance: mapInfo?.provenance ?? null,
+  });
 
   const toggleLayer = useCallback((key: keyof MapLayers, value: boolean) => {
     setLayers((l) => ({ ...l, [key]: value }));
   }, []);
 
-  usePermalinkSync({ provinceCode, pose, exaggeration, layers: { ...layers }, atIso });
+  // `lang` ต้องอยู่ในสถานะที่ sync ลง URL ด้วย ไม่งั้นการเปิดลิงก์ `?lang=en`
+  // แล้วปล่อยไว้ 400 มิลลิวินาที จะถูก replaceState เขียนทับจนพารามิเตอร์หายไป
+  usePermalinkSync({
+    provinceCode,
+    pose,
+    exaggeration,
+    layers: { ...layers },
+    // ต้องส่งค่าเริ่มต้นไปด้วย ไม่งั้นชั้นที่ "ปิดไว้เป็นค่าเริ่มต้น" (exposure) จะหลุด
+    // ออกจากลิงก์ตอนที่ผู้ใช้เปิดมัน เพราะทุกชั้นกลายเป็นเปิดหมดพอดี
+    defaultLayers: DEFAULT_LAYERS_RECORD,
+    atIso,
+    lang,
+  });
 
   const selectProvince = useCallback((code: string) => {
     initialPoseRef.current = null;
@@ -131,18 +233,32 @@ export default function App() {
         const key = `s:${st.nameTh ?? st.id}:${st.lon.toFixed(4)}:${st.lat.toFixed(4)}`;
         if (st.nameTh && !seen.has(key)) {
           seen.add(key);
-          out.push({ key, label: st.nameTh, sub: st.amphoeNameTh ?? province.nameTh, kind: "station", lon: st.lon, lat: st.lat });
+          out.push({ key, label: st.nameTh, sub: st.amphoeNameTh ?? provinceName, kind: "station", lon: st.lon, lat: st.lat });
         }
       }
       for (const [name, a] of byAmphoe) {
-        out.push({ key: `a:${name}`, label: (provinceCode === "10" ? "เขต" : "อ.") + name, sub: province.nameTh, kind: "amphoe", lon: a.lon / a.n, lat: a.lat / a.n });
+        out.push({
+          key: `a:${name}`,
+          label: t(provinceCode === "10" ? "province.prefix.khet" : "province.prefix.amphoe") + name,
+          sub: provinceName,
+          kind: "amphoe",
+          lon: a.lon / a.n,
+          lat: a.lat / a.n,
+        });
       }
     }
     for (const d of dams.data?.dams ?? []) {
-      out.push({ key: `d:${d.id}`, label: (d.kind === "large" ? "เขื่อน" : "") + (d.nameTh ?? d.nameEn ?? `#${d.id}`), sub: d.basinNameTh ?? province.nameTh, kind: "dam", lon: d.lon, lat: d.lat });
+      out.push({
+        key: `d:${d.id}`,
+        label: damDisplayName(d, lang, t),
+        sub: d.basinNameTh ?? provinceName,
+        kind: "dam",
+        lon: d.lon,
+        lat: d.lat,
+      });
     }
     return out;
-  }, [observations.data, dams.data, province.nameTh, provinceCode]);
+  }, [observations.data, dams.data, provinceName, provinceCode, lang, t]);
 
   const selectPlace = useCallback((pl: SearchPlace) => {
     const dist = pl.kind === "amphoe" ? 12000 : 4000;
@@ -161,8 +277,13 @@ export default function App() {
   const snapshot = useCallback(async () => {
     const api = mapApiRef.current;
     if (!api) return;
-    const stamp = new Date().toLocaleString("th-TH");
-    const footer = `${BRAND.name} · จังหวัด${province.nameTh} · ${stamp}${atIso ? ` · ค่าย้อนหลัง ${new Date(atIso).toLocaleString("th-TH")}` : ""} · ${DATA_ATTRIBUTION_TH} · ภาพดาวเทียม Esri`;
+    // เวลาที่กดบันทึกภาพ (ไม่ใช่เวลาที่ดึงข้อมูล) — ตรึงเป็นเวลาไทยเช่นกัน
+    const stamp = formatFullDateTime(lang, Date.now());
+    // DATA_ATTRIBUTION_TH เป็นบรรทัดเครดิตของหน่วยงานต้นทาง จึงคงไว้ตามที่เผยแพร่
+    // ทั้งสองภาษา — ส่วนที่เหลือของ footer เดินตามภาษาที่กำลังแสดง
+    const footer = `${BRAND.name} · ${t("viewport.province", { name: provinceName })} · ${stamp}${
+      atIso ? ` · ${t("attribution.snapshotHistorical", { time: formatFullDateTime(lang, atIso) })}` : ""
+    } · ${DATA_ATTRIBUTION_TH} · ${t("attribution.imageryEsri")}`;
     const blob = await api.captureImage(footer);
     if (!blob) return;
     const url = URL.createObjectURL(blob);
@@ -171,7 +292,7 @@ export default function App() {
     a.download = `siahra-${province.nameEn.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}.png`;
     a.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 5000);
-  }, [province, atIso]);
+  }, [province, provinceName, atIso, lang, t]);
 
   const viewport = useViewport();
   const compact = viewport.compact;
@@ -200,12 +321,14 @@ export default function App() {
     <div className="relative h-screen w-screen overflow-hidden bg-[var(--color-bg)]">
       <MapViewport
         aoiId={aoiId}
-        provinceLabel={province.nameTh}
+        provinceLabel={provinceName}
         observations={observations.data}
         earthquakes={earthquakes.events}
         floodExtent={floodExtent.data}
         dams={dams.data?.dams ?? []}
         radar={radar.data}
+        exposure={exposure.data}
+        exposureStale={exposureNoNewRun}
         atIso={atIso}
         layers={layers}
         safeArea={safeArea}
@@ -254,28 +377,32 @@ export default function App() {
             tabs={[
               {
                 key: "province",
-                label: "จังหวัด",
+                label: t("sheet.tab.province"),
                 content: (
                   <ProvinceSelector provinces={PROVINCES} selected={province} onSelect={(p) => selectProvince(p.code)} />
                 ),
               },
               {
                 key: "layers",
-                label: "ชั้นข้อมูล",
+                label: t("sheet.tab.layers"),
                 content: (
                   <MapLegend
                     layers={layers}
                     onToggle={toggleLayer}
+                    descriptors={layerDescriptors}
                     quality={quality}
                     qualityLevel={qualityLevel}
                     onQualityChange={setQuality}
+                    terrainIntegrity={mapInfo?.terrainIntegrity}
+                    buildingsError={mapInfo?.buildingsError ?? null}
+                    exposure={exposureLegend}
                   />
                 ),
               },
-              { key: "flood", label: "น้ำท่วม", content: <FloodExtentCard state={floodExtent} /> },
+              { key: "flood", label: t("sheet.tab.flood"), content: <FloodExtentCard state={floodExtent} /> },
               {
                 key: "water",
-                label: "ระดับน้ำ",
+                label: t("sheet.tab.water"),
                 content: (
                   <WaterLevelCard
                     stations={observations.data?.waterlevel ?? []}
@@ -288,7 +415,7 @@ export default function App() {
               },
               {
                 key: "rain",
-                label: "ฝน",
+                label: t("sheet.tab.rain"),
                 content: (
                   <RainfallCard
                     stations={observations.data?.rainfall ?? []}
@@ -297,8 +424,8 @@ export default function App() {
                   />
                 ),
               },
-              { key: "dams", label: "เขื่อน", content: <DamCard state={dams} /> },
-              { key: "quake", label: "แผ่นดินไหว", content: <EarthquakeLiveCard feed={earthquakes} /> },
+              { key: "dams", label: t("sheet.tab.dams"), content: <DamCard state={dams} /> },
+              { key: "quake", label: t("sheet.tab.quake"), content: <EarthquakeLiveCard feed={earthquakes} /> },
             ]}
           />
         </>
@@ -311,9 +438,13 @@ export default function App() {
             observations={observations.data}
             layers={layers}
             onToggleLayer={toggleLayer}
+            descriptors={layerDescriptors}
             quality={quality}
             qualityLevel={qualityLevel}
             onQualityChange={setQuality}
+            terrainIntegrity={mapInfo?.terrainIntegrity}
+            buildingsError={mapInfo?.buildingsError ?? null}
+            exposure={exposureLegend}
             width={LEFT_W}
             top={dockTop}
           />

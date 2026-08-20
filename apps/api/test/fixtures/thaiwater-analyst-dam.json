@@ -1,0 +1,46 @@
+{
+  "result": "OK",
+  "data": {
+    "dam_daily": [
+      {
+        "dam_date": "2026-08-19 06:00",
+        "dam_storage": 4560.2,
+        "dam_storage_percent": "46.3",
+        "dam_inflow": 12.1,
+        "dam_released": 8.4,
+        "station_type": "dam_daily",
+        "dam": {
+          "id": 3,
+          "dam_name": { "th": "เขื่อนภูมิพล", "en": "Bhumibol Dam" },
+          "dam_lat": 17.24,
+          "dam_long": 98.97,
+          "max_storage": 13462,
+          "normal_storage": 13462
+        },
+        "agency": { "agency_shortname": { "th": "กฟผ.", "en": "EGAT" } },
+        "basin": { "basin_name": { "th": "ปิง", "en": "Ping" } },
+        "geocode": { "province_code": 63, "province_name": { "th": "ตาก", "en": "Tak" } }
+      }
+    ],
+    "dam_hourly": [],
+    "dam_medium": [
+      {
+        "dam_date": "2026-08-18 18:00",
+        "dam_storage": 12.4,
+        "dam_storage_percent": 61,
+        "dam_inflow": null,
+        "dam_released": null,
+        "station_type": "dam_medium",
+        "dam": {
+          "id": 91,
+          "dam_name": { "th": "อ่างเก็บน้ำตัวอย่าง", "en": "Example Reservoir" },
+          "dam_lat": "16.44",
+          "dam_long": "100.35",
+          "max_storage": 20,
+          "normal_storage": 18
+        },
+        "geocode": { "province_code": "66", "province_name": { "th": "พิจิตร", "en": "Phichit" } }
+      }
+    ]
+  }
+}

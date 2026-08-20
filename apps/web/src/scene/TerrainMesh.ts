@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import type { AoiManifest } from "@siahra/shared-types";
 import { loadBoundaryMask } from "./boundaryMask";
-import { buildOverlayField, type OverlayField } from "./hazardOverlay";
+import { buildOverlayFieldAsync, type OverlayField } from "./hazardOverlay";
+import { verifyTerrainIntegrity, type TerrainIntegrity } from "./loadAoiManifest";
 import { createLocalProjection, type LocalProjection } from "./localProjection";
 import { imageryUv, type ImageryPlan } from "./SatelliteImagery";
 import {
@@ -24,6 +25,11 @@ export interface TerrainField {
   projection: LocalProjection;
   material: TerrainMaterial;
   overlay: OverlayField;
+  /**
+   * ผลตรวจ sha256 ของ terrain.bin เทียบกับ `manifest.provenance.checksums`
+   * (E9.1) — `"unknown"` เมื่อ manifest ยังไม่ประกาศลายเซ็น และห้ามปิดชั้นใด
+   */
+  integrity: TerrainIntegrity;
   dispose: () => void;
 }
 
@@ -48,6 +54,15 @@ export async function buildTerrainMesh(
   const { width, height, cellSizeM, minZ, maxZ } = manifest.terrain;
 
   const buf = await fetch(manifest.terrain.url).then((r) => r.arrayBuffer());
+  // แฮชจากบัฟเฟอร์ที่โหลดมาแล้วตรงนี้ ไม่เปิด fetch รอบสอง (จังหวัดละ ~1 MB)
+  const integrity = await verifyTerrainIntegrity(manifest, buf);
+  if (integrity === "mismatch") {
+    // ต้องดังพอให้เห็นใน console: ภูมิประเทศฐานยังวาดต่อ แต่ชั้นที่คำนวณจาก DEM
+    // ก้อนนี้ถูกปิดทั้งหมด (ดู legend และ docs/dataset.md)
+    console.error(
+      `[siahra] terrain.bin ของ ${manifest.aoiId} ไม่ตรงกับลายเซ็นใน manifest — ปิดชั้นพื้นที่ลุ่มต่ำ`,
+    );
+  }
   const raw = new Int16Array(buf);
   if (raw.length !== width * height) {
     throw new Error(
@@ -135,7 +150,14 @@ export async function buildTerrainMesh(
   geometry.setIndex(new THREE.BufferAttribute(indices, 1));
   geometry.computeVertexNormals();
 
-  const overlay = buildOverlayField(manifest, heights, insideMask);
+  // วัดเวลาเป็น performance measure เดียวกันทั้งก่อนและหลังย้ายไป worker —
+  // ตัวเลขที่รายงานใน PR อ่านจาก `performance.getEntriesByName()` ชื่อนี้
+  performance.mark("siahra:overlay:start");
+  const overlay = await buildOverlayFieldAsync(manifest, heights, insideMask, {
+    suppressLowland: integrity === "mismatch",
+  });
+  performance.mark("siahra:overlay:end");
+  performance.measure("siahra:overlay", "siahra:overlay:start", "siahra:overlay:end");
   const material = createTerrainMaterial(sharedUniforms);
   material.setOverlay(overlay.texture);
 
@@ -188,5 +210,5 @@ export async function buildTerrainMesh(
     overlay.dispose();
   };
 
-  return { mesh, sample, minZ, maxZ, heights, insideMask, projection, material, overlay, dispose };
+  return { mesh, sample, minZ, maxZ, heights, insideMask, projection, material, overlay, integrity, dispose };
 }

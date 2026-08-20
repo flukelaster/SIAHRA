@@ -1,3 +1,6 @@
+import { formatFetchedAt } from "../../lib/time";
+import { useLang } from "../../i18n/context";
+
 const STALE_AFTER_MS = 15 * 60 * 1000;
 
 export function ApiStatusFooter({
@@ -7,6 +10,7 @@ export function ApiStatusFooter({
   fetchedAt: string | null;
   attribution: string | null;
 }) {
+  const { lang, t } = useLang();
   const ageMs = fetchedAt ? Date.now() - Date.parse(fetchedAt) : null;
   const stale = ageMs !== null && ageMs > STALE_AFTER_MS;
   const connected = fetchedAt !== null;
@@ -25,16 +29,13 @@ export function ApiStatusFooter({
             }`}
             aria-hidden="true"
           />
-          <span className="font-medium text-[var(--color-fg)]">สถานะข้อมูล</span>
+          <span className="font-medium text-[var(--color-fg)]">{t("footer.dataStatus")}</span>
           <span className="text-[var(--color-fg-muted)]">
-            {!connected ? "ยังไม่เชื่อมต่อ" : stale ? "ข้อมูลค้าง" : "ปกติ"}
+            {!connected ? t("footer.notConnected") : stale ? t("footer.stale") : t("footer.ok")}
           </span>
         </div>
-        {fetchedAt ? (
-          <span className="tabular-nums text-[var(--color-fg-subtle)]">
-            {new Date(fetchedAt).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })} น.
-          </span>
-        ) : null}
+        {/* fetchedAt = null คือ "ยังไม่เคยดึงสำเร็จ" — ต้องเห็นข้อความนั้น ไม่ใช่หายไปเฉย ๆ */}
+        <span className="tabular-nums text-[var(--color-fg-subtle)]">{formatFetchedAt(lang, fetchedAt)}</span>
       </div>
       {attribution ? (
         <p className="text-[10px] leading-snug text-[var(--color-fg-subtle)]">{attribution}</p>

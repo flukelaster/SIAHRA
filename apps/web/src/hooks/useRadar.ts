@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import type { RadarFramesResponse } from "@siahra/shared-types";
+import { errorMessage, type ErrorMessage } from "../lib/errorMessage";
 
 export interface RadarState {
   data: RadarFramesResponse | null;
-  error: string | null;
+  error: ErrorMessage | null;
 }
 
 const REFRESH_MS = 5 * 60 * 1000;
@@ -23,7 +24,7 @@ export function useRadar(enabled: boolean): RadarState {
         if (!cancelled) setState({ data, error: null });
         timer = window.setTimeout(load, REFRESH_MS);
       } catch (err) {
-        if (!cancelled) setState((s) => ({ ...s, error: err instanceof Error ? err.message : "โหลดไม่สำเร็จ" }));
+        if (!cancelled) setState((s) => ({ ...s, error: errorMessage(err, "error.loadFailed") }));
         timer = window.setTimeout(load, 20000);
       }
     };

@@ -1,14 +1,17 @@
 import { DurableObject } from "cloudflare:workers";
-import type {
-  FloodExtentFeature,
-  FloodExtentProvinceSummary,
-  FloodExtentResponse,
-  FloodExtentSummaryResponse,
-  HazardLayerDescriptor,
-  SourceStatus,
+import {
+  SOURCES,
+  type FloodExtentFeature,
+  type FloodExtentProvinceSummary,
+  type FloodExtentResponse,
+  type FloodExtentSummaryResponse,
+  type HazardLayerDescriptor,
+  type SourceStatus,
 } from "@siahra/shared-types";
 import { fetchGistdaFloodExtent, type FetchOptions } from "../ingestion/gistda.js";
 import { keys as archiveKeys, putJsonGz } from "../archive.js";
+import { deriveSourceHealth } from "../sourceHealth.js";
+import { errorText, logError, logInfo, logWarn } from "../log.js";
 
 /** GISTDA re-interprets scenes irregularly; half-hourly polling is plenty. */
 const REFRESH_MS = 30 * 60 * 1000;
@@ -171,9 +174,9 @@ export class FloodExtentDO extends DurableObject<Env> {
   private async refresh(options?: FetchOptions): Promise<boolean> {
     const nowMs = Date.now();
     this.writeMeta("lastAttemptAt", new Date(nowMs).toISOString());
-    let features;
+    let scene;
     try {
-      features = await fetchGistdaFloodExtent(options);
+      scene = await fetchGistdaFloodExtent(options);
     } catch (err) {
       // นับ backoff จากเวลาที่ "ล้มจริง" ไม่ใช่เวลาที่เริ่มยิง ไม่งั้นเวลาที่ใช้
       // ระหว่างรอ (ต้นทางค้าง/retry) จะไปกินโควตาการรอจนลองใหม่เร็วกว่าที่ตั้งไว้
@@ -183,18 +186,18 @@ export class FloodExtentDO extends DurableObject<Env> {
       this.writeMeta("lastError", String(err).slice(0, 300));
       this.writeMeta("failureCount", String(failures));
       this.writeMeta("nextAttemptAt", new Date(failedAtMs + waitMs).toISOString());
-      console.error(
-        JSON.stringify({
-          level: "error",
-          message: "gistda flood fetch failed",
-          error: String(err),
-          consecutiveFailures: failures,
-          retryInSeconds: Math.round(waitMs / 1000),
-        }),
-      );
+      logError("gistda flood fetch failed", {
+        error: errorText(err),
+        consecutiveFailures: failures,
+        retryInSeconds: Math.round(waitMs / 1000),
+      });
       await this.armAlarmAt(failedAtMs + waitMs);
       return false;
     }
+    const features = scene.features;
+    // GISTDA ไม่ได้เผยแพร่ "เวลาที่เผยแพร่ฉาก" มาด้วยเลย (ดูเหตุผลที่วัดไว้ใน
+    // ingestion/gistda.ts) — เขียนทับด้วย null เพื่อลบแถว meta ที่เคยเก็บค่าผิดไว้
+    this.writeMeta("publishedAt", scene.publishedAt);
     // Upsert: new ids get first_seen = now, known ids just bump last_seen.
     for (const f of features) {
       this.ctx.storage.sql.exec(
@@ -223,7 +226,7 @@ export class FloodExtentDO extends DurableObject<Env> {
           featureCount: features.length,
           features: features.map((f) => ({ type: "Feature", id: f.id, properties: f.props, geometry: f.geometry })),
         }).catch((err: unknown) =>
-          console.error(JSON.stringify({ level: "warn", message: "flood archive failed", error: String(err) })),
+          logWarn("flood archive failed", { error: errorText(err) }),
         ),
       );
       this.writeMeta("sceneHash", sceneHash);
@@ -236,9 +239,7 @@ export class FloodExtentDO extends DurableObject<Env> {
     // สำเร็จแล้วต้อง "ทับ" alarm ชั่วคราว/backoff ที่ตั้งไว้ตอนยังไม่รู้ผล
     // ไม่งั้นจะไปยิงต้นทางซ้ำใน 5 นาทีทั้งที่เพิ่งได้ข้อมูลสดมา
     await this.ctx.storage.setAlarm(Date.now() + REFRESH_MS);
-    console.log(
-      JSON.stringify({ level: "info", message: "gistda flood refreshed", features: features.length }),
-    );
+    logInfo("gistda flood refreshed", { features: features.length });
     return true;
   }
 
@@ -247,10 +248,13 @@ export class FloodExtentDO extends DurableObject<Env> {
       id: "gistda-flood-extent",
       epistemicClass: "observed",
       liveOrStatic: "live",
+      // อ่านค่าจาก meta ไม่ได้ เพราะ DO ที่รันอยู่ก่อนแก้อาจยังมีค่าเก่าค้างจนกว่า
+      // จะรีเฟรชรอบถัดไป — ต้นทางไม่มีเวลาเผยแพร่ ก็ต้องเป็น null ตั้งแต่วินาทีแรก
+      publishedAt: null,
       fetchedAt: retrievedAt,
       staleAfterSeconds: STALE_AFTER_MS / 1000,
       methodologyUrl: "https://opendata.gistda.or.th/dataset/floodcheck",
-      sourceIds: ["gistda-wfs-flooding_vis"],
+      sourceIds: ["gistda-flood"],
     };
   }
 
@@ -325,19 +329,28 @@ export class FloodExtentDO extends DurableObject<Env> {
   async status(): Promise<SourceStatus> {
     const retrievedAt = this.readMeta("retrievedAt");
     const lastError = this.readMeta("lastError");
-    const age = retrievedAt ? Date.now() - Date.parse(retrievedAt) : Infinity;
-    const health = !retrievedAt
-      ? lastError
-        ? "down"
-        : "unknown"
-      : age > STALE_AFTER_MS
-        ? "stale"
-        : lastError
-          ? "degraded"
-          : "ok";
+    const health = deriveSourceHealth({
+      nowMs: Date.now(),
+      fetchedAt: retrievedAt,
+      lastError,
+      latestObservedAt: null,
+      staleAfterSeconds: STALE_AFTER_MS / 1000,
+      // GISTDA ไม่ส่งเวลาถ่ายภาพ/เวลาตรวจวัดมากับฉากน้ำท่วมเลย (E3.2) จึงไม่มี
+      // คาบตรวจวัดให้เทียบ — ตัดสิน `delayed` ไม่ได้ ห้ามเดาเป็นตัวเลขใด ๆ
+      observedLagSeconds: null,
+    });
+    /**
+     * นัดลองใหม่ต้องอ่านจาก alarm จริง แต่ alarm ของ DO นี้อาจถูกตั้งไว้ "เร็วกว่า"
+     * กำแพง backoff (nextAttemptAt) ได้ — รอบที่ตื่นก่อนกำหนดจะไม่ยิงต้นทาง แค่
+     * ตั้งนาฬิกาใหม่ ดังนั้นเวลาที่จะมีการ "พยายามดึงจริง" คือค่าที่ช้ากว่าของสองตัว
+     * ไม่มี alarm = ไม่มีนัดหมาย → null (ห้ามเดาจากคาบรีเฟรช)
+     */
+    const alarmAtMs = await this.ctx.storage.getAlarm();
+    const attemptAtMs = alarmAtMs === null ? null : Math.max(alarmAtMs, this.nextAttemptMs());
     return {
       id: "gistda-flood",
-      labelTh: "น้ำท่วมจากภาพดาวเทียม (GISTDA)",
+      labelTh: SOURCES["gistda-flood"].nameTh,
+      labelEn: SOURCES["gistda-flood"].nameEn,
       health,
       fetchedAt: retrievedAt,
       latestObservedAt: null,
@@ -346,9 +359,10 @@ export class FloodExtentDO extends DurableObject<Env> {
       detail: {
         features: Number(this.readMeta("featureCount") ?? "0"),
         consecutiveFailures: this.failureCount(),
-        nextAttemptAt: this.readMeta("nextAttemptAt"),
       },
       staleAfterSeconds: STALE_AFTER_MS / 1000,
+      observedLagSeconds: null,
+      nextAttemptAt: attemptAtMs === null ? null : new Date(attemptAtMs).toISOString(),
     };
   }
 }

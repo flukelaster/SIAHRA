@@ -145,7 +145,13 @@ const sweepHead = `<line x1="${f1(bx)}" y1="${f1(by)}" x2="${f1(headX)}" y2="${f
 // 2. Fill the template
 // ---------------------------------------------------------------------------
 const template = readFileSync(resolve(here, "og-image.template.html"), "utf8");
+// The card must use the same self-hosted faces as the app (E4.1), so the
+// @font-face block is the app's own src/fonts.css inlined verbatim — one source
+// of truth for which files exist and what their unicode-ranges are. The `url()`
+// paths stay absolute (/fonts/...) and are answered by the server below.
+const fontFaces = readFileSync(resolve(webRoot, "src/fonts.css"), "utf8");
 const html = template
+  .replaceAll("{{FONT_FACES}}", fontFaces)
   .replaceAll("{{MAP_LEFT}}", String(MAP.left))
   .replaceAll("{{MAP_TOP}}", String(MAP.top))
   .replaceAll("{{MAP_W}}", String(MAP.width))
@@ -187,10 +193,18 @@ const server = createServer((req, res) => {
   if (req.url?.startsWith("/og-image.html")) {
     res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
     res.end(html);
-  } else {
-    res.writeHead(404);
-    res.end();
+    return;
   }
+  // The self-hosted woff2 files the inlined @font-face rules point at. The
+  // regexp is the whole allow-list: only a plain filename under public/fonts/.
+  const font = /^\/fonts\/([A-Za-z0-9._-]+\.woff2)$/.exec(req.url ?? "");
+  if (font && existsSync(resolve(webRoot, "public/fonts", font[1]))) {
+    res.writeHead(200, { "content-type": "font/woff2", "cache-control": "no-store" });
+    res.end(readFileSync(resolve(webRoot, "public/fonts", font[1])));
+    return;
+  }
+  res.writeHead(404);
+  res.end();
 });
 await new Promise((ok) => server.listen(0, "127.0.0.1", ok));
 // playwright-cli always screenshots in CSS pixels, so a retina-sharp 2400×1260
@@ -210,13 +224,13 @@ try {
   await pw("close").catch(() => {});
   await pw("open", url);
   await pw("resize", String(WIDTH * SCALE), String(HEIGHT * SCALE));
-  // Google Fonts must be in before the screenshot, otherwise Sarabun falls back to the system sans.
+  // The fonts must be in before the screenshot, otherwise Sarabun falls back to the system sans.
   const fonts = await pw(
     "eval",
     "() => document.fonts.ready.then(() => Array.from(document.fonts).filter(f => f.status === 'loaded').map(f => f.family + ' ' + f.weight).join(', '))",
   );
   const loaded = fonts.split("\n").find((l) => l.includes("Sarabun"));
-  if (!loaded) throw new Error("Sarabun did not load from Google Fonts — the render would fall back to a system font; check the network and retry");
+  if (!loaded) throw new Error("Sarabun did not load from public/fonts/ — the render would fall back to a system font; check that the woff2 files are present");
   console.log("fonts:", loaded);
   await pw("screenshot", `--filename=${outPng}`);
   await pw("close");

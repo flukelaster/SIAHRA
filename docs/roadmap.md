@@ -133,7 +133,7 @@ Each task is a `####` heading `E<epic>.<n> — <title>` followed by:
 - Risk: the secrets must exist in the deployed Worker before merge, or the TMD feed degrades in production
 - Issue: _(not yet filed)_
 
-1. `git grep api12345` returns 0 hits.
+1. The hardcoded TMD fallback key no longer appears anywhere in the repo (`git grep` for it returns 0 hits — the literal is deliberately not written here).
 2. A missing secret makes the TMD feed `degraded` with `lastError: "TMD credentials not configured"`, and leaves the other feeds unaffected.
 3. `wrangler deploy --dry-run` succeeds.
 4. `.gitignore` contains `.dev.vars`, and `.dev.vars.example` documents both keys.
@@ -506,14 +506,19 @@ needs.deploy-web.result == 'skipped')`.
 3. `npm run build -w apps/web` still succeeds within the existing CI budget.
 
 #### E8.3 — Stop shipping the legacy `buildings.geojson`
-- Touches: delete `apps/web/public/aoi/*/buildings.geojson`, make `AoiManifest.buildings.url` optional, remove the legacy path in `BuildingLayer.ts` or make it an R2 fallback, `apps/etl/src/writeManifest.ts`, `docs/deploy.md`
+- Touches: delete `apps/web/public/aoi/[0-9][0-9]/buildings.geojson` (**not** `chiangmai-old-city`) and drop the now-dangling `buildings.url` from those 77 manifests, make `AoiManifest.buildings.url` optional, keep the legacy path in `BuildingLayer.ts` as the no-tiles fallback, new `scripts/check-building-tiles.mjs` (gate, wired into `deploy:web`), `apps/etl/src/{writeManifest,buildAllProvinces,buildProvinceBuildings}.ts`, `docs/deploy.md`
 - Depends: —
 - Size: M
 - Risk: the blobs stay in git history (accepted; see the Deferred section)
 - Issue: _(not yet filed)_
 
 1. A script asserts that all 77 manifests carry `buildings.tiles` before anything is deleted.
-2. `du -sh apps/web/public/aoi` drops by at least 600 MB.
+2. `du -sh apps/web/public/aoi` drops from 262M to 98M — the 77 province `buildings.geojson`
+   files are 164M of it (`du -ch apps/web/public/aoi/[0-9][0-9]/buildings.geojson`; 171,814,671
+   apparent bytes = 163.9 MiB). Every figure with an `M` suffix here is `du`, i.e. MiB. The
+   "at least 600 MB" written here originally was impossible: the whole directory only ever
+   held 262M. `chiangmai-old-city/buildings.geojson` (6.5 MiB) stays — that AOI has no tile
+   pyramid, so its GeoJSON is still the only way it renders buildings.
 3. A three-province playwright spot check still renders buildings.
 4. `AoiManifest.buildings.url` is optional in shared-types and every consumer tolerates its absence.
 
@@ -674,8 +679,18 @@ surfaced on `/health` (`lastError`, source `exposure-illustrative`) so it can ne
 - Touches: new `apps/web/src/hooks/useFloodExposure.ts`, `scene/hazardOverlay.ts` (station levels draped as halos **gated by the lowland R channel**, so only low ground lights up), `terrainMaterial.ts` (the E3.5 illustrative treatment plus a level ramp), `MapLegend.tsx` row (illustrative badge, input list, methodology link, `computedAt` age), `usePermalink.ts` (`layers` += `exposure`), i18n keys th/en — Thai label `"พื้นที่ลุ่มต่ำที่ขณะนี้มีฝนหนัก/น้ำสูงในบริเวณใกล้เคียง (ภาพประกอบ)"`, Thai note `"คำนวณเองจากภูมิประเทศ + ค่าตรวจวัดจริง ไม่ใช่การพยากรณ์ ไม่ใช่ความน่าจะเป็น"`
 - Depends: E10.3, E3.5, E3.4, E7.1, E9.1
 - Size: L — the hook, overlay, shader and legend have to land together to be checkable
-- Risk: none identified
+- Risk: `low` is two different states in one word — see the note below
 - Issue: _(not yet filed)_
+
+**`low` means two things, and the renderer must not merge them.** E10.2 fixes the contract so that a
+station whose factors are *all* `null` gets `level: "low"` — the same word as a station that was
+measured and landed in the lowest band (`docs/methodology/flood-exposure.md` §ขั้นตอนการคำนวณ item 3
+says so explicitly). A "no usable factor at all" station is a station nobody measured, not a safe one,
+and drawing it with the safe colour is exactly the silent-disappearance failure AGENTS.md forbids.
+The two are already distinguishable from the run alone — *no factor produced a band* (in practice
+every `factors.*` is `null`, and a non-finite value produces no band either) — so this is a
+rendering and legend decision, not a contract change: do **not** add a level or a flag to
+`packages/shared-types/src/exposure.ts` for it.
 
 1. The layer is off by default; the toggle and the permalink round-trip.
 2. A screenshot shows the treatment as distinct from GISTDA observed and from plain lowland.
@@ -684,6 +699,7 @@ surfaced on `/health` (`lastError`, source `exposure-illustrative`) so it can ne
 5. With a `terrain.bin` checksum mismatch (E9.1 `terrainIntegrity: "mismatch"`) the exposure layer is suppressed along with the lowland channel it is gated on, and the legend says why — it never drapes over an unverified DEM.
 6. Frame-time delta ≤1 ms.
 7. The forbidden-word grep over the touched files is clean.
+8. A station for which no factor produced a band is drawn and labelled distinctly from a measured `low` station (no data ≠ safe), and the legend names both states; screenshot in the PR.
 
 #### E10.5 — Radar term as an input (optional)
 - Touches: new `apps/api/src/exposure/radarTrend.ts` (decode the last three TMD PNGs, sample at station locations, class 0–3 via a documented lookup table), a methodology update, tests
@@ -741,16 +757,17 @@ artefact exists or is needed) — but polygon distance is what this task specifi
 
 Tracked as one pinned `needs-user` checklist issue, not as tasks.
 
-| Blocker | Needed by |
-|---|---|
-| Workers Paid active (the DO-backed endpoints return 500 on the Free tier — already documented) | any api change deployed |
-| **blocker: TMD secrets** — `wrangler secret put TMD_UID` / `TMD_UKEY` (a registered key is preferable) | E2.3 |
-| **blocker: licence choice** — MIT / Apache-2.0 / other | E2.4 |
-| Make `Test` a required check (`.github/rulesets/main.json` + `scripts/apply-branch-rules.sh`) once E1.3 is stable | after M1 |
-| HSTS `includeSubDomains`/`preload`: yes or no | E4.2 |
-| Does the default UI language stay Thai? | E7.1 |
-| Rerun ETL and upload with `scripts/.env.r2` (the user's machine, hours of runtime) | E9.1, E9.2, E9.3, and verifying E8.3 |
-| Is a GitHub blob URL acceptable as the methodology URL? | E3.4, E10.1 |
+| Blocker | Needed by | Status |
+|---|---|---|
+| Workers Paid active (the DO-backed endpoints return 500 on the Free tier — already documented) | any api change deployed | **open** — user action, deploy-time only |
+| **blocker: TMD secrets** — `wrangler secret put TMD_UID` / `TMD_UKEY` (a registered key is preferable) | E2.3 | **open** — user action; the code degrades honestly without them, but the TMD feed stays `degraded` in production until they are set |
+| **blocker: licence choice** — MIT / Apache-2.0 / other | E2.4 | **resolved 2026-08-18: MIT** |
+| Make `Test` a required check (`.github/rulesets/main.json` + `scripts/apply-branch-rules.sh`) once E1.3 is stable | after M1 | **open** — user action |
+| HSTS `includeSubDomains`/`preload`: yes or no | E4.2 | **resolved 2026-08-18: `max-age` only** — no `includeSubDomains`, no `preload` |
+| Does the default UI language stay Thai? | E7.1 | **resolved 2026-08-18: yes, Thai always** — English via the toggle or `?lang=en`, never auto-detected |
+| Rerun ETL and upload with `scripts/.env.r2` (the user's machine, hours of runtime) | E9.1, E9.2, E9.3, and verifying E8.3 | **partly resolved 2026-08-20** — no rebuild was needed: none of E8.3/E9.1/E9.2/E9.3 changes a tile byte, so a `--force` rebuild would have spent hours writing byte-identical output through the symlink into the main checkout. What the provenance actually needed was a manifest refresh (`npm run refresh:manifests -w apps/etl`), run over the existing artefacts: 78 manifests written, checksums verified independently, per-layer `builtAt` taken from the untracked tile directories because the tracked files' mtimes are the checkout instant. **Still open:** copying the tiles to E9.2's versioned prefix on R2, which needs the storage decision below |
+| **blocker: R2 storage past the free tier** — E9.2's versioned prefix means the same 5.174 GiB / 303,260 objects exist twice (the old prefix is served `immutable` for a year and can never be deleted), taking the bucket to about 10.35 GiB against a 10 GB free allowance. Server-side copy, so nothing is re-uploaded from a laptop; 303k Class A operations stay inside the free 1M/month | E9.2, E9.3 | **resolved 2026-08-20: copy all 303,260 objects** — accepted the overage. Server-side copy only, proved on one province (11, 903 files) with a 200 through `siahra-radar.co` before the other 76 |
+| Is a GitHub blob URL acceptable as the methodology URL? | E3.4, E10.1 | **resolved 2026-08-18: no — a `/methodology` page on the web app**, rendering the Markdown in `docs/methodology/` |
 
 ## 5. Deferred — deliberately not doing now (with triggers)
 

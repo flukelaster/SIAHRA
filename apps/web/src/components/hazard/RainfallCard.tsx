@@ -1,6 +1,7 @@
 import { CloudRain, Info } from "lucide-react";
 import type { RainfallObservation } from "@siahra/shared-types";
 import { Panel } from "../ui/Panel";
+import { useLang } from "../../i18n/context";
 
 /** Colour by observed 24 h accumulation. Thresholds follow TMD's rainfall
  *  descriptive bands (light / moderate / heavy / very heavy). */
@@ -20,25 +21,25 @@ export function RainfallCard({
   loading: boolean;
   attribution: string | null;
 }) {
+  const { lang, t } = useLang();
   const reporting = stations.filter((s) => s.rain24h !== null);
   const ranked = [...reporting].sort((a, b) => (b.rain24h ?? 0) - (a.rain24h ?? 0));
   const wet = reporting.filter((s) => (s.rain24h ?? 0) > 0).length;
 
   return (
     <Panel
-      title="ปริมาณฝน 24 ชั่วโมง"
+      title={t("rain.title")}
       icon={<CloudRain size={16} className="text-[var(--color-accent)]" aria-hidden="true" />}
       headerAction={
         <span className="text-[11px] text-[var(--color-fg-muted)]">
-          {loading ? "กำลังโหลด..." : `${reporting.length} สถานี`}
+          {loading ? t("common.loading") : t("rain.reporting", { n: reporting.length })}
         </span>
       }
     >
       <div className="flex flex-col gap-3">
         {!loading && reporting.length > 0 ? (
           <p className="text-xs text-[var(--color-fg-muted)]">
-            มีฝนตก <span className="font-semibold text-[var(--color-fg)]">{wet}</span> สถานี จาก{" "}
-            {reporting.length} สถานีที่รายงาน
+            {t("rain.wetSummary", { wet, total: reporting.length })}
           </p>
         ) : null}
 
@@ -64,7 +65,8 @@ export function RainfallCard({
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xs text-[var(--color-fg)]">
-                    {s.station.nameTh ?? `สถานี ${s.station.id}`}
+                    {(lang === "th" ? (s.station.nameTh ?? s.station.nameEn) : (s.station.nameEn ?? s.station.nameTh)) ??
+                      t("water.stationFallback", { id: s.station.id })}
                   </p>
                   <p className="truncate text-[11px] text-[var(--color-fg-subtle)]">
                     {[s.station.amphoeNameTh, s.station.agencyShortTh].filter(Boolean).join(" · ")}
@@ -75,13 +77,14 @@ export function RainfallCard({
           </ul>
         ) : (
           <p className="rounded-lg bg-[var(--color-bg-elevated)] px-2.5 py-3 text-center text-xs text-[var(--color-fg-muted)]">
-            ไม่มีสถานีวัดน้ำฝนในจังหวัดนี้
+            {t("rain.none")}
           </p>
         )}
 
         <p className="flex items-start gap-1.5 rounded-lg bg-[var(--color-bg-elevated)] px-2.5 py-2 text-[11px] text-[var(--color-fg-muted)]">
           <Info size={13} className="mt-0.5 shrink-0 text-[var(--color-fg-subtle)]" aria-hidden="true" />
-          ปริมาณฝนสะสมที่ตรวจวัดจริงจากสถานีโทรมาตร ไม่ใช่การพยากรณ์
+          {t("rain.note")}
+          {/* attribution มาจาก API (ข้อความเครดิตของต้นทาง) — แสดงตามที่ได้มา ไม่แปล */}
           {attribution ? ` · ${attribution}` : ""}
         </p>
       </div>

@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import type { AoiManifest, TerrainTileLevel, TerrainTilePyramid } from "@siahra/shared-types";
+import type { AoiManifest, SourceId, TerrainTileLevel, TerrainTilePyramid } from "@siahra/shared-types";
 import type { LocalProjection } from "./localProjection";
 import {
   DEFAULT_IMAGERY_PROVIDER,
@@ -9,6 +9,7 @@ import {
   type ImageryPlan,
   type ImageryProvider,
 } from "./SatelliteImagery";
+import { shouldSplit } from "./lod";
 import { createTerrainMaterial, type TerrainSharedUniforms } from "./terrainMaterial";
 
 /**
@@ -18,7 +19,9 @@ import { createTerrainMaterial, type TerrainSharedUniforms } from "./terrainMate
  * province-wide and are sampled through the shared uniforms.
  *
  * Selection is top-down per frame (throttled): a tile is split while the
- * camera is closer than SPLIT_FACTOR × its ground size; a tile is drawn only
+ * camera is closer than SPLIT_FACTOR × its ground size and stays split until
+ * the camera has backed off past the hysteresis band (see scene/lod.ts, which
+ * owns that decision); a tile is drawn only
  * if it *and its imagery* are ready, otherwise its nearest ready ancestor
  * covers it (no holes, no flashes). Tiles are cached with LRU eviction.
  */
@@ -72,6 +75,8 @@ interface Tile extends TileKey {
   imagery: THREE.Texture | null;
   lastUsed: number;
   abort: AbortController | null;
+  /** ผลการตัดสินใจ split/merge ของเฟรมก่อน — ป้อนกลับเข้า shouldSplit() */
+  wasSplit: boolean;
 }
 
 function keyOf(z: number, x: number, y: number): string {
@@ -102,6 +107,33 @@ export interface TerrainTileStats {
   pending: number;
 }
 
+/**
+ * ตัวนับสำหรับดีบัก (DEV) — เปิดผ่าน `__siahraHandles.debug.snapshot()`
+ *
+ * `splits`/`merges` นับเฉพาะ "การเปลี่ยนใจ" ของไทล์ใบหนึ่ง ไม่ใช่จำนวนไทล์ที่
+ * แตกอยู่ กล้องที่นิ่งหรือโคจรผ่านเส้นแบ่งจึงต้องไม่ทำให้ตัวเลขนี้ไต่ขึ้นเรื่อย ๆ
+ * `meshesCreated`/`meshesDisposed` ใช้พิสูจน์ว่าฮิสเทอรีซิสไม่ได้กลายเป็นการรั่ว
+ * ของหน่วยความจำ GPU — ทุก mesh ที่อัปโหลดต้องถูกคืน และหลัง dispose() สองค่านี้
+ * ต้องเท่ากันพอดี
+ */
+export interface LodCounters {
+  splits: number;
+  merges: number;
+  meshesCreated: number;
+  meshesDisposed: number;
+}
+
+/**
+ * ตัวนับสุดท้ายของ tree ที่ถูก dispose ไปแล้ว (DEV เท่านั้น)
+ *
+ * `renderer` ถูกสร้างใหม่ทุกครั้งที่สลับจังหวัด `renderer.info` จึงรีเซ็ตตาม
+ * และพิสูจน์การรั่วข้ามจังหวัดไม่ได้ด้วยตัวเอง ประวัตินี้อยู่ระดับโมดูลจึงข้าม
+ * ฉากได้: หลังสลับสิบจังหวัดต้องมีสิบรายการ และทุกรายการต้องมี
+ * meshesCreated === meshesDisposed พอดี
+ */
+export const disposedTreeCounters: LodCounters[] = [];
+const DISPOSED_HISTORY_MAX = 50;
+
 export class TerrainTileTree {
   readonly group = new THREE.Group();
   private readonly pyramid: TerrainTilePyramid;
@@ -119,6 +151,7 @@ export class TerrainTileTree {
   private wanted: { tile: Tile; priority: number }[] = [];
   private loadingCount = 0;
   private lastUpdate = 0;
+  private counters: LodCounters = { splits: 0, merges: 0, meshesCreated: 0, meshesDisposed: 0 };
   private imageryEnabled = true;
   private disposed = false;
   private splitFactor = SPLIT_FACTOR;
@@ -170,6 +203,10 @@ export class TerrainTileTree {
     return this.provider.attribution;
   }
 
+  get imagerySourceId(): SourceId {
+    return this.provider.sourceId;
+  }
+
   private exists(z: number, x: number, y: number): boolean {
     const info = this.levels[z];
     if (!info || x < 0 || y < 0 || x >= info.tilesX || y >= info.tilesY) return false;
@@ -213,6 +250,7 @@ export class TerrainTileTree {
       imagery: null,
       lastUsed: 0,
       abort: null,
+      wasSplit: false,
     };
     this.tiles.set(id, t);
     return t;
@@ -288,7 +326,16 @@ export class TerrainTileTree {
     tile.lastUsed = now;
     const distance = this.tmpBox.distanceToPoint(this.camWorld);
     const canSplit = tile.z + 1 < this.levels.length;
-    if (canSplit && distance < tile.sizeM * splitFactor) {
+    // บันทึก "การตัดสินใจ" ไม่ใช่ "ผลลัพธ์": ถ้าลูกยังโหลดไม่เสร็จเราวาดใบพ่อไป
+    // ก่อน แต่ยังถือว่าตัดสินใจแตกแล้ว — ไม่อย่างนั้นแถบแช่จะถูกรีเซ็ตทุกเฟรม
+    // ที่ไทล์ลูกกำลังสตรีมอยู่ ซึ่งคือกรณีที่กระพริบจริง ๆ
+    const split = canSplit && shouldSplit(distance, tile.sizeM, splitFactor, tile.wasSplit);
+    if (split !== tile.wasSplit) {
+      if (split) this.counters.splits++;
+      else this.counters.merges++;
+      tile.wasSplit = split;
+    }
+    if (split) {
       const parts: Tile[] = [];
       let complete = true;
       for (let j = 0; j < 2; j++) {
@@ -378,6 +425,7 @@ export class TerrainTileTree {
       const { geometry, plan } = built;
       const material = createTerrainMaterial(this.shared);
       const mesh = new THREE.Mesh(geometry, material.material);
+      this.counters.meshesCreated++;
       mesh.name = `terrain-tile:${tile.id}`;
       mesh.receiveShadow = true;
       mesh.frustumCulled = true;
@@ -604,6 +652,7 @@ export class TerrainTileTree {
   }
 
   private disposeTile(t: Tile) {
+    if (t.mesh) this.counters.meshesDisposed++;
     if (t.mesh?.parent) t.mesh.parent.remove(t.mesh);
     t.mesh?.geometry.dispose();
     t.material?.material.dispose();
@@ -614,6 +663,12 @@ export class TerrainTileTree {
     t.heights = null;
     t.abort?.abort();
     t.state = "idle";
+    t.wasSplit = false;
+  }
+
+  /** ตัวนับดีบัก (DEV) — ดู LodCounters */
+  get lodCounters(): LodCounters {
+    return { ...this.counters };
   }
 
   /** Quality preset: LOD split distance factor and imagery zoom bias (new tiles only). */
@@ -680,5 +735,9 @@ export class TerrainTileTree {
     this.tiles.clear();
     this.visibleSet.clear();
     if (this.group.parent) this.group.parent.remove(this.group);
+    if (import.meta.env.DEV) {
+      disposedTreeCounters.push({ ...this.counters });
+      if (disposedTreeCounters.length > DISPOSED_HISTORY_MAX) disposedTreeCounters.shift();
+    }
   }
 }

@@ -7,9 +7,9 @@
 <html lang="th">
 <head>
 <meta charset="utf-8" />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=block" rel="stylesheet" />
+<!-- Self-hosted fonts: build.mjs inlines the @font-face rules from src/fonts.css
+     and serves public/fonts/ off its throwaway server. No external origin. -->
+<style>{{FONT_FACES}}</style>
 <script>
   // build.mjs renders at 2× by zooming the whole page: playwright-cli screenshots
   // in CSS pixels, so this is how a retina-sharp 2400×1260 comes out.

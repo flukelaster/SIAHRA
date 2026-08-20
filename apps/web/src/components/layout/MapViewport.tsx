@@ -6,12 +6,15 @@ import type {
   EarthquakeEvent,
   FloodExtentResponse,
   ObservationsResponse,
+  ProvinceExposureResponse,
   RadarFramesResponse,
 } from "@siahra/shared-types";
 import type { CameraPose, MapTool, SafeArea, SceneHandles } from "../../scene/setupScene";
 import { IconButton } from "../ui/Panel";
 import { Map3DCanvas, type MapApi, type MapInfo, type MapLayers } from "./Map3DCanvas";
 import type { QualityLevel, QualityMode } from "../../scene/quality";
+import { formatTime } from "../../lib/time";
+import { useLang } from "../../i18n/context";
 
 const ZOOM_FACTOR = 0.75;
 
@@ -29,6 +32,8 @@ export function MapViewport({
   floodExtent,
   dams,
   radar,
+  exposure,
+  exposureStale = false,
   atIso,
   layers,
   safeArea,
@@ -57,12 +62,17 @@ export function MapViewport({
   floodExtent: FloodExtentResponse | null;
   dams: DamObservation[];
   radar: RadarFramesResponse | null;
+  /** run ล่าสุดของ "ระดับการเผชิญน้ำ (ภาพประกอบ)" — null = ยังไม่มี/ชั้นถูกปิด */
+  exposure: ProvinceExposureResponse | null;
+  /** true = ไม่มีผลคำนวณรอบใหม่ → ชั้นหรี่ลง ไม่ใช่หายไป */
+  exposureStale?: boolean;
   atIso: string | null;
   layers: MapLayers;
   safeArea: SafeArea;
   observationsStale?: boolean;
   onInfo?: (info: MapInfo | null) => void;
 }) {
+  const { lang, t } = useLang();
   const [tool, setTool] = useState<MapTool>("select");
   const [heading, setHeading] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
@@ -131,6 +141,8 @@ export function MapViewport({
         floodExtent={floodExtent}
         dams={dams}
         radar={radar}
+        exposure={exposure}
+        exposureStale={exposureStale}
         atIso={atIso}
         exaggeration={exaggeration}
         layers={layers}
@@ -151,16 +163,15 @@ export function MapViewport({
         style={{ top: safeArea.top + 8, left: leftEdge }}
       >
         <h2 className={`${compact ? "text-lg" : "text-[26px]"} leading-tight font-bold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]`}>
-          จังหวัด{provinceLabel}
+          {t("viewport.province", { name: provinceLabel })}
         </h2>
         <p className="text-sm text-white/75 drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
-          มุมมอง 3 มิติ · ภูมิประเทศจริง
+          {t("viewport.subtitle")}
         </p>
         {info?.radarFrameAt ? (
           <p className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-black/70 px-2.5 py-0.5 text-[11px] text-white/85 backdrop-blur-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden="true" />
-            เรดาร์ฝน TMD{" "}
-            {new Date(info.radarFrameAt).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })} น.
+            {t("viewport.radarFrame", { time: formatTime(lang, info.radarFrameAt) })}
           </p>
         ) : null}
       </div>
@@ -173,8 +184,8 @@ export function MapViewport({
         <button
           type="button"
           onClick={() => sceneRef.current?.resetNorth()}
-          title="หันกลับทิศเหนือ"
-          aria-label="หันกลับทิศเหนือ"
+          title={t("viewport.north")}
+          aria-label={t("viewport.north")}
           className="glass-soft flex h-12 w-12 cursor-pointer items-center justify-center rounded-full text-white/90 transition-colors hover:text-white"
         >
           <span
@@ -187,21 +198,21 @@ export function MapViewport({
         </button>
 
         <div className="glass-soft flex flex-col gap-1.5 rounded-xl p-1.5">
-          <IconButton label="หมุน/เอียงมุมมอง" active={tool === "select"} onClick={() => setTool("select")}>
+          <IconButton label={t("viewport.orbit")} active={tool === "select"} onClick={() => setTool("select")}>
             <MousePointer2 size={16} />
           </IconButton>
-          <IconButton label="เลื่อนแผนที่" active={tool === "pan"} onClick={() => setTool("pan")}>
+          <IconButton label={t("viewport.pan")} active={tool === "pan"} onClick={() => setTool("pan")}>
             <Hand size={16} />
           </IconButton>
           <div className="my-0.5 h-px bg-white/10" />
-          <IconButton label="ซูมเข้า" onClick={() => dolly(ZOOM_FACTOR)}>
+          <IconButton label={t("viewport.zoomIn")} onClick={() => dolly(ZOOM_FACTOR)}>
             <Plus size={16} />
           </IconButton>
-          <IconButton label="ซูมออก" onClick={() => dolly(1 / ZOOM_FACTOR)}>
+          <IconButton label={t("viewport.zoomOut")} onClick={() => dolly(1 / ZOOM_FACTOR)}>
             <Minus size={16} />
           </IconButton>
           <div className="my-0.5 h-px bg-white/10" />
-          <IconButton label={fullscreen ? "ออกจากเต็มหน้าจอ" : "เต็มหน้าจอ"} onClick={toggleFullscreen}>
+          <IconButton label={fullscreen ? t("viewport.exitFullscreen") : t("viewport.fullscreen")} onClick={toggleFullscreen}>
             {fullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
           </IconButton>
         </div>

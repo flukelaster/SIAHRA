@@ -1,22 +1,31 @@
 import { DurableObject } from "cloudflare:workers";
-import type {
-  DamObservation,
-  DamsResponse,
-  HazardLayerDescriptor,
-  ObservationsResponse,
-  RainfallObservation,
-  SourceStatus,
-  WaterLevelHistoryPoint,
-  WaterLevelHistoryResponse,
-  WaterLevelObservation,
+import {
+  SOURCES,
+  type DamObservation,
+  type DamsResponse,
+  type HazardLayerDescriptor,
+  type ObservationsResponse,
+  type RainfallObservation,
+  type SourceStatus,
+  type WaterLevelHistoryPoint,
+  type WaterLevelHistoryResponse,
+  type WaterLevelObservation,
 } from "@siahra/shared-types";
 import {
-  THAIWATER_ATTRIBUTION,
   fetchDams,
   fetchRainfall,
   fetchWaterLevel,
   fetchWaterLevelHistory,
 } from "../ingestion/thaiwater.js";
+import { shortReason } from "../ingestion/errors.js";
+import { DEFAULT_EXPOSURE_THRESHOLDS, computeExposure } from "../exposure/compute.js";
+import type { StationHourlyLevels } from "../exposure/compute.js";
+import {
+  EXPOSURE_POINTER_NAME,
+  exposureRunKey,
+  runContentHash,
+} from "../exposure/publish.js";
+import { deriveSourceHealth } from "../sourceHealth.js";
 import { UpstreamQueue } from "../upstream/limiter.js";
 import {
   addDays,
@@ -31,6 +40,7 @@ import {
   type ArchiveDayIndex,
   type WaterlevelDayFile,
 } from "../archive.js";
+import { errorText, logError, logInfo, logWarn } from "../log.js";
 
 /**
  * Upstream responses are 2-4 MB covering ~5,500 stations nationwide, so they
@@ -40,6 +50,18 @@ import {
 const TTL_MS = 5 * 60 * 1000;
 /** After this long without a successful pull the data is flagged stale. */
 const STALE_AFTER_MS = 15 * 60 * 1000;
+/**
+ * เพดานอายุของ "ค่าตรวจวัดใหม่สุด" ก่อนถือว่า `delayed` (ดึงสำเร็จ แต่ต้นทางยัง
+ * ไม่ปล่อยรอบใหม่) — วัดจริงจาก /api/v1/observations ทั่วประเทศ 2026-08-19:
+ * ฝนตกกริดรายชั่วโมงเป็นหลัก (สถานี 2,413 ตัวอยู่ที่ 00:00 และ 1,581 ตัวที่ 01:00)
+ * ระดับน้ำส่วนใหญ่รายชั่วโมง มีบางส่วนรายงานทุก 10 นาที และหน่วงการเผยแพร่ ~17 นาที
+ * → 2 ชม. = สองรอบรายชั่วโมง เผื่อพลาดการเผยแพร่หนึ่งรอบโดยยังไม่ตีว่าผิดปกติ
+ *
+ * ค่านี้เทียบกับ MAX(observed_at) ของสถานีทั้งหมด (~5,900 ตัว) จึงถูกครอบด้วย
+ * สถานีที่สดที่สุด — `delayed` ของ thaiwater จะจุดก็ต่อเมื่อต้นทางเงียบเกือบทั้งระบบ
+ * ไม่ใช่เมื่อสถานีบางส่วนค้าง
+ */
+const OBSERVED_LAG_MS = 2 * 60 * 60 * 1000;
 /** Failed refreshes back off: 1 min, 2, 4 … capped at 10 min. */
 const RETRY_MIN_MS = 60 * 1000;
 const RETRY_MAX_MS = 10 * 60 * 1000;
@@ -56,6 +78,37 @@ const WARM_MAX_STATIONS = 24;
 /** Snapshot lookups accept a reading this far before the requested time. */
 const SNAPSHOT_TOLERANCE_MS = 3 * 60 * 60 * 1000;
 const DAMS_TTL_MS = 30 * 60 * 1000;
+/**
+ * รอบที่ฟีดเขื่อนล้มเหลวจะไม่ประทับ `damsFetchedAt` (ไม่มีข้อมูลใหม่ให้ประทับ)
+ * ทุกคำขอถัดไปจึงเข้าเงื่อนไข "หมดอายุ" แล้วยิงต้นทางซ้ำทุกครั้ง — ต้นทางที่ส่ง
+ * payload ผิดรูปไม่ใช่อาการชั่วคราว การยิงรัวจึงได้แต่รูปเดิม เว้นระยะไว้ 5 นาที
+ */
+const DAMS_RETRY_MS = 5 * 60 * 1000;
+/**
+ * งบเวลาของแหล่ง `exposure-illustrative` บน /health — 30 นาทีตาม E10.3
+ *
+ * `staleAfterSeconds` วัดจาก **การดึง ThaiWater** (ไม่มีอินพุตใหม่ = ไม่มีอะไรให้
+ * คำนวณ) ส่วน `observedLagSeconds` วัดจาก **เวลาที่คำนวณ run ล่าสุด** ที่เผยแพร่ไป
+ * — ครบ 30 นาทีแล้วยังไม่มี run ใหม่ = `delayed`
+ *
+ * **งบสองตัวนี้เท่ากันไม่ได้** และนี่คือเหตุผลที่ `staleAfterSeconds` เป็นหนึ่งชั่วโมง
+ * ไม่ใช่ครึ่งชั่วโมง: `deriveSourceHealth` ตัดสิน `stale` (ดึงไม่ทันงบ) **ก่อน**
+ * `delayed` เสมอ และในทางปฏิบัติ "ไม่มี run ใหม่ 30 นาที" กับ "ไม่มีรอบดึงสำเร็จ
+ * 30 นาที" คือเหตุการณ์เดียวกัน (เพราะ `fetchedAt` อยู่ในเนื้อหาที่ใช้คิด `runId`
+ * รอบที่ดึงสำเร็จจึงได้ run ใหม่เสมอ) ถ้าตั้งงบเท่ากัน สาขา `delayed` จะไม่มีวัน
+ * ถูกใช้เลย เส้นแบ่งที่ตั้งใจจึงเป็น: เงียบ 30 นาที = "ยังไม่มีอะไรใหม่ให้จัดอันดับ"
+ * (`delayed`) เงียบเกินหนึ่งชั่วโมง = "ฝั่งเราหยุดดึงไปแล้วจริง ๆ" (`stale`)
+ *
+ * ทำไม `latestObservedAt` ของแหล่งนี้จึงเป็น `run.computedAt` ไม่ใช่เวลาตรวจวัด
+ * ใหม่สุดในตัว run: เวลาตรวจวัดของ ThaiWater แกว่งอยู่ราว 17–77 นาทีตามปกติ
+ * (ดูตาราง `observedLagSeconds` ใน docs/api.md) ถ้าเอาค่านั้นมาเทียบกับงบ 30 นาที
+ * แหล่งนี้จะขึ้น `delayed` เกือบตลอดทุกชั่วโมงทั้งที่ทุกอย่างทำงานปกติ — เตือนหมาป่า
+ * จนไม่มีใครเชื่อแถบสถานะอีก สิ่งที่งบ 30 นาทีนี้ตั้งใจวัดคือ "ยังมี run ใหม่ออกมา
+ * อยู่ไหม" ดังนั้นตัวเลขที่ต้องเทียบคือเวลาของ run เอง ส่วนเวลาตรวจวัดรายสถานี
+ * ยังอยู่ครบใน artefact ทุกก้อน (`stations[].observedAt` และ `layer.observedAt`)
+ */
+const EXPOSURE_STALE_AFTER_MS = 60 * 60 * 1000;
+const EXPOSURE_RUN_LAG_MS = 30 * 60 * 1000;
 
 /**
  * Durable Object SQLite caps bound parameters per statement (100), and each
@@ -179,9 +232,21 @@ export class ObservationCacheDO extends DurableObject<Env> {
 
   private refreshOnce(nowMs: number): Promise<void> {
     if (!this.inflight) {
-      this.inflight = this.refresh(nowMs).finally(() => {
-        this.inflight = null;
-      });
+      /**
+       * exposure run ถูกคำนวณ "ต่อท้ายรอบ refresh" ที่ผู้เรียกทุกคนใช้ร่วมกัน —
+       * ผู้เรียกหลายรายในรอบเดียวจึงได้ promise ก้อนเดียวกัน = **เขียน R2
+       * ได้ไม่เกินหนึ่งครั้งต่อหนึ่งรอบ refresh** (AC ของ E10.3)
+       *
+       * `publishExposure` ถูกออกแบบให้ **ไม่มีวัน reject** (ดูตัวมันเอง) ดังนั้น
+       * การเขียน R2 ที่ล้มเหลวจะไม่ลาก refresh ลงไปด้วย และไม่มีทางกิน
+       * `armAlarm()` ของผู้เรียก — แต่ผู้เรียกทั้งสามจุดก็ยังเรียก `armAlarm()`
+       * จาก `finally` อยู่ดี เพราะการมี alarm ค้างไว้สำคัญกว่าเหตุผลที่รอบนี้พัง
+       */
+      this.inflight = this.refresh(nowMs)
+        .then(() => this.publishExposure(nowMs))
+        .finally(() => {
+          this.inflight = null;
+        });
     }
     return this.inflight;
   }
@@ -189,8 +254,14 @@ export class ObservationCacheDO extends DurableObject<Env> {
   /** Cron/alarm entry point: refresh if due, and (re)arm the alarm. */
   async ensureFresh(): Promise<void> {
     const nowMs = Date.now();
-    if (!this.isFresh(nowMs)) await this.refreshOnce(nowMs);
-    await this.armAlarm();
+    // นัดครั้งถัดไปต้องถูกตั้งเสมอ แม้รอบนี้จะพัง — ถ้า refresh (หรือการเผยแพร่
+    // exposure ที่ต่อท้ายมัน) โยนออกมาแล้วข้าม armAlarm() ไป DO จะไม่มีนัด
+    // เหลืออยู่เลย และค่าตรวจวัดทั้งชุดจะหยุดอัปเดต ไม่ใช่แค่ exposure
+    try {
+      if (!this.isFresh(nowMs)) await this.refreshOnce(nowMs);
+    } finally {
+      await this.armAlarm();
+    }
     this.ctx.waitUntil(this.archiveTick().catch((err: unknown) => {
       this.writeMeta("archiveError", String(err).slice(0, 200));
     }));
@@ -208,13 +279,18 @@ export class ObservationCacheDO extends DurableObject<Env> {
   }
 
   async alarm(): Promise<void> {
-    await this.refreshOnce(Date.now());
-    // The alarm just fired, so getAlarm() is null and armAlarm() sets the next one.
-    await this.armAlarm();
+    try {
+      await this.refreshOnce(Date.now());
+    } finally {
+      // The alarm just fired, so getAlarm() is null and armAlarm() sets the next
+      // one — from `finally`, so a failed refresh or a rejected R2 publish can
+      // never leave this DO with no alarm scheduled (E10.3).
+      await this.armAlarm();
+    }
     // Archive work never blocks the refresh cadence.
     this.ctx.waitUntil(this.archiveTick().catch((err: unknown) => {
       this.writeMeta("archiveError", String(err).slice(0, 200));
-      console.error(JSON.stringify({ level: "error", message: "archive tick failed", error: String(err) }));
+      logError("archive tick failed", { error: errorText(err) });
     }));
   }
 
@@ -243,23 +319,60 @@ export class ObservationCacheDO extends DurableObject<Env> {
 
   private async writeHourlySnapshot(nowMs: number, day: string, hour: string): Promise<void> {
     const snapshot = await this.getObservations(null);
-    await putJsonGz(this.env.HAZARD_BUCKET, archiveKeys.snapshot(day, hour), snapshot);
+    // Local hourly MSL levels are written FIRST, independently of the R2
+    // archive write below — this is not just archival bookkeeping.
+    // `exposureHistory()` reads straight from `hourly_levels` and feeds it to
+    // `freeboardTrend()`, so this table is a live input to every exposure run,
+    // not only to the daily province archive. Writing R2 first (the original
+    // order) meant a single R2 failure (quota, network, whatever) skipped this
+    // INSERT entirely for that hour; `hourly_levels` rows then age out of the
+    // 3h trend window one missed archive tick at a time, and
+    // `freeboardTrendMPerH` silently goes `null` for every station even though
+    // `/health` and the exposure layer both keep reporting healthy — a
+    // background dependency failing with no visible effect (review round 6,
+    // P2). Doing the local insert first means that failure mode requires the
+    // SQLite write itself to fail, not merely the unrelated R2 call after it.
+    //
     // Also keep hourly MSL levels for every station in SQLite so the daily
     // file has at least hourly coverage for stations nobody warmed.
+    //
+    // `ts_ms` must be a real observation time: `exposureHistory()` feeds this
+    // table straight into `freeboardTrend()`, which treats `ts_ms` as elapsed
+    // wall-clock time between two real readings. A station whose
+    // `observedAt` is missing or unparsable has no real observation time to
+    // record here — stamping it with `nowMs` (the snapshot's own clock, not
+    // an upstream measurement) would let an unrelated value change between
+    // two snapshots read as a rate of change, i.e. a fabricated trend. Such
+    // rows are skipped entirely rather than given a synthetic timestamp; the
+    // station just has one fewer archived/trend point for that hour, same as
+    // any other station that failed to report.
     const rows = snapshot.waterlevel;
     for (let i = 0; i < rows.length; i += 30) {
       const chunk = rows.slice(i, i + 30);
-      const placeholders = chunk.map(() => "(?, ?, ?)").join(",");
       const binds: SqlStorageValue[] = [];
+      let n = 0;
       for (const w of chunk) {
-        binds.push(w.station.id, w.observedAt ? Date.parse(w.observedAt) : nowMs, w.waterlevelMsl);
+        const ts = w.observedAt ? Date.parse(w.observedAt) : NaN;
+        if (!Number.isFinite(ts)) continue;
+        binds.push(w.station.id, ts, w.waterlevelMsl);
+        n++;
       }
+      if (n === 0) continue;
+      const placeholders = Array.from({ length: n }, () => "(?, ?, ?)").join(",");
       this.ctx.storage.sql.exec(
         `INSERT OR REPLACE INTO hourly_levels (station_id, ts_ms, value_msl) VALUES ${placeholders}`,
         ...binds,
       );
     }
     this.ctx.storage.sql.exec("DELETE FROM hourly_levels WHERE ts_ms < ?", nowMs - HISTORY_RETENTION_MS);
+    // R2 archive write — best-effort from here on. If this (or the index
+    // write below) throws, `archiveTick()`'s catch records `archiveError`
+    // (surfaced in `/health`'s `thaiwater` source detail) and
+    // `lastSnapshotKey` is never set, so the next tick retries this whole
+    // function — including a harmless re-insert of the rows above (`INSERT OR
+    // REPLACE`) — but the exposure trend already has this hour's data
+    // regardless of whether the retry succeeds.
+    await putJsonGz(this.env.HAZARD_BUCKET, archiveKeys.snapshot(day, hour), snapshot);
     // Index bookkeeping.
     const idx = (await getJson<ArchiveDayIndex>(this.env.HAZARD_BUCKET, archiveKeys.index(day))) ?? {
       day,
@@ -340,7 +453,7 @@ export class ObservationCacheDO extends DurableObject<Env> {
     idx.dams = dayDams.length > 0;
     idx.generatedAt = new Date().toISOString();
     await putJson(this.env.HAZARD_BUCKET, archiveKeys.index(day), idx);
-    console.log(JSON.stringify({ level: "info", message: "archived day", day, provinces: written.length, dams: dayDams.length }));
+    logInfo("archived day", { day, provinces: written.length, dams: dayDams.length });
   }
 
   /** Province-day archive file with a 1 h SQLite cache (null when absent). */
@@ -408,45 +521,75 @@ export class ObservationCacheDO extends DurableObject<Env> {
     this.writeMeta("lastAttemptAt", new Date(nowMs).toISOString());
     // Partial failure must not wipe the good half of the cache, so each feed
     // is only rewritten when its own fetch succeeded.
+    const errors: string[] = [];
+    let rainfallError: string | null = null;
+    let waterlevelError: string | null = null;
     const [rainfall, waterlevel] = await Promise.all([
       this.upstream.run(() => fetchRainfall(), 0).catch((err: unknown) => {
-        console.error(
-          JSON.stringify({ level: "error", message: "thaiwater rain fetch failed", error: String(err) }),
-        );
+        rainfallError = shortReason(err);
+        errors.push(rainfallError);
+        logError("thaiwater rain fetch failed", { error: errorText(err) });
         return null;
       }),
       this.upstream.run(() => fetchWaterLevel(), 0).catch((err: unknown) => {
-        console.error(
-          JSON.stringify({ level: "error", message: "thaiwater waterlevel fetch failed", error: String(err) }),
-        );
+        waterlevelError = shortReason(err);
+        errors.push(waterlevelError);
+        logError("thaiwater waterlevel fetch failed", { error: errorText(err) });
         return null;
       }),
     ]);
 
+    /**
+     * **ตรวจรูปร่างเสร็จก่อนถึงบรรทัดนี้เสมอ** — adapter จะโยน `UpstreamShapeError`
+     * ตั้งแต่ตอนแปลง payload จึงคืนค่าเป็น null และไม่มี SQL สักคำสั่งถูกรัน
+     * ผลคือรอบที่ payload ผิดรูปจะไม่มีวัน "เขียนไปได้ครึ่งทาง": แถวเดิมอยู่ครบ
+     * แล้วความล้มเหลวไปโผล่ที่ lastError/health แทน (E4.4 AC 4)
+     */
     if (rainfall) this.replaceRainfall(rainfall);
     if (waterlevel) this.replaceWaterLevel(waterlevel);
 
+    // Keep the two station feeds independently auditable.  `fetchedAt` and
+    // `lastError` below remain the aggregate source state, while these fields
+    // let consumers of rainfall/water-level only (notably exposure) avoid
+    // treating an unrelated dam failure as an input failure.  Missing fields
+    // deliberately stay missing for pre-metadata caches: status() maps that
+    // to `unknown`, never to a fresh successful poll.
+    const attemptedAt = new Date(nowMs).toISOString();
+    if (rainfall) {
+      this.writeMeta("rainfallFetchedAt", attemptedAt);
+      this.writeMeta("rainfallError", null);
+    } else {
+      this.writeMeta("rainfallError", rainfallError ?? "ThaiWater rain_24h failed");
+    }
+    if (waterlevel) {
+      this.writeMeta("waterlevelFetchedAt", attemptedAt);
+      this.writeMeta("waterlevelError", null);
+    } else {
+      this.writeMeta("waterlevelError", waterlevelError ?? "ThaiWater waterlevel_load failed");
+    }
+
     if (rainfall && waterlevel) {
-      this.writeMeta("fetchedAt", new Date(nowMs).toISOString());
+      this.writeMeta("fetchedAt", attemptedAt);
       this.writeMeta("lastError", null);
       this.writeMeta("consecutiveFailures", "0");
     } else {
       // Partial success still refreshes fetchedAt (the good half is new), but
       // the failure is recorded so /health can say "degraded".
-      if (rainfall || waterlevel) this.writeMeta("fetchedAt", new Date(nowMs).toISOString());
-      const which = [!rainfall && "rain_24h", !waterlevel && "waterlevel_load"].filter(Boolean).join(", ");
-      this.writeMeta("lastError", `ThaiWater ${which} fetch failed`);
+      if (rainfall || waterlevel) this.writeMeta("fetchedAt", attemptedAt);
+      // เก็บข้อความจริงของต้นทางไว้ ไม่ใช่แค่ "fetch failed" — ผู้ใช้ที่เห็น
+      // แถบสถานะต้องแยกออกว่าต้นทางล่ม (HTTP 5xx) กับต้นทางเปลี่ยนรูปร่าง
+      // (UpstreamShapeError พร้อม path) คนละเรื่องกัน
+      // ไม่ใส่คำนำหน้า "ThaiWater" ซ้ำ: shortReason() คืนข้อความที่ขึ้นต้นด้วยชื่อ
+      // ต้นทางและ path อยู่แล้ว การซ้ำจะกินโควตา 200 ตัวอักษรจน path ของฟีดที่สอง
+      // ถูกตัดทิ้ง ทั้งที่มันคือชิ้นเดียวที่บอกว่าต้นทางเปลี่ยนรูปตรงไหน
+      this.writeMeta("lastError", errors.join("; ").slice(0, 200));
       const failures = Number(this.readMeta("consecutiveFailures") ?? "0") + 1;
       this.writeMeta("consecutiveFailures", String(failures));
     }
-    console.log(
-      JSON.stringify({
-        level: "info",
-        message: "observation cache refreshed",
-        rainfall: rainfall?.length ?? "failed",
-        waterlevel: waterlevel?.length ?? "failed",
-      }),
-    );
+    logInfo("observation cache refreshed", {
+      rainfall: rainfall?.length ?? "failed",
+      waterlevel: waterlevel?.length ?? "failed",
+    });
   }
 
   /**
@@ -595,7 +738,7 @@ export class ObservationCacheDO extends DurableObject<Env> {
       await Promise.all(
         rows.map((r) =>
           this.pullHistory(r.station_id, nowMs, (r.situation_level ?? 0) >= 4 ? 2 : 6).catch((err: unknown) => {
-            console.error(JSON.stringify({ level: "warn", message: "history pull failed", stationId: r.station_id, error: String(err) }));
+            logWarn("history pull failed", { stationId: r.station_id, error: errorText(err) });
           }),
         ),
       );
@@ -654,6 +797,7 @@ export class ObservationCacheDO extends DurableObject<Env> {
         epistemicClass: "observed",
         liveOrStatic: "live",
         observedAt: points.length ? points[points.length - 1].t : undefined,
+        publishedAt: null,
         fetchedAt: meta ? new Date(meta.fetched_ms).toISOString() : null,
         staleAfterSeconds: STALE_AFTER_MS / 1000,
         sourceIds: ["thaiwater"],
@@ -672,8 +816,15 @@ export class ObservationCacheDO extends DurableObject<Env> {
   private async refreshDams(nowMs: number): Promise<void> {
     if (!this.damsInflight) {
       this.damsInflight = (async () => {
+        const lastAttemptMs = Number(this.readMeta("damsAttemptAt") ?? "0");
+        if (this.readMeta("damsError") && nowMs - lastAttemptMs < DAMS_RETRY_MS) return;
+        this.writeMeta("damsAttemptAt", String(nowMs));
         try {
           const dams = await this.upstream.run(() => fetchDams(nowMs), 3);
+          // ล้างตารางเฉพาะเมื่อมีของใหม่มาแทนจริง ๆ — payload ที่แปลงแล้วเหลือศูนย์
+          // แถวไม่ควรมีสิทธิ์ลบเขื่อนทั้งประเทศทิ้ง (การตรวจซองจดหมายใน adapter
+          // ดักกรณีนี้ไปแล้ว บรรทัดนี้คือกันชนชั้นสุดท้าย)
+          if (dams.length === 0) throw new Error("ThaiWater analyst/dam returned no usable rows");
           this.ctx.storage.sql.exec("DELETE FROM dams");
           for (const d of dams) {
             this.ctx.storage.sql.exec(
@@ -688,7 +839,9 @@ export class ObservationCacheDO extends DurableObject<Env> {
           this.writeMeta("damsError", null);
         } catch (err) {
           this.writeMeta("damsError", String(err).slice(0, 200));
-          console.error(JSON.stringify({ level: "error", message: "thaiwater dams fetch failed", error: String(err) }));
+          // แถวเขื่อนเดิมยังอยู่ครบ (ไม่มีคำสั่ง DELETE ถูกรัน) และความล้มเหลว
+          // ไปโผล่ที่ lastError ของ /health ด้านล่าง แทนที่จะหายไปใน log เฉย ๆ
+          logError("thaiwater dams fetch failed", { error: errorText(err) });
         }
       })().finally(() => {
         this.damsInflight = null;
@@ -715,6 +868,7 @@ export class ObservationCacheDO extends DurableObject<Env> {
         epistemicClass: "observed",
         liveOrStatic: "live",
         observedAt: newest,
+        publishedAt: null,
         fetchedAt: this.readMeta("damsFetchedAt"),
         staleAfterSeconds: 3 * 60 * 60,
         sourceIds: ["thaiwater"],
@@ -724,11 +878,169 @@ export class ObservationCacheDO extends DurableObject<Env> {
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // Illustrative flood exposure (E10.3)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * ประวัติระดับน้ำรายชั่วโมงในหน้าต่างย้อนหลังของ run — ใช้ตาราง `hourly_levels`
+   * ตารางเดียว **โดยตั้งใจ** เพราะมันเก็บค่าเป็น MSL เสมอ ส่วน `waterlevel_history`
+   * เก็บค่าตามที่ต้นทางส่งมา ซึ่งบางสถานีเป็นระดับท้องถิ่น (ดู `history_meta.datum`)
+   * การเอาสองหน่วยมาต่อกันในสถานีเดียวจะได้ "อัตราการเปลี่ยน" ที่ไม่มีความหมาย
+   */
+  private exposureHistory(nowMs: number, windowH: number): StationHourlyLevels[] {
+    const rows = this.ctx.storage.sql
+      .exec<{ station_id: number; ts_ms: number; value_msl: number | null }>(
+        "SELECT station_id, ts_ms, value_msl FROM hourly_levels WHERE ts_ms >= ? ORDER BY station_id, ts_ms",
+        nowMs - windowH * 60 * 60 * 1000,
+      )
+      .toArray();
+    const byStation = new Map<number, WaterLevelHistoryPoint[]>();
+    for (const r of rows) {
+      const points = byStation.get(r.station_id) ?? [];
+      points.push({ t: new Date(r.ts_ms).toISOString(), value: r.value_msl, discharge: null });
+      byStation.set(r.station_id, points);
+    }
+    return [...byStation.entries()].map(([stationId, points]) => ({ stationId, points }));
+  }
+
+  /**
+   * คำนวณ run ทั่วประเทศหนึ่งชุดแล้วเผยแพร่ ถ้า **อะไรก็ตามที่เปิดเผยเปลี่ยน**
+   *
+   * เมธอดนี้ **ไม่มีวัน reject** — ทุกความล้มเหลวถูกเก็บลง `exposureError` แล้ว
+   * ไปโผล่ที่ /api/v1/health (แหล่ง `exposure-illustrative`) เพราะมันวิ่งอยู่บน
+   * เส้นทางเดียวกับการ refresh ค่าตรวจวัด: ถ้ามันโยนออกไป การตั้งนัด alarm
+   * ครั้งถัดไปจะถูกข้าม แล้ว "การเขียน R2 พลาดครั้งเดียว" จะหยุดการดึงค่าตรวจวัด
+   * ทั้งระบบ (cron ใน production กลบอาการนี้ไว้ แต่ `wrangler dev` ไม่มี cron)
+   */
+  private async publishExposure(nowMs: number): Promise<void> {
+    try {
+      this.writeMeta("exposureLastAttemptAt", new Date(nowMs).toISOString());
+      const rainfall = this.ctx.storage.sql
+        .exec<StationRow>("SELECT payload FROM rainfall")
+        .toArray()
+        .map((r) => JSON.parse(r.payload) as RainfallObservation);
+      const waterlevel = this.ctx.storage.sql
+        .exec<StationRow>("SELECT payload FROM waterlevel")
+        .toArray()
+        .map((r) => JSON.parse(r.payload) as WaterLevelObservation);
+      const run = computeExposure(
+        // `fetchedAt` คง null ไว้ตามจริง — run ที่ยังไม่เคยดึงต้นทางสำเร็จก็บอกว่าไม่เคย
+        { rainfall, waterlevel, fetchedAt: this.readMeta("fetchedAt") },
+        this.exposureHistory(nowMs, DEFAULT_EXPOSURE_THRESHOLDS.historyWindowH),
+        DEFAULT_EXPOSURE_THRESHOLDS,
+        new Date(nowMs),
+      );
+      const hash = runContentHash(run.runId);
+      // เนื้อหาเท่าเดิมทุกไบต์ = ไม่มีอะไรใหม่ให้เผยแพร่ ไม่เขียน R2 ไม่ขยับตัวชี้
+      if (hash !== null && hash === this.readMeta("exposureContentHash")) {
+        this.writeMeta("exposureError", null);
+        return;
+      }
+      const key = exposureRunKey(run.runId);
+      /**
+       * `exposure/runs/{runId}.json.gz` เขียนครั้งเดียวตลอดกาล: ถ้าคีย์นี้มีอยู่แล้ว
+       * (เนื้อหาเปลี่ยนภายในวินาทีเดียวกันจนได้ `runId` ซ้ำ) เราปล่อยของเดิมไว้
+       * ไม่เขียนทับ เพราะมันถูกเสิร์ฟแบบ immutable ไปแล้ว — ตัวชี้ยังถูกอัปเดต
+       * ให้ชี้ไปที่ run นั้นตามปกติ
+       *
+       * เก็บเป็น gzip ด้วย `putJsonGz` เหมือนคลังถาวรก้อนอื่น: run ทั้งประเทศ
+       * (5,454 สถานี) วัดผ่านเส้นทางเขียนจริงได้ 1,289,810 ไบต์ → 102,609 ไบต์
+       * (7.96% เล็กลง 12.6 เท่า) การเก็บดิบคือจ่ายค่า R2 สิบสองเท่าโดยไม่ได้อะไรคืน
+       * (`putJsonGz` log `bytes` ของไบต์ที่เขียนจริงให้เอง)
+       */
+      const existing = await this.env.HAZARD_BUCKET.head(key);
+      if (!existing) {
+        await putJsonGz(this.env.HAZARD_BUCKET, key, run);
+        logInfo("exposure run published", { key, stations: run.stations.length });
+      } else {
+        logWarn("exposure run key already exists — not overwritten", { key });
+      }
+      await this.env.FORECAST_POINTER.getByName(EXPOSURE_POINTER_NAME).setLatest(run.runId, key);
+      this.writeMeta("exposureContentHash", hash);
+      this.writeMeta("exposureRunId", run.runId);
+      this.writeMeta("exposureRunAt", run.computedAt);
+      this.writeMeta("exposureObservedAt", run.layer.observedAt ?? null);
+      this.writeMeta("exposureStationCount", String(run.stations.length));
+      this.writeMeta("exposureError", null);
+    } catch (err) {
+      // `exposureContentHash` ถูกปล่อยไว้เท่าเดิมโดยตั้งใจ รอบถัดไปจึงเห็นว่า
+      // เนื้อหาต่างจากที่เผยแพร่สำเร็จล่าสุด แล้วลองใหม่เอง
+      this.writeMeta("exposureError", errorText(err, 200));
+      logError("exposure publish failed", { error: errorText(err) });
+    }
+  }
+
+  /**
+   * Backs the `exposure-illustrative` entry in GET /api/v1/health
+   *
+   * เป็นแหล่งที่ **เราคำนวณเอง** ไม่ใช่ฟีดที่ไปดึงมา บันไดสุขภาพจึงถูกป้อนแบบนี้:
+   * - `fetchedAt` = เวลาที่ดึง ThaiWater สำเร็จล่าสุด (อินพุตของการคำนวณ) —
+   *   ไม่มีอินพุตใหม่ ก็ไม่มีทางมี run ใหม่
+   * - `latestObservedAt` = **`computedAt` ของ run ที่เผยแพร่ล่าสุด ไม่ใช่เวลาตรวจวัด**
+   *   ครบ 30 นาทีแล้วยังไม่ขยับ = `delayed` ซึ่งอ่านว่า "รอบคำนวณฝั่งเราหยุดเดิน"
+   *   ไม่ใช่ "ต้นทางเงียบ" — เพราะ `inputs.thaiwaterFetchedAt` อยู่ในเนื้อหาที่เอาไป
+   *   แฮช ทุกรอบที่ดึง ThaiWater สำเร็จจึงได้ run ใหม่เสมอ
+   *
+   *   เวลาตรวจวัดจริงของ run อยู่ที่ `detail.runObservedAt` ต่างหาก และมันเก่ากว่า
+   *   `computedAt` เป็นปกติ (วัดได้ ~19 นาทีในชั่วโมงที่ปกติดี) การเอามันมาเป็น
+   *   `latestObservedAt` จึงถูกปฏิเสธ — อายุค่าตรวจวัดของ ThaiWater แกว่ง 17–77 นาที
+   *   อยู่แล้ว ซึ่งจะทำให้แหล่งนี้ขึ้น `delayed` เกือบตลอดทุกชั่วโมงโดยไม่มีอะไรผิด
+   * - `lastError` = ความล้มเหลวของการเผยแพร่ครั้งล่าสุด (R2 หรือตัวชี้) ซึ่งทำให้
+   *   เป็น `degraded`/`down` และทำให้ `/health` ตอบ `ok: false` — ไม่ใช่ความเงียบ
+   */
+  async exposureStatus(): Promise<SourceStatus> {
+    const nowMs = Date.now();
+    const fetchedAt = this.readMeta("fetchedAt");
+    const lastError = this.readMeta("exposureError");
+    // = `computedAt` ของ run ล่าสุดที่เผยแพร่สำเร็จ (เหตุผลอยู่ที่ EXPOSURE_RUN_LAG_MS)
+    const latestObservedAt = this.readMeta("exposureRunAt");
+    const health = deriveSourceHealth({
+      nowMs,
+      fetchedAt,
+      lastError,
+      latestObservedAt,
+      staleAfterSeconds: EXPOSURE_STALE_AFTER_MS / 1000,
+      observedLagSeconds: EXPOSURE_RUN_LAG_MS / 1000,
+    });
+    const alarmAtMs = await this.ctx.storage.getAlarm();
+    return {
+      id: "exposure-illustrative",
+      labelTh: SOURCES["exposure-illustrative"].nameTh,
+      labelEn: SOURCES["exposure-illustrative"].nameEn,
+      health,
+      fetchedAt,
+      latestObservedAt,
+      lastAttemptAt: this.readMeta("exposureLastAttemptAt"),
+      lastError,
+      detail: {
+        runId: this.readMeta("exposureRunId"),
+        // เวลาตรวจวัดใหม่สุดที่อยู่ใน run นั้น — แยกจาก latestObservedAt ข้างบน
+        // ซึ่งเป็นเวลาที่คำนวณ run
+        runObservedAt: this.readMeta("exposureObservedAt"),
+        stations: Number(this.readMeta("exposureStationCount") ?? "0"),
+        historyWindowH: DEFAULT_EXPOSURE_THRESHOLDS.historyWindowH,
+      },
+      staleAfterSeconds: EXPOSURE_STALE_AFTER_MS / 1000,
+      observedLagSeconds: EXPOSURE_RUN_LAG_MS / 1000,
+      nextAttemptAt: alarmAtMs === null ? null : new Date(alarmAtMs).toISOString(),
+    };
+  }
+
   /** Backs GET /api/v1/health. */
   async status(): Promise<SourceStatus> {
     const nowMs = Date.now();
     const fetchedAt = this.readMeta("fetchedAt");
-    const lastError = this.readMeta("lastError");
+    /**
+     * `damsError` ต้องถูกรวมเข้ากับ `lastError` ไม่ใช่ซ่อนไว้ใน `detail`:
+     * SourceStatusBar แสดงแค่ `health` กับ `lastError` ฟีดเขื่อนที่พังจึงจะ
+     * มองไม่เห็นเลยถ้าปล่อยไว้ใน detail อย่างเดียว
+     */
+    const lastError =
+      [this.readMeta("lastError"), this.readMeta("damsError") && `dams: ${this.readMeta("damsError")}`]
+        .filter(Boolean)
+        .join("; ")
+        .slice(0, 300) || null;
     const rainCount =
       this.ctx.storage.sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM rainfall").toArray()[0]?.n ?? 0;
     const waterCount =
@@ -739,19 +1051,52 @@ export class ObservationCacheDO extends DurableObject<Env> {
           "SELECT MAX(observed_at) AS t FROM (SELECT observed_at FROM rainfall UNION ALL SELECT observed_at FROM waterlevel)",
         )
         .toArray()[0]?.t ?? null;
-    const age = fetchedAt ? nowMs - Date.parse(fetchedAt) : Infinity;
-    const health = !fetchedAt
-      ? lastError
-        ? "down"
-        : "unknown"
-      : age > STALE_AFTER_MS
-        ? "stale"
-        : lastError || this.upstream.pausedUntilMs
-          ? "degraded"
-          : "ok";
+    const latestRainfall =
+      this.ctx.storage.sql.exec<{ t: string | null }>("SELECT MAX(observed_at) AS t FROM rainfall").toArray()[0]?.t ??
+      null;
+    const latestWaterlevel =
+      this.ctx.storage.sql.exec<{ t: string | null }>("SELECT MAX(observed_at) AS t FROM waterlevel").toArray()[0]?.t ??
+      null;
+    const rainfallFetchedAt = this.readMeta("rainfallFetchedAt");
+    const waterlevelFetchedAt = this.readMeta("waterlevelFetchedAt");
+    const rainfallError = this.readMeta("rainfallError");
+    const waterlevelError = this.readMeta("waterlevelError");
+    // These are intentionally separate from the aggregate ThaiWater health:
+    // the latter includes dam failures so SourceStatusBar can surface them,
+    // while exposure has only rainfall and water-level inputs.
+    const rainfallHealth = deriveSourceHealth({
+      nowMs,
+      fetchedAt: rainfallFetchedAt,
+      lastError: rainfallError,
+      latestObservedAt: latestRainfall,
+      staleAfterSeconds: STALE_AFTER_MS / 1000,
+      observedLagSeconds: OBSERVED_LAG_MS / 1000,
+      extraDegraded: this.upstream.pausedUntilMs > 0,
+    });
+    const waterlevelHealth = deriveSourceHealth({
+      nowMs,
+      fetchedAt: waterlevelFetchedAt,
+      lastError: waterlevelError,
+      latestObservedAt: latestWaterlevel,
+      staleAfterSeconds: STALE_AFTER_MS / 1000,
+      observedLagSeconds: OBSERVED_LAG_MS / 1000,
+      extraDegraded: this.upstream.pausedUntilMs > 0,
+    });
+    const health = deriveSourceHealth({
+      nowMs,
+      fetchedAt,
+      lastError,
+      latestObservedAt: latest,
+      staleAfterSeconds: STALE_AFTER_MS / 1000,
+      observedLagSeconds: OBSERVED_LAG_MS / 1000,
+      // pausedUntilMs คืน 0 เมื่อไม่ได้ถูกพัก (ไม่ใช่ null)
+      extraDegraded: this.upstream.pausedUntilMs > 0,
+    });
+    const alarmAtMs = await this.ctx.storage.getAlarm();
     return {
       id: "thaiwater",
-      labelTh: "สถานีตรวจวัดน้ำ/ฝน (ThaiWater สสน.)",
+      labelTh: SOURCES.thaiwater.nameTh,
+      labelEn: SOURCES.thaiwater.nameEn,
       health,
       fetchedAt,
       latestObservedAt: latest,
@@ -760,6 +1105,12 @@ export class ObservationCacheDO extends DurableObject<Env> {
       detail: {
         rainfallStations: rainCount,
         waterlevelStations: waterCount,
+        rainfallFetchedAt,
+        rainfallError,
+        rainfallHealth,
+        waterlevelFetchedAt,
+        waterlevelError,
+        waterlevelHealth,
         consecutiveFailures: Number(this.readMeta("consecutiveFailures") ?? "0"),
         upstreamQueue: this.upstream.length,
         upstreamInflight: this.upstream.inflight,
@@ -769,8 +1120,11 @@ export class ObservationCacheDO extends DurableObject<Env> {
         archiveLastDay: this.readMeta("lastArchivedDay"),
         snapshotLastHour: this.readMeta("lastSnapshotKey"),
         archiveError: this.readMeta("archiveError"),
+        damsError: this.readMeta("damsError"),
       },
       staleAfterSeconds: STALE_AFTER_MS / 1000,
+      observedLagSeconds: OBSERVED_LAG_MS / 1000,
+      nextAttemptAt: alarmAtMs === null ? null : new Date(alarmAtMs).toISOString(),
     };
   }
 
@@ -784,8 +1138,13 @@ export class ObservationCacheDO extends DurableObject<Env> {
   async getObservations(province?: string | null, atIso?: string | null): Promise<ObservationsResponse> {
     const nowMs = Date.now();
     if (!this.isFresh(nowMs)) {
-      await this.refreshOnce(nowMs);
-      void this.armAlarm();
+      // เช่นเดียวกับอีกสองจุด: `armAlarm()` อยู่ใน finally และถูก await จริง
+      // (เดิมเป็น `void` ลอย ๆ ข้อผิดพลาดของมันจึงหายไปเงียบ ๆ)
+      try {
+        await this.refreshOnce(nowMs);
+      } finally {
+        await this.armAlarm();
+      }
     }
     // Viewing a province: make sure its stations' history is warm for the
     // timeline. Runs in the background; never blocks the response.
@@ -897,6 +1256,8 @@ export class ObservationCacheDO extends DurableObject<Env> {
       epistemicClass: "observed",
       liveOrStatic: "live",
       observedAt: observedTimes.length ? observedTimes[observedTimes.length - 1] : undefined,
+      // ThaiWater ส่งมาแต่เวลาที่ตรวจวัด ไม่มีเวลาเผยแพร่ของชุดข้อมูล → null ตามจริง
+      publishedAt: null,
       fetchedAt,
       staleAfterSeconds: STALE_AFTER_MS / 1000,
       sourceIds: ["thaiwater"],
@@ -918,7 +1279,7 @@ export class ObservationCacheDO extends DurableObject<Env> {
         latestObservedAt: observedTimes.length ? observedTimes[observedTimes.length - 1] : null,
         // Null when we have never pulled successfully — never faked as "now".
         fetchedAt,
-        sourceAttribution: THAIWATER_ATTRIBUTION,
+        sourceAttribution: SOURCES.thaiwater.attributionText,
       },
       rainfall,
       waterlevel,

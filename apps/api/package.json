@@ -2,17 +2,20 @@
   "name": "api",
   "private": true,
   "version": "0.0.0",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "node scripts/dev-api.mjs",
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
+    "typecheck:test": "tsc -p test/tsconfig.json --noEmit",
     "types": "wrangler types",
     "dev:raw": "wrangler dev --port 8787 --test-scheduled",
     "test": "vitest run"
   },
   "dependencies": {
-    "@siahra/shared-types": "*"
+    "@siahra/shared-types": "*",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.22.0",

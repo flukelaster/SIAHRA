@@ -11,11 +11,12 @@
  * the 1173×1668 composite to 0.06 %, and land/sea pixels sampled at Bangkok,
  * Chiang Mai, Phuket, the Gulf and the Andaman all land correctly with it.
  */
+import { assertRadarFrame, assertRadarIndex } from "./schemas/radar.js";
+
 export const RADAR_LIST_URL = "https://weather.tmd.go.th/composite/images_composite.list";
 export const RADAR_IMAGE_BASE = "https://weather.tmd.go.th/composite/images/";
 export const RADAR_BOUNDS = { minLon: 95.005, minLat: 3.995, maxLon: 108.005, maxLat: 22.495 };
 export const RADAR_SIZE = { widthPx: 1173, heightPx: 1668 };
-export const TMD_RADAR_ATTRIBUTION = "เรดาร์ตรวจอากาศ กรมอุตุนิยมวิทยา (TMD)";
 
 export interface RadarSlot {
   tsMs: number;
@@ -24,7 +25,18 @@ export interface RadarSlot {
 
 const LINE_RE = /"(\d{4}-\d{2}-\d{2} \d{2}:\d{2})"[^\n]*?overlay=([^\s]+)/;
 
-export async function fetchRadarIndex(): Promise<RadarSlot[]> {
+export interface RadarIndex {
+  slots: RadarSlot[];
+  /**
+   * เวลาที่ TMD เผยแพร่ index นี้ อ่านจากส่วนหัว Last-Modified — วัดจริงเมื่อ
+   * 2026-08-19 แล้วต้นทาง (หลัง Imperva) ไม่ส่งส่วนหัวนี้มา จึงเป็น null ตามจริง
+   * ห้ามเอาเวลาของเฟรมล่าสุดมาสวมแทน เพราะนั่นคือ "เวลาที่ตรวจวัด" คนละอย่างกับ
+   * "เวลาที่เผยแพร่"
+   */
+  publishedAt: string | null;
+}
+
+export async function fetchRadarIndex(): Promise<RadarIndex> {
   const res = await fetch(RADAR_LIST_URL, {
     headers: { "User-Agent": "siahra-api/0.0.0 (radar ingestion)" },
     cf: { cacheTtl: 0 },
@@ -40,7 +52,13 @@ export async function fetchRadarIndex(): Promise<RadarSlot[]> {
     if (!Number.isFinite(tsMs) || !file) continue;
     slots.push({ tsMs, file });
   }
-  return slots;
+  const lastModified = res.headers.get("last-modified");
+  const publishedMs = lastModified ? Date.parse(lastModified) : NaN;
+  // ดัชนีที่ parse แล้วได้ศูนย์ช่อง = รูปแบบบรรทัดเปลี่ยน ไม่ใช่ "ไม่มีเฟรมใหม่"
+  return assertRadarIndex({
+    slots,
+    publishedAt: Number.isFinite(publishedMs) ? new Date(publishedMs).toISOString() : null,
+  });
 }
 
 export async function fetchRadarFrame(file: string): Promise<ArrayBuffer> {
@@ -48,5 +66,5 @@ export async function fetchRadarFrame(file: string): Promise<ArrayBuffer> {
     headers: { "User-Agent": "siahra-api/0.0.0 (radar ingestion)" },
   });
   if (!res.ok) throw new Error(`TMD radar frame ${file} failed: ${res.status}`);
-  return res.arrayBuffer();
+  return assertRadarFrame(await res.arrayBuffer(), file);
 }

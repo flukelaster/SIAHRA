@@ -12,7 +12,9 @@
     "skipLibCheck": true,
     "verbatimModuleSyntax": true,
     "allowImportingTsExtensions": true,
-    "moduleDetection": "force"
+    "moduleDetection": "force",
+    // provinceRings.json ถูก import เข้า bundle ของ Worker (E10.6)
+    "resolveJsonModule": true
   },
   "include": ["src", "worker-configuration.d.ts"]
 }

@@ -1,7 +1,9 @@
 import * as THREE from "three";
 import type { AoiManifest, DamObservation } from "@siahra/shared-types";
 import { makeLabel } from "./labels";
+import type { Lang, TFunction } from "../i18n";
 import { createLocalProjection } from "./localProjection";
+import { damDisplayName } from "../lib/damName";
 
 /** Sprite size in CSS px (sizeAttenuation off). */
 const LARGE_PX = 22;
@@ -82,6 +84,9 @@ export function buildDamMarkers(
   dams: DamObservation[],
   sampleGround: (x: number, z: number) => number,
   viewportHeightPx: number,
+  /** ภาษาปัจจุบัน — ชื่อเขื่อนมาจากต้นทาง (nameTh/nameEn) ไม่ได้แปลเอง */
+  lang: Lang,
+  t: TFunction,
 ): DamMarkerResult {
   const proj = createLocalProjection(manifest);
   const dots = new THREE.Group();
@@ -113,8 +118,10 @@ export function buildDamMarkers(
     if (d.kind === "large" || (d.storagePercent !== null && (d.storagePercent >= 80 || d.storagePercent < 30))) {
       labels.add(
         makeLabel(
-          d.nameTh ? (d.kind === "large" ? `เขื่อน${d.nameTh}` : d.nameTh) : "อ่างเก็บน้ำ",
-          d.storagePercent !== null ? `ความจุ ${d.storagePercent.toFixed(0)}% (ตรวจวัดจริง)` : "ไม่มีข้อมูลความจุ",
+          damDisplayName(d, lang, t),
+          d.storagePercent !== null
+            ? t("scene.damCapacity", { n: d.storagePercent.toFixed(0) })
+            : t("scene.damNoCapacity"),
           d.storagePercent !== null && d.storagePercent >= 100 ? "severe" : d.storagePercent !== null && d.storagePercent >= 80 ? "warning" : "info",
           new THREE.Vector3(x, groundY + 40, z),
           d.kind === "large" ? 70 : 20,

@@ -1,18 +1,35 @@
 import type { EarthquakeEvent } from "@siahra/shared-types";
 import type { Bbox } from "./usgs.js";
+import { assertTmdDocument, assertTmdRecord } from "./schemas/tmd.js";
 
 const TMD_SEISMIC_BASE = "https://data.tmd.go.th/api/DailySeismicEvent/v1/";
 
+export interface TmdCredentials {
+  uid: string;
+  ukey: string;
+}
+
 /**
- * TMD's open-data API is keyed. The credentials come from the environment
- * (wrangler `vars` / `.dev.vars`) — the shipped defaults are TMD's own
- * published public-access pair, so replace them with a registered key for
- * anything beyond development.
+ * Message used both as the thrown error and as the `lastError` on /health when
+ * the feed is unusable because nobody ran `wrangler secret put`. Exported so
+ * the DO can report it without re-typing the string.
  */
-function tmdSeismicUrl(env: { TMD_UID?: string; TMD_UKEY?: string }): string {
-  const uid = env.TMD_UID?.trim() || "api";
-  const ukey = env.TMD_UKEY?.trim() || "api12345";
-  return `${TMD_SEISMIC_BASE}?uid=${encodeURIComponent(uid)}&ukey=${encodeURIComponent(ukey)}`;
+export const TMD_MISSING_CREDENTIALS = "TMD credentials not configured";
+
+/**
+ * TMD's open-data API is keyed and the pair is a secret (`wrangler secret put
+ * TMD_UID` / `TMD_UKEY`, `.dev.vars` locally — see apps/api/.dev.vars.example).
+ * There is deliberately no fallback pair: a missing secret degrades the TMD
+ * feed visibly instead of quietly calling the API as somebody else.
+ */
+export function tmdCredentials(env: { TMD_UID?: string; TMD_UKEY?: string }): TmdCredentials | null {
+  const uid = env.TMD_UID?.trim();
+  const ukey = env.TMD_UKEY?.trim();
+  return uid && ukey ? { uid, ukey } : null;
+}
+
+function tmdSeismicUrl(creds: TmdCredentials): string {
+  return `${TMD_SEISMIC_BASE}?uid=${encodeURIComponent(creds.uid)}&ukey=${encodeURIComponent(creds.ukey)}`;
 }
 
 /**
@@ -75,7 +92,9 @@ export async function fetchTmdEvents(
   env: { TMD_UID?: string; TMD_UKEY?: string },
   nowMs = Date.now(),
 ): Promise<EarthquakeEvent[]> {
-  const res = await fetch(tmdSeismicUrl(env), {
+  const creds = tmdCredentials(env);
+  if (!creds) throw new Error(TMD_MISSING_CREDENTIALS);
+  const res = await fetch(tmdSeismicUrl(creds), {
     headers: { "User-Agent": "siahra-api/0.0.0 (earthquake ingestion)" },
   });
   if (!res.ok) {
@@ -85,11 +104,24 @@ export async function fetchTmdEvents(
 
   const events: EarthquakeEvent[] = [];
   const blocks = xml.match(/<DailyEarthquakes>[\s\S]*?<\/DailyEarthquakes>/g) ?? [];
+  // เอกสารที่ไม่ว่างแต่ไม่มีบล็อกเลย = รูปร่างเปลี่ยน ไม่ใช่ "วันนี้ไม่มีแผ่นดินไหว"
+  assertTmdDocument(xml, blocks.length);
 
-  for (const block of blocks) {
-    const lat = toNumberOrNull(tagText(block, "Latitude"));
-    const lon = toNumberOrNull(tagText(block, "Longitude"));
-    const timeMs = parseTmdUtc(tagText(block, "DateTimeUTC"));
+  for (const [index, block] of blocks.entries()) {
+    const mag = toNumberOrNull(tagText(block, "Magnitude"));
+    const depthKm = toNumberOrNull(tagText(block, "Depth"));
+    const { lat, lon, timeMs } = assertTmdRecord(
+      {
+        lat: toNumberOrNull(tagText(block, "Latitude")),
+        lon: toNumberOrNull(tagText(block, "Longitude")),
+        timeMs: parseTmdUtc(tagText(block, "DateTimeUTC")),
+        mag,
+        depthKm,
+      },
+      index,
+    );
+    // แถวที่ไม่ครบฟิลด์เป็นเรื่องปกติของฟีดนี้ — ข้ามเหมือนเดิม ต่างจากค่าที่
+    // "มีแต่เพี้ยนพิสัย" ซึ่ง assertTmdRecord ด้านบนดักไปแล้ว
     if (lat === null || lon === null || timeMs === null) continue;
     if (!inBbox(lat, lon, bbox)) continue;
     if (nowMs - timeMs > MAX_AGE_MS) continue;
@@ -103,14 +135,14 @@ export async function fetchTmdEvents(
       id,
       clusterId: id,
       sources: ["tmd"],
-      mag: toNumberOrNull(tagText(block, "Magnitude")),
+      mag,
       // TMD does not publish a magnitude scale on this feed; leaving it null
       // is honest, and the UI already renders "ไม่ระบุมาตรา" for that case.
       magType: null,
       place: tagText(block, "OriginThai"),
       lat,
       lon,
-      depthKm: toNumberOrNull(tagText(block, "Depth")),
+      depthKm,
       time,
       // No revision timestamp in the feed — origin time is the only stamp,
       // so last-write-wins can never spuriously overwrite a newer solution.

@@ -1,19 +1,22 @@
 import { Pause, Play, RotateCcw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Segmented } from "../ui/Segmented";
+import { formatFetchedAt } from "../../lib/time";
+import { useLang } from "../../i18n/context";
+import type { MessageKey, TFunction } from "../../i18n";
 
 /** Selectable playback windows: hours, slider step in minutes, tick marks (hours ago). */
-const RANGES: { hours: number; stepMin: number; label: string; ticks: number[] }[] = [
-  { hours: 72, stepMin: 30, label: "72 ชม.", ticks: [72, 48, 24, 0] },
-  { hours: 7 * 24, stepMin: 60, label: "7 วัน", ticks: [168, 120, 72, 24, 0] },
-  { hours: 30 * 24, stepMin: 180, label: "30 วัน", ticks: [720, 480, 240, 0] },
+const RANGES: { hours: number; stepMin: number; labelKey: MessageKey; ticks: number[] }[] = [
+  { hours: 72, stepMin: 30, labelKey: "timeline.range.72h", ticks: [72, 48, 24, 0] },
+  { hours: 7 * 24, stepMin: 60, labelKey: "timeline.range.7d", ticks: [168, 120, 72, 24, 0] },
+  { hours: 30 * 24, stepMin: 180, labelKey: "timeline.range.30d", ticks: [720, 480, 240, 0] },
 ];
 /** Beyond this the backend reads from the long-term archive (R2). */
 const HOT_HOURS = 7 * 24;
 
-function tickLabel(h: number): string {
-  if (h === 0) return "ตอนนี้";
-  return h >= 48 ? `-${h / 24} วัน` : `-${h} ชม.`;
+function tickLabel(h: number, t: TFunction): string {
+  if (h === 0) return t("timeline.tick.now");
+  return h >= 48 ? t("timeline.tick.days", { n: h / 24 }) : t("timeline.tick.hours", { n: h });
 }
 
 /**
@@ -29,6 +32,7 @@ export function TimelineBar({
   atIso: string | null;
   onChange: (atIso: string | null) => void;
 }) {
+  const { lang, t } = useLang();
   const [playing, setPlaying] = useState(false);
   const [rangeIdx, setRangeIdx] = useState(0);
   const range = RANGES[rangeIdx];
@@ -67,9 +71,9 @@ export function TimelineBar({
   }, [playing, clamped]);
 
   const label = useMemo(() => {
-    if (!atIso) return "ปัจจุบัน · ค่าล่าสุด";
-    return new Date(atIso).toLocaleString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + " น.";
-  }, [atIso]);
+    if (!atIso) return t("timeline.live");
+    return formatFetchedAt(lang, atIso);
+  }, [atIso, lang, t]);
 
   const live = atIso === null;
   const progress = (clamped / steps) * 100;
@@ -84,8 +88,8 @@ export function TimelineBar({
             setPlaying((p) => !p);
           }}
           className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-[var(--color-accent)] text-white shadow-[0_2px_10px_rgba(59,130,246,0.45)] transition-colors hover:bg-blue-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]"
-          aria-label={playing ? "หยุด" : "เล่นย้อนหลัง"}
-          title={playing ? "หยุด" : "เล่นย้อนหลัง"}
+          aria-label={playing ? t("timeline.pause") : t("timeline.play")}
+          title={playing ? t("timeline.pause") : t("timeline.play")}
         >
           {playing ? <Pause size={15} /> : <Play size={15} className="translate-x-px" />}
         </button>
@@ -97,8 +101,8 @@ export function TimelineBar({
           }}
           disabled={live}
           className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-[var(--color-fg-muted)] transition-colors hover:bg-white/8 hover:text-white disabled:cursor-default disabled:opacity-35 disabled:hover:bg-transparent"
-          aria-label="กลับสู่ปัจจุบัน"
-          title="กลับสู่ปัจจุบัน"
+          aria-label={t("timeline.backToLive")}
+          title={t("timeline.backToLive")}
         >
           <RotateCcw size={15} />
         </button>
@@ -107,23 +111,23 @@ export function TimelineBar({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="shrink-0 text-xs font-semibold text-[var(--color-fg)]">ระดับน้ำย้อนหลัง</span>
+            <span className="shrink-0 text-xs font-semibold text-[var(--color-fg)]">{t("timeline.title")}</span>
             <Segmented
-              label="ช่วงเวลาย้อนหลัง"
+              label={t("timeline.rangeLabel")}
               value={rangeIdx}
               onChange={(i) => {
                 setPlaying(false);
                 setRangeIdx(i);
                 onChange(null);
               }}
-              options={RANGES.map((r, i) => ({ value: i, label: r.label }))}
+              options={RANGES.map((r, i) => ({ value: i, label: t(r.labelKey) }))}
             />
             <span className="hidden truncate text-[11px] text-[var(--color-fg-subtle)] @2xl:inline">
-              ค่าตรวจวัดจริง · ไม่ใช่พยากรณ์
+              {t("timeline.notForecast")}
             </span>
             {fromArchive ? (
               <span className="shrink-0 rounded-md bg-[var(--color-risk-medium)]/15 px-1.5 py-0.5 text-[10px] leading-none whitespace-nowrap text-[var(--color-risk-medium)]">
-                จากคลังถาวร · รายชั่วโมง
+                {t("timeline.fromArchive")}
               </span>
             ) : null}
           </div>
@@ -152,7 +156,7 @@ export function TimelineBar({
             setPlaying(false);
             setStep(Number(e.target.value));
           }}
-          aria-label="เลื่อนเวลา"
+          aria-label={t("timeline.slider")}
           aria-valuetext={label}
           className="range-slider mt-2 w-full"
           style={{ "--range-progress": `${progress}%` } as React.CSSProperties}
@@ -172,7 +176,7 @@ export function TimelineBar({
                   transform: i === 0 ? "none" : last ? "translateX(-100%)" : "translateX(-50%)",
                 }}
               >
-                {tickLabel(h)}
+                {tickLabel(h, t)}
               </span>
             );
           })}

@@ -1,4 +1,6 @@
 import type { FloodExtentFeature } from "@siahra/shared-types";
+import { UpstreamShapeError, readUpstreamJson } from "./errors.js";
+import { assertGistdaEnvelope, assertGistdaFeature } from "./schemas/gistda.js";
 
 /**
  * GISTDA flood-extent scene, served openly (no key, CORS *) from their
@@ -15,8 +17,9 @@ export const GISTDA_WFS_URL =
   "https://flood-innotech.gistda.or.th/flooding_vis_public" +
   "?service=WFS&version=2.0.0&request=GetFeature&typeNames=flooding_vis:FloodArea_Poly&outputFormat=application/json";
 
-export const GISTDA_ATTRIBUTION =
-  "พื้นที่น้ำท่วมจากภาพดาวเทียม โดยสำนักงานพัฒนาเทคโนโลยีอวกาศและภูมิสารสนเทศ (GISTDA)";
+interface WfsResponse {
+  features?: WfsFeature[];
+}
 
 interface WfsFeature {
   type: "Feature";
@@ -108,7 +111,7 @@ export interface FetchOptions {
   timeoutMs?: number;
 }
 
-async function fetchSceneJson(options?: FetchOptions): Promise<{ features?: WfsFeature[] }> {
+async function fetchSceneJson(options?: FetchOptions): Promise<WfsResponse> {
   const attempts = Math.max(1, options?.attempts ?? RETRY_DELAYS_MS.length + 1);
   const timeoutMs = options?.timeoutMs ?? FETCH_TIMEOUT_MS;
   let lastError: Error = new Error("GISTDA WFS: no attempt made");
@@ -119,12 +122,16 @@ async function fetchSceneJson(options?: FetchOptions): Promise<{ features?: WfsF
         headers: { "User-Agent": "siahra-api/0.0.0 (flood extent ingestion)", Accept: "application/json" },
         signal: AbortSignal.timeout(timeoutMs),
       });
-      if (res.ok) return (await res.json()) as { features?: WfsFeature[] };
+      // ตรวจ "ซองจดหมาย" ตรงนี้ ก่อนคืนให้ผู้เรียก — payload ที่ไม่มีคีย์ features
+      // เคยถูกแปลงเป็นฉากว่างแล้วเขียนทับฉากล่าสุดทั้งใน SQLite และใน R2
+      if (res.ok) return assertGistdaEnvelope((await readUpstreamJson("gistda", res)) as WfsResponse);
       throw new UpstreamError(
         `GISTDA WFS failed: ${res.status} ${res.statusText}`,
         retryableStatus(res.status),
       );
     } catch (err) {
+      // payload ผิดรูปไม่ใช่อาการชั่วคราว — ยิงซ้ำอีกกี่ครั้งก็ได้รูปร่างเดิม
+      if (err instanceof UpstreamShapeError) throw err;
       if (err instanceof UpstreamError && !err.retryable) throw err;
       lastError = err instanceof Error ? err : new Error(String(err));
     }
@@ -132,11 +139,34 @@ async function fetchSceneJson(options?: FetchOptions): Promise<{ features?: WfsF
   throw lastError;
 }
 
-export async function fetchGistdaFloodExtent(options?: FetchOptions): Promise<RawFloodFeature[]> {
+export interface GistdaFloodScene {
+  features: RawFloodFeature[];
+  /**
+   * ต้นทางไม่ได้บอก "เวลาที่เผยแพร่" ไว้เลย จึงเป็น null เสมอ — ห้ามเติมค่าอื่นแทน
+   *
+   * อย่าหลงใช้ `timeStamp` ที่อยู่บน response ของ WFS: วัดจริง 2026-08-19 แล้วมัน
+   * คือ "เวลาที่ GeoServer สร้าง response" ซึ่งเดินตามนาฬิกาของ "คำขอ" ทั้งที่
+   * ข้อมูลเหมือนกันทุกไบต์
+   *   ยิงครั้งที่ 1: now=2026-08-19T01:34:40Z timeStamp=2026-08-19T01:34:40.189Z numberReturned=359
+   *   ยิงครั้งที่ 2: now=2026-08-19T01:34:42Z timeStamp=2026-08-19T01:34:41.623Z numberReturned=359
+   * เอามาใส่ publishedAt = เอา "เวลาที่เราดึง" ไปสวมเป็น "เวลาที่ต้นทางเผยแพร่"
+   * ทั้งที่ฉากดาวเทียมจริงอาจเก่าเป็นวัน (ตอนทดสอบพบว่า publishedAt ล้ำหน้า
+   * fetchedAt ไป 2.4 วินาที ซึ่งเป็นไปไม่ได้)
+   *
+   * คีย์ทั้งหมดใน payload: crs, features, numberMatched, numberReturned, timeStamp,
+   * totalFeatures, type — และ property ของ feature: AP_IDN, AP_TN, F_AREA, PV_IDN,
+   * PV_TN, RE_NESDB, RE_ROYIN, TB_IDN, TB_TN, flood_area, house, lat, long
+   * ไม่มีวันที่ถ่ายภาพหรือวันที่เผยแพร่อยู่ที่ไหนเลย
+   */
+  publishedAt: null;
+}
+
+export async function fetchGistdaFloodExtent(options?: FetchOptions): Promise<GistdaFloodScene> {
   const body = await fetchSceneJson(options);
   const features = Array.isArray(body.features) ? body.features : [];
   const out: RawFloodFeature[] = [];
-  for (const f of features) {
+  for (const [index, f] of features.entries()) {
+    assertGistdaFeature(f, index);
     const g = f.geometry;
     if (!g || (g.type !== "Polygon" && g.type !== "MultiPolygon")) continue;
     const p = f.properties ?? {};
@@ -163,5 +193,5 @@ export async function fetchGistdaFloodExtent(options?: FetchOptions): Promise<Ra
       geometry,
     });
   }
-  return out;
+  return { features: out, publishedAt: null };
 }

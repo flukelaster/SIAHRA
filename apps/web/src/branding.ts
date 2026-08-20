@@ -4,10 +4,10 @@
  * explicitly notes that is NOT a trademark, company-registry or domain
  * clearance, so treat it as provisional.
  */
+/** คำโปรยของแบรนด์ย้ายไปอยู่ใน `i18n/{th,en}.ts` คีย์ `brand.tagline` (E7.1) */
 export const BRAND = {
   name: "SIAHRA",
   expansion: "Spatial Intelligence Atlas for Hazard & Resilience Analytics",
-  taglineTh: "แผนที่ข้อมูลเชิงพื้นที่เพื่อการเฝ้าระวังภัยพิบัติของประเทศไทย",
   /** Browser tab / document title. */
   documentTitle: "SIAHRA — Spatial Intelligence Atlas for Hazard & Resilience Analytics",
   copyrightYear: 2026,

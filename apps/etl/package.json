@@ -2,6 +2,7 @@
   "name": "@siahra/etl",
   "version": "0.0.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "build:chiangmai-old-city": "tsx src/buildAoi.ts chiangmai-old-city",
@@ -9,7 +10,10 @@
     "build:tiles": "tsx src/buildTerrainTiles.ts",
     "build:building-tiles": "tsx src/buildBuildingTiles.ts",
     "build:feature-tiles": "tsx src/buildFeatureTiles.ts",
-    "build:landcover-tiles": "tsx src/buildLandcoverTiles.ts"
+    "build:landcover-tiles": "tsx src/buildLandcoverTiles.ts",
+    "build:province-rings": "tsx src/buildProvinceRings.ts",
+    "refresh:manifests": "tsx src/refreshManifests.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "@siahra/shared-types": "*",
@@ -19,6 +23,7 @@
   "devDependencies": {
     "@types/node": "^26.2.0",
     "tsx": "^4.20.6",
-    "typescript": "~7.0.2"
+    "typescript": "~7.0.2",
+    "vitest": "^4.1.0"
   }
 }

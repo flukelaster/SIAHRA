@@ -1,10 +1,21 @@
 import { DurableObject } from "cloudflare:workers";
-import type { EarthquakeEvent, EqWsMessage, SourceStatus } from "@siahra/shared-types";
+import {
+  SOURCES,
+  WS_HEARTBEAT_INTERVAL_MS,
+  type EarthquakeEvent,
+  type EarthquakeRecentResponse,
+  type EqWsMessage,
+  type HazardLayerDescriptor,
+  type SourceStatus,
+} from "@siahra/shared-types";
 import type { Bbox } from "../ingestion/usgs.js";
 import { backfillUsgsEvents, fetchUsgsEvents } from "../ingestion/usgs.js";
 import { fetchEmscEvents } from "../ingestion/emsc.js";
-import { fetchTmdEvents } from "../ingestion/tmd.js";
+import { fetchTmdEvents, TMD_MISSING_CREDENTIALS, tmdCredentials } from "../ingestion/tmd.js";
 import { findCorroboratingCluster, type StoredEventRow } from "../ingestion/normalize.js";
+import { nearestProvincesForPoint } from "../geo/provinceRings.js";
+import { deriveSourceHealth } from "../sourceHealth.js";
+import { errorText, logError } from "../log.js";
 
 const RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const BACKFILL_DAYS = 30;
@@ -12,13 +23,28 @@ const BACKFILL_MIN_MAG = 2.5;
 const EMSC_LOOKBACK_MS = 70 * 60 * 1000; // trailing ~70 min window per 1-min cron tick
 const CORROBORATION_LOOKBACK_MS = 2 * 60 * 60 * 1000; // only recent rows can corroborate
 const POLL_INTERVAL_MS = 60 * 1000;
+/**
+ * เผื่อความคลาดของ alarm: ถ้าเช็คด้วย `elapsed >= POLL_INTERVAL_MS` เป๊ะ ๆ รอบที่ตื่น
+ * ช้าไปไม่กี่มิลลิวินาทีจะ "ยังไม่ถึงกำหนด" แล้วเลื่อน poll ไปอีกหนึ่งคาบ heartbeat
+ */
+const POLL_DUE_SLACK_MS = 5 * 1000;
+/** เพดานการเติม `nearest` ย้อนหลังต่อหนึ่งรอบ poll (ดู `backfillNearest`) */
+const BACKFILL_NEAREST_PER_POLL = 200;
+/**
+ * ต้นทางที่ poll ทุกครั้ง — `down` คือ "ล้มเหลวครบทุกตัวในรายการนี้" จึงต้องนับ
+ * จากความยาวของรายการ ไม่ใช่เลข 3 ที่ฝังไว้ (เพิ่ม/ลดฟีดแล้วเกณฑ์ต้องขยับตาม)
+ */
+const EQ_FEEDS = ["usgs", "emsc", "tmd"] as const;
 
-/** Outcome of the last cron poll, kept for /health. */
+/** Outcome of one poll attempt, kept separately from the last successful pull. */
 interface PollStatus {
   at: string;
   created: number;
   updated: number;
+  /** จำนวน "เหตุการณ์" ที่พิจารณาในรอบนั้น ไม่ใช่จำนวนฟีด */
   polled: number;
+  /** จำนวนฟีดที่พยายามดึงในรอบนั้น — ใช้เทียบกับ errors.length เพื่อตัดสิน `down` */
+  feeds?: number;
   errors: string[];
 }
 
@@ -40,6 +66,8 @@ interface EventRow extends Record<string, SqlStorageValue> {
   url: string | null;
   raw_json: string;
   ingested_at_ms: number;
+  /** JSON ของ `NearestProvince[]` — NULL คือระเบียนก่อน E10.6 ที่ยังไม่ถูก backfill */
+  nearest: string | null;
 }
 
 interface CorroborationRow extends Record<string, SqlStorageValue> {
@@ -52,7 +80,22 @@ interface CorroborationRow extends Record<string, SqlStorageValue> {
   time_ms: number;
 }
 
+/**
+ * `nearest` ที่อ่านไม่ออกต้องกลายเป็น "ไม่มีข้อมูลจังหวัดใกล้เคียง" (ฟิลด์หายไป)
+ * ไม่ใช่ throw — การโยนตรงนี้จะทำให้ `getRecent()` พังทั้งชุดเพราะระเบียนเดียว
+ */
+function parseNearest(value: string | null): EarthquakeEvent["nearest"] {
+  if (!value) return undefined;
+  try {
+    const parsed = JSON.parse(value) as EarthquakeEvent["nearest"];
+    return Array.isArray(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function rowToEvent(row: EventRow): EarthquakeEvent {
+  const nearest = parseNearest(row.nearest);
   return {
     id: row.id,
     clusterId: row.cluster_id,
@@ -68,7 +111,20 @@ function rowToEvent(row: EventRow): EarthquakeEvent {
     status: row.status as EarthquakeEvent["status"],
     tsunami: row.tsunami === 1,
     url: row.url,
+    ...(nearest ? { nearest } : {}),
   };
+}
+
+/**
+ * heartbeat หนึ่งเฟรม: `serverTime` คือนาฬิกาเซิร์ฟเวอร์ (พิสูจน์ว่าสายยังมีชีวิต)
+ * ส่วน `asOf` คือเวลาของ **ข้อมูล** = รอบ poll ล่าสุด — `null` เมื่อยังไม่เคย poll สำเร็จ
+ * สองค่านี้ห้ามยุบเป็นค่าเดียว: ตั้งแต่ heartbeat หลุดจากคาบ poll แล้ว การส่งนาฬิกา
+ * เซิร์ฟเวอร์ไปเป็นอายุข้อมูลจะทำให้การ์ดโฆษณาความสดทั้งที่ poll ล้มมาเป็นชั่วโมง
+ * (`ts` ซ้ำกับ `serverTime` ไว้ให้เว็บรุ่นก่อน E6.1 อ่านได้อีกหนึ่งรีลีส)
+ */
+function heartbeatMessage(poll: PollStatus | null): EqWsMessage {
+  const serverTime = new Date().toISOString();
+  return { type: "heartbeat", ts: serverTime, serverTime, asOf: poll?.at ?? null };
 }
 
 export class EarthquakeFeedDO extends DurableObject<Env> {
@@ -93,12 +149,32 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
           tsunami INTEGER DEFAULT 0,
           url TEXT,
           raw_json TEXT NOT NULL,
-          ingested_at_ms INTEGER NOT NULL
+          ingested_at_ms INTEGER NOT NULL,
+          nearest TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_events_cluster ON events(cluster_id);
         CREATE INDEX IF NOT EXISTS idx_events_time ON events(time_ms DESC);
       `);
+      /**
+       * E10.6 — เพิ่มคอลัมน์ `nearest` ให้ DO ที่สร้างตารางไว้ก่อนหน้า
+       * **ห้ามสร้างตารางใหม่**: เหตุการณ์ที่เก็บไว้คือข้อมูลที่ต้นทางไม่ย้อนให้อีก
+       * ตารางที่สร้างสด ๆ ข้างบนมีคอลัมน์นี้แล้ว ตัวยามจึงทำให้เส้นทางทั้งสอง
+       * จบที่สคีมาเดียวกันและรันซ้ำกี่ครั้งก็ไม่พัง
+       */
+      const hasNearest = ctx.storage.sql
+        .exec<{ name: string }>("PRAGMA table_info(events)")
+        .toArray()
+        .some((c) => c.name === "nearest");
+      if (!hasNearest) {
+        ctx.storage.sql.exec("ALTER TABLE events ADD COLUMN nearest TEXT");
+      }
     });
+    /**
+     * ตอบ "ping" ด้วย "pong" ที่ชั้น runtime — ไคลเอนต์ที่อยากพิสูจน์ว่าสายยังดี
+     * เองได้โดยไม่ต้องรอ heartbeat รอบถัดไป และไม่ปลุก DO ขึ้นมาคิดเงิน
+     * (เบราว์เซอร์ส่งเฟรม ping ของโปรโตคอลเองไม่ได้ คู่นี้จึงเป็นข้อความล้วน)
+     */
+    ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
   }
 
   private resolveBbox(): Bbox {
@@ -108,21 +184,57 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
   private pollInflight: Promise<{ created: number; updated: number; polled: number }> | null = null;
 
   /**
-   * Self-scheduling fallback: production polls from the 1-minute cron, but
-   * `wrangler dev` never fires crons, and a missed cron tick should not
-   * silently freeze the feed either. The alarm re-arms itself every minute
-   * and shares the in-flight poll with the cron path.
+   * คาบของ alarm รอบถัดไป — **มีไคลเอนต์ต่ออยู่จึงเต้นถี่**: 30 วิ ตามสัญญากลาง
+   * (`WS_HEARTBEAT_INTERVAL_MS`) เพื่อส่ง heartbeat ให้ทันก่อน watchdog ฝั่งเว็บ,
+   * ไม่มีสายเลยก็กลับไป 60 วิ ตามคาบ poll — การตื่นถี่ตอนไม่มีคนฟังคือการเขียน
+   * storage ทิ้งเปล่าบนโควตา Durable Objects โดยไม่มีใครได้ประโยชน์
    */
-  private async armAlarm(): Promise<void> {
-    const existing = await this.ctx.storage.getAlarm();
-    if (existing !== null && existing > Date.now()) return;
-    await this.ctx.storage.setAlarm(Date.now() + POLL_INTERVAL_MS);
+  private nextAlarmDelayMs(): number {
+    return this.ctx.getWebSockets().length > 0 ? WS_HEARTBEAT_INTERVAL_MS : POLL_INTERVAL_MS;
   }
 
+  /**
+   * Self-scheduling fallback: production polls from the 1-minute cron, but
+   * `wrangler dev` never fires crons, and a missed cron tick should not
+   * silently freeze the feed either. The alarm re-arms itself and shares the
+   * in-flight poll with the cron path.
+   *
+   * `mode` เป็น "keep" โดยปริยายเพราะเส้นทาง REST เรียกทุก request — เขียน alarm
+   * ใหม่ทุกครั้งคือการถลุงโควตาเขียน; "shorten" ใช้เฉพาะตอนมี socket ต่อเข้ามา
+   * ซึ่งต้องย่นนัดที่ตั้งไว้ 60 วิ ให้เหลือ 30 วิ ไม่งั้นไคลเอนต์รอ heartbeat แรกนาน
+   */
+  private async armAlarm(mode: "keep" | "shorten" = "keep"): Promise<void> {
+    const now = Date.now();
+    const desired = now + this.nextAlarmDelayMs();
+    const existing = await this.ctx.storage.getAlarm();
+    if (existing !== null && existing > now && (mode === "keep" || existing <= desired)) return;
+    await this.ctx.storage.setAlarm(desired);
+  }
+
+  /**
+   * รอบ alarm ที่ถี่กว่าคาบ poll: รอบไหนถึงกำหนด poll ก็ poll (ซึ่งจบด้วย heartbeat
+   * อยู่แล้ว) รอบที่ยังไม่ถึงกำหนดยิงแค่ heartbeat — คาบ heartbeat จึงไม่ผูกกับ
+   * คาบ poll อีกต่อไป และการ poll ที่ช้าหรือล้มไม่ทำให้สายเงียบจนถูก watchdog ตัด
+   */
   async alarm(): Promise<void> {
-    await this.pollAndBroadcast().catch((err: unknown) => {
-      console.error(JSON.stringify({ level: "error", message: "alarm poll failed", error: String(err) }));
-    });
+    // Failed attempts set their own clock: retry on the normal cadence while
+    // retaining `lastPoll` as the timestamp of data we actually obtained.
+    const lastAttempt =
+      (await this.ctx.storage.get<PollStatus>("lastAttempt")) ??
+      (await this.ctx.storage.get<PollStatus>("lastPoll")) ??
+      null;
+    const lastAttemptMs = lastAttempt ? Date.parse(lastAttempt.at) : NaN;
+    const pollDue =
+      !Number.isFinite(lastAttemptMs) || Date.now() - lastAttemptMs >= POLL_INTERVAL_MS - POLL_DUE_SLACK_MS;
+
+    if (pollDue) {
+      await this.pollAndBroadcast().catch((err: unknown) => {
+        logError("alarm poll failed", { error: errorText(err) });
+      });
+    } else {
+      const lastSuccessfulPoll = (await this.ctx.storage.get<PollStatus>("lastPoll")) ?? null;
+      this.broadcast([heartbeatMessage(lastSuccessfulPoll)]);
+    }
     await this.armAlarm();
   }
 
@@ -135,6 +247,34 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
       void this.armAlarm();
     }
     return this.pollInflight;
+  }
+
+  /**
+   * ระเบียนที่บันทึกไว้ก่อน E10.6 ได้ `nearest` ในรอบ poll ถัดไป — เติมค่าลงแถวเดิม
+   * ด้วย UPDATE เท่านั้น **ไม่แตะจำนวนแถว ไม่สร้างตารางใหม่** (พิกัดที่เก็บไว้คือ
+   * ข้อมูลจริงของเหตุการณ์ ไม่ได้ดึงจากต้นทางใหม่)
+   *
+   * จำกัดจำนวนต่อรอบไว้ เพราะการเติมย้อนหลังทั้งคลังในรอบเดียวคือการกิน CPU ของ
+   * รอบ poll นั้นทั้งก้อน — ที่เหลือตกไปรอบถัดไป (poll ทุกนาที)
+   */
+  private backfillNearest(limit = BACKFILL_NEAREST_PER_POLL): number {
+    const rows = this.ctx.storage.sql
+      .exec<{ id: string; lat: number; lon: number }>(
+        // `IS NULL` อย่างเดียวไม่พอ: แถวที่ `nearest` ไม่ใช่ NULL แต่พังจนอ่านไม่ออก
+        // (JSON เสีย หรือไม่ใช่ array) จะไม่ถูกหยิบมาซ่อมอีกเลย แล้วค้างแสดงว่า
+        // "ยังไม่ได้คำนวณ" ตลอดไป — ทั้งที่ของจริงคือคำนวณไว้แล้วแต่เก็บพัง
+        "SELECT id, lat, lon FROM events WHERE nearest IS NULL OR json_valid(nearest) = 0 LIMIT ?",
+        limit,
+      )
+      .toArray();
+    for (const row of rows) {
+      this.ctx.storage.sql.exec(
+        "UPDATE events SET nearest = ? WHERE id = ?",
+        JSON.stringify(nearestProvincesForPoint(row.lon, row.lat)),
+        row.id,
+      );
+    }
+    return rows.length;
   }
 
   private async pollOnce(): Promise<{ created: number; updated: number; polled: number }> {
@@ -151,37 +291,52 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
       ) === 0;
     const seededEvents = isEmpty
       ? await backfillUsgsEvents(bbox, BACKFILL_DAYS, BACKFILL_MIN_MAG).catch((err: unknown) => {
-          console.error(
-            JSON.stringify({ level: "error", message: "usgs backfill failed", error: String(err) }),
-          );
+          logError("usgs backfill failed", { error: errorText(err) });
           return [] as EarthquakeEvent[];
         })
       : [];
 
     const feedErrors: string[] = [];
-    const [usgsEvents, emscEvents, tmdEvents] = await Promise.all([
+
+    /**
+     * TMD is the only keyed feed. With no secret set there is nothing to call,
+     * so report it as this poll's error and keep USGS/EMSC untouched — the
+     * whole refresh must never throw over a missing credential.
+     */
+    const tmdEvents = async (): Promise<EarthquakeEvent[]> => {
+      if (!tmdCredentials(this.env)) {
+        logError("tmd poll skipped", { error: TMD_MISSING_CREDENTIALS });
+        feedErrors.push(TMD_MISSING_CREDENTIALS);
+        return [];
+      }
+      return fetchTmdEvents(bbox, this.env, nowMs).catch((err: unknown) => {
+        logError("tmd poll failed", { error: errorText(err) });
+        feedErrors.push(`tmd: ${String(err).slice(0, 120)}`);
+        return [] as EarthquakeEvent[];
+      });
+    };
+
+    const [usgsEvents, emscEvents, tmdFeedEvents] = await Promise.all([
       fetchUsgsEvents(bbox).catch((err: unknown) => {
-        console.error(JSON.stringify({ level: "error", message: "usgs poll failed", error: String(err) }));
+        logError("usgs poll failed", { error: errorText(err) });
         feedErrors.push(`usgs: ${String(err).slice(0, 120)}`);
         return [] as EarthquakeEvent[];
       }),
       fetchEmscEvents(bbox, nowMs - EMSC_LOOKBACK_MS).catch((err) => {
-        console.error(JSON.stringify({ level: "error", message: "emsc poll failed", error: String(err) }));
+        logError("emsc poll failed", { error: errorText(err) });
         feedErrors.push(`emsc: ${String(err).slice(0, 120)}`);
         return [] as EarthquakeEvent[];
       }),
-      fetchTmdEvents(bbox, this.env, nowMs).catch((err: unknown) => {
-        console.error(JSON.stringify({ level: "error", message: "tmd poll failed", error: String(err) }));
-        feedErrors.push(`tmd: ${String(err).slice(0, 120)}`);
-        return [] as EarthquakeEvent[];
-      }),
+      tmdEvents(),
     ]);
 
     // Backfill first so live-feed revisions of the same event win on updated_ms.
     // TMD (the Thai national network) is listed last only so that its events
     // corroborate into clusters already seeded by the global feeds; all four
     // sources share the same dedupe path below.
-    const candidates = [...seededEvents, ...usgsEvents, ...emscEvents, ...tmdEvents];
+    this.backfillNearest();
+
+    const candidates = [...seededEvents, ...usgsEvents, ...emscEvents, ...tmdFeedEvents];
     let created = 0;
     let updated = 0;
     const messages: EqWsMessage[] = [];
@@ -195,21 +350,50 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
         const prevUpdatedMs = existing[0].updated_ms;
         const candidateUpdatedMs = Date.parse(candidate.updated);
         if (candidateUpdatedMs > prevUpdatedMs) {
+          /**
+           * รอบแก้ไขของต้นทางคือรอบที่ **จุดศูนย์กลางย้าย** ได้จริง (solution
+           * อัตโนมัติถูกทบทวนแล้วเลื่อนได้หลายสิบกิโลเมตร) ถ้าเก็บ lat/lon เดิมไว้
+           * แล้วยก `nearest` เดิมมาใช้ต่อ ระเบียนจะอ้างจังหวัดของตำแหน่งที่ต้นทาง
+           * ไม่ได้รายงานแล้ว — พิกัดกับระยะถึงจังหวัดจึงต้องขยับไปด้วยกันเสมอ
+           */
+          const moved = candidate.lat !== existing[0].lat || candidate.lon !== existing[0].lon;
+          const nextNearest = moved
+            ? nearestProvincesForPoint(candidate.lon, candidate.lat)
+            : parseNearest(existing[0].nearest);
           this.ctx.storage.sql.exec(
-            `UPDATE events SET mag=?, mag_type=?, place=?, depth_km=?, updated_ms=?, status=?, tsunami=?, url=?, raw_json=? WHERE id=?`,
+            `UPDATE events SET mag=?, mag_type=?, place=?, lat=?, lon=?, depth_km=?, updated_ms=?, status=?, tsunami=?, url=?, raw_json=?, nearest=? WHERE id=?`,
             candidate.mag,
             candidate.magType,
             candidate.place,
+            candidate.lat,
+            candidate.lon,
             candidate.depthKm,
             candidateUpdatedMs,
             candidate.status,
             candidate.tsunami ? 1 : 0,
             candidate.url,
             JSON.stringify(candidate),
+            nextNearest ? JSON.stringify(nextNearest) : null,
             candidate.id,
           );
           updated++;
-          messages.push({ type: "event.updated", event: { ...candidate, clusterId: existing[0].cluster_id } });
+          /**
+           * ฝั่งเว็บแทนที่ทั้งอ็อบเจกต์เมื่อได้ `event.updated` — ถ้าไม่แนบ `nearest`
+           * ไปด้วย ไคลเอนต์ที่เห็นจังหวัดใกล้เคียงอยู่แล้วจะ "ลืม" ไป (ฟีดต้นทาง
+           * ไม่มีฟิลด์นี้) และค่าที่แนบต้องเป็นค่าของพิกัดในเฟรมนี้ ไม่ใช่ของเดิม
+           */
+          messages.push({
+            type: "event.updated",
+            event: {
+              ...candidate,
+              // cluster ถูกตรึงไว้ตั้งแต่ตอน ingest ครั้งแรกโดยตั้งใจ: มันคือ "เหตุการณ์
+              // เดียวกันที่หลายแหล่งรายงาน" ซึ่งตัดสินจาก id/เวลา/แหล่ง ไม่ใช่จากพิกัด
+              // ต่อให้ต้นทางย้ายศูนย์กลางไปหลายสิบกิโลเมตร มันก็ยังเป็นเหตุการณ์เดิม
+              // การจับกลุ่มใหม่ทุกครั้งที่พิกัดขยับจะทำให้ประวัติการจับคู่ไม่นิ่ง
+              clusterId: existing[0].cluster_id,
+              ...(nextNearest ? { nearest: nextNearest } : {}),
+            },
+          });
         }
         continue;
       }
@@ -226,10 +410,15 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
 
       const corroboratedClusterId = findCorroboratingCluster(candidate, recentRows);
       const clusterId = corroboratedClusterId ?? candidate.id;
+      /**
+       * ระยะถึงขอบเขตจังหวัดคิดครั้งเดียวตรงนี้ แล้วเก็บลงระเบียน — คำขอฝั่ง
+       * ผู้ใช้จึงไม่ต้องจ่ายค่าคิดเรขาคณิตเลย (ดู `nearestProvinces`)
+       */
+      const nearest = nearestProvincesForPoint(candidate.lon, candidate.lat);
 
       this.ctx.storage.sql.exec(
-        `INSERT INTO events (id, cluster_id, source, source_id, mag, mag_type, place, lat, lon, depth_km, time_ms, updated_ms, status, tsunami, url, raw_json, ingested_at_ms)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO events (id, cluster_id, source, source_id, mag, mag_type, place, lat, lon, depth_km, time_ms, updated_ms, status, tsunami, url, raw_json, ingested_at_ms, nearest)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         candidate.id,
         clusterId,
         candidate.sources[0],
@@ -247,24 +436,34 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
         candidate.url,
         JSON.stringify(candidate),
         nowMs,
+        JSON.stringify(nearest),
       );
       created++;
-      messages.push({ type: "event.created", event: { ...candidate, clusterId } });
+      messages.push({ type: "event.created", event: { ...candidate, clusterId, nearest } });
     }
 
     this.ctx.storage.sql.exec("DELETE FROM events WHERE time_ms < ?", nowMs - RETENTION_MS);
 
     if (messages.length > 0) this.broadcast(messages);
-    this.broadcast([{ type: "heartbeat", ts: new Date(nowMs).toISOString() }]);
 
     const status: PollStatus = {
       at: new Date(nowMs).toISOString(),
       created,
       updated,
       polled: candidates.length,
+      feeds: EQ_FEEDS.length,
       errors: feedErrors,
     };
-    await this.ctx.storage.put("lastPoll", status);
+    await this.ctx.storage.put("lastAttempt", status);
+    // `lastPoll` is a successful data pull, never a clock for a failed
+    // attempt. This keeps the descriptor/REST/WebSocket `asOf` honest when
+    // every upstream feed is unreachable.
+    const successful = feedErrors.length < EQ_FEEDS.length;
+    if (successful) await this.ctx.storage.put("lastPoll", status);
+    const lastSuccessfulPoll = successful
+      ? status
+      : (await this.ctx.storage.get<PollStatus>("lastPoll")) ?? null;
+    this.broadcast([heartbeatMessage(lastSuccessfulPoll)]);
 
     return { created, updated, polled: candidates.length };
   }
@@ -287,9 +486,45 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
     return rows.map(rowToEvent);
   }
 
+  /**
+   * Descriptor for everything this DO serves — the three timestamps kept apart:
+   * observedAt = origin time ของแผ่นดินไหวที่ใหม่ที่สุดที่เราถืออยู่,
+   * publishedAt = เวลาที่ต้นทางแก้ไข/เผยแพร่ระเบียนล่าสุด (ฟิลด์ `updated` ของฟีด),
+   * fetchedAt = เวลาที่ poll สำเร็จครั้งล่าสุด — null เมื่อยังไม่เคยสำเร็จเลย
+   */
+  private async layer(): Promise<HazardLayerDescriptor> {
+    const poll = (await this.ctx.storage.get<PollStatus>("lastPoll")) ?? null;
+    const row = this.ctx.storage.sql
+      .exec<{ newest: number | null; published: number | null }>(
+        "SELECT MAX(time_ms) AS newest, MAX(updated_ms) AS published FROM events",
+      )
+      .toArray()[0];
+    return {
+      id: "earthquake-events",
+      epistemicClass: "observed",
+      liveOrStatic: "live",
+      observedAt: row?.newest ? new Date(row.newest).toISOString() : undefined,
+      publishedAt: row?.published ? new Date(row.published).toISOString() : null,
+      fetchedAt: poll?.at ?? null,
+      staleAfterSeconds: 5 * 60,
+      sourceIds: ["earthquakes"],
+    };
+  }
+
+  /** Backs GET /api/v1/earthquakes/recent — events plus their descriptor. */
+  async getRecentResponse(limit = 100, minMag: number | null = null): Promise<EarthquakeRecentResponse> {
+    const events = await this.getRecent(limit, minMag);
+    // asOf ต้องเป็นเวลาที่ poll สำเร็จล่าสุด (เหมือน WS snapshot/heartbeat ด้านบน)
+    // ไม่ใช่เวลาที่ประกอบ response นี้ — ไคลเอนต์ที่ REST-poll ทุก 30 วิ จะเห็น
+    // เหตุการณ์เดิม "ดูสด" ทุกครั้งที่ต้นทางเงียบไปแล้วหลายชั่วโมง ถ้าใช้ `new Date()`
+    const poll = (await this.ctx.storage.get<PollStatus>("lastPoll")) ?? null;
+    return { asOf: poll?.at ?? null, layer: await this.layer(), events };
+  }
+
   /** Backs GET /api/v1/health — one SourceStatus per upstream feed. */
   async status(): Promise<SourceStatus[]> {
     const poll = (await this.ctx.storage.get<PollStatus>("lastPoll")) ?? null;
+    const attempt = (await this.ctx.storage.get<PollStatus>("lastAttempt")) ?? poll;
     const count =
       this.ctx.storage.sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM events").toArray()[0]?.n ?? 0;
     const newest =
@@ -298,31 +533,42 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
         .toArray()[0]?.t ?? null;
     const now = Date.now();
     const staleAfterSeconds = 5 * 60; // cron runs every minute
-    const health = !poll
-      ? "unknown"
-      : now - Date.parse(poll.at) > staleAfterSeconds * 1000
-        ? "stale"
-        : poll.errors.length === 3
-          ? "down"
-          : poll.errors.length > 0
-            ? "degraded"
-            : "ok";
+    // เรกคอร์ดที่บันทึกไว้ก่อนมีฟิลด์ feeds ให้ถือว่าเป็นชุดฟีดปัจจุบัน
+    const feeds = attempt?.feeds ?? EQ_FEEDS.length;
+    const health = deriveSourceHealth({
+      nowMs: now,
+      fetchedAt: poll?.at ?? null,
+      lastError: attempt?.errors.length ? attempt.errors.join("; ") : null,
+      latestObservedAt: newest ? new Date(newest).toISOString() : null,
+      staleAfterSeconds,
+      /**
+       * แผ่นดินไหวไม่มีคาบการตรวจวัด — `latestObservedAt` คือเวลาที่แผ่นดินไหว
+       * "เกิด" วันที่ไม่มีแผ่นดินไหวคือวันที่ปกติ ไม่ใช่ฟีดค้าง จึงตัดสิน
+       * `delayed` ไม่ได้เลย และการทำเป็นตัดสินคือการกุความล้มเหลวขึ้นมาเอง
+       */
+      observedLagSeconds: null,
+      allFeedsFailed: (attempt?.errors.length ?? 0) >= feeds,
+    });
+    const alarmAtMs = await this.ctx.storage.getAlarm();
     return [
       {
         id: "earthquakes",
-        labelTh: "แผ่นดินไหว (USGS / EMSC / TMD)",
+        labelTh: SOURCES.earthquakes.nameTh,
+        labelEn: SOURCES.earthquakes.nameEn,
         health,
         fetchedAt: poll?.at ?? null,
         latestObservedAt: newest ? new Date(newest).toISOString() : null,
-        lastAttemptAt: poll?.at ?? null,
-        lastError: poll?.errors.length ? poll.errors.join("; ") : null,
+        lastAttemptAt: attempt?.at ?? null,
+        lastError: attempt?.errors.length ? attempt.errors.join("; ") : null,
         detail: {
           events30d: count,
           wsClients: this.ctx.getWebSockets().length,
-          lastCreated: poll?.created ?? null,
-          lastUpdated: poll?.updated ?? null,
+          lastCreated: attempt?.created ?? null,
+          lastUpdated: attempt?.updated ?? null,
         },
         staleAfterSeconds,
+        observedLagSeconds: null,
+        nextAttemptAt: alarmAtMs === null ? null : new Date(alarmAtMs).toISOString(),
       },
     ];
   }
@@ -335,7 +581,7 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
         try {
           ws.send(payload);
         } catch (err) {
-          console.error(JSON.stringify({ level: "error", message: "ws send failed", error: String(err) }));
+          logError("ws send failed", { error: errorText(err) });
         }
       }
     }
@@ -347,29 +593,40 @@ export class EarthquakeFeedDO extends DurableObject<Env> {
       return new Response("Expected websocket upgrade", { status: 426 });
     }
 
-    void this.armAlarm();
     const pair = new WebSocketPair();
     const [client, server] = [pair[0], pair[1]];
     this.ctx.acceptWebSocket(server);
+    // ย่นนัด alarm หลังรับ socket แล้ว เพื่อให้ `nextAlarmDelayMs()` นับสายนี้ด้วย
+    // และ heartbeat แรกมาถึงภายใน 30 วิ ไม่ใช่รอ 60 วิของนัดเดิม
+    await this.armAlarm("shorten");
 
     const rows = this.ctx.storage.sql
       .exec<EventRow>("SELECT * FROM events ORDER BY time_ms DESC LIMIT 200")
       .toArray();
+    // `asOf` ของ snapshot ต้องหมายถึงสิ่งเดียวกับของ heartbeat คือ "เวลาที่ poll
+    // สำเร็จล่าสุด" ไม่ใช่ `new Date()` ตอนประกอบ response — สองเฟรมบน socket
+    // เดียวกันที่ใช้ชื่อฟิลด์เดียวกันแต่คนละความหมาย ทำให้เวลาบนการ์ด "กระโดด
+    // ถอยหลัง" ได้ถึงหนึ่งคาบ poll ตอน heartbeat แรกมาถึง และค่าที่ถอยหลังนั่น
+    // คือค่าที่จริงกว่า แปลว่า snapshot โฆษณาความสดเกินจริงมาตลอด
+    const lastPoll = (await this.ctx.storage.get<PollStatus>("lastPoll")) ?? null;
     const snapshot: EqWsMessage = {
       type: "snapshot",
-      asOf: new Date().toISOString(),
+      asOf: lastPoll?.at ?? null,
+      layer: await this.layer(),
       events: rows.map(rowToEvent),
     };
     // Snapshot must be sent before any event.* message reaches this specific
-    // socket — safe here because broadcast() only fires from pollAndBroadcast(),
-    // which runs on the cron tick, never concurrently with this handler.
+    // socket. The storage await above and in armAlarm() cannot let an alarm
+    // interleave: Durable Object input gating defers delivery of new events —
+    // alarms included — while a storage operation is in flight.
     server.send(JSON.stringify(snapshot));
 
     return new Response(null, { status: 101, webSocket: client });
   }
 
   async webSocketMessage(_ws: WebSocket, _message: string | ArrayBuffer): Promise<void> {
-    // Clients don't send meaningful messages today; reserved for future ping/pong.
+    // "ping" ถูกตอบด้วย auto-response ที่ชั้น runtime ก่อนถึงตรงนี้แล้ว
+    // ข้อความอื่นจากไคลเอนต์ยังไม่มีความหมายในโปรโตคอลนี้
   }
 
   async webSocketClose(ws: WebSocket, code: number, reason: string, _wasClean: boolean): Promise<void> {

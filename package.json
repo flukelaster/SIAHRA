@@ -1,6 +1,7 @@
 {
   "name": "siahra",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -12,9 +13,10 @@
     "dev:web": "npm run dev -w apps/web",
     "build:web": "npm run build -w apps/web",
     "build:aoi": "npm run build:all -w apps/etl",
-    "deploy:web": "npm run build -w apps/web && npm run deploy -w apps/web",
+    "check:aoi": "node scripts/check-building-tiles.mjs",
+    "deploy:web": "npm run check:aoi && npm run build -w apps/web && npm run deploy -w apps/web",
     "deploy:api": "npm run deploy -w apps/api",
-    "test": "npm run test -w apps/api && npm run test -w apps/web"
+    "test": "npm run test -w apps/api && npm run test -w apps/web && npm run test -w apps/etl"
   },
   "devDependencies": {
     "concurrently": "^10.0.5"

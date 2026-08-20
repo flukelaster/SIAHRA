@@ -1,0 +1,39 @@
+{
+  "result": "OK",
+  "data": [
+    {
+      "id": 101,
+      "station": {
+        "id": 101,
+        "tele_station_name": { "th": "สถานีเชียงใหม่", "en": "Chiang Mai" },
+        "tele_station_lat": 18.79,
+        "tele_station_long": 98.98,
+        "min_bank": null,
+        "ground_level": null
+      },
+      "geocode": {
+        "province_code": 50,
+        "province_name": { "th": "เชียงใหม่", "en": "Chiang Mai" },
+        "amphoe_name": { "th": "เมืองเชียงใหม่", "en": "Mueang Chiang Mai" }
+      },
+      "basin": { "basin_name": { "th": "ปิง", "en": "Ping" } },
+      "agency": { "agency_shortname": { "th": "สสน.", "en": "HII" } },
+      "rain_24h": "12.5",
+      "rain_1h": 0,
+      "rainfall_datetime": "2026-08-19 09:00"
+    },
+    {
+      "id": 102,
+      "station": {
+        "id": 102,
+        "tele_station_name": { "th": "สถานีไม่มีพิกัด", "en": "No coordinates" },
+        "tele_station_lat": null,
+        "tele_station_long": null
+      },
+      "geocode": { "province_code": "10", "province_name": { "th": "กรุงเทพมหานคร", "en": "Bangkok" } },
+      "rain_24h": null,
+      "rain_1h": null,
+      "rainfall_datetime": null
+    }
+  ]
+}

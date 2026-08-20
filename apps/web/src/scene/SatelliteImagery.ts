@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import type { AoiManifest } from "@siahra/shared-types";
+import { SOURCES, type AoiManifest, type SourceId } from "@siahra/shared-types";
 import { createLocalProjection } from "./localProjection";
 import { lonLatToTile } from "./projection";
 
@@ -14,6 +14,8 @@ import { lonLatToTile } from "./projection";
  */
 export interface ImageryProvider {
   id: string;
+  /** Registry entry this provider is credited as (join key into SOURCES). */
+  sourceId: SourceId;
   nameTh: string;
   attribution: string;
   maxZoom: number;
@@ -24,8 +26,9 @@ export interface ImageryProvider {
 export const IMAGERY_PROVIDERS: Record<string, ImageryProvider> = {
   esri: {
     id: "esri",
-    nameTh: "ภาพดาวเทียม Esri World Imagery",
-    attribution: "Esri, Maxar, Earthstar Geographics, GIS User Community",
+    sourceId: "esri-world-imagery",
+    nameTh: SOURCES["esri-world-imagery"].nameTh,
+    attribution: SOURCES["esri-world-imagery"].attributionText,
     maxZoom: 18,
     tileSize: 256,
     url: (z, x, y) =>
@@ -33,8 +36,9 @@ export const IMAGERY_PROVIDERS: Record<string, ImageryProvider> = {
   },
   s2cloudless: {
     id: "s2cloudless",
-    nameTh: "ภาพดาวเทียม Sentinel-2 cloudless (EOX)",
-    attribution: "Sentinel-2 cloudless by EOX IT Services (CC BY-NC-SA 4.0), Copernicus",
+    sourceId: "eox-s2cloudless",
+    nameTh: SOURCES["eox-s2cloudless"].nameTh,
+    attribution: SOURCES["eox-s2cloudless"].attributionText,
     maxZoom: 14,
     tileSize: 256,
     url: (z, x, y) =>

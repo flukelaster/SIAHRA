@@ -1,0 +1,47 @@
+{
+  "result": "OK",
+  "waterlevel_data": {
+    "data": [
+      {
+        "id": 201,
+        "station": {
+          "id": 201,
+          "tele_station_name": { "th": "บ้านท่าน้ำ", "en": "Ban Tha Nam" },
+          "tele_station_lat": "15.12",
+          "tele_station_long": "100.11",
+          "min_bank": 14.9,
+          "ground_level": 10.2
+        },
+        "geocode": {
+          "province_code": 16,
+          "province_name": { "th": "ลพบุรี", "en": "Lopburi" },
+          "amphoe_name": { "th": "เมืองลพบุรี", "en": "Mueang Lopburi" }
+        },
+        "basin": { "basin_name": { "th": "เจ้าพระยา", "en": "Chao Phraya" } },
+        "agency": { "agency_shortname": { "th": "กรมชลประทาน", "en": "RID" } },
+        "waterlevel_datetime": "2026-08-19 09:20",
+        "waterlevel_msl": 13.44,
+        "waterlevel_m": 3.24,
+        "storage_percent": null,
+        "situation_level": 2
+      },
+      {
+        "id": 202,
+        "station": {
+          "id": 202,
+          "tele_station_name": { "th": "คลองตัวอย่าง", "en": "Example Canal" },
+          "tele_station_lat": 13.75,
+          "tele_station_long": 100.5,
+          "min_bank": 0,
+          "ground_level": null
+        },
+        "geocode": { "province_code": 10, "province_name": { "th": "กรุงเทพมหานคร", "en": "Bangkok" } },
+        "waterlevel_datetime": "2026-08-19 09:10",
+        "waterlevel_msl": 1.02,
+        "waterlevel_m": null,
+        "storage_percent": null,
+        "situation_level": null
+      }
+    ]
+  }
+}

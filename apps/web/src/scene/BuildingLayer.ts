@@ -89,10 +89,54 @@ export async function buildBuildingLayer(
   manifest: AoiManifest,
   sampleGround: (x: number, z: number) => number,
   onProgress?: (done: number, total: number) => void,
+  /**
+   * เรียกเฉพาะตอนที่มี `buildings.url` แต่โหลด/แปลงไม่สำเร็จจริง ๆ (404, SPA shell,
+   * geojson ผิดรูป, เครือข่ายขาด) — **ไม่เรียก** เมื่อ AOI นี้ไม่มีข้อมูลอาคารอยู่แล้ว
+   * (ไม่มีทั้ง `url`/`tiles`) เพราะนั่นไม่ใช่ความล้มเหลว เป็นข้อเท็จจริงของ AOI
+   * ผู้เรียก (Map3DCanvas) ใช้สิ่งนี้เพื่อไม่ให้ชั้นหายไปเงียบ ๆ ใน console เท่านั้น —
+   * ต้องโผล่ใน legend/สถานะแผนที่ด้วย (ดู `MapInfo.buildingsError`)
+   */
+  onError?: (message: string) => void,
 ): Promise<BuildingLayerResult | null> {
-  if (!manifest.buildings) return null;
+  const buildings = manifest.buildings;
+  if (!buildings) return null;
 
-  const collection: BuildingCollection = await fetch(manifest.buildings.url).then((r) => r.json());
+  // E8.3 — ชั้นนี้เป็นทางสำรองของ AOI รุ่นเก่าเท่านั้น: จังหวัดทั้ง 77 ใช้ tile
+  // pyramid (BuildingTiles) ซึ่งสตรีมเองและไม่ต้องมี geojson อีกแล้ว ถ้า
+  // manifest มี tiles ก็ไม่ควรมาถึงที่นี่ — Map3DCanvas เรียกฟังก์ชันนี้เฉพาะตอน
+  // ไม่มี BuildingTileLayer เท่านั้น
+  if (buildings.tiles) {
+    console.warn(
+      `[buildings] ${manifest.aoiId}: manifest มี tile pyramid แต่ชั้น tile ไม่ได้ถูกสร้าง ` +
+        `(ต้องมี terrain.tiles ด้วย) — ไม่แสดงอาคาร`,
+    );
+    return null;
+  }
+  // ไม่มีทั้ง tiles และ url = ไม่มีข้อมูลอาคารสำหรับ AOI นี้ ต้องเงียบแบบเห็นได้
+  // (คำเตือนใน console + attribution นับ 0 หลัง) ไม่ใช่โยน error ทั้งฉาก
+  if (!buildings.url) {
+    console.warn(`[buildings] ${manifest.aoiId}: manifest ไม่มีทั้ง buildings.tiles และ buildings.url — ไม่แสดงอาคาร`);
+    return null;
+  }
+
+  // การโหลดล้มเหลวต้องไม่ทำให้ทั้งฉากขึ้น error: static host ตอบ 404 ด้วย SPA
+  // shell ได้ (`.json()` จะพังตรงนั้น) ซึ่งเป็นอาการเดียวกับที่ docs/deploy.md §2
+  // เตือนไว้เรื่อง tile — ชั้นอาคารเป็นชั้นเสริม จึงยอมหายไปทั้งชั้นแทน
+  let collection: BuildingCollection;
+  try {
+    const res = await fetch(buildings.url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    collection = (await res.json()) as BuildingCollection;
+    if (!Array.isArray(collection?.features)) throw new Error("ไม่ใช่ FeatureCollection");
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    console.warn(`[buildings] ${manifest.aoiId}: โหลด ${buildings.url} ไม่สำเร็จ — ไม่แสดงอาคาร`, err);
+    // นี่คือความล้มเหลวจริง (มี url แต่โหลด/แปลงไม่ผ่าน) ต่างจากตอนที่ AOI ไม่มี
+    // ข้อมูลอาคารเลย — ผู้เรียกต้องโชว์สิ่งนี้ให้เห็น ไม่ใช่แค่ log ที่ผู้ใช้ทั่วไปไม่เปิดดู
+    onError?.(reason);
+    return null;
+  }
+
   const { toLocal } = createLocalProjection(manifest);
   const total = collection.features.length;
   const geometries: THREE.BufferGeometry[] = [];

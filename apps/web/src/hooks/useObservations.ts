@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import type { ObservationsResponse } from "@siahra/shared-types";
+import { errorMessage, type ErrorMessage } from "../lib/errorMessage";
 
 export interface ObservationsState {
   data: ObservationsResponse | null;
   loading: boolean;
-  error: string | null;
+  error: ErrorMessage | null;
 }
 
 const REFRESH_MS = 5 * 60 * 1000;
@@ -18,14 +19,10 @@ const RETRY_MS = 4000;
  */
 const GATEWAY_STATUSES = new Set([502, 503, 504]);
 
-function describeError(err: unknown): string {
-  if (err instanceof ApiUnavailableError) {
-    return "เชื่อมต่อ API ไม่ได้ — ตรวจสอบว่าเซิร์ฟเวอร์ API ทำงานอยู่ (npm run dev)";
-  }
-  if (err instanceof TypeError) {
-    return "เชื่อมต่อเครือข่ายไม่ได้ กำลังลองใหม่...";
-  }
-  return err instanceof Error ? err.message : "โหลดข้อมูลตรวจวัดไม่สำเร็จ";
+function describeError(err: unknown): ErrorMessage {
+  if (err instanceof ApiUnavailableError) return { key: "error.apiUnreachable" };
+  if (err instanceof TypeError) return { key: "error.networkUnreachable" };
+  return errorMessage(err, "error.observationsFailed");
 }
 
 class ApiUnavailableError extends Error {

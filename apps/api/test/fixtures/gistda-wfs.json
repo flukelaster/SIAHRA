@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::4326" } },
+  "totalFeatures": 2,
+  "numberMatched": 2,
+  "numberReturned": 2,
+  "timeStamp": "2026-08-19T01:34:40.189Z",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "FloodArea_Poly.1",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [[[[100.1, 15.1], [100.2, 15.1], [100.2, 15.2], [100.1, 15.2], [100.1, 15.1]]]]
+      },
+      "properties": {
+        "TB_IDN": 160101,
+        "TB_TN": "µÓºÅµÑÇÍÂèÒ§",
+        "AP_IDN": 1601,
+        "AP_TN": "ÍÓàÀÍµÑÇÍÂèÒ§",
+        "PV_IDN": 16,
+        "PV_TN": "Å¾ºØÃÕ",
+        "F_AREA": 1234.5,
+        "flood_area": "1234.5",
+        "house": 12,
+        "lat": 15.15,
+        "long": 100.15
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "FloodArea_Poly.2",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[100.3, 15.3], [100.4, 15.3], [100.4, 15.4], [100.3, 15.4], [100.3, 15.3]]]
+      },
+      "properties": { "TB_IDN": 160102, "PV_IDN": 16, "flood_area": 8, "house": null, "lat": 15.35, "long": 100.35 }
+    }
+  ]
+}

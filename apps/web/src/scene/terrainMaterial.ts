@@ -1,4 +1,18 @@
 import * as THREE from "three";
+import {
+  ILLUSTRATIVE_BASE_MIX,
+  ILLUSTRATIVE_HATCH_DUTY,
+  ILLUSTRATIVE_HATCH_PERIOD_PX,
+  ILLUSTRATIVE_RGB,
+  ILLUSTRATIVE_RIM_MIX,
+  ILLUSTRATIVE_STRIPE_MIX,
+} from "../lib/illustrativeStyle";
+import { EXPOSURE_RGB } from "../lib/exposureStyle";
+
+/** ค่าคงที่ TS → literal ของ GLSL (GLSL ต้องมีจุดทศนิยมเสมอ) */
+const glslFloat = (v: number) => v.toFixed(4);
+const glslVec3 = (c: readonly [number, number, number]) =>
+  `vec3(${c.map((v) => v.toFixed(4)).join(", ")})`;
 
 /**
  * Terrain surface material: a standard PBR material with a small shader
@@ -28,8 +42,25 @@ export interface TerrainSharedUniforms {
    * fills the frame. Relief (the hillshade) is deliberately outside this.
    */
   uDetailFade: { value: number };
+  /**
+   * ระยะห่างลายเส้นของชั้น "ภาพประกอบ" หน่วยพิกเซลของ drawing buffer
+   * = ILLUSTRATIVE_HATCH_PERIOD_PX × pixelRatio (ตั้งค่าใน Map3DCanvas)
+   */
+  uHatchPx: { value: number };
   /** 1 when the observation source is stale/unreachable: halos desaturate. */
   uHazardStale: { value: number };
+  /**
+   * ชั้น "ระดับการเผชิญน้ำ (ภาพประกอบ)" (E10.4) — R = ความแรงของฮาโล, G = รหัสแถบ
+   * (สร้างโดย `hazardOverlay.updateExposure` บนกริดเดียวกับ `uOverlay`)
+   */
+  uExposure: { value: THREE.Texture | null };
+  /** ปิดไว้เป็นค่าเริ่มต้น: ชั้นนี้ off by default และไม่มีการ fetch จนกว่าจะเปิด */
+  uShowExposure: { value: number };
+  /**
+   * 1 = ไม่มีผลคำนวณรอบใหม่ (api ล่ม/ยังไม่เคยมี run) — ชั้นหรี่ลงแทนที่จะหายไป
+   * และ legend บอกว่าไม่มี run ตั้งแต่เมื่อไหร่
+   */
+  uExposureStale: { value: number };
   /** Satellite flood-extent mask (R channel, province overlay grid). */
   uFloodMask: { value: THREE.Texture | null };
   uShowFlood: { value: number };
@@ -55,7 +86,11 @@ export function createTerrainSharedUniforms(): TerrainSharedUniforms {
     uHillshade: { value: null },
     uHasHillshade: { value: 0 },
     uDetailFade: { value: 1 },
+    uHatchPx: { value: ILLUSTRATIVE_HATCH_PERIOD_PX },
     uHazardStale: { value: 0 },
+    uExposure: { value: null },
+    uShowExposure: { value: 0 },
+    uExposureStale: { value: 0 },
     uFloodMask: { value: null },
     uShowFlood: { value: 0 },
     uRadar: { value: null },
@@ -87,7 +122,11 @@ uniform float uHasImagery;
 uniform sampler2D uHillshade;
 uniform float uHasHillshade;
 uniform float uDetailFade;
+uniform float uHatchPx;
 uniform float uHazardStale;
+uniform sampler2D uExposure;
+uniform float uShowExposure;
+uniform float uExposureStale;
 uniform sampler2D uFloodMask;
 uniform float uShowFlood;
 uniform sampler2D uRadar;
@@ -109,6 +148,16 @@ float siahraNoise(vec2 p) {
   float c = siahraHash(i + vec2(0.0, 1.0));
   float d = siahraHash(i + vec2(1.0, 1.0));
   return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+// สีไล่ตามแถบของชั้นการเผชิญน้ำ — จุดยึดตรงกับ EXPOSURE_CODE ใน lib/exposureStyle.ts
+// (0.25 = แถบต่ำสุด, 0.5 elevated, 0.75 high, 1.0 severe) แถบต่ำสุดไม่เคยถูกระบาย
+// จริง แต่คงจุดยึดไว้เพื่อให้การไล่สีของค่าที่ถูก filter มาไม่กระโดด
+vec3 siahraExposureRamp(float code) {
+  vec3 c = ${glslVec3(EXPOSURE_RGB.low)};
+  c = mix(c, ${glslVec3(EXPOSURE_RGB.elevated)}, smoothstep(0.25, 0.5, code));
+  c = mix(c, ${glslVec3(EXPOSURE_RGB.high)}, smoothstep(0.5, 0.75, code));
+  c = mix(c, ${glslVec3(EXPOSURE_RGB.severe)}, smoothstep(0.75, 1.0, code));
+  return c;
 }
 `;
 
@@ -144,19 +193,73 @@ float lum = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
 vec3 outsideCol = mix(vec3(lum), diffuseColor.rgb, 0.55) * uOutsideDim;
 diffuseColor.rgb = mix(outsideCol, diffuseColor.rgb, inside);
 
-// Low-lying ground: animated water tint (illustrative, topography only).
+// พื้นที่ลุ่มต่ำ = ชั้น "ภาพประกอบ" ที่เราคำนวณจาก DEM เอง จึงต้องดูไม่เหมือน
+// ผิวน้ำที่ใครวัดมา: ลายเส้นทแยงสีม่วง ไม่เคลื่อนไหว และไม่ใช่สีของน้ำ ตรงข้ามกับ
+// พื้นที่น้ำท่วมจากภาพดาวเทียม (GISTDA) ด้านล่างที่เป็นพื้นทึบสีน้ำ — ต่างกันทั้ง
+// เนื้อลาย ค่าความสว่างและสี จึงแยกออกได้แม้ในภาพขาวดำ
+// (ค่าสี/ระยะห่างลาย/สัดส่วนเส้น/เส้นขอบ มาจาก lib/illustrativeStyle.ts ที่สัญลักษณ์
+//  ใน legend อ่านชุดเดียวกัน — ห้ามแก้ค่าที่นี่ฝั่งเดียว)
 vec2 flowUv = vTerrainUv * vec2(90.0, 110.0);
-float n1 = siahraNoise(flowUv * 1.0 + vec2(uTime * 0.05, -uTime * 0.035));
-float n2 = siahraNoise(flowUv * 2.3 - vec2(uTime * 0.09, uTime * 0.02));
-float shimmer = 0.6 * n1 + 0.4 * n2;
-float low = ov.r * uShowLowland * uDetailFade;
-low = smoothstep(0.22, 0.85, low);
-vec3 waterDeep = vec3(0.07, 0.38, 0.92);
-vec3 waterLight = vec3(0.36, 0.76, 1.0);
-vec3 waterCol = mix(waterDeep, waterLight, shimmer);
-float waterMix = low * (0.36 + 0.22 * shimmer);
-diffuseColor.rgb = mix(diffuseColor.rgb, waterCol, waterMix);
-siahraEmissive += waterCol * low * (0.07 + 0.06 * shimmer);
+float lowRaw = ov.r * uShowLowland;
+float low = smoothstep(0.22, 0.85, lowRaw);
+// ลายเส้นวางในปริภูมิ "จอภาพ": ระยะห่างคงที่เป็นพิกเซลไม่ว่ากล้องจะอยู่ไกลแค่ไหน
+// หรือจังหวัดจะมีขนาดเท่าใด — แปลงลุ่มต่ำส่วนใหญ่กว้างราว 5 px ถ้าผูกความถี่กับ
+// UV ของจังหวัด แปลงพวกนี้จะตกอยู่ในเส้นเดียวและอ่านเป็นพื้นทึบ (= ภาษาของข้อมูล
+// ตรวจวัดจริง) ผลพลอยได้: ลายต่อเนื่องข้ามรอยต่อ LOD tile และข้ามชั้น overview
+// โดยไม่ต้องพึ่งพิกัดใด ๆ ของ tile
+float hatchPx = max(uHatchPx, 2.0);
+float hatchT = (gl_FragCoord.x + gl_FragCoord.y) / (hatchPx * 1.4142136);
+float hatchTri = abs(fract(hatchT) - 0.5) * 2.0;
+// ลายยึดกับ pixel grid จึงไม่มีทางเกิด moire — ขอบเส้นจึงกำหนดคงที่ที่ ~0.5 px
+// (ในหน่วยของ hatchTri = 1/hatchPx) ให้เส้นคมที่สุดเท่าที่ยังไม่หยัก
+float hatchAa = clamp(1.0 / hatchPx, 0.02, 0.5);
+float stripe = 1.0 - smoothstep(${glslFloat(ILLUSTRATIVE_HATCH_DUTY)} - hatchAa, ${glslFloat(ILLUSTRATIVE_HATCH_DUTY)} + hatchAa, hatchTri);
+vec3 illusDark = ${glslVec3(ILLUSTRATIVE_RGB.dark)};
+vec3 illusLight = ${glslVec3(ILLUSTRATIVE_RGB.light)};
+vec3 illusRim = ${glslVec3(ILLUSTRATIVE_RGB.rim)};
+vec3 illusCol = mix(illusDark, illusLight, stripe);
+// uDetailFade ลด "น้ำหนัก" ของพื้น ไม่ใช่ตัด mask ทิ้ง: เดิมคูณก่อน smoothstep
+// ทำให้เข้าใกล้แล้วแปลงหดหายทั้งแปลง เหลือแต่น้ำท่วม GISTDA เป็นพื้นทึบ — สองชั้น
+// จึงแยกกันไม่ออกในช่วงซูมนั้น ตอนนี้ขอบเขตคงเดิม แค่จางลงราว 0.55 เท่า
+float illusFill = low * mix(0.55, 1.0, uDetailFade) * mix(0.45, 1.0, inside);
+float illusMix = illusFill * (${glslFloat(ILLUSTRATIVE_BASE_MIX)} + ${glslFloat(ILLUSTRATIVE_STRIPE_MIX)} * stripe);
+diffuseColor.rgb = mix(diffuseColor.rgb, illusCol, illusMix);
+// เส้นขอบแปลง — สัญญาณที่ยังเหลือรอดเมื่อแปลงเล็กกว่าหนึ่งช่วงลาย ใช้ความชันบน
+// จอภาพของ mask จึงหนาราว 1–2 px เสมอ และ "แรงเองเมื่อแปลงเล็ก" (แปลงกว้าง ๆ
+// ไล่ค่านุ่ม ความชันต่ำ แทบไม่มีขอบ — ตรงนั้นลายเส้นทำหน้าที่แทนอยู่แล้ว)
+// สีเข้มลง ตรงข้ามกับขอบสีขาวจางของน้ำท่วม GISTDA จึงต่างกันแม้ในภาพขาวดำ
+float illusRimW = clamp(length(vec2(dFdx(low), dFdy(low))) * 2.0, 0.0, 1.0);
+diffuseColor.rgb = mix(diffuseColor.rgb, illusRim, illusRimW * mix(0.45, 1.0, inside) * ${glslFloat(ILLUSTRATIVE_RIM_MIX)});
+siahraEmissive += illusCol * illusFill * 0.05 * stripe;
+
+// ชั้น "ระดับการเผชิญน้ำ (ภาพประกอบ)" (E10.4) — พื้นที่ลุ่มต่ำที่ *ขณะนี้* มีสถานี
+// ข้างเคียงรายงานฝนหนัก/น้ำสูง เป็นการจัดอันดับค่าที่วัดมาแล้ว ไม่ใช่การพยากรณ์
+//
+// ใช้ภาษาภาพชุดเดียวกับพื้นที่ลุ่มต่ำ (คาบลายเท่ากัน วางในปริภูมิจอภาพเหมือนกัน)
+// แต่ **ทแยงกลับด้าน** (x − y) จึงซ้อนกันเป็นลายตาราง อ่านออกทันทีว่าเป็นคนละชั้น
+// กับลายทแยงเดี่ยว และคนละชั้นกับพื้นทึบของน้ำท่วมที่ตรวจวัดจริงข้างล่าง — แยกกันได้
+// แม้ในภาพขาวดำ ส่วนสีมาจาก ramp ม่วง→บานเย็นใน lib/exposureStyle.ts ซึ่งไม่ใช่สีน้ำ
+//
+// ประตูคือ ov.r **ตัวข้อมูลตรง ๆ ไม่ใช่ตัวแปร low** ที่คูณ uShowLowland มาแล้ว: การปิด
+// ชั้นพื้นที่ลุ่มต่ำคือการซ่อนสัญลักษณ์ ไม่ใช่การประกาศว่าที่ลุ่มต่ำไม่มีอยู่ ผลพลอยได้
+// ที่ตั้งใจ: terrain.bin ที่ไม่ผ่านการตรวจลายเซ็นทำให้ ov.r เป็นศูนย์ทั้งก้อน (E9.1)
+// ชั้นนี้จึงดับตามไปเอง ไม่มีทางวาดทับ DEM ที่เชื่อไม่ได้
+if (uShowExposure > 0.5) {
+  vec4 ex = texture2D(uExposure, vTerrainUv);
+  float lowlandGate = smoothstep(0.22, 0.85, ov.r);
+  float expo = smoothstep(0.06, 0.55, ex.r) * lowlandGate;
+  if (expo > 0.004) {
+    vec3 expoCol = siahraExposureRamp(ex.g);
+    float hatchT2 = (gl_FragCoord.x - gl_FragCoord.y) / (hatchPx * 1.4142136);
+    float hatchTri2 = abs(fract(hatchT2) - 0.5) * 2.0;
+    float stripe2 = 1.0 - smoothstep(${glslFloat(ILLUSTRATIVE_HATCH_DUTY)} - hatchAa, ${glslFloat(ILLUSTRATIVE_HATCH_DUTY)} + hatchAa, hatchTri2);
+    // ไม่มีผลคำนวณรอบใหม่ = หรี่ลง ไม่ใช่หายไป (legend บอกว่าไม่มีตั้งแต่เมื่อไหร่)
+    float expoFill = expo * mix(0.6, 1.0, uDetailFade) * mix(0.45, 1.0, inside) * (1.0 - 0.6 * uExposureStale);
+    float expoMix = expoFill * (${glslFloat(ILLUSTRATIVE_BASE_MIX)} + ${glslFloat(ILLUSTRATIVE_STRIPE_MIX)} * stripe2);
+    diffuseColor.rgb = mix(diffuseColor.rgb, expoCol, expoMix);
+    siahraEmissive += expoCol * expoFill * 0.07 * stripe2;
+  }
+}
 
 // Satellite-observed flood extent (GISTDA): murky standing water with a
 // slow drift and a pale rim along the mapped edge. Drawn over the lowland

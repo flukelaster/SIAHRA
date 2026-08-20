@@ -2,8 +2,10 @@ import type { ObservationsResponse } from "@siahra/shared-types";
 import type { Province } from "../../data/types";
 import { ApiStatusFooter } from "./ApiStatusFooter";
 import type { MapLayers } from "./Map3DCanvas";
+import type { LayerDescriptors } from "../../hooks/useLayerDescriptors";
 import type { QualityLevel, QualityMode } from "../../scene/quality";
-import { MapLegend } from "./MapLegend";
+import { MapLegend, type ExposureLegendState } from "./MapLegend";
+import type { TerrainIntegrity } from "../../scene/loadAoiManifest";
 import { ProvinceSelector } from "./ProvinceSelector";
 
 /** Left dock: floating province picker + legend/layer toggles over the map. */
@@ -14,9 +16,13 @@ export function Sidebar({
   observations,
   layers,
   onToggleLayer,
+  descriptors,
   quality,
   qualityLevel,
   onQualityChange,
+  terrainIntegrity,
+  buildingsError,
+  exposure,
   width,
   top,
 }: {
@@ -26,9 +32,16 @@ export function Sidebar({
   observations: ObservationsResponse | null;
   layers: MapLayers;
   onToggleLayer: (key: keyof MapLayers, value: boolean) => void;
+  descriptors: LayerDescriptors;
   quality: QualityMode;
   qualityLevel: QualityLevel;
   onQualityChange: (q: QualityMode) => void;
+  /** ผลตรวจ sha256 ของ terrain.bin — ส่งต่อให้ legend บอกว่าชั้นไหนถูกปิดและทำไม */
+  terrainIntegrity?: TerrainIntegrity;
+  /** ชั้นอาคารแบบเก่า (E8.3) โหลด/แปลงไม่สำเร็จ — null = โหลดสำเร็จ/ไม่เกี่ยวข้อง */
+  buildingsError?: string | null;
+  /** run ล่าสุดของชั้นการเผชิญน้ำ + สถานะการดึง (E10.4) */
+  exposure?: ExposureLegendState;
   width: number;
   top: number;
 }) {
@@ -45,9 +58,13 @@ export function Sidebar({
         <MapLegend
           layers={layers}
           onToggle={onToggleLayer}
+          descriptors={descriptors}
           quality={quality}
           qualityLevel={qualityLevel}
           onQualityChange={onQualityChange}
+          terrainIntegrity={terrainIntegrity}
+          buildingsError={buildingsError}
+          exposure={exposure}
         />
       </div>
 

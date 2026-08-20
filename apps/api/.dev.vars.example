@@ -1,0 +1,12 @@
+# apps/api — local secrets for `wrangler dev`. Copy to `.dev.vars` (gitignored)
+# and fill in. In production the same two keys are set with
+#   npx wrangler secret put TMD_UID
+#   npx wrangler secret put TMD_UKEY
+# (see docs/deploy.md §0 and §3). Without them only the TMD seismic feed
+# degrades — /api/v1/health reports the earthquakes source as `degraded` with
+# lastError "TMD credentials not configured"; USGS, EMSC and every other
+# source keep working.
+
+# TMD open-data API credentials — register at https://data.tmd.go.th/
+TMD_UID=""
+TMD_UKEY=""

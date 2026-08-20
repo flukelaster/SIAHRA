@@ -8,7 +8,9 @@ describe("permalink round-trip", () => {
       pose: { position: [1200, 800, -400], target: [0, 0, 0] },
       exaggeration: 1.6,
       layers: { terrain: true, water: true, buildings: false },
+      defaultLayers: { terrain: true, water: true, buildings: true },
       atIso: "2026-08-18T09:00:00.000Z",
+      lang: "th",
     });
 
     // ทุกคีย์ต้องอยู่ในสตริงจริง ไม่ใช่แค่ parse กลับมาได้
@@ -24,6 +26,7 @@ describe("permalink round-trip", () => {
       exaggeration: 1.6,
       layers: ["terrain", "water"],
       atIso: "2026-08-18T09:00:00.000Z",
+      lang: null,
     });
   });
 
@@ -33,7 +36,9 @@ describe("permalink round-trip", () => {
       pose: null,
       exaggeration: 1,
       layers: { terrain: true },
+      defaultLayers: { terrain: true },
       atIso: null,
+      lang: "th",
     });
     expect(search).toBe("?p=50");
     expect(parsePermalink(search).exaggeration).toBeNull();
@@ -45,7 +50,9 @@ describe("permalink round-trip", () => {
       pose: null,
       exaggeration: 1,
       layers: { terrain: true, water: true },
+      defaultLayers: { terrain: true, water: true },
       atIso: null,
+      lang: "th",
     });
     expect(search).not.toContain("layers=");
     expect(parsePermalink(search).layers).toBeNull();
@@ -60,10 +67,60 @@ describe("permalink round-trip", () => {
       pose: null,
       exaggeration: 1,
       layers: { terrain: false, water: false },
+      defaultLayers: { terrain: true, water: true },
       atIso: null,
+      lang: "th",
     });
     expect(search).toContain("layers=");
     expect(parsePermalink(search).layers).toBeNull();
+  });
+
+  /**
+   * E10.4 — ชั้น `exposure` ปิดไว้เป็นค่าเริ่มต้น ลิงก์จึงต้องพาสถานะของมันไปได้
+   * ทั้งสองทิศ ไม่ใช่รีเซ็ตกลับเป็นค่าเริ่มต้นเงียบ ๆ ตอนเปิดลิงก์
+   */
+  it("carries the flood-exposure layer through in both states", () => {
+    const defaultLayers = { lowland: true, exposure: false, buildings: true };
+
+    // เปิดชั้นที่ปิดไว้เป็นค่าเริ่มต้น = ทุกชั้นเปิดหมดพอดี ซึ่งเป็นกรณีที่กฎเดิม
+    // ("เขียนเมื่อมีชั้นไหนปิด") ทิ้ง `layers` ไปแล้วสถานะหายเงียบ ๆ
+    const on = serialisePermalink({
+      provinceCode: "14",
+      pose: null,
+      exaggeration: 1,
+      layers: { lowland: true, exposure: true, buildings: true },
+      defaultLayers,
+      atIso: null,
+      lang: "th",
+    });
+    expect(on).toContain("layers=");
+    expect(parsePermalink(on).layers).toContain("exposure");
+
+    // ปิดอยู่ = ตรงกับค่าเริ่มต้น จึงไม่ต้องเขียนอะไรลงลิงก์ และการอ่านกลับได้ null
+    // ซึ่งแอปแปลว่า "ใช้ค่าเริ่มต้น" = ยังปิดอยู่เหมือนเดิม
+    const off = serialisePermalink({
+      provinceCode: "14",
+      pose: null,
+      exaggeration: 1,
+      layers: { ...defaultLayers },
+      defaultLayers,
+      atIso: null,
+      lang: "th",
+    });
+    expect(off).not.toContain("layers=");
+    expect(parsePermalink(off).layers).toBeNull();
+
+    // ปิดชั้นอื่นด้วย = ต่างจากค่าเริ่มต้น จึงถูกเขียน และ exposure ยังไม่ติดไปด้วย
+    const mixed = serialisePermalink({
+      provinceCode: "14",
+      pose: null,
+      exaggeration: 1,
+      layers: { lowland: true, exposure: false, buildings: false },
+      defaultLayers,
+      atIso: null,
+      lang: "th",
+    });
+    expect(parsePermalink(mixed).layers).toEqual(["lowland"]);
   });
 
   it("rounds the camera to whole units", () => {
@@ -72,7 +129,9 @@ describe("permalink round-trip", () => {
       pose: { position: [1200.4, 800.6, -400.5], target: [0.2, -0.6, 0] },
       exaggeration: 1,
       layers: {},
+      defaultLayers: {},
       atIso: null,
+      lang: "th",
     });
     expect(parsePermalink(search).pose).toEqual({
       position: [1200, 801, -400],
@@ -105,6 +164,7 @@ describe("parsePermalink rejects junk", () => {
       exaggeration: null,
       layers: null,
       atIso: null,
+      lang: null,
     });
   });
 });
