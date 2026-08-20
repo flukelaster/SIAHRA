@@ -35,7 +35,16 @@ export default function MethodologyPage({ slug }: { slug: string }) {
     document.title = `${t(doc ? doc.titleKey : "methodology.notFound")} — ${BRAND.name}`;
   }, [doc, t]);
   return (
-    <div className="min-h-screen w-full overflow-y-auto bg-[var(--color-bg)] px-5 py-8">
+    // ความสูงตรึงเท่าจอ ไม่ใช่ `min-h-screen`: `body` ตั้ง `overflow: hidden` ไว้
+    // เพื่อไม่ให้หน้าแผนที่เลื่อนหลุด (index.css) — ถ้ากล่องนี้เป็น min-height มันจะ
+    // ยืดตามเนื้อหาจนสูงเกินจอ `overflow-y-auto` ก็ไม่ทำงาน (ไม่มีอะไรล้นในกล่องเอง)
+    // แล้วส่วนที่เกินไปโดน `body` ตัดทิ้ง เอกสารยาว ๆ จึงอ่านต่อไม่ได้เลย
+    //
+    // ใช้ `dvh` ไม่ใช่ `vh` (ต่างจาก App.tsx ที่เป็น `h-screen` ได้เพราะมันคือ
+    // `overflow-hidden` ไม่เคยต้องเลื่อนไปถึงขอบล่าง): บนมือถือ `100vh` สูงเกิน
+    // ส่วนที่มองเห็นจริงตอนแถบ URL กางอยู่ ก้นเอกสารจะไปหลบใต้แถบนั้น ซึ่งก็คือ
+    // บั๊กเดิมในรูปแบบที่เล็กลง
+    <div className="h-dvh w-full overflow-y-auto bg-[var(--color-bg)] px-5 py-8">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
         {/* หน้านี้ไม่มีแถบบน จึงต้องมีปุ่มสลับภาษาของตัวเอง ไม่งั้นผู้อ่านที่มาจาก
             ลิงก์ `?lang=` เปลี่ยนภาษาที่นี่ไม่ได้เลย (ใช้ปุ่มตัวเดียวกับ TopBar) */}
