@@ -211,5 +211,47 @@
       "90": 0.005,
       "95": 0.006
     }
+  },
+  "provenance": {
+    "datasetVersion": "2026-08-17",
+    "generatedAt": "2026-08-20T04:05:41.000Z",
+    "sources": {
+      "terrain": {
+        "builtAt": "2026-08-17T02:53:03.000Z",
+        "sourceIds": [
+          "copernicus-dem"
+        ]
+      },
+      "roads": {
+        "builtAt": "2026-08-17T03:34:13.000Z",
+        "sourceIds": [
+          "osm"
+        ],
+        "publishedAt": "2026-08-15T20:21:20.000Z"
+      },
+      "water": {
+        "builtAt": "2026-08-17T03:34:13.000Z",
+        "sourceIds": [
+          "osm"
+        ],
+        "publishedAt": "2026-08-15T20:21:20.000Z"
+      },
+      "buildings": {
+        "builtAt": "2026-08-17T03:16:32.000Z",
+        "sourceIds": [
+          "osm"
+        ],
+        "publishedAt": "2026-08-15T20:21:20.000Z"
+      },
+      "trees": {
+        "builtAt": "2026-08-17T05:04:50.000Z",
+        "sourceIds": [
+          "worldcover"
+        ]
+      }
+    },
+    "checksums": {
+      "terrain.bin": "92732eb0aef54fba6c9f925218d43633b24b2decd0fe8c85d4338847143ac9fd"
+    }
   }
 }

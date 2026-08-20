@@ -4,6 +4,7 @@ import { buildBuildings } from "./buildBuildings.js";
 import { buildTerrain } from "./buildTerrain.js";
 import { fetchDemTiles } from "./fetchDem.js";
 import { fetchThailandOsm } from "./fetchOsm.js";
+import { readOsmPublishedAt } from "./provenance.js";
 import { writeManifest } from "./writeManifest.js";
 
 const aoiId = process.argv[2];
@@ -25,7 +26,11 @@ const osmPbf = await fetchThailandOsm();
 const buildings = await buildBuildings(aoi, osmPbf, outDir);
 console.log(`[buildings] ${buildings.buildingCount} features`, buildings.heightSourceCounts);
 
-const manifest = writeManifest(aoi, terrain, buildings.buildingCount > 0, outDir);
+// เวลาเผยแพร่ของ extract อ่านจากหัวไฟล์ pbf ตอนรัน (ห้าม hardcode — extract
+// รุ่นถัดไปจะทำให้ค่าที่ฝังไว้ผิดเงียบ ๆ) อ่านไม่ได้ = ไม่มีฟิลด์นี้
+const osmPublishedAt = await readOsmPublishedAt(osmPbf);
+
+const manifest = writeManifest(aoi, terrain, buildings.buildingCount > 0, outDir, { osmPublishedAt });
 console.log("[manifest]", JSON.stringify(manifest, null, 2));
 
 console.log(`=== Done: ${aoi.aoiId} ===`);

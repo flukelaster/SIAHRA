@@ -117,6 +117,9 @@ export default function App() {
     floodExtent,
     dams,
     health: apiHealth.health,
+    // เวลาที่ artefact ของชั้นคงที่ถูก build มาจาก manifest ของจังหวัดที่แสดงอยู่
+    // (null ตอนยังไม่โหลด/manifest รุ่นก่อน E9.1 → legend คงข้อความ "ไม่ได้บันทึกเวลา")
+    provenance: mapInfo?.provenance ?? null,
   });
 
   const toggleLayer = useCallback((key: keyof MapLayers, value: boolean) => {
@@ -310,6 +313,7 @@ export default function App() {
                     quality={quality}
                     qualityLevel={qualityLevel}
                     onQualityChange={setQuality}
+                    terrainIntegrity={mapInfo?.terrainIntegrity}
                   />
                 ),
               },
@@ -356,6 +360,7 @@ export default function App() {
             quality={quality}
             qualityLevel={qualityLevel}
             onQualityChange={setQuality}
+            terrainIntegrity={mapInfo?.terrainIntegrity}
             width={LEFT_W}
             top={dockTop}
           />

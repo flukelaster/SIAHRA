@@ -9,7 +9,7 @@ Operational troubleshooting lives in [`docs/ops.md`](./ops.md); endpoint behavio
 ## Running the tests
 
 ```bash
-npm test                              # root: apps/api then apps/web
+npm test                              # root: apps/api, then apps/web, then apps/etl
 npm test -w apps/api                  # API only
 npx vitest run test/ingestion -w apps/api   # one folder
 ```
@@ -156,5 +156,20 @@ literals so the exact bytes, entities and line format survive review.
 ## apps/web
 
 `apps/web` runs plain vitest in a `node` environment (no jsdom): pure modules only — permalink
-parsing, the `Asia/Bangkok` time formatter, and similar. Anything that needs the 3D scene is verified
-visually with `playwright-cli` against the running dev server, not in vitest (see `AGENTS.md`).
+parsing, the `Asia/Bangkok` time formatter, the `terrain.bin` checksum verdict and the overlay
+channel it suppresses, and similar. Anything that needs the 3D scene is verified visually with
+`playwright-cli` against the running dev server, not in vitest (see `AGENTS.md`).
+
+## apps/etl
+
+`apps/etl` also runs plain vitest, and has **no `vitest.config.ts`** — the default `include` picks up
+`src/**/*.test.ts`, which is where its tests live. That placement is deliberate and is the opposite
+of `apps/api`: because `apps/etl/tsconfig.json` is `"include": ["src"]`, `npx tsc --noEmit` already
+type-checks the tests, so there is no second tsconfig to remember.
+
+`src/provenance.test.ts` covers the manifest provenance derivation (E9.1). It pins the honesty rules,
+not the object shape: a layer with no artefact directory gets **no key** rather than a borrowed time,
+`publishedAt` is absent when the upstream never declared one, and `generatedAt` / `datasetVersion`
+never leak in as a `builtAt`. Every case runs on a machine with no tile dataset, no `osmium` and no
+`.osm.pbf` — the tests build temp directories with explicit `utimes` mtimes and pass `publishedAt` in
+as a parameter instead of spawning a process.

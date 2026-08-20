@@ -30,8 +30,29 @@ export interface OverlayGrid {
 export interface OverlayFieldData {
   /** RGBA ของ DataTexture (แถวเรียงจากล่างขึ้นบน) — แชนแนล G ยังเป็น 0 */
   data: Uint8Array;
-  /** Fraction of in-province cells classed as low-lying (for the legend). */
-  lowlandShare: number;
+  /**
+   * สัดส่วนเซลล์ในจังหวัดที่จัดเป็นพื้นที่ลุ่มต่ำ (สำหรับ legend)
+   *
+   * `null` = คำนวณไม่ได้/ใช้ไม่ได้ เช่น DEM ไม่ผ่านการตรวจ sha256 — ต้องเป็น null
+   * ไม่ใช่ 0 เพราะ 0 อ่านออกมาว่า "ไม่มีพื้นที่ลุ่มต่ำเลย" ซึ่งเป็นคำกล่าวอ้าง
+   */
+  lowlandShare: number | null;
+}
+
+/**
+ * ล้างแชนแนล R (พื้นที่ลุ่มต่ำ) ทิ้ง โดยไม่แตะ G/B/A
+ *
+ * ใช้เมื่อ `terrain.bin` ไม่ผ่านการตรวจลายเซ็น: ชั้นลุ่มต่ำเป็นอนุพันธ์ของ DEM
+ * ก้อนนั้นโดยตรง จึงห้ามผลิตค่าออกมาอีก ส่วน G (ฮาโลรอบสถานีที่ตรวจวัดจริง) และ
+ * B (มาสก์ขอบเขตจังหวัด) ไม่ได้มาจาก DEM จึงต้องเรนเดอร์ต่อไปตามปกติ
+ *
+ * แก้ในบัฟเฟอร์เดิม (ทั้งสองเส้นทางเรียกฟังก์ชันนี้ก่อนสร้าง texture) เพื่อไม่ให้
+ * เส้นทาง worker กับเส้นทางซิงโครนัสให้ผลต่างกัน — **ผู้เรียกต้องไม่ใช้ `field`
+ * ที่ส่งเข้ามาอีกหลังเรียก** ถ้าต้องเทียบค่าก่อน/หลัง ให้สำเนา `field.data` ไว้เอง
+ */
+export function suppressLowlandChannel(field: OverlayFieldData): OverlayFieldData {
+  for (let i = 0; i < field.data.length; i += 4) field.data[i] = 0;
+  return { data: field.data, lowlandShare: null };
 }
 
 /** Separable box blur with running sums (O(N) per pass). */

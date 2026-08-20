@@ -5,6 +5,7 @@ import type { MapLayers } from "./Map3DCanvas";
 import type { LayerDescriptors } from "../../hooks/useLayerDescriptors";
 import type { QualityLevel, QualityMode } from "../../scene/quality";
 import { MapLegend } from "./MapLegend";
+import type { TerrainIntegrity } from "../../scene/loadAoiManifest";
 import { ProvinceSelector } from "./ProvinceSelector";
 
 /** Left dock: floating province picker + legend/layer toggles over the map. */
@@ -19,6 +20,7 @@ export function Sidebar({
   quality,
   qualityLevel,
   onQualityChange,
+  terrainIntegrity,
   width,
   top,
 }: {
@@ -32,6 +34,8 @@ export function Sidebar({
   quality: QualityMode;
   qualityLevel: QualityLevel;
   onQualityChange: (q: QualityMode) => void;
+  /** ผลตรวจ sha256 ของ terrain.bin — ส่งต่อให้ legend บอกว่าชั้นไหนถูกปิดและทำไม */
+  terrainIntegrity?: TerrainIntegrity;
   width: number;
   top: number;
 }) {
@@ -52,6 +56,7 @@ export function Sidebar({
           quality={quality}
           qualityLevel={qualityLevel}
           onQualityChange={onQualityChange}
+          terrainIntegrity={terrainIntegrity}
         />
       </div>
 

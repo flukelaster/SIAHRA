@@ -11,6 +11,7 @@ import type { AoiManifest } from "@siahra/shared-types";
 import type { AoiDefinition } from "./aoi.js";
 import { buildProvinceFeatureTiles } from "./buildProvinceFeatureTiles.js";
 import { MIN_CELL_SIZE_M } from "./provinceAoi.js";
+import { isoUtc, touchLayerProvenance } from "./provenance.js";
 
 const OUT_ROOT = path.resolve(import.meta.dirname, "../../web/public/aoi");
 const force = process.argv.includes("--force");
@@ -50,6 +51,10 @@ for (const code of codes) {
   try {
     const result = await buildProvinceFeatureTiles(aoi, manifest.terrain.tiles, `/aoi/${code}`);
     manifest.features = result.pyramid;
+    // ชั้นนี้เพิ่งถูกสร้างใหม่ — เลื่อน builtAt ตาม ไม่งั้น manifest จะประกาศ
+    // เวลาเก่าของ artefact ที่ไม่มีอยู่แล้ว (manifest ที่ยังไม่มี provenance
+    // ถูกปล่อยไว้ให้ `npm run refresh:manifests` เป็นคนเติมทีเดียว)
+    manifest.provenance = touchLayerProvenance(manifest.provenance, ["roads", "water"], isoUtc(Date.now()), path.join(OUT_ROOT, code));
     manifest.version = new Date().toISOString().slice(0, 10);
     writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
     totalBytes += result.bytes;

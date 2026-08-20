@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import type {
   AoiManifest,
+  AoiProvenance,
   DamObservation,
   EarthquakeEvent,
   FloodExtentResponse,
@@ -23,7 +24,7 @@ import { InfoPopup } from "../map/InfoPopup";
 import { buildEarthquakeMarkers, type EarthquakeMarkerResult } from "../../scene/EarthquakeMarkers";
 import { declutterLabels, disposeLabels, makeLabel, makePlaceLabel } from "../../scene/labels";
 import { CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
-import { AoiNotBuiltError, loadAoiManifest } from "../../scene/loadAoiManifest";
+import { AoiNotBuiltError, loadAoiManifest, type TerrainIntegrity } from "../../scene/loadAoiManifest";
 import { DEFAULT_IMAGERY_PROVIDER, loadImagery, planImagery } from "../../scene/SatelliteImagery";
 import {
   setupScene,
@@ -70,9 +71,20 @@ export interface MapInfo {
   stationCount: number;
   hazardCount: number;
   earthquakeCount: number;
-  lowlandShare: number;
+  /**
+   * สัดส่วนพื้นที่ลุ่มต่ำ — `null` เมื่อชั้นนี้ถูกปิดเพราะ terrain.bin ไม่ผ่าน
+   * การตรวจลายเซ็น (ห้ามรายงาน 0 ซึ่งอ่านว่า "ไม่มีพื้นที่ลุ่มต่ำเลย")
+   */
+  lowlandShare: number | null;
   /** Time of the radar frame currently drawn, if any. */
   radarFrameAt: string | null;
+  /**
+   * ที่มาของชุดข้อมูลจาก manifest (E9.1) — `null` เมื่อ manifest ยังไม่มี
+   * provenance (manifest รุ่นก่อน E9.1 ต้องใช้ได้ตลอดไป)
+   */
+  provenance: AoiProvenance | null;
+  /** ผลตรวจ sha256 ของ terrain.bin — `"unknown"` ไม่ปิดชั้นใด */
+  terrainIntegrity: TerrainIntegrity;
 }
 
 /** Imperative map controls exposed to the shell (search fly-to, permalink, capture). */
@@ -314,6 +326,24 @@ export function Map3DCanvas({
         handles.frameTerrain(manifest, terrain.minZ, safeAreaRef.current);
         if (initialPoseRef.current) handles.setPose(initialPoseRef.current);
         terrainRef.current = { manifest, terrain, imagery: null, tiles: tree, buildingTiles, featureTiles, vegetation };
+        // ตัวนับแชนแนล overlay สำหรับ DEV — ให้ QA ตรวจได้ด้วยตัวเลขว่าเมื่อ
+        // terrain.bin ไม่ผ่านการตรวจลายเซ็น แชนแนล R (พื้นที่ลุ่มต่ำ) เป็นศูนย์จริง
+        // ขณะที่ G (ฮาโลจากค่าตรวจวัด) และ B (มาสก์จังหวัด) ยังอยู่ครบ
+        if (import.meta.env.DEV) {
+          const ov = terrain.overlay;
+          const integrity = terrain.integrity;
+          handles.debug.register("overlay", () => {
+            let r = 0;
+            let g = 0;
+            let b = 0;
+            for (let i = 0; i < ov.data.length; i += 4) {
+              if (ov.data[i] > 0) r++;
+              if (ov.data[i + 1] > 0) g++;
+              if (ov.data[i + 2] > 0) b++;
+            }
+            return { integrity, lowlandShare: ov.lowlandShare, nonZeroR: r, nonZeroG: g, nonZeroB: b };
+          });
+        }
         const proj = terrain.projection;
         const h0 = handles;
         onApi?.({
@@ -340,6 +370,10 @@ export function Map3DCanvas({
           earthquakeCount: 0,
           lowlandShare: terrain.overlay.lowlandShare,
           radarFrameAt: null,
+          // ทั้งสองฟิลด์ผูกกับ manifest ก้อนนี้ จึงถูกล้างพร้อมกันตอนสลับจังหวัด
+          // (cleanup ของ effect เรียก onInfo?.(null))
+          provenance: manifest.provenance ?? null,
+          terrainIntegrity: terrain.integrity,
         };
         onInfo?.(infoRef.current);
 

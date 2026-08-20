@@ -79,6 +79,8 @@ export const th = {
   "freshness.missing.probabilistic": "ยังไม่เคยได้รับผลจากแบบจำลอง",
   "freshness.missing.unknown": "ไม่ทราบเวลาที่ดึงข้อมูล",
   "freshness.status.unknown": "ยังไม่ทราบสถานะแหล่งข้อมูล",
+  /** เวลาที่ *ต้นทาง* ประกาศว่าเผยแพร่ข้อมูลชุดนี้ — คนละเรื่องกับเวลาที่เราดึง */
+  "freshness.publishedAt": "ต้นทางเผยแพร่ {time}",
   "freshness.methodology": "วิธีคำนวณ",
 
   // ── สถานะแหล่งข้อมูล (/api/v1/health) ─────────────────────────────────
@@ -140,6 +142,13 @@ export const th = {
   "legend.layer.floodExtent.note": "ตรวจพบจากภาพถ่ายดาวเทียมชุดล่าสุด · ไม่ใช่การพยากรณ์",
   "legend.layer.lowland": "พื้นที่ลุ่มต่ำ",
   "legend.layer.lowland.note": "ประมาณจากความสูงภูมิประเทศ ไม่ใช่การพยากรณ์น้ำท่วม",
+  /**
+   * E9.1 — ผลตรวจ sha256 ของ terrain.bin เทียบกับลายเซ็นใน manifest
+   * `unknown` = ยังไม่ได้ตรวจ (manifest ไม่มีลายเซ็น) ห้ามอ่านว่า "ตรวจแล้วไม่ผ่าน"
+   * และห้ามปิดชั้นข้อมูลใด ๆ; มีแต่ `mismatch` เท่านั้นที่ปิดชั้นพื้นที่ลุ่มต่ำ
+   */
+  "legend.integrity.mismatch": "ตรวจสอบความถูกต้องของภูมิประเทศไม่ผ่าน — ชั้นพื้นที่ลุ่มต่ำใช้งานไม่ได้",
+  "legend.integrity.unknown": "ยังตรวจความถูกต้องของภูมิประเทศไม่ได้ (manifest ไม่มีลายเซ็น)",
   "legend.layer.hazard": "บริเวณสถานีเตือนภัย",
   "legend.layer.hazard.note": "รัศมีรอบสถานีที่ตรวจพบฝนหนัก/น้ำมาก (ตรวจวัดจริง)",
   "legend.layer.stations": "สถานีตรวจวัด",
@@ -220,6 +229,8 @@ export const th = {
   "attribution.urbanCore": " (เฉพาะเขตเมือง)",
   "attribution.stations": "สถานีตรวจวัด {n} สถานี",
   "attribution.imagery": "ภาพดาวเทียม © {text}",
+  /** E9.1 — รุ่นของชุดข้อมูล ETL ที่จังหวัดนี้ใช้อยู่ (ค่าคือวันที่ build) */
+  "attribution.dataset": "ชุดข้อมูล {version}",
   "attribution.sources": "แหล่งข้อมูล:",
   "attribution.noEndorsement": "หน่วยงานข้างต้นเป็นผู้เผยแพร่ข้อมูล ไม่ได้รับรองโครงการนี้",
   "attribution.imageryEsri": "ภาพดาวเทียม Esri",

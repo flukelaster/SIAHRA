@@ -1,3 +1,5 @@
+import type { SourceId } from "./sources.js";
+
 /**
  * One level of the terrain tile pyramid. Level 0 is the coarsest; each level
  * halves the cell size, and tile (x, y) at level z covers exactly tiles
@@ -131,6 +133,55 @@ export interface LandcoverTilePyramid {
   classShare: Record<string, number>;
 }
 
+/**
+ * ชั้นข้อมูลใน AOI ที่มี "artefact ของตัวเอง" ให้บันทึกที่มาได้ (E9.1)
+ *
+ * `imagery` ไม่อยู่ในรายการนี้โดยตั้งใจ: ภาพดาวเทียม (Esri / EOX) เป็น tile
+ * service ที่ client ดึงสดรายไทล์ ไม่มี artefact ในชุดข้อมูลให้จดเวลา — การใส่
+ * เวลาให้มันจึงเป็นการอ้างเวลาที่ไม่มีอยู่จริง (ดู docs/dataset.md)
+ */
+export type AoiProvenanceLayer = "terrain" | "roads" | "water" | "buildings" | "trees";
+
+/**
+ * ที่มาของ artefact หนึ่งชั้น
+ *
+ * `builtAt` กับ `publishedAt` เป็นคนละเวลา และห้ามใช้แทนกัน:
+ * - builtAt      = ไปป์ไลน์นี้ผลิต artefact ของชั้นนั้นเสร็จเมื่อไหร่
+ * - publishedAt  = ต้นทางประกาศว่าข้อมูลชุดนั้นเผยแพร่เมื่อไหร่ มีเฉพาะแหล่งที่
+ *                  บอกเวลาไว้จริง (เช่น `osmosis_replication_timestamp` ในหัวไฟล์
+ *                  OSM pbf) — แหล่งที่บอกแค่ "ยุค" ของผลิตภัณฑ์ เช่น
+ *                  "WorldCover 2021" หรือ Copernicus DEM ไม่มีฟิลด์นี้ เพราะการ
+ *                  ขยายปีเป็น `2021-01-01T00:00:00Z` คือการสร้างความละเอียดที่
+ *                  ต้นทางไม่เคยบอก
+ *
+ * ทั้งคู่หายไปได้ และ "หายไป" ดีกว่า "เดา" เสมอ — ไม่รู้เวลาก็ไม่ต้องมี entry
+ */
+export interface AoiLayerProvenance {
+  /** ISO 8601 UTC — ไม่มีเมื่อไม่รู้จริง ๆ (ไม่มี entry เลย ไม่ใช่ค่าเดา) */
+  builtAt: string;
+  /** ISO 8601 UTC เฉพาะแหล่งที่ประกาศเวลาเผยแพร่ไว้เอง */
+  publishedAt?: string;
+  sourceIds: SourceId[];
+}
+
+/**
+ * ที่มาของชุดข้อมูลทั้ง AOI (E9.1) — ทั้งก้อนเป็น optional บน `AoiManifest`
+ * เพื่อให้ manifest รุ่นก่อนหน้ายังใช้ได้ตลอดไป
+ *
+ * `generatedAt` ไม่ใช่ `builtAt`: manifest อาจถูกเขียนใหม่วันนี้ทับ artefact ที่
+ * สร้างไว้เมื่อสามวันก่อน ความต่างนี้คือเหตุผลทั้งหมดที่ต้องมี provenance รายชั้น
+ */
+export interface AoiProvenance {
+  /** รหัสรุ่นของชุดข้อมูล (E9.2 จะใช้เป็น prefix ของ tile URL) */
+  datasetVersion: string;
+  /** เวลาที่ไฟล์ manifest นี้ถูกเขียน — ช้ากว่า builtAt ทุกตัวได้เป็นเรื่องปกติ */
+  generatedAt: string;
+  /** ชั้นที่ไม่มี artefact ให้จดเวลา จะ **ไม่มีคีย์** ไม่ใช่มีคีย์ค่าว่าง */
+  sources: Partial<Record<AoiProvenanceLayer, AoiLayerProvenance>>;
+  /** sha256 (hex) ต่อไฟล์ คีย์เป็น path เทียบกับโฟลเดอร์ AOI เช่น "terrain.bin" */
+  checksums: Record<string, string>;
+}
+
 export interface AoiManifest {
   aoiId: string;
   /** 2-digit province code, matching the ThaiWater/DOPA registry. */
@@ -179,4 +230,9 @@ export interface AoiManifest {
   /** Optional land-cover class tiles (vegetation). */
   landcover?: LandcoverTilePyramid;
   version: string;
+  /**
+   * ที่มาของชุดข้อมูล (E9.1) — optional ตลอดไป: manifest ที่สร้างก่อนงานนี้ไม่มี
+   * ฟิลด์นี้ และฝั่ง client ต้องทำงานได้เหมือนเดิมทุกประการเมื่อมันหายไป
+   */
+  provenance?: AoiProvenance;
 }

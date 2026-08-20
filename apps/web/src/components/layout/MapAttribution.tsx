@@ -69,6 +69,12 @@ export function MapAttribution({ info, exaggeration }: { info: MapInfo | null; e
         t("attribution.imagery", { text: SOURCES[info.imagery.sourceId].attributionText }),
       );
     }
+    // วันที่ build ของชุดข้อมูล ETL (E9.1) — มาจาก `manifest.provenance` เท่านั้น
+    // manifest รุ่นก่อนหน้าไม่มีฟิลด์นี้ ก็ไม่แสดงอะไร ดีกว่าเดาจาก `version`
+    // ที่ถูกเขียนทับทุกครั้งที่ rebuild ชั้นใดชั้นหนึ่ง
+    if (info.provenance) {
+      parts.push(t("attribution.dataset", { version: info.provenance.datasetVersion }));
+    }
   }
   // ผู้ให้ภาพดาวเทียมที่กำลังใช้จริงเท่านั้น (id มาจากตัว provider ไม่ใช่การจับคู่ข้อความ)
   const credits: SourceId[] = info?.imagery ? [...CREDIT_ORDER, info.imagery.sourceId] : CREDIT_ORDER;

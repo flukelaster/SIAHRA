@@ -56,9 +56,10 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      # Root `test` runs both workspaces: apps/api under workerd via
-      # @cloudflare/vitest-pool-workers, apps/web as pure modules in a node
-      # environment. Neither needs a dev server, a browser or the network.
+      # Root `test` runs three workspaces: apps/api under workerd via
+      # @cloudflare/vitest-pool-workers, apps/web and apps/etl as pure
+      # modules in a node environment. None needs a dev server, a browser,
+      # the network, or the 5.6 GB tile dataset.
       - name: npm test
         run: npm test
 

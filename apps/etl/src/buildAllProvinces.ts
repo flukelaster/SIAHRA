@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import type { AoiManifest } from "@siahra/shared-types";
+import type { AoiManifest, AoiProvenanceLayer } from "@siahra/shared-types";
 import { buildProvinceBuildings } from "./buildProvinceBuildings.js";
 import { buildProvinceTerrain } from "./buildProvinceTerrain.js";
 import { buildProvinceBuildingTiles } from "./buildProvinceBuildingTiles.js";
@@ -10,9 +10,16 @@ import { buildVrt, downloadTiles, tilesForBbox } from "./demTiles.js";
 import { buildProvinceBoundaries, writeBoundaryGeojson } from "./provinceBoundaries.js";
 import { provinceToAoi } from "./provinceAoi.js";
 import { fetchThailandOsm } from "./fetchOsm.js";
+import { buildAoiProvenance, isoUtc, readOsmPublishedAt } from "./provenance.js";
 
 const OUT_ROOT = path.resolve(import.meta.dirname, "../../web/public/aoi");
 const WORK_DIR = path.resolve(import.meta.dirname, "../data/work");
+/**
+ * artefact จริงของแต่ละชั้นอยู่ที่นี่ (ไม่ถูก track ใน git) — provenance ของชั้นที่
+ * รันนี้ไม่ได้สร้างเอง (เช่น landcover ที่มาจาก build:landcover-tiles) จึงอ่าน
+ * mtime จากที่นี่ ห้ามอ่านจาก public/aoi ที่ mtime เป็นเวลา checkout
+ */
+const TILES_ROOT = path.resolve(import.meta.dirname, "../data/tiles");
 const VRT_PATH = path.join(WORK_DIR, "thailand-dem.vrt");
 
 const REQUIRED_FILES = [
@@ -52,6 +59,9 @@ function isComplete(dir: string): boolean {
 }
 
 const osmPbf = await fetchThailandOsm();
+// เวลาที่ต้นทาง OSM ประกาศไว้เองในหัวไฟล์ pbf — อ่านครั้งเดียวใช้ได้ทุกจังหวัด
+// (อ่านไม่ได้ = null แล้วฟิลด์ `publishedAt` จะหายไป ไม่ใช่ถูกเดา)
+const osmPublishedAt = await readOsmPublishedAt(osmPbf);
 const boundaries = await buildProvinceBoundaries(osmPbf);
 
 const targets = only ? boundaries.filter((b) => only.includes(b.code)) : boundaries;
@@ -97,12 +107,22 @@ for (const b of targets) {
     const aoi = provinceToAoi(b);
     mkdirSync(outDir, { recursive: true });
 
+    // จดเวลาของแต่ละชั้น "ตอนที่มันถูกเขียนเสร็จ" ไม่ใช่ตอนจบทั้งรัน — จังหวัด
+    // ใหญ่ใช้เวลาเป็นสิบนาที การใช้เวลาเดียวกันทุกชั้นจะกลบความต่างนั้นทิ้ง
+    const builtAt: Partial<Record<AoiProvenanceLayer, string>> = {};
     const terrain = await buildProvinceTerrain(aoi, VRT_PATH, outDir);
     const tiles = await buildProvinceTerrainTiles(aoi, VRT_PATH, outDir, `/aoi/${b.code}`);
+    builtAt.terrain = isoUtc(Date.now());
     const buildings = await buildProvinceBuildings(aoi, osmPbf);
     const buildingTiles = await buildProvinceBuildingTiles(aoi, tiles.pyramid, `/aoi/${b.code}`);
+    builtAt.buildings = isoUtc(Date.now());
     const featureTiles = await buildProvinceFeatureTiles(aoi, tiles.pyramid, `/aoi/${b.code}`);
+    // ถนนกับแหล่งน้ำออกมาจาก build เดียวกัน (features) จึงมีเวลาเดียวกันจริง ๆ
+    builtAt.roads = builtAt.water = isoUtc(Date.now());
     writeBoundaryGeojson(b, outDir);
+    // landcover (trees) สร้างด้วยสคริปต์แยก — ไม่มี override ที่นี่ ปล่อยให้
+    // provenance อ่าน mtime ของโฟลเดอร์ tile เอง และถ้าไม่มีโฟลเดอร์ก็ไม่มี entry
+    const version = new Date().toISOString().slice(0, 10);
 
     const manifest: AoiManifest = {
       aoiId: b.code,
@@ -133,7 +153,14 @@ for (const b of targets) {
       },
       boundary: { url: `/aoi/${b.code}/boundary.geojson` },
       features: featureTiles.pyramid,
-      version: new Date().toISOString().slice(0, 10),
+      version,
+      provenance: buildAoiProvenance({
+        aoiDir: outDir,
+        tilesDir: path.join(TILES_ROOT, b.code),
+        datasetVersion: version,
+        osmPublishedAt,
+        builtAt,
+      }),
     };
     writeFileSync(path.join(outDir, "manifest.json"), JSON.stringify(manifest, null, 2));
 

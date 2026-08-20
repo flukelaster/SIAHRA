@@ -23,7 +23,7 @@
  */
 import type { EpistemicClass, HazardLayerDescriptor, SourceHealth } from "@siahra/shared-types";
 import type { Lang, MessageKey, TFunction } from "../i18n";
-import { formatAge, formatTime } from "./time";
+import { formatAge, formatFullDateTime, formatTime } from "./time";
 
 export interface EpistemicBadge {
   labelKey: MessageKey;
@@ -146,6 +146,13 @@ export function describeLayerFreshness(
   const parts: string[] = [];
   if (descriptor.observedAt) {
     parts.push(t("freshness.observedAt", { time: formatTime(lang, descriptor.observedAt) }));
+  }
+  // `publishedAt` มีเฉพาะต้นทางที่ประกาศเวลาเผยแพร่ไว้เอง (เช่น
+  // `osmosis_replication_timestamp` ของ OSM extract, ดัชนีเรดาร์ของ TMD) —
+  // แสดงเป็นวัน-เวลาเต็ม ไม่ใช่ "อายุ" เพราะมันคือเหตุการณ์ของต้นทาง ไม่ใช่รอบดึง
+  // ของเรา และห้ามเอา observedAt/fetchedAt มาสวมแทนเมื่อมันเป็น null
+  if (descriptor.publishedAt) {
+    parts.push(t("freshness.publishedAt", { time: formatFullDateTime(lang, descriptor.publishedAt) }));
   }
   parts.push(
     descriptor.fetchedAt

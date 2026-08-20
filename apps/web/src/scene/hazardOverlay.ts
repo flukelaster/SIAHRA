@@ -8,6 +8,7 @@ import { createLocalProjection } from "./localProjection";
 import {
   computeOverlayField,
   LOWLAND_WINDOW_M,
+  suppressLowlandChannel,
   type OverlayFieldData,
   type OverlayGrid,
 } from "./overlayField";
@@ -43,8 +44,11 @@ export interface OverlayField {
   data: Uint8Array;
   width: number;
   height: number;
-  /** Fraction of in-province cells classed as low-lying (for the legend). */
-  lowlandShare: number;
+  /**
+   * สัดส่วนพื้นที่ลุ่มต่ำในจังหวัด — `null` เมื่อชั้นนี้ถูกปิดเพราะ DEM ไม่ผ่าน
+   * การตรวจลายเซ็น (ห้ามรายงานเป็น 0 ซึ่งอ่านว่า "ไม่มีพื้นที่ลุ่มต่ำ")
+   */
+  lowlandShare: number | null;
   /** Rewrites the observed-hazard channel; cheap enough to run per refresh. */
   updateObserved: (
     rainfall: RainfallObservation[],
@@ -59,8 +63,12 @@ export interface OverlayField {
  */
 function wrapOverlayField(
   manifest: AoiManifest,
-  field: OverlayFieldData,
+  raw: OverlayFieldData,
+  options: OverlayFieldOptions,
 ): OverlayField {
+  // ประตูเดียวที่ทั้งเส้นทางซิงโครนัสและเส้นทาง worker ผ่าน — การปิดชั้นลุ่มต่ำ
+  // จึงเป็นไปไม่ได้ที่จะทำงานต่างกันระหว่างสองเส้นทาง
+  const field = options.suppressLowland ? suppressLowlandChannel(raw) : raw;
   const { width, height, cellSizeM } = manifest.terrain;
   const n = width * height;
   const proj = createLocalProjection(manifest);
@@ -140,6 +148,17 @@ function wrapOverlayField(
   };
 }
 
+export interface OverlayFieldOptions {
+  /**
+   * `true` เมื่อ `terrain.bin` ไม่ผ่านการตรวจ sha256 (E9.1) — แชนแนล R
+   * (พื้นที่ลุ่มต่ำ) จะถูกล้างเป็นศูนย์ เพราะมันเป็นอนุพันธ์ของ DEM ก้อนที่
+   * เชื่อไม่ได้แล้ว ส่วน G (ฮาโลจากค่าตรวจวัดจริง) และ B (มาสก์จังหวัด) ไม่ได้
+   * มาจาก DEM จึงเรนเดอร์ต่อ และภาพน้ำท่วมจาก GISTDA เป็น texture คนละก้อน
+   * (`scene/floodMask.ts` → `uFloodMask`) จึงไม่ถูกแตะเลย
+   */
+  suppressLowland?: boolean;
+}
+
 /** กริดของ overlay ที่มาจาก manifest — ใช้ร่วมกันทั้งสองเส้นทาง */
 function gridOf(manifest: AoiManifest): OverlayGrid {
   const { width, height, cellSizeM } = manifest.terrain;
@@ -154,8 +173,13 @@ export function buildOverlayField(
   manifest: AoiManifest,
   heights: Float32Array,
   insideMask: Uint8Array | null,
+  options: OverlayFieldOptions = {},
 ): OverlayField {
-  return wrapOverlayField(manifest, computeOverlayField(gridOf(manifest), heights, insideMask));
+  return wrapOverlayField(
+    manifest,
+    computeOverlayField(gridOf(manifest), heights, insideMask),
+    options,
+  );
 }
 
 /**
@@ -173,6 +197,7 @@ export async function buildOverlayFieldAsync(
   manifest: AoiManifest,
   heights: Float32Array,
   insideMask: Uint8Array | null,
+  options: OverlayFieldOptions = {},
 ): Promise<OverlayField> {
   const grid = gridOf(manifest);
   let worker: Worker | null = null;
@@ -192,12 +217,12 @@ export async function buildOverlayFieldAsync(
       const job: OverlayFieldJob = { grid, heights: copy, insideMask };
       w.postMessage(job, [copy.buffer]);
     });
-    return wrapOverlayField(manifest, field);
+    return wrapOverlayField(manifest, field, options);
   } catch (err) {
     // ไม่กลืนความล้มเหลว: บอกให้เห็นว่าตกไปใช้เส้นทางซิงโครนัส แล้วคำนวณต่อ —
     // ชั้นภาพประกอบนี้ต้องมีเสมอ ไม่ใช่หายไปเงียบ ๆ เพราะ worker สร้างไม่ได้
     console.warn("[siahra] overlay worker unavailable, computing on the main thread", err);
-    return buildOverlayField(manifest, heights, insideMask);
+    return buildOverlayField(manifest, heights, insideMask, options);
   } finally {
     worker?.terminate();
   }

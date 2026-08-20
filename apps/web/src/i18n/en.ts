@@ -84,6 +84,7 @@ export const en: Record<keyof typeof th, string> = {
   "freshness.missing.probabilistic": "No model output has ever been received",
   "freshness.missing.unknown": "Retrieval time unknown",
   "freshness.status.unknown": "Source status not known",
+  "freshness.publishedAt": "published {time}",
   "freshness.methodology": "Methodology",
 
   // ── Source health (/api/v1/health) ────────────────────────────────────
@@ -145,6 +146,8 @@ export const en: Record<keyof typeof th, string> = {
   "legend.layer.floodExtent.note": "Detected in the latest satellite scene · not a forecast",
   "legend.layer.lowland": "Low-lying areas",
   "legend.layer.lowland.note": "Estimated from terrain elevation; not a flood forecast",
+  "legend.integrity.mismatch": "terrain integrity check failed — low-lying layer unavailable",
+  "legend.integrity.unknown": "terrain integrity unknown (no checksum in the manifest)",
   "legend.layer.hazard": "Alerting station areas",
   "legend.layer.hazard.note": "Radius around stations reporting heavy rain / high water (measured)",
   "legend.layer.stations": "Monitoring stations",
@@ -225,6 +228,7 @@ export const en: Record<keyof typeof th, string> = {
   "attribution.urbanCore": " (urban core only)",
   "attribution.stations": "{n} monitoring stations",
   "attribution.imagery": "Satellite imagery © {text}",
+  "attribution.dataset": "dataset {version}",
   "attribution.sources": "Sources:",
   "attribution.noEndorsement":
     "The agencies above publish the data; they do not endorse this project",

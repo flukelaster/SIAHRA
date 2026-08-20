@@ -22,5 +22,13 @@
   "buildings": {
     "url": "/aoi/chiangmai-old-city/buildings.geojson"
   },
-  "version": "2026-08-16"
+  "version": "2026-08-16",
+  "provenance": {
+    "datasetVersion": "2026-08-16",
+    "generatedAt": "2026-08-20T04:05:42.000Z",
+    "sources": {},
+    "checksums": {
+      "terrain.bin": "4e326c4d713222fa2b15f096e071ac5e27c7f7547074dc6355263efe81a97c48"
+    }
+  }
 }

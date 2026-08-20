@@ -7,6 +7,7 @@ import { useNow } from "../../hooks/useNow";
 import { useLang } from "../../i18n/context";
 import type { Lang, MessageKey, TFunction } from "../../i18n";
 import { describeLayerFreshness } from "../../lib/layerFreshness";
+import type { TerrainIntegrity } from "../../scene/loadAoiManifest";
 import {
   ILLUSTRATIVE_HATCH_ANGLE_DEG,
   ILLUSTRATIVE_HATCH_DUTY,
@@ -217,6 +218,19 @@ function LegendRow({ label, color, shape = "circle" }: { label: string; color: s
   );
 }
 
+/**
+ * ข้อความผลตรวจลายเซ็นของ `terrain.bin` (E9.1) — `verified` ไม่ต้องพูดอะไร
+ *
+ * แถวที่ได้ข้อความนี้คือแถวเดียวที่ถูกกระทบจริง (พื้นที่ลุ่มต่ำ ซึ่งคำนวณจาก DEM
+ * ก้อนนั้น) ส่วนฮาโลจากค่าตรวจวัดจริง มาสก์ขอบเขต และภาพน้ำท่วมจาก GISTDA
+ * ไม่ได้มาจาก DEM จึงยังวาดตามปกติและไม่มีป้ายนี้
+ */
+const INTEGRITY_NOTE: Record<TerrainIntegrity, MessageKey | null> = {
+  verified: null,
+  mismatch: "legend.integrity.mismatch",
+  unknown: "legend.integrity.unknown",
+};
+
 const QUALITY_LABEL: Record<QualityLevel, MessageKey> = {
   high: "quality.high",
   balanced: "quality.balanced",
@@ -282,6 +296,7 @@ export function MapLegend({
   quality,
   qualityLevel,
   onQualityChange,
+  terrainIntegrity = "unknown",
 }: {
   layers: MapLayers;
   onToggle: (key: keyof MapLayers, value: boolean) => void;
@@ -290,6 +305,8 @@ export function MapLegend({
   quality: QualityMode;
   qualityLevel: QualityLevel;
   onQualityChange: (q: QualityMode) => void;
+  /** ผลตรวจ sha256 ของ terrain.bin — ยังไม่โหลดฉาก = "unknown" */
+  terrainIntegrity?: TerrainIntegrity;
 }) {
   const nowMs = useNow();
   const { lang, t } = useLang();
@@ -303,6 +320,9 @@ export function MapLegend({
       <ul className="flex flex-col gap-1">
         {LAYER_ROWS.map((row) => {
           const entry = descriptors[row.key];
+          // ชั้นพื้นที่ลุ่มต่ำเป็นอนุพันธ์ของ terrain.bin โดยตรง จึงเป็นแถวเดียว
+          // ที่ต้องบอกผลตรวจลายเซ็น และเป็นแถวเดียวที่ถูกปิดเมื่อไม่ผ่าน
+          const integrityKey = row.key === "lowland" ? INTEGRITY_NOTE[terrainIntegrity] : null;
           return (
           <li key={row.key}>
             <label className="flex cursor-pointer items-start gap-2 rounded-lg px-1.5 py-1 hover:bg-white/5">
@@ -320,6 +340,17 @@ export function MapLegend({
                 <span className="block text-[10px] text-[var(--color-fg-subtle)]">
                   {t(row.noteKey, { km: DETAIL_TILE_ALTITUDE_GATE_M / 1000 })}
                 </span>
+                {integrityKey ? (
+                  <span
+                    className={`mt-0.5 block text-[10px] ${
+                      terrainIntegrity === "mismatch"
+                        ? "text-[var(--color-risk-extreme)]"
+                        : "text-[var(--color-fg-subtle)]"
+                    }`}
+                  >
+                    {t(integrityKey)}
+                  </span>
+                ) : null}
                 {entry ? <LayerMeta entry={entry} nowMs={nowMs} lang={lang} t={t} /> : null}
               </span>
             </label>
