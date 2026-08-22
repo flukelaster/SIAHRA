@@ -9,10 +9,8 @@ import { handleRadarFrame, handleRadarFrames } from "./routes/radar.js";
 import { handleDams, handleStationHistory } from "./routes/stations.js";
 import { handleArchiveDays, handleArchiveSnapshot } from "./routes/archive.js";
 import {
-  handleLocalAuthoritiesExposureList,
   handleLocalAuthoritiesList,
   handleLocalAuthorityDetail,
-  handleLocalAuthorityExposure,
 } from "./routes/localAuthorities.js";
 import type { AppEnv } from "./types.js";
 
@@ -80,18 +78,6 @@ export const routes: Route[] = [
     method: "GET",
     pattern: /^\/api\/v1\/local-authorities$/,
     handler: (req, env) => handleLocalAuthoritiesList(req, env),
-    limit: { perMinute: 300 },
-  },
-  {
-    method: "GET",
-    pattern: /^\/api\/v1\/local-authorities\/exposure$/,
-    handler: (req, env) => handleLocalAuthoritiesExposureList(req, env),
-    limit: { perMinute: 300 },
-  },
-  {
-    method: "GET",
-    pattern: /^\/api\/v1\/local-authorities\/([A-Za-z0-9_-]+)\/exposure$/,
-    handler: (_req, env, [id]) => handleLocalAuthorityExposure(id, env),
     limit: { perMinute: 300 },
   },
   {

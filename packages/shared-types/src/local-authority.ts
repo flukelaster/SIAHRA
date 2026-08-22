@@ -52,37 +52,12 @@ export interface CriticalFacility {
 }
 
 /**
- * Baseline exposure statistics aggregated per Local Administrative Organization.
- */
-export interface LocalAuthorityBaselineExposure {
-  localAuthorityId: string;
-  dlaCode: string;
-  provinceCode: string;
-  nameTh: string;
-  nameEn: string;
-  populationTotal: number;
-  populationVulnerable: number;
-  populationSource: "WorldPop-2020-UNadj" | "WorldPop-R2024B";
-  buildingsTotal: number;
-  buildingFootprintAreaM2: number;
-  buildingSource: "OSM";
-  roadsTotalKm: number;
-  roadsPrimaryKm: number;
-  roadsSecondaryKm: number;
-  roadsLocalKm: number;
-  criticalFacilities: FacilityExposureCount;
-  facilityList: CriticalFacility[];
-  computedAt: string;
-  descriptor: HazardLayerDescriptor;
-}
-
-/**
  * Baseline and active exposure metrics aggregated to a local authority.
  */
 export interface LocalAuthorityExposure {
   populationExposed: number;
   populationTotal: number;
-  populationSource: "WorldPop-2020-UNadj" | "WorldPop-R2024B" | "GHSL-2025";
+  populationSource: "WorldPop-R2024B" | "GHSL-2025";
 
   buildingsExposed: number;
   buildingsTotal: number;
@@ -120,11 +95,4 @@ export interface LocalAuthorityImpactResponse {
 export interface LocalAuthoritiesResponse {
   total: number;
   localAuthorities: LocalAuthorityRef[];
-}
-
-/**
- * Response envelope for baseline exposure detail endpoint.
- */
-export interface LocalAuthorityExposureResponse {
-  baseline: LocalAuthorityBaselineExposure;
 }
