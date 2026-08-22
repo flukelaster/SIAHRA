@@ -8,10 +8,6 @@ import { handleObservations } from "./routes/observations.js";
 import { handleRadarFrame, handleRadarFrames } from "./routes/radar.js";
 import { handleDams, handleStationHistory } from "./routes/stations.js";
 import { handleArchiveDays, handleArchiveSnapshot } from "./routes/archive.js";
-import {
-  handleLocalAuthoritiesList,
-  handleLocalAuthorityDetail,
-} from "./routes/localAuthorities.js";
 import type { AppEnv } from "./types.js";
 
 export { EarthquakeFeedDO } from "./durable-objects/earthquake-feed.js";
@@ -73,18 +69,6 @@ export const routes: Route[] = [
     // และเป็น artefact แช่แข็งที่ CDN แคชได้หนึ่งปี คำขอที่ถึง origin จริงจึงมีน้อย
     limit: { perMinute: 120 },
     limitScope: "exposure-run",
-  },
-  {
-    method: "GET",
-    pattern: /^\/api\/v1\/local-authorities$/,
-    handler: (req, env) => handleLocalAuthoritiesList(req, env),
-    limit: { perMinute: 300 },
-  },
-  {
-    method: "GET",
-    pattern: /^\/api\/v1\/local-authorities\/([A-Za-z0-9_-]+)$/,
-    handler: (_req, env, [id]) => handleLocalAuthorityDetail(id, env),
-    limit: { perMinute: 300 },
   },
 ];
 
