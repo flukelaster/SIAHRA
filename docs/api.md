@@ -52,6 +52,8 @@ edit in that table.
 | `/api/v1/local-authorities` | GET | 300 | default | per route | Search and filter local authorities (อปท.) |
 | `/api/v1/local-authorities/exposure` | GET | 300 | default | per route | List baseline exposures (WorldPop/OSM) per อปท. |
 | `/api/v1/local-authorities/{id}/exposure` | GET | 300 | default | per route | Baseline exposure detail for a specific อปท. |
+| `/api/v1/local-authorities/impact` | GET | 300 | default | per route | Live observed impact summary for local authorities in a province |
+| `/api/v1/local-authorities/{id}/impact` | GET | 300 | default | per route | Live observed impact detail for a specific local authority |
 | `/api/v1/local-authorities/{id}` | GET | 300 | default | per route | Local authority detail by canonical ID or DLA code |
 
 A rejected request answers `429 {"error":"Too many requests","retryAfterSeconds":N}` plus
@@ -90,6 +92,8 @@ Two rules are enforced by `json()` in `apps/api/src/router.ts` rather than by ea
 | `/api/v1/local-authorities` | `slowMoving` | `public, max-age=300` |
 | `/api/v1/local-authorities/exposure` | `slowMoving` | `public, max-age=300` |
 | `/api/v1/local-authorities/{id}/exposure` | `slowMoving` | `public, max-age=300` |
+| `/api/v1/local-authorities/impact` | `floodExtent(retrievedAt)` | `public, max-age=300, s-maxage=600`, or `no-store` when nothing has ever been retrieved |
+| `/api/v1/local-authorities/{id}/impact` | `floodExtent(retrievedAt)` | as above |
 | `/api/v1/local-authorities/{id}` | `slowMoving` | `public, max-age=300` |
 | any 4xx / 5xx | `noStore` | `no-store` |
 

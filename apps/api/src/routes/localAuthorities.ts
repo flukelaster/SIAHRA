@@ -7,6 +7,7 @@ import {
 } from "@siahra/shared-types";
 import { getLocalAuthorityById, queryLocalAuthorities } from "../data/localAuthorities.js";
 import { getBaselineExposure, queryBaselineExposures } from "../data/baselineExposure.js";
+import { computeLocalAuthorityImpact, computeProvinceImpacts } from "../data/spatialJoin.js";
 import { json } from "../router.js";
 import type { AppEnv } from "../types.js";
 import * as cachePolicy from "../cachePolicy.js";
@@ -113,6 +114,68 @@ export async function handleLocalAuthoritiesExposureList(req: Request, _env: App
     },
     {
       cache: cachePolicy.slowMoving,
+    },
+  );
+}
+
+/**
+ * GET /api/v1/local-authorities/:id/impact
+ */
+export async function handleLocalAuthorityImpact(id: string, env: AppEnv): Promise<Response> {
+  const lao = getLocalAuthorityById(id);
+  if (!lao) {
+    return json({ error: `Local authority "${id}" not found` }, { status: 404 });
+  }
+
+  const baseline = getBaselineExposure(id);
+  if (!baseline) {
+    return json({ error: `Baseline exposure for local authority "${id}" not found` }, { status: 404 });
+  }
+
+  const floodStub = env.FLOOD_EXTENT.getByName("gistda");
+  const floodData = await floodStub.getProvince(lao.provinceCode);
+
+  const impact = computeLocalAuthorityImpact(
+    lao,
+    baseline,
+    floodData.features,
+    floodData.retrievedAt,
+  );
+
+  return json(impact, {
+    cache: cachePolicy.floodExtent(floodData.retrievedAt),
+  });
+}
+
+/**
+ * GET /api/v1/local-authorities/impact[?province=NN]
+ */
+export async function handleLocalAuthoritiesImpactList(req: Request, env: AppEnv): Promise<Response> {
+  const url = new URL(req.url);
+  const province = url.searchParams.get("province");
+
+  if (!province) {
+    return json({ error: "Missing required query parameter: province" }, { status: 400 });
+  }
+
+  if (!isProvinceCode(province)) {
+    return json({ error: `Invalid province code "${province}"` }, { status: 400 });
+  }
+
+  const floodStub = env.FLOOD_EXTENT.getByName("gistda");
+  const floodData = await floodStub.getProvince(province);
+
+  const impacts = computeProvinceImpacts(province, floodData.features, floodData.retrievedAt);
+
+  return json(
+    {
+      total: impacts.length,
+      provinceCode: province,
+      retrievedAt: floodData.retrievedAt,
+      impacts,
+    },
+    {
+      cache: cachePolicy.floodExtent(floodData.retrievedAt),
     },
   );
 }
