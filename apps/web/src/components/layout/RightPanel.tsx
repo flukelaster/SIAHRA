@@ -2,11 +2,14 @@ import type { EarthquakeFeedState } from "../../hooks/useEarthquakeFeed";
 import type { DamsState } from "../../hooks/useDams";
 import type { FloodExtentState } from "../../hooks/useFloodExtent";
 import type { ObservationsState } from "../../hooks/useObservations";
+import type { UseLocalAuthorityImpactResult } from "../../hooks/useLocalAuthorityImpact";
 import { EarthquakeLiveCard } from "../hazard/EarthquakeLiveCard";
 import { DamCard } from "../hazard/DamCard";
 import { FloodExtentCard } from "../hazard/FloodExtentCard";
 import { RainfallCard } from "../hazard/RainfallCard";
 import { WaterLevelCard } from "../hazard/WaterLevelCard";
+import { ImpactSummaryCard } from "../hazard/ImpactSummaryCard";
+import { AffectedAuthorityList } from "../hazard/AffectedAuthorityList";
 import { useT } from "../../i18n/context";
 import { resolveError } from "../../lib/errorMessage";
 
@@ -16,6 +19,9 @@ export function RightPanel({
   earthquakes,
   floodExtent,
   dams,
+  decisionSupport,
+  selectedLaoId,
+  onSelectLocalAuthority,
   atIso,
   width,
   top,
@@ -24,6 +30,9 @@ export function RightPanel({
   earthquakes: EarthquakeFeedState;
   floodExtent: FloodExtentState;
   dams: DamsState;
+  decisionSupport?: UseLocalAuthorityImpactResult;
+  selectedLaoId?: string | null;
+  onSelectLocalAuthority?: (id: string) => void;
   atIso: string | null;
   width: number;
   top: number;
@@ -47,6 +56,22 @@ export function RightPanel({
             <br />
             <span className="text-[var(--color-fg-muted)]">{t("common.reconnecting")}</span>
           </span>
+        </div>
+      ) : null}
+
+      {/* Decision Support: Local Authority Impact Summary */}
+      {decisionSupport?.selectedImpact ? (
+        <ImpactSummaryCard impact={decisionSupport.selectedImpact} />
+      ) : null}
+
+      {/* Decision Support: Affected Authorities Rankings */}
+      {decisionSupport && decisionSupport.impacts.length > 0 ? (
+        <div className="glass rounded-xl p-3">
+          <AffectedAuthorityList
+            impacts={decisionSupport.impacts}
+            selectedId={selectedLaoId ?? null}
+            onSelect={(id) => onSelectLocalAuthority?.(id)}
+          />
         </div>
       ) : null}
 
