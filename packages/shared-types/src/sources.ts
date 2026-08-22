@@ -20,7 +20,8 @@ export type SourceId =
   | "esri-world-imagery"
   | "eox-s2cloudless"
   | "dla-master"
-  | "dla-gis";
+  | "dla-gis"
+  | "worldpop";
 
 export interface SourceDescriptor {
   id: SourceId;
@@ -187,6 +188,17 @@ export const SOURCES: Record<SourceId, SourceDescriptor> = {
     licenseName: "เงื่อนไขการใช้ข้อมูลแผนที่ทางการ (DLA GIS)",
     licenseUrl: "https://gis.dla.go.th/",
     attributionText: "ขอบเขตการปกครองท้องถิ่น กรมส่งเสริมการปกครองท้องถิ่น (สถ.) และ GISTDA",
+    kind: "static",
+  },
+  worldpop: {
+    id: "worldpop",
+    nameTh: "แบบจำลองความหนาแน่นประชากร (WorldPop 100m)",
+    nameEn: "WorldPop Population Density (100m UN-adjusted)",
+    agency: "WorldPop Research Group (University of Southampton)",
+    homepageUrl: "https://www.worldpop.org/",
+    licenseName: "CC BY 4.0",
+    licenseUrl: "https://creativecommons.org/licenses/by/4.0/",
+    attributionText: "WorldPop (www.worldpop.org - School of Geography and Environmental Science, University of Southampton) (2020), UN-adjusted 100m spatial disaggregation",
     kind: "static",
   },
 };
