@@ -28,8 +28,6 @@ import { WaterLevelCard } from "./components/hazard/WaterLevelCard";
 import { RainfallCard } from "./components/hazard/RainfallCard";
 import { DamCard } from "./components/hazard/DamCard";
 import { EarthquakeLiveCard } from "./components/hazard/EarthquakeLiveCard";
-import { ActiveAlertBanner } from "./components/hazard/ActiveAlertBanner";
-import { useLocalAuthorityImpact } from "./hooks/useLocalAuthorityImpact";
 import { BRAND, DATA_ATTRIBUTION_TH } from "./branding";
 import type { CameraPose } from "./scene/setupScene";
 import type { QualityLevel, QualityMode } from "./scene/quality";
@@ -117,8 +115,6 @@ export default function App() {
   const dams = useDams(provinceCode);
   const radar = useRadar(layers.radar);
   const earthquakes = useEarthquakeFeed();
-  const [selectedLaoId, setSelectedLaoId] = useState<string | null>(null);
-  const decisionSupport = useLocalAuthorityImpact(provinceCode, selectedLaoId);
   const apiHealth = useApiHealth();
   const floodExtent = useFloodExtent(provinceCode);
   // ชั้นปิดอยู่ = ไม่ยิงคำขอเลยแม้แต่ครั้งเดียว (รูปแบบเดียวกับ useRadar)
@@ -359,13 +355,6 @@ export default function App() {
         compact={compact}
       />
 
-      <div className="absolute top-[68px] left-1/2 -translate-x-1/2 z-20 w-full max-w-xl px-4 pointer-events-none">
-        <ActiveAlertBanner
-          alerts={decisionSupport.activeAlerts}
-          onSelectLocalAuthority={setSelectedLaoId}
-        />
-      </div>
-
       {compact ? (
         <>
           <div
@@ -466,9 +455,6 @@ export default function App() {
             earthquakes={earthquakes}
             floodExtent={floodExtent}
             dams={dams}
-            decisionSupport={decisionSupport}
-            selectedLaoId={selectedLaoId}
-            onSelectLocalAuthority={setSelectedLaoId}
             atIso={atIso}
             width={RIGHT_W}
             top={dockTop}
