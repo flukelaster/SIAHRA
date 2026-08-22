@@ -1,5 +1,6 @@
 import type { LocalAuthorityImpactResponse } from "@siahra/shared-types";
 import { useLang } from "../../i18n/context";
+import { exportIncidentGeoJson, exportSituationReport } from "../../lib/exportBriefing";
 
 interface ImpactSummaryCardProps {
   impact: LocalAuthorityImpactResponse | null;
@@ -25,6 +26,8 @@ export function ImpactSummaryCard({ impact, onClose }: ImpactSummaryCardProps) {
     exposure.populationTotal > 0
       ? Math.round((exposure.populationExposed / exposure.populationTotal) * 100)
       : 0;
+
+  const economicLossThb = exposure.buildingDamage?.estimatedEconomicLossThb ?? 0;
 
   return (
     <div className="bg-zinc-900/90 border border-zinc-700/60 rounded-xl p-4 shadow-xl backdrop-blur-md text-zinc-100 flex flex-col gap-3">
@@ -77,6 +80,20 @@ export function ImpactSummaryCard({ impact, onClose }: ImpactSummaryCardProps) {
         </div>
       </div>
 
+      {/* Economic Damage & Agriculture */}
+      {economicLossThb > 0 ? (
+        <div className="bg-rose-950/30 border border-rose-800/40 p-2.5 rounded-lg text-xs flex flex-col gap-1">
+          <div className="flex items-center justify-between">
+            <span className="text-zinc-400 text-[11px]">
+              {lang === "th" ? "ประเมินความเสียหายทางเศรษฐกิจ" : "Est. Economic Damage"}
+            </span>
+            <span className="font-bold text-rose-300">
+              ฿{economicLossThb.toLocaleString()} THB
+            </span>
+          </div>
+        </div>
+      ) : null}
+
       {/* Critical Facilities & Infrastructure */}
       <div className="bg-zinc-800/40 p-2.5 rounded-lg border border-zinc-800 text-xs flex flex-col gap-1.5">
         <span className="text-[11px] font-semibold text-zinc-300">
@@ -104,6 +121,22 @@ export function ImpactSummaryCard({ impact, onClose }: ImpactSummaryCardProps) {
             <span className="font-semibold text-zinc-200">{exposure.agriculturalHaExposed ?? 0} ha</span>
           </div>
         </div>
+      </div>
+
+      {/* Action Buttons for Incident Commander / Officers */}
+      <div className="grid grid-cols-2 gap-2 pt-1">
+        <button
+          onClick={() => exportSituationReport(impact, lang)}
+          className="px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-zinc-200 border border-zinc-700 transition-colors text-center"
+        >
+          {lang === "th" ? "📄 สรุปรายงาน (Brief)" : "📄 Export Brief"}
+        </button>
+        <button
+          onClick={() => exportIncidentGeoJson(impact)}
+          className="px-2.5 py-1.5 rounded-lg bg-cyan-950/60 hover:bg-cyan-900/80 text-xs font-semibold text-cyan-200 border border-cyan-700/60 transition-colors text-center"
+        >
+          {lang === "th" ? "🗺️ โหลด GeoJSON" : "🗺️ Export GeoJSON"}
+        </button>
       </div>
 
       {/* Epistemic / Data Honesty Footer */}

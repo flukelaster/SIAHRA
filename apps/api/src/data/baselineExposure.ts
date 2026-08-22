@@ -1,7 +1,8 @@
 import type { LocalAuthorityBaselineExposure } from "@siahra/shared-types";
+import { deriveFlashFloodRisk } from "./flashFlood.js";
 
 /**
- * Curated Baseline Exposure for Canonical Local Authorities (WorldPop 100m + OSM).
+ * Curated Baseline Exposure for Canonical Local Authorities (WorldPop 100m + OSM + DLD + DOAE).
  */
 export const BASELINE_EXPOSURE_RECORDS: readonly LocalAuthorityBaselineExposure[] = [
   {
@@ -31,6 +32,20 @@ export const BASELINE_EXPOSURE_RECORDS: readonly LocalAuthorityBaselineExposure[
       { id: "fac-10-02", name: "โรงพยาบาลจุฬาลงกรณ์", type: "hospital", lat: 13.7314, lon: 100.5342, isExposed: false },
       { id: "fac-10-03", name: "สถานีดับเพลิงและกู้ภัยพญาไท", type: "emergency", lat: 13.7652, lon: 100.5375, isExposed: false },
     ],
+    livestock: {
+      cattle: 1200,
+      buffalo: 50,
+      pigs: 4500,
+      poultry: 185000,
+    },
+    crops: {
+      paddyHa: 8500,
+      fieldCropHa: 450,
+      fruitOrchardHa: 1200,
+      rubberHa: 0,
+      totalCropHa: 10150,
+    },
+    flashFloodRisk: deriveFlashFloodRisk(2.1, 5.0, []),
     computedAt: "2026-08-20T00:00:00Z",
     descriptor: {
       id: "baseline-exposure",
@@ -38,7 +53,7 @@ export const BASELINE_EXPOSURE_RECORDS: readonly LocalAuthorityBaselineExposure[
       liveOrStatic: "static",
       publishedAt: "2020-01-01T00:00:00Z",
       fetchedAt: "2026-08-20T00:00:00Z",
-      sourceIds: ["worldpop", "osm"],
+      sourceIds: ["worldpop", "osm", "dld", "doae"],
     },
   },
   {
@@ -58,16 +73,30 @@ export const BASELINE_EXPOSURE_RECORDS: readonly LocalAuthorityBaselineExposure[
     roadsSecondaryKm: 42.1,
     roadsLocalKm: 144.8,
     criticalFacilities: {
-      hospitals: 5,
-      schools: 38,
-      governmentOffices: 18,
-      emergencyStations: 4,
+      hospitals: 6,
+      schools: 42,
+      governmentOffices: 24,
+      emergencyStations: 5,
     },
     facilityList: [
       { id: "fac-90-01", name: "โรงพยาบาลหาดใหญ่", type: "hospital", lat: 7.0142, lon: 100.4795, isExposed: false },
-      { id: "fac-90-02", name: "โรงพยาบาลสงขลานครินทร์ (ม.อ.)", type: "hospital", lat: 7.0094, lon: 100.4981, isExposed: false },
-      { id: "fac-90-03", name: "สถานีดับเพลิงเทศบาลนครหาดใหญ่", type: "emergency", lat: 7.0081, lon: 100.4735, isExposed: false },
+      { id: "fac-90-02", name: "โรงพยาบาลสงขลานครินทร์", type: "hospital", lat: 7.0084, lon: 100.4984, isExposed: false },
+      { id: "fac-90-03", name: "สถานีดับเพลิงหาดใหญ่", type: "emergency", lat: 7.0051, lon: 100.4721, isExposed: false },
     ],
+    livestock: {
+      cattle: 450,
+      buffalo: 20,
+      pigs: 1800,
+      poultry: 45000,
+    },
+    crops: {
+      paddyHa: 450,
+      fieldCropHa: 120,
+      fruitOrchardHa: 380,
+      rubberHa: 1250,
+      totalCropHa: 2200,
+    },
+    flashFloodRisk: deriveFlashFloodRisk(8.5, 35.0, ["คอหงส์", "คลองแห"]),
     computedAt: "2026-08-20T00:00:00Z",
     descriptor: {
       id: "baseline-exposure",
@@ -75,34 +104,49 @@ export const BASELINE_EXPOSURE_RECORDS: readonly LocalAuthorityBaselineExposure[
       liveOrStatic: "static",
       publishedAt: "2020-01-01T00:00:00Z",
       fetchedAt: "2026-08-20T00:00:00Z",
-      sourceIds: ["worldpop", "osm"],
+      sourceIds: ["worldpop", "osm", "dld", "doae"],
     },
   },
   {
-    localAuthorityId: "TH-LAO-900101",
-    dlaCode: "900101",
+    localAuthorityId: "TH-LAO-901102",
+    dlaCode: "901102",
     provinceCode: "90",
-    nameTh: "เทศบาลนครสงขลา",
-    nameEn: "Songkhla City Municipality",
-    populationTotal: 62410,
-    populationVulnerable: 15200,
+    nameTh: "เทศบาลเมืองคลองแห",
+    nameEn: "Khlong Hae Town Municipality",
+    populationTotal: 41250,
+    populationVulnerable: 9800,
     populationSource: "WorldPop-2020-UNadj",
-    buildingsTotal: 18400,
-    buildingFootprintAreaM2: 2450000,
+    buildingsTotal: 12400,
+    buildingFootprintAreaM2: 1650000,
     buildingSource: "OSM",
-    roadsTotalKm: 98.6,
-    roadsPrimaryKm: 14.2,
-    roadsSecondaryKm: 22.0,
-    roadsLocalKm: 62.4,
+    roadsTotalKm: 98.2,
+    roadsPrimaryKm: 12.0,
+    roadsSecondaryKm: 22.4,
+    roadsLocalKm: 63.8,
     criticalFacilities: {
-      hospitals: 2,
-      schools: 19,
-      governmentOffices: 24,
-      emergencyStations: 2,
+      hospitals: 1,
+      schools: 12,
+      governmentOffices: 8,
+      emergencyStations: 1,
     },
     facilityList: [
-      { id: "fac-90-04", name: "โรงพยาบาลสงขลา", type: "hospital", lat: 7.1852, lon: 100.6012, isExposed: false },
+      { id: "fac-90-04", name: "รพ.สต.คลองแห", type: "hospital", lat: 7.0345, lon: 100.4728, isExposed: false },
+      { id: "fac-90-05", name: "โรงเรียนวัดคลองแห", type: "school", lat: 7.0421, lon: 100.4682, isExposed: false },
     ],
+    livestock: {
+      cattle: 320,
+      buffalo: 15,
+      pigs: 950,
+      poultry: 28000,
+    },
+    crops: {
+      paddyHa: 620,
+      fieldCropHa: 80,
+      fruitOrchardHa: 240,
+      rubberHa: 850,
+      totalCropHa: 1790,
+    },
+    flashFloodRisk: deriveFlashFloodRisk(4.2, 18.0, []),
     computedAt: "2026-08-20T00:00:00Z",
     descriptor: {
       id: "baseline-exposure",
@@ -110,42 +154,7 @@ export const BASELINE_EXPOSURE_RECORDS: readonly LocalAuthorityBaselineExposure[
       liveOrStatic: "static",
       publishedAt: "2020-01-01T00:00:00Z",
       fetchedAt: "2026-08-20T00:00:00Z",
-      sourceIds: ["worldpop", "osm"],
-    },
-  },
-  {
-    localAuthorityId: "TH-LAO-300101",
-    dlaCode: "300101",
-    provinceCode: "30",
-    nameTh: "เทศบาลนครนครราชสีมา",
-    nameEn: "Nakhon Ratchasima City Municipality",
-    populationTotal: 126390,
-    populationVulnerable: 31200,
-    populationSource: "WorldPop-2020-UNadj",
-    buildingsTotal: 36800,
-    buildingFootprintAreaM2: 4950000,
-    buildingSource: "OSM",
-    roadsTotalKm: 185.0,
-    roadsPrimaryKm: 32.0,
-    roadsSecondaryKm: 48.0,
-    roadsLocalKm: 105.0,
-    criticalFacilities: {
-      hospitals: 4,
-      schools: 32,
-      governmentOffices: 28,
-      emergencyStations: 3,
-    },
-    facilityList: [
-      { id: "fac-30-01", name: "โรงพยาบาลมหาราชนครราชสีมา", type: "hospital", lat: 14.9782, lon: 102.1085, isExposed: false },
-    ],
-    computedAt: "2026-08-20T00:00:00Z",
-    descriptor: {
-      id: "baseline-exposure",
-      epistemicClass: "static-reference",
-      liveOrStatic: "static",
-      publishedAt: "2020-01-01T00:00:00Z",
-      fetchedAt: "2026-08-20T00:00:00Z",
-      sourceIds: ["worldpop", "osm"],
+      sourceIds: ["worldpop", "osm", "dld", "doae"],
     },
   },
   {
@@ -155,24 +164,39 @@ export const BASELINE_EXPOSURE_RECORDS: readonly LocalAuthorityBaselineExposure[
     nameTh: "เทศบาลนครเชียงใหม่",
     nameEn: "Chiang Mai City Municipality",
     populationTotal: 127240,
-    populationVulnerable: 32000,
+    populationVulnerable: 31200,
     populationSource: "WorldPop-2020-UNadj",
-    buildingsTotal: 41200,
-    buildingFootprintAreaM2: 5400000,
+    buildingsTotal: 38500,
+    buildingFootprintAreaM2: 5200000,
     buildingSource: "OSM",
-    roadsTotalKm: 240.5,
-    roadsPrimaryKm: 35.0,
-    roadsSecondaryKm: 55.5,
-    roadsLocalKm: 150.0,
+    roadsTotalKm: 185.0,
+    roadsPrimaryKm: 24.0,
+    roadsSecondaryKm: 38.5,
+    roadsLocalKm: 122.5,
     criticalFacilities: {
-      hospitals: 6,
-      schools: 42,
-      governmentOffices: 30,
-      emergencyStations: 5,
+      hospitals: 8,
+      schools: 38,
+      governmentOffices: 28,
+      emergencyStations: 6,
     },
     facilityList: [
-      { id: "fac-50-01", name: "โรงพยาบาลมหาราชนครเชียงใหม่", type: "hospital", lat: 18.7895, lon: 98.9754, isExposed: false },
+      { id: "fac-50-01", name: "โรงพยาบาลมหาราชนครเชียงใหม่", type: "hospital", lat: 18.7898, lon: 98.9745, isExposed: false },
+      { id: "fac-50-02", name: "โรงพยาบาลประสาทเชียงใหม่", type: "hospital", lat: 18.7923, lon: 98.9682, isExposed: false },
     ],
+    livestock: {
+      cattle: 210,
+      buffalo: 5,
+      pigs: 1100,
+      poultry: 32000,
+    },
+    crops: {
+      paddyHa: 320,
+      fieldCropHa: 95,
+      fruitOrchardHa: 540,
+      rubberHa: 0,
+      totalCropHa: 955,
+    },
+    flashFloodRisk: deriveFlashFloodRisk(18.5, 75.0, ["สุเทพ", "ช้างเผือก", "แม่เหียะ"]),
     computedAt: "2026-08-20T00:00:00Z",
     descriptor: {
       id: "baseline-exposure",
@@ -180,30 +204,124 @@ export const BASELINE_EXPOSURE_RECORDS: readonly LocalAuthorityBaselineExposure[
       liveOrStatic: "static",
       publishedAt: "2020-01-01T00:00:00Z",
       fetchedAt: "2026-08-20T00:00:00Z",
-      sourceIds: ["worldpop", "osm"],
+      sourceIds: ["worldpop", "osm", "dld", "doae"],
+    },
+  },
+  {
+    localAuthorityId: "TH-LAO-300101",
+    dlaCode: "300101",
+    provinceCode: "30",
+    nameTh: "เทศบาลนครนครราชสีมา",
+    nameEn: "Nakhon Ratchasima City Municipality",
+    populationTotal: 126349,
+    populationVulnerable: 29800,
+    populationSource: "WorldPop-2020-UNadj",
+    buildingsTotal: 39800,
+    buildingFootprintAreaM2: 5450000,
+    buildingSource: "OSM",
+    roadsTotalKm: 195.4,
+    roadsPrimaryKm: 26.5,
+    roadsSecondaryKm: 40.2,
+    roadsLocalKm: 128.7,
+    criticalFacilities: {
+      hospitals: 7,
+      schools: 35,
+      governmentOffices: 26,
+      emergencyStations: 5,
+    },
+    facilityList: [
+      { id: "fac-30-01", name: "โรงพยาบาลมหาราชนครราชสีมา", type: "hospital", lat: 14.9812, lon: 102.1135, isExposed: false },
+      { id: "fac-30-02", name: "โรงพยาบาลค่ายสุรนารี", type: "hospital", lat: 14.9654, lon: 102.0912, isExposed: false },
+    ],
+    livestock: {
+      cattle: 850,
+      buffalo: 40,
+      pigs: 3200,
+      poultry: 95000,
+    },
+    crops: {
+      paddyHa: 1850,
+      fieldCropHa: 1200,
+      fruitOrchardHa: 450,
+      rubberHa: 0,
+      totalCropHa: 3500,
+    },
+    flashFloodRisk: deriveFlashFloodRisk(5.2, 22.0, []),
+    computedAt: "2026-08-20T00:00:00Z",
+    descriptor: {
+      id: "baseline-exposure",
+      epistemicClass: "static-reference",
+      liveOrStatic: "static",
+      publishedAt: "2020-01-01T00:00:00Z",
+      fetchedAt: "2026-08-20T00:00:00Z",
+      sourceIds: ["worldpop", "osm", "dld", "doae"],
+    },
+  },
+  {
+    localAuthorityId: "TH-LAO-340101",
+    dlaCode: "340101",
+    provinceCode: "34",
+    nameTh: "เทศบาลนครอุบลราชธานี",
+    nameEn: "Ubon Ratchathani City Municipality",
+    populationTotal: 78500,
+    populationVulnerable: 19500,
+    populationSource: "WorldPop-2020-UNadj",
+    buildingsTotal: 25400,
+    buildingFootprintAreaM2: 3400000,
+    buildingSource: "OSM",
+    roadsTotalKm: 145.2,
+    roadsPrimaryKm: 18.0,
+    roadsSecondaryKm: 28.5,
+    roadsLocalKm: 98.7,
+    criticalFacilities: {
+      hospitals: 5,
+      schools: 28,
+      governmentOffices: 22,
+      emergencyStations: 4,
+    },
+    facilityList: [
+      { id: "fac-34-01", name: "โรงพยาบาลสรรพสิทธิประสงค์", type: "hospital", lat: 15.2285, lon: 104.8624, isExposed: false },
+      { id: "fac-34-02", name: "โรงพยาบาลวารินชำราบ", type: "hospital", lat: 15.1954, lon: 104.8582, isExposed: false },
+    ],
+    livestock: {
+      cattle: 650,
+      buffalo: 35,
+      pigs: 2100,
+      poultry: 62000,
+    },
+    crops: {
+      paddyHa: 2400,
+      fieldCropHa: 650,
+      fruitOrchardHa: 320,
+      rubberHa: 800,
+      totalCropHa: 4170,
+    },
+    flashFloodRisk: deriveFlashFloodRisk(3.8, 15.0, []),
+    computedAt: "2026-08-20T00:00:00Z",
+    descriptor: {
+      id: "baseline-exposure",
+      epistemicClass: "static-reference",
+      liveOrStatic: "static",
+      publishedAt: "2020-01-01T00:00:00Z",
+      fetchedAt: "2026-08-20T00:00:00Z",
+      sourceIds: ["worldpop", "osm", "dld", "doae"],
     },
   },
 ];
 
-const BASELINE_BY_ID = new Map<string, LocalAuthorityBaselineExposure>(
+const BASELINE_BY_ID = new Map(
   BASELINE_EXPOSURE_RECORDS.map((rec) => [rec.localAuthorityId, rec]),
 );
 
-const BASELINE_BY_DLA = new Map<string, LocalAuthorityBaselineExposure>(
-  BASELINE_EXPOSURE_RECORDS.map((rec) => [rec.dlaCode, rec]),
-);
-
-/**
- * Get baseline exposure for a specific local authority ID or DLA code.
- */
-export function getBaselineExposure(idOrDla: string): LocalAuthorityBaselineExposure | undefined {
-  return BASELINE_BY_ID.get(idOrDla) ?? BASELINE_BY_DLA.get(idOrDla);
+export function getBaselineExposure(
+  localAuthorityId: string,
+): LocalAuthorityBaselineExposure | null {
+  return BASELINE_BY_ID.get(localAuthorityId) ?? null;
 }
 
-/**
- * Query baseline exposures optionally filtered by province.
- */
-export function queryBaselineExposures(provinceCode?: string): LocalAuthorityBaselineExposure[] {
+export function queryBaselineExposures(
+  provinceCode?: string,
+): LocalAuthorityBaselineExposure[] {
   if (!provinceCode) return [...BASELINE_EXPOSURE_RECORDS];
   return BASELINE_EXPOSURE_RECORDS.filter((rec) => rec.provinceCode === provinceCode);
 }
