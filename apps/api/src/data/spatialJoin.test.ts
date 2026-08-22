@@ -41,33 +41,6 @@ const MOCK_BASELINE: LocalAuthorityBaselineExposure = {
     { id: "fac-1", name: "โรงพยาบาลหาดใหญ่", type: "hospital", lat: 7.0142, lon: 100.4795, isExposed: false },
     { id: "fac-2", name: "โรงเรียนหาดใหญ่วิทยาลัย", type: "school", lat: 7.0081, lon: 100.4735, isExposed: false },
   ],
-  livestock: {
-    cattle: 450,
-    buffalo: 20,
-    pigs: 1800,
-    poultry: 45000,
-  },
-  crops: {
-    paddyHa: 450,
-    fieldCropHa: 120,
-    fruitOrchardHa: 380,
-    rubberHa: 1250,
-    totalCropHa: 2200,
-  },
-  flashFloodRisk: {
-    slopeDegree: 8.5,
-    upstreamCatchmentKm2: 35.0,
-    riskLevel: "moderate",
-    vulnerableTambons: ["คอหงส์"],
-    descriptor: {
-      id: "flash-flood-risk",
-      epistemicClass: "illustrative",
-      liveOrStatic: "static",
-      publishedAt: "2026-08-20T00:00:00Z",
-      fetchedAt: "2026-08-20T00:00:00Z",
-      sourceIds: ["copernicus-dem"],
-    },
-  },
   computedAt: "2026-08-20T00:00:00Z",
   descriptor: {
     id: "baseline-exposure",

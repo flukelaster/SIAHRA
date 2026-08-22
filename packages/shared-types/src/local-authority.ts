@@ -52,65 +52,6 @@ export interface CriticalFacility {
 }
 
 /**
- * Livestock heads statistics (Department of Livestock Development - DLD).
- */
-export interface LivestockExposure {
-  cattle: number;
-  buffalo: number;
-  pigs: number;
-  poultry: number;
-}
-
-/**
- * Agricultural crop hectares statistics (Department of Agricultural Extension - DOAE).
- */
-export interface CropExposure {
-  paddyHa: number;
-  fieldCropHa: number;
-  fruitOrchardHa: number;
-  rubberHa: number;
-  totalCropHa: number;
-}
-
-/**
- * Structural and content damage estimation from stage-depth damage curves.
- */
-export interface BuildingDamageEstimate {
-  meanWaterDepthM: number;
-  structuralDamagePct: number;
-  contentDamagePct: number;
-  estimatedEconomicLossThb: number;
-}
-
-/**
- * Flash flood risk index based on DEM slope and upstream catchment accumulation.
- */
-export interface FlashFloodRisk {
-  slopeDegree: number;
-  upstreamCatchmentKm2: number;
-  riskLevel: "low" | "moderate" | "high" | "critical";
-  vulnerableTambons: string[];
-  descriptor: HazardLayerDescriptor;
-}
-
-/**
- * Historical benchmark flood event for validation and comparative replay.
- */
-export interface HistoricalFloodEvent {
-  id: string;
-  nameTh: string;
-  nameEn: string;
-  year: number;
-  peakDate: string;
-  basin: string;
-  affectedProvinces: string[];
-  peakFloodAreaKm2: number;
-  estimatedTotalExposedPop: number;
-  descriptionTh: string;
-  descriptionEn: string;
-}
-
-/**
  * Baseline exposure statistics aggregated per Local Administrative Organization.
  */
 export interface LocalAuthorityBaselineExposure {
@@ -131,9 +72,6 @@ export interface LocalAuthorityBaselineExposure {
   roadsLocalKm: number;
   criticalFacilities: FacilityExposureCount;
   facilityList: CriticalFacility[];
-  livestock: LivestockExposure;
-  crops: CropExposure;
-  flashFloodRisk: FlashFloodRisk;
   computedAt: string;
   descriptor: HazardLayerDescriptor;
 }
@@ -157,9 +95,6 @@ export interface LocalAuthorityExposure {
   exposedFacilityList: CriticalFacility[];
 
   agriculturalHaExposed: number;
-  livestockExposed: LivestockExposure;
-  cropsExposed: CropExposure;
-  buildingDamage?: BuildingDamageEstimate;
 }
 
 /**
@@ -192,12 +127,4 @@ export interface LocalAuthoritiesResponse {
  */
 export interface LocalAuthorityExposureResponse {
   baseline: LocalAuthorityBaselineExposure;
-}
-
-/**
- * Response envelope for historical flood benchmark events listing.
- */
-export interface HistoricalFloodResponse {
-  total: number;
-  events: HistoricalFloodEvent[];
 }

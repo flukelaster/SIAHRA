@@ -1,8 +1,6 @@
 import type {
-  CropExposure,
   FloodExtentFeature,
   HazardLayerDescriptor,
-  LivestockExposure,
   LocalAuthorityBaselineExposure,
   LocalAuthorityExposure,
   LocalAuthorityImpactResponse,
@@ -10,11 +8,9 @@ import type {
 } from "@siahra/shared-types";
 import { getBaselineExposure } from "./baselineExposure.js";
 import { queryLocalAuthorities } from "./localAuthorities.js";
-import { calculateBuildingDamage } from "./damageCurves.js";
 
-/** 1 Rai = 1600 m2 = 0.0016 km2 = 0.16 ha */
+/** 1 Rai = 1600 m2 = 0.0016 km2 */
 const KM2_PER_RAI = 0.0016;
-const HA_PER_RAI = 0.16;
 
 /**
  * Computes live observed impact for a Local Authority given GISTDA satellite flood features.
@@ -75,31 +71,6 @@ export function computeLocalAuthorityImpact(
     );
   }
 
-  // Calculate exposed livestock (DLD)
-  const livestockExposed: LivestockExposure = {
-    cattle: Math.round(baseline.livestock.cattle * Math.min(1.0, inundationFraction * 1.1)),
-    buffalo: Math.round(baseline.livestock.buffalo * Math.min(1.0, inundationFraction * 1.1)),
-    pigs: Math.round(baseline.livestock.pigs * Math.min(1.0, inundationFraction * 1.2)),
-    poultry: Math.round(baseline.livestock.poultry * Math.min(1.0, inundationFraction * 1.3)),
-  };
-
-  // Calculate exposed agricultural crops (DOAE)
-  const totalAgriRai = totalFloodRai * 0.6; // ~60% flood footprint on farmland in peri-urban/rural
-  const totalCropHa = Math.min(baseline.crops.totalCropHa, Math.round(totalAgriRai * HA_PER_RAI));
-  const cropFraction = baseline.crops.totalCropHa > 0 ? totalCropHa / baseline.crops.totalCropHa : 0;
-
-  const cropsExposed: CropExposure = {
-    paddyHa: Math.round(baseline.crops.paddyHa * cropFraction),
-    fieldCropHa: Math.round(baseline.crops.fieldCropHa * cropFraction),
-    fruitOrchardHa: Math.round(baseline.crops.fruitOrchardHa * cropFraction),
-    rubberHa: Math.round(baseline.crops.rubberHa * cropFraction),
-    totalCropHa,
-  };
-
-  // Calculate Depth-Damage curves
-  const estimatedMeanDepthM = inundationFraction > 0 ? Math.min(2.5, 0.3 + inundationFraction * 1.8) : 0;
-  const buildingDamage = calculateBuildingDamage(estimatedMeanDepthM, buildingsExposed);
-
   // Check critical facilities exposure
   const exposedFacilityList = baseline.facilityList.map((fac) => {
     // If high inundation fraction (>15%), mark near-center facilities as exposed
@@ -146,10 +117,7 @@ export function computeLocalAuthorityImpact(
       emergencyStations: exposedEmergency,
     },
     exposedFacilityList,
-    agriculturalHaExposed: totalCropHa,
-    livestockExposed,
-    cropsExposed,
-    buildingDamage,
+    agriculturalHaExposed: Math.round(floodAreaKm2 * 100 * 0.4), // ~40% agricultural estimate
   };
 
   const layer: HazardLayerDescriptor = {
@@ -158,7 +126,7 @@ export function computeLocalAuthorityImpact(
     liveOrStatic: "live",
     publishedAt: null,
     fetchedAt: retrievedAt,
-    sourceIds: ["gistda-flood", "worldpop", "osm", "dld", "doae"],
+    sourceIds: ["gistda-flood", "worldpop", "osm"],
   };
 
   return {
