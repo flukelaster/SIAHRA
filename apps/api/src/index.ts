@@ -16,8 +16,14 @@ import {
   handleLocalAuthorityExposure,
   handleLocalAuthorityImpact,
 } from "./routes/localAuthorities.js";
+import {
+  handleActiveAlerts,
+  handleAlertRules,
+  handleEvaluateAlerts,
+} from "./routes/alerts.js";
 import type { AppEnv } from "./types.js";
 
+export { AlertEngineDO } from "./durable-objects/alert-engine.js";
 export { EarthquakeFeedDO } from "./durable-objects/earthquake-feed.js";
 export { FloodExtentDO } from "./durable-objects/flood-extent.js";
 export { ForecastPointerDO } from "./durable-objects/forecast-pointer.js";
@@ -113,6 +119,24 @@ export const routes: Route[] = [
     pattern: /^\/api\/v1\/local-authorities\/([A-Za-z0-9_-]+)$/,
     handler: (_req, env, [id]) => handleLocalAuthorityDetail(id, env),
     limit: { perMinute: 300 },
+  },
+  {
+    method: "GET",
+    pattern: /^\/api\/v1\/alerts\/active$/,
+    handler: (req, env) => handleActiveAlerts(req, env),
+    limit: { perMinute: 300 },
+  },
+  {
+    method: "GET",
+    pattern: /^\/api\/v1\/alerts\/rules$/,
+    handler: (req, env) => handleAlertRules(req, env),
+    limit: { perMinute: 300 },
+  },
+  {
+    method: "POST",
+    pattern: /^\/api\/v1\/alerts\/evaluate$/,
+    handler: (req, env) => handleEvaluateAlerts(req, env),
+    limit: { perMinute: 60 },
   },
 ];
 
