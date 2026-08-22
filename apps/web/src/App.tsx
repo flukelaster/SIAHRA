@@ -68,6 +68,7 @@ const DEFAULT_LAYERS: MapLayers = {
   radar: true,
   sunlight: true,
   trees: true,
+  localAuthorities: true,
 };
 
 /**

@@ -12,6 +12,15 @@ export interface RawDlaRecord {
   area_km2?: number;
 }
 
+export type Coordinate = [number, number];
+
+export interface TopologyQAResult {
+  valid: boolean;
+  reason?: string;
+  vertexCount: number;
+  areaApproxKm2?: number;
+}
+
 const TYPE_MAP: Record<string, LocalAuthorityType> = {
   "เทศบาลนคร": "city_municipality",
   "เทศบาลเมือง": "town_municipality",
@@ -74,4 +83,77 @@ export function validateDlaMasterList(records: readonly RawDlaRecord[]): LocalAu
   }
 
   return result.sort((a, b) => a.dlaCode.localeCompare(b.dlaCode));
+}
+
+/**
+ * Validates topology of a boundary polygon ring.
+ */
+export function validatePolygonRingTopology(ring: readonly Coordinate[]): TopologyQAResult {
+  if (!ring || ring.length < 4) {
+    return { valid: false, reason: "Ring must have at least 4 coordinates (3 distinct + closure)", vertexCount: ring ? ring.length : 0 };
+  }
+
+  const first = ring[0];
+  const last = ring[ring.length - 1];
+  if (Math.abs(first[0] - last[0]) > 1e-7 || Math.abs(first[1] - last[1]) > 1e-7) {
+    return { valid: false, reason: "Ring is not closed (first != last)", vertexCount: ring.length };
+  }
+
+  // Check Thailand bounding box
+  for (const [lon, lat] of ring) {
+    if (lon < 95.0 || lon > 108.0 || lat < 4.0 || lat > 22.0) {
+      return { valid: false, reason: `Coordinate [${lon}, ${lat}] out of Thailand bounding box`, vertexCount: ring.length };
+    }
+  }
+
+  // Calculate Shoelace formula area
+  let doubleArea = 0;
+  for (let i = 0; i < ring.length - 1; i++) {
+    const [x1, y1] = ring[i];
+    const [x2, y2] = ring[i + 1];
+    doubleArea += x1 * y2 - x2 * y1;
+  }
+
+  if (Math.abs(doubleArea) < 1e-10) {
+    return { valid: false, reason: "Degenerate zero-area polygon", vertexCount: ring.length };
+  }
+
+  // Approximate km2 (1 deg ~ 111.32 km at equator)
+  const approxKm2 = (Math.abs(doubleArea) / 2) * 111.32 * (111.32 * Math.cos((ring[0][1] * Math.PI) / 180));
+
+  return {
+    valid: true,
+    vertexCount: ring.length,
+    areaApproxKm2: Math.round(approxKm2 * 100) / 100,
+  };
+}
+
+/**
+ * Cleans a polygon ring by removing consecutive duplicates and ensuring proper closure.
+ */
+export function cleanPolygonRing(ring: readonly Coordinate[]): Coordinate[] {
+  if (!ring || ring.length === 0) return [];
+
+  const cleaned: Coordinate[] = [];
+  for (let i = 0; i < ring.length; i++) {
+    const pt = ring[i];
+    if (cleaned.length === 0) {
+      cleaned.push(pt);
+      continue;
+    }
+    const prev = cleaned[cleaned.length - 1];
+    if (Math.abs(pt[0] - prev[0]) > 1e-7 || Math.abs(pt[1] - prev[1]) > 1e-7) {
+      cleaned.push(pt);
+    }
+  }
+
+  if (cleaned.length >= 3) {
+    const first = cleaned[0];
+    const last = cleaned[cleaned.length - 1];
+    if (Math.abs(first[0] - last[0]) > 1e-7 || Math.abs(first[1] - last[1]) > 1e-7) {
+      cleaned.push([first[0], first[1]]);
+    }
+  }
+
+  return cleaned;
 }
