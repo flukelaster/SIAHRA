@@ -156,6 +156,7 @@ The Worker exposes a versioned JSON API under `/api/v1`:
 | `GET /api/v1/dams` | Reservoir storage levels |
 | `GET /api/v1/radar/frames` · `/radar/frame/:ts.png` | Weather radar composite frames |
 | `GET /api/v1/stations/:id/history` | Historical readings for one gauge station |
+| `GET /api/v1/local-authorities` · `/:id` | National local-authority (อปท.) registry, sourced from DLA — static-reference, baked into the build, not live-polled |
 
 ## CI & contributing
 
@@ -210,6 +211,7 @@ Two conventions a branch ruleset can't express — a PR that touches UI files mu
 | River / rainfall telemetry, dams | Hydro-Informatics Institute / ThaiWater (สสน.) | Official API terms |
 | Satellite flood extent | GISTDA | Open Data Commons |
 | Earthquake cross-check | USGS, EMSC | Public data policy |
+| Local-authority (อปท.) registry | Department of Local Administration (DLA) | Open Data Common |
 
 This is an attribution list, **not** a claim of authorship or endorsement — these agencies supply the data; they did not build or endorse this application. Several upstream layers referenced in [`docs/SIAHRA-implement-plan.md`](docs/SIAHRA-implement-plan.md) (e.g. some LDD soil datasets) carry non-commercial or share-alike terms and are deliberately **not** wired into the live product; verify licensing before adding any new source.
 
@@ -227,4 +229,4 @@ SIAHRA aggregates and visualizes official hazard data; it is **not** an early-wa
 
 The **code** in this repository is released under the MIT License — see [`LICENSE`](LICENSE). That covers the source of the web app, the API Worker and the ETL pipelines, and nothing else.
 
-The **data** is not ours to license. Every observation, tile and imagery layer SIAHRA fetches or derives stays under the terms of the agency that published it — ThaiWater/HII, TMD, GISTDA, USGS, EMSC, Copernicus DEM, OpenStreetMap and ESA WorldCover — listed one by one [above](#data-sources--attribution). MIT applies to the code only; it grants you no right to redistribute those sources, and reusing this code does not transfer their terms to you. If you fork SIAHRA, check each upstream licence for your own use, and keep the attributions.
+The **data** is not ours to license. Every observation, tile and imagery layer SIAHRA fetches or derives stays under the terms of the agency that published it — ThaiWater/HII, TMD, GISTDA, USGS, EMSC, Copernicus DEM, OpenStreetMap, ESA WorldCover and DLA — listed one by one [above](#data-sources--attribution). MIT applies to the code only; it grants you no right to redistribute those sources, and reusing this code does not transfer their terms to you. If you fork SIAHRA, check each upstream licence for your own use, and keep the attributions.

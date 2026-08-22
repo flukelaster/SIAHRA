@@ -38,7 +38,7 @@ export function readProvinceList(): ProvinceEntry[] {
 }
 
 /** OSM names province relations as either "เชียงใหม่" or "จังหวัดเชียงใหม่". */
-function normalizeThaiName(s: string | undefined | null): string {
+export function normalizeThaiName(s: string | undefined | null): string {
   if (!s) return "";
   let v = s.trim();
   if (v.startsWith("จังหวัด")) v = v.slice("จังหวัด".length);

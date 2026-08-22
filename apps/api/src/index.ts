@@ -4,6 +4,7 @@ import { handleEarthquakesLive, handleEarthquakesRecent } from "./routes/earthqu
 import { handleExposureRun, handleProvinceExposureLatest } from "./routes/exposure.js";
 import { handleFloodExtentSummary, handleProvinceFloodExtent } from "./routes/flood.js";
 import { handleHealth } from "./routes/health.js";
+import { handleLocalAuthorityDetail, handleLocalAuthoritiesList } from "./routes/localAuthorities.js";
 import { handleObservations } from "./routes/observations.js";
 import { handleRadarFrame, handleRadarFrames } from "./routes/radar.js";
 import { handleDams, handleStationHistory } from "./routes/stations.js";
@@ -29,6 +30,18 @@ export const routes: Route[] = [
   { method: "GET", pattern: /^\/api\/v1\/observations$/, handler: handleObservations, limit: { perMinute: 120 } },
   { method: "GET", pattern: /^\/api\/v1\/flood-extent\/summary$/, handler: handleFloodExtentSummary, limit: { perMinute: 300 } },
   { method: "GET", pattern: /^\/api\/v1\/dams$/, handler: handleDams, limit: { perMinute: 300 } },
+  {
+    method: "GET",
+    pattern: /^\/api\/v1\/local-authorities$/,
+    handler: (req) => handleLocalAuthoritiesList(req),
+    limit: { perMinute: 300 },
+  },
+  {
+    method: "GET",
+    pattern: /^\/api\/v1\/local-authorities\/([A-Za-z0-9-]+)$/,
+    handler: (_req, _env, [id]) => handleLocalAuthorityDetail(id),
+    limit: { perMinute: 300 },
+  },
   { method: "GET", pattern: /^\/api\/v1\/archive\/days$/, handler: handleArchiveDays, limit: { perMinute: 300 } },
   { method: "GET", pattern: /^\/api\/v1\/archive\/snapshot$/, handler: handleArchiveSnapshot, limit: { perMinute: 60 } },
   { method: "GET", pattern: /^\/api\/v1\/radar\/frames$/, handler: handleRadarFrames, limit: { perMinute: 300 } },

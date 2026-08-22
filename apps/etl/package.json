@@ -12,6 +12,7 @@
     "build:feature-tiles": "tsx src/buildFeatureTiles.ts",
     "build:landcover-tiles": "tsx src/buildLandcoverTiles.ts",
     "build:province-rings": "tsx src/buildProvinceRings.ts",
+    "build:local-authorities": "tsx src/buildLocalAuthorities.ts",
     "refresh:manifests": "tsx src/refreshManifests.ts",
     "test": "vitest run"
   },
