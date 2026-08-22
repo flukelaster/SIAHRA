@@ -49,6 +49,8 @@ edit in that table.
 | `/api/v1/exposure/runs/{runId}` | GET | 120 | default | shared `exposure-run` | Reads one immutable R2 object per call; one shared bucket across all run ids |
 | `/api/v1/radar/frames` | GET | 300 | default | per route | Frame index for the last N hours |
 | `/api/v1/radar/frame/{tsMs}.png` | GET | 600 | default | shared `radar-frame` | An animation loop pulls one image per frame; one shared bucket across all frames |
+| `/api/v1/local-authorities` | GET | 300 | default | per route | Search and filter local authorities (อปท.) |
+| `/api/v1/local-authorities/{id}` | GET | 300 | default | per route | Local authority detail by canonical ID or DLA code |
 
 A rejected request answers `429 {"error":"Too many requests","retryAfterSeconds":N}` plus
 `Retry-After: N`. `/api/v1/health` reports how many 429s this isolate issued in the last hour under
@@ -83,6 +85,8 @@ Two rules are enforced by `json()` in `apps/api/src/router.ts` rather than by ea
 | `/api/v1/exposure/runs/{runId}` | `frozenArtifact(key)` | `public, max-age=31536000, immutable` — the key contains the run's content hash, so it can never change |
 | `/api/v1/radar/frames` | `radarFrames` | `public, max-age=60` |
 | `/api/v1/radar/frame/{tsMs}.png` | `radarFrame` | `public, max-age=86400, immutable` |
+| `/api/v1/local-authorities` | `slowMoving` | `public, max-age=300` |
+| `/api/v1/local-authorities/{id}` | `slowMoving` | `public, max-age=300` |
 | any 4xx / 5xx | `noStore` | `no-store` |
 
 `stale-while-revalidate` was considered for the observations response (roadmap E4.6 sketches it) and

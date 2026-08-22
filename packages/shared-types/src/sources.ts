@@ -18,7 +18,9 @@ export type SourceId =
   | "osm"
   | "worldcover"
   | "esri-world-imagery"
-  | "eox-s2cloudless";
+  | "eox-s2cloudless"
+  | "dla-master"
+  | "dla-gis";
 
 export interface SourceDescriptor {
   id: SourceId;
@@ -163,6 +165,28 @@ export const SOURCES: Record<SourceId, SourceDescriptor> = {
     licenseName: "CC BY-NC-SA 4.0",
     licenseUrl: "https://creativecommons.org/licenses/by-nc-sa/4.0/",
     attributionText: "Sentinel-2 cloudless by EOX IT Services (CC BY-NC-SA 4.0), Copernicus",
+    kind: "static",
+  },
+  "dla-master": {
+    id: "dla-master",
+    nameTh: "บัญชีรายชื่อองค์กรปกครองส่วนท้องถิ่น (อปท.)",
+    nameEn: "Local Administrative Organization Master List (DLA)",
+    agency: "กรมส่งเสริมการปกครองท้องถิ่น (สถ.)",
+    homepageUrl: "https://data.go.th/dataset/dla-local-admin",
+    licenseName: "Open Government Data License (DGA Thailand)",
+    licenseUrl: "https://data.go.th/",
+    attributionText: "ข้อมูลองค์กรปกครองส่วนท้องถิ่น กรมส่งเสริมการปกครองท้องถิ่น (สถ.) ผ่าน data.go.th",
+    kind: "static",
+  },
+  "dla-gis": {
+    id: "dla-gis",
+    nameTh: "ขอบเขตองค์กรปกครองส่วนท้องถิ่น (DLA / GISTDA GIS)",
+    nameEn: "Local Authority Administrative Boundaries (DLA / GISTDA GIS)",
+    agency: "กรมส่งเสริมการปกครองท้องถิ่น (สถ.) และ GISTDA",
+    homepageUrl: "https://gis.dla.go.th/",
+    licenseName: "เงื่อนไขการใช้ข้อมูลแผนที่ทางการ (DLA GIS)",
+    licenseUrl: "https://gis.dla.go.th/",
+    attributionText: "ขอบเขตการปกครองท้องถิ่น กรมส่งเสริมการปกครองท้องถิ่น (สถ.) และ GISTDA",
     kind: "static",
   },
 };
