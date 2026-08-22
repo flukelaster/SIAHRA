@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  cleanPolygonRing,
   normaliseDlaRecord,
   validateDlaMasterList,
+  validatePolygonRingTopology,
   type RawDlaRecord,
 } from "./buildLocalAuthorities.js";
 
@@ -58,5 +60,48 @@ describe("buildLocalAuthorities ETL", () => {
     expect(result).toHaveLength(2);
     expect(result[0].dlaCode).toBe("100000");
     expect(result[1].dlaCode).toBe("901101");
+  });
+
+  it("validates valid closed polygon ring topology", () => {
+    const ring: [number, number][] = [
+      [100.45, 7.00],
+      [100.50, 7.00],
+      [100.50, 7.05],
+      [100.45, 7.05],
+      [100.45, 7.00],
+    ];
+
+    const qa = validatePolygonRingTopology(ring);
+    expect(qa.valid).toBe(true);
+    expect(qa.vertexCount).toBe(5);
+    expect(qa.areaApproxKm2).toBeGreaterThan(0);
+  });
+
+  it("flags unclosed or invalid polygon rings", () => {
+    const unclosedRing: [number, number][] = [
+      [100.45, 7.00],
+      [100.50, 7.00],
+      [100.50, 7.05],
+      [100.45, 7.05],
+    ];
+
+    const qa = validatePolygonRingTopology(unclosedRing);
+    expect(qa.valid).toBe(false);
+    expect(qa.reason).toContain("not closed");
+  });
+
+  it("cleans duplicate vertices and ensures ring closure", () => {
+    const dirtyRing: [number, number][] = [
+      [100.45, 7.00],
+      [100.45, 7.00], // duplicate
+      [100.50, 7.00],
+      [100.50, 7.05],
+      [100.45, 7.05],
+      // missing closure
+    ];
+
+    const cleaned = cleanPolygonRing(dirtyRing);
+    expect(cleaned).toHaveLength(5);
+    expect(cleaned[0]).toEqual(cleaned[cleaned.length - 1]);
   });
 });

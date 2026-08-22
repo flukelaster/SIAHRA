@@ -12,6 +12,10 @@ import type {
   SourceId,
 } from "@siahra/shared-types";
 import { buildBoundaryOutline, type BoundaryOutlineResult } from "../../scene/BoundaryOutline";
+import {
+  buildLocalAuthorityOutline,
+  type LocalAuthorityOutlineResult,
+} from "../../scene/LocalAuthorityOutline";
 import { buildBuildingLayer } from "../../scene/BuildingLayer";
 import { buildDamMarkers, type DamMarkerResult } from "../../scene/DamMarkers";
 import { BuildingTileLayer } from "../../scene/BuildingTiles";
@@ -65,6 +69,8 @@ export interface MapLayers {
   sunlight: boolean;
   /** Trees from ESA WorldCover on nearby tiles. */
   trees: boolean;
+  /** Local administrative boundaries (อปท.) from DLA / GISTDA. */
+  localAuthorities: boolean;
 }
 
 export interface MapInfo {
@@ -193,6 +199,7 @@ export function Map3DCanvas({
   } | null>(null);
   const buildingsRef = useRef<THREE.Mesh | null>(null);
   const boundaryRef = useRef<BoundaryOutlineResult | null>(null);
+  const localAuthoritiesRef = useRef<LocalAuthorityOutlineResult | null>(null);
   const markersRef = useRef<StationMarkerResult | null>(null);
   const labelsRef = useRef<THREE.Group | null>(null);
   const quakesRef = useRef<EarthquakeMarkerResult | null>(null);
@@ -518,6 +525,16 @@ export function Map3DCanvas({
           handles.onResize(outline.setResolution);
         }
 
+        // Local authority sub-boundaries draped on the terrain
+        const localAuthoritiesOutline = await buildLocalAuthorityOutline(manifest, terrain.sample);
+        if (cancelled || !handles) return;
+        if (localAuthoritiesOutline) {
+          localAuthoritiesRef.current = localAuthoritiesOutline;
+          localAuthoritiesOutline.group.visible = layers.localAuthorities;
+          handles.world.add(localAuthoritiesOutline.group);
+          handles.onResize(localAuthoritiesOutline.setResolution);
+        }
+
         // Legacy urban-core footprints only when the province has no
         // building tile pyramid (tiles stream on their own).
         if (!buildingTiles) {
@@ -576,6 +593,8 @@ export function Map3DCanvas({
       buildingsRef.current = null;
       boundaryRef.current?.dispose();
       boundaryRef.current = null;
+      localAuthoritiesRef.current?.dispose();
+      localAuthoritiesRef.current = null;
       markersRef.current?.dispose();
       markersRef.current = null;
       if (labelsRef.current) disposeLabels(labelsRef.current);
@@ -1030,6 +1049,7 @@ export function Map3DCanvas({
     }
     if (labelsRef.current) labelsRef.current.visible = layers.stations;
     if (buildingsRef.current) buildingsRef.current.visible = layers.buildings;
+    if (localAuthoritiesRef.current) localAuthoritiesRef.current.group.visible = layers.localAuthorities;
   }, [layers, state.status, imageryProgress]);
 
   return (

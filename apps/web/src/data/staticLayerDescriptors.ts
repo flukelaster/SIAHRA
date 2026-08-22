@@ -84,6 +84,14 @@ export const STATIC_LAYER_DESCRIPTORS: Partial<Record<keyof MapLayers, HazardLay
     fetchedAt: null,
     sourceIds: ["worldcover"],
   },
+  localAuthorities: {
+    id: "localAuthorities",
+    epistemicClass: "static-reference",
+    liveOrStatic: "static",
+    publishedAt: null,
+    fetchedAt: null,
+    sourceIds: ["dla-gis"],
+  },
   // `sunlight` ไม่ใช่ข้อมูล แต่เป็นการจัดแสงตามตำแหน่งดวงอาทิตย์ที่คำนวณจากเวลา
   // จึงไม่มี descriptor และไม่ต้องมีป้ายชนิดความรู้
 };
