@@ -1,5 +1,6 @@
 import { exports as workerExports } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
+import type { LocalAuthorityBaselineExposure, LocalAuthorityExposureResponse } from "@siahra/shared-types";
 
 const workerFetch = (url: string, init: RequestInit = {}) =>
   workerExports.default.fetch(new Request(url, init));
@@ -57,5 +58,50 @@ describe("Local Authorities Endpoints", () => {
 
     const data = (await res.json()) as { error: string };
     expect(data.error).toContain("not found");
+  });
+
+  it("GET /api/v1/local-authorities/:id/exposure returns baseline exposure with data honesty", async () => {
+    const res = await workerFetch("https://siahra-radar.co/api/v1/local-authorities/TH-LAO-901101/exposure");
+    expect(res.status).toBe(200);
+
+    const data = (await res.json()) as LocalAuthorityExposureResponse;
+    expect(data.baseline).toBeDefined();
+    expect(data.baseline.localAuthorityId).toBe("TH-LAO-901101");
+    expect(data.baseline.populationTotal).toBeGreaterThan(100000);
+    expect(data.baseline.buildingsTotal).toBeGreaterThan(10000);
+    expect(data.baseline.roadsTotalKm).toBeGreaterThan(100);
+    expect(data.baseline.criticalFacilities.hospitals).toBeGreaterThan(0);
+
+    // Data honesty checks (AGENTS.md)
+    expect(data.baseline.descriptor.epistemicClass).toBe("static-reference");
+    expect(data.baseline.descriptor.sourceIds).toContain("worldpop");
+    expect(data.baseline.descriptor.sourceIds).toContain("osm");
+    expect(data.baseline.populationSource).toBe("WorldPop-2020-UNadj");
+  });
+
+  it("GET /api/v1/local-authorities/:id/exposure returns 404 for unknown ID", async () => {
+    const res = await workerFetch("https://siahra-radar.co/api/v1/local-authorities/TH-LAO-999999/exposure");
+    expect(res.status).toBe(404);
+
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toContain("not found");
+  });
+
+  it("GET /api/v1/local-authorities/exposure returns all baseline exposures", async () => {
+    const res = await workerFetch("https://siahra-radar.co/api/v1/local-authorities/exposure");
+    expect(res.status).toBe(200);
+
+    const data = (await res.json()) as { total: number; exposures: LocalAuthorityBaselineExposure[] };
+    expect(data.total).toBeGreaterThan(0);
+    expect(data.exposures.some((e) => e.localAuthorityId === "TH-LAO-100000")).toBe(true);
+  });
+
+  it("GET /api/v1/local-authorities/exposure?province=90 filters by province", async () => {
+    const res = await workerFetch("https://siahra-radar.co/api/v1/local-authorities/exposure?province=90");
+    expect(res.status).toBe(200);
+
+    const data = (await res.json()) as { total: number; exposures: LocalAuthorityBaselineExposure[] };
+    expect(data.total).toBeGreaterThan(0);
+    expect(data.exposures.every((e) => e.provinceCode === "90")).toBe(true);
   });
 });
