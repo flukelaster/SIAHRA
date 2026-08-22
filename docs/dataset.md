@@ -124,6 +124,13 @@ pyramid ชุดนั้น (ไฟล์ overview ออกมาจากร
   (เช่น clone ใหม่ หรือ CI) จะไม่มีโฟลเดอร์นั้น ชั้นนั้นต้องหายไปทั้ง entry
   **ห้ามแทนด้วย `generatedAt`, `manifest.version` หรือเวลาปัจจุบัน** — ฝั่ง web จะแสดง
   "ไม่ได้บันทึกเวลาที่ดึงข้อมูล" (`freshness.missing.staticReference`) ซึ่งเป็นความจริง
+- **`localAuthorities` (`local-authorities.geojson`, E11.2) เหมือน `boundary.geojson` —
+  ไม่อยู่ใน `AoiProvenanceLayer` และไม่มี entry ใน `manifest.provenance.sources` เลย —
+  แต่ไม่ใช่เพราะเวลาสร้างจริงหายไปแบบสองไฟล์นั้น** `publishedAt`
+  (`osmosis_replication_timestamp` ของรอบ extract) กับ `fetchedAt` (เวลารัน
+  extraction) เป็นค่าจริงที่ hardcode ไว้ใน `apps/web/src/data/staticLayerDescriptors.ts`
+  แทน อัปเดตคู่กับ `apps/etl/data/sources/osm-admin/COVERAGE.md` ทุกครั้งที่รี extract
+  — `refresh:manifests` ตั้งใจไม่แตะชั้นนี้เลย
 
 ### `publishedAt` — เฉพาะแหล่งที่ประกาศเวลาไว้เอง
 

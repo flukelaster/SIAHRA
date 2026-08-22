@@ -16,6 +16,7 @@ const CREDIT_ORDER: SourceId[] = [
   "earthquakes",
   "copernicus-dem",
   "osm",
+  "osm-admin",
   "worldcover",
 ];
 

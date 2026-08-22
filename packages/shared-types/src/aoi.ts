@@ -235,6 +235,15 @@ export interface AoiManifest {
   } | null;
   /** Province outline polygon (GeoJSON, WGS84) for map framing. */
   boundary?: { url: string } | null;
+  /**
+   * Local-authority (อปท.) boundary polygons OSM has actually mapped for this
+   * province (E11.2) — same shape as `boundary`, a small static GeoJSON, not a
+   * tile pyramid. Absent (not `null`) means this province had zero matched
+   * OSM `admin_level=7` relations; "no artefact = no entry", same rule
+   * `apps/etl/src/provenance.ts` states for other layers. Coverage is
+   * genuinely partial — see `apps/etl/data/sources/osm-admin/COVERAGE.md`.
+   */
+  localAuthorities?: { url: string } | null;
   /** Optional waterway / water body / road LOD tiles. */
   features?: FeatureTilePyramid;
   /** Optional land-cover class tiles (vegetation). */

@@ -195,6 +195,9 @@ export const en: Record<keyof typeof th, string> = {
   "legend.layer.buildings": "3D buildings (OSM)",
   "legend.layer.buildings.note": "Whole province · only large/tall buildings from far away · off above {km} km",
   "legend.layer.buildings.error": "Buildings failed to load for this area — the switch is on but nothing is drawn",
+  "legend.layer.localAuthorities": "Local-authority boundaries (OpenStreetMap)",
+  "legend.layer.localAuthorities.note":
+    "Only where OSM has an actual mapped boundary — every city municipality, a partial share of towns/subdistricts/อบต. — not all 7,849 local authorities",
   "legend.waterlevelScale": "Water-level stations (ThaiWater bands)",
   "legend.rainScale": "24 h accumulated rainfall",
   "legend.rain.band1": "< 10 mm",

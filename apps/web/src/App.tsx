@@ -68,6 +68,10 @@ const DEFAULT_LAYERS: MapLayers = {
   radar: true,
   sunlight: true,
   trees: true,
+  // ครอบคลุมไม่ครบทุกจังหวัด/อปท. (E11.2) แต่เป็นของจริงที่ OSM แม็ปไว้ ไม่ใช่ข้อมูล
+  // เสื่อมคุณภาพที่ต้องซ่อนไว้ก่อน — เปิดเป็นค่าเริ่มต้นได้ ตราบใดที่ legend บอก
+  // caveat ความไม่ครบทุกครั้งที่ชั้นนี้แสดงอยู่ (ดู MapLegend.tsx)
+  localAuthorities: true,
 };
 
 /**

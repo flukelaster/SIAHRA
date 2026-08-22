@@ -262,5 +262,8 @@
     "checksums": {
       "terrain.bin": "d29815edd3b98a5662eacef9f9f9be4aa5c75c06c5014016760fba3406837b3c"
     }
+  },
+  "localAuthorities": {
+    "url": "/aoi/90/local-authorities.geojson"
   }
 }

@@ -223,6 +223,9 @@ export const th = {
   "legend.layer.buildings": "อาคาร 3 มิติ (OSM)",
   "legend.layer.buildings.note": "ทั้งจังหวัด · มองไกลแสดงเฉพาะอาคารใหญ่/สูง · ปิดเองเมื่อกล้องสูงเกิน {km} กม.",
   "legend.layer.buildings.error": "โหลดอาคารของพื้นที่นี้ไม่สำเร็จ — สวิตช์ยังเปิดอยู่แต่ไม่มีอะไรวาดบนแผนที่",
+  "legend.layer.localAuthorities": "ขอบเขต อปท. (OpenStreetMap)",
+  "legend.layer.localAuthorities.note":
+    "เฉพาะที่ OSM มีขอบเขตแม็ปไว้จริง — เทศบาลนครครบทุกแห่ง เทศบาลเมือง/ตำบล/อบต. บางส่วนเท่านั้น ไม่ใช่ทั้ง 7,849 อปท.",
   "legend.waterlevelScale": "สถานีวัดระดับน้ำ (เกณฑ์ ThaiWater)",
   "legend.rainScale": "ฝนสะสม 24 ชม.",
   "legend.rain.band1": "< 10 มม.",
