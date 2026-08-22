@@ -104,45 +104,4 @@ describe("Local Authorities Endpoints", () => {
     expect(data.total).toBeGreaterThan(0);
     expect(data.exposures.every((e) => e.provinceCode === "90")).toBe(true);
   });
-
-  it("GET /api/v1/local-authorities/:id/impact returns live observed impact", async () => {
-    const res = await workerFetch("https://siahra-radar.co/api/v1/local-authorities/TH-LAO-901101/impact");
-    expect(res.status).toBe(200);
-
-    const data = (await res.json()) as {
-      classification: string;
-      severity: string;
-      exposure: { populationTotal: number; populationExposed: number };
-      layer: { epistemicClass: string; sourceIds: string[] };
-    };
-
-    expect(data.classification).toBe("observed");
-    expect(["low", "elevated", "high", "severe"]).toContain(data.severity);
-    expect(data.exposure.populationTotal).toBeGreaterThan(100000);
-    expect(data.layer.epistemicClass).toBe("observed");
-    expect(data.layer.sourceIds).toContain("gistda-flood");
-  });
-
-  it("GET /api/v1/local-authorities/impact?province=90 returns province impact ranking", async () => {
-    const res = await workerFetch("https://siahra-radar.co/api/v1/local-authorities/impact?province=90");
-    expect(res.status).toBe(200);
-
-    const data = (await res.json()) as {
-      total: number;
-      provinceCode: string;
-      impacts: Array<{ localAuthority: { id: string }; severity: string }>;
-    };
-
-    expect(data.total).toBeGreaterThan(0);
-    expect(data.provinceCode).toBe("90");
-    expect(Array.isArray(data.impacts)).toBe(true);
-  });
-
-  it("GET /api/v1/local-authorities/impact returns 400 when missing province query", async () => {
-    const res = await workerFetch("https://siahra-radar.co/api/v1/local-authorities/impact");
-    expect(res.status).toBe(400);
-
-    const data = (await res.json()) as { error: string };
-    expect(data.error).toContain("Missing required query parameter");
-  });
 });
