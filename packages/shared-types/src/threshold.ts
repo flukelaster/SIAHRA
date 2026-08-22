@@ -45,7 +45,6 @@ export interface AlertEvent {
   ruleId: string;
   ruleVersion: string;
   localAuthorityId: string;
-  provinceCode: string;
   severity: ThresholdSeverity;
   triggeredAt: string;
   clearedAt: string | null;
@@ -54,21 +53,4 @@ export interface AlertEvent {
   inputSnapshot: Record<string, number | null>;
   acknowledgedBy?: string;
   acknowledgedAt?: string;
-}
-
-/**
- * Response envelope for active alerts query endpoint.
- */
-export interface ActiveAlertsResponse {
-  total: number;
-  evaluatedAt: string;
-  alerts: AlertEvent[];
-}
-
-/**
- * Response envelope for threshold rules query endpoint.
- */
-export interface ThresholdRulesResponse {
-  total: number;
-  rules: ThresholdRule[];
 }

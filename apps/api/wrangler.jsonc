@@ -45,16 +45,14 @@
       { "name": "FORECAST_POINTER", "class_name": "ForecastPointerDO" },
       { "name": "OBSERVATION_CACHE", "class_name": "ObservationCacheDO" },
       { "name": "FLOOD_EXTENT", "class_name": "FloodExtentDO" },
-      { "name": "RADAR", "class_name": "RadarDO" },
-      { "name": "ALERT_ENGINE", "class_name": "AlertEngineDO" }
+      { "name": "RADAR", "class_name": "RadarDO" }
     ]
   },
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["EarthquakeFeedDO", "ForecastPointerDO"] },
     { "tag": "v2", "new_sqlite_classes": ["ObservationCacheDO"] },
     { "tag": "v3", "new_sqlite_classes": ["FloodExtentDO"] },
-    { "tag": "v4", "new_sqlite_classes": ["RadarDO"] },
-    { "tag": "v5", "new_sqlite_classes": ["AlertEngineDO"] }
+    { "tag": "v4", "new_sqlite_classes": ["RadarDO"] }
   ],
 
   "triggers": { "crons": ["* * * * *"] },
