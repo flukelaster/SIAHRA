@@ -16,6 +16,7 @@ export type SourceId =
   | "exposure-illustrative"
   | "copernicus-dem"
   | "osm"
+  | "osm-admin"
   | "worldcover"
   | "esri-world-imagery"
   | "eox-s2cloudless"
@@ -130,6 +131,21 @@ export const SOURCES: Record<SourceId, SourceDescriptor> = {
     licenseName: "ODbL 1.0",
     licenseUrl: "https://opendatacommons.org/licenses/odbl/1-0/",
     attributionText: "ข้อมูลอาคาร ถนน และแหล่งน้ำ © ผู้ร่วมสร้าง OpenStreetMap (ODbL)",
+    kind: "static",
+  },
+  "osm-admin": {
+    id: "osm-admin",
+    nameTh: "ขอบเขตองค์กรปกครองส่วนท้องถิ่น (OpenStreetMap)",
+    nameEn: "Local-authority administrative boundaries (OpenStreetMap)",
+    // แยก id จาก "osm" (อาคาร/ถนน/แหล่งน้ำ) โดยตั้งใจ — เป็นคนละชุดข้อมูล
+    // (admin relation ไม่ใช่ feature ทางกายภาพ) แหล่งที่มาเดียวกันแต่ที่มาของ
+    // ความน่าเชื่อถือคนละเรื่อง ให้ /api/v1/health-style tooling แยกแยะได้
+    agency: "OpenStreetMap contributors",
+    homepageUrl: "https://www.openstreetmap.org/copyright",
+    licenseName: "ODbL 1.0",
+    licenseUrl: "https://opendatacommons.org/licenses/odbl/1-0/",
+    attributionText:
+      "ขอบเขตองค์กรปกครองส่วนท้องถิ่น © ผู้ร่วมสร้าง OpenStreetMap (ODbL) — ผู้ร่วมสร้าง OSM ไม่ได้รับรองหรือมีส่วนเกี่ยวข้องกับโครงการนี้",
     kind: "static",
   },
   worldcover: {

@@ -12,6 +12,10 @@ import type {
   SourceId,
 } from "@siahra/shared-types";
 import { buildBoundaryOutline, type BoundaryOutlineResult } from "../../scene/BoundaryOutline";
+import {
+  buildLocalAuthorityOutline,
+  type LocalAuthorityOutlineResult,
+} from "../../scene/LocalAuthorityOutline";
 import { buildBuildingLayer } from "../../scene/BuildingLayer";
 import { buildDamMarkers, type DamMarkerResult } from "../../scene/DamMarkers";
 import { BuildingTileLayer } from "../../scene/BuildingTiles";
@@ -65,6 +69,12 @@ export interface MapLayers {
   sunlight: boolean;
   /** Trees from ESA WorldCover on nearby tiles. */
   trees: boolean;
+  /**
+   * ขอบเขต อปท. จาก OSM `admin_level=7` (E11.2) — ครอบคลุมไม่ครบทุกจังหวัด/อปท.
+   * โดยตั้งใจ (ดู `staticLayerDescriptors.ts`) เปิดเป็นค่าเริ่มต้นได้เพราะเป็น
+   * ข้อมูลจริงที่ครอบคลุมบางส่วน ไม่ใช่ข้อมูลที่เสื่อมคุณภาพซึ่งต้องซ่อนไว้ก่อน
+   */
+  localAuthorities: boolean;
 }
 
 export interface MapInfo {
@@ -193,6 +203,7 @@ export function Map3DCanvas({
   } | null>(null);
   const buildingsRef = useRef<THREE.Mesh | null>(null);
   const boundaryRef = useRef<BoundaryOutlineResult | null>(null);
+  const localAuthoritiesRef = useRef<LocalAuthorityOutlineResult | null>(null);
   const markersRef = useRef<StationMarkerResult | null>(null);
   const labelsRef = useRef<THREE.Group | null>(null);
   const quakesRef = useRef<EarthquakeMarkerResult | null>(null);
@@ -518,6 +529,19 @@ export function Map3DCanvas({
           handles.onResize(outline.setResolution);
         }
 
+        // อปท. (OSM admin_level=7) — จังหวัดที่ไม่มีขอบเขตที่ OSM แม็ปไว้จะได้ null
+        // เงียบ ๆ (ไม่ใช่ error ทั้งฉาก, ดู localAuthorityBoundaries.ts)
+        const localAuthorityOutline = await buildLocalAuthorityOutline(manifest, terrain.sample);
+        if (cancelled || !handles) return;
+        if (localAuthorityOutline) {
+          // ค่าเริ่มต้นของ visible ถูกเซ็ตจริงโดย effect ที่ผูกกับ `layers` ด้านล่าง
+          // (รันอีกครั้งทันทีที่ state เปลี่ยนเป็น "ready") รูปแบบเดียวกับ
+          // buildingTiles/featureTiles — ไม่ต้องอ่านค่า `layers` ที่นี่
+          localAuthoritiesRef.current = localAuthorityOutline;
+          handles.world.add(localAuthorityOutline.group);
+          handles.onResize(localAuthorityOutline.setResolution);
+        }
+
         // Legacy urban-core footprints only when the province has no
         // building tile pyramid (tiles stream on their own).
         if (!buildingTiles) {
@@ -576,6 +600,8 @@ export function Map3DCanvas({
       buildingsRef.current = null;
       boundaryRef.current?.dispose();
       boundaryRef.current = null;
+      localAuthoritiesRef.current?.dispose();
+      localAuthoritiesRef.current = null;
       markersRef.current?.dispose();
       markersRef.current = null;
       if (labelsRef.current) disposeLabels(labelsRef.current);
@@ -1023,6 +1049,9 @@ export function Map3DCanvas({
         loaded.featureTiles.roadsGroup.visible = layers.roads;
         loaded.featureTiles.waterGroup.visible = layers.water;
       }
+    }
+    if (localAuthoritiesRef.current) {
+      localAuthoritiesRef.current.group.visible = layers.localAuthorities;
     }
     if (markersRef.current) {
       markersRef.current.dots.visible = layers.stations;

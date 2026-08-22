@@ -212,6 +212,7 @@ Two conventions a branch ruleset can't express — a PR that touches UI files mu
 | Satellite flood extent | GISTDA | Open Data Commons |
 | Earthquake cross-check | USGS, EMSC | Public data policy |
 | Local-authority (อปท.) registry | Department of Local Administration (DLA) | Open Data Common |
+| Local-authority (อปท.) boundaries | OpenStreetMap (`admin_level=7` relations) | ODbL |
 
 This is an attribution list, **not** a claim of authorship or endorsement — these agencies supply the data; they did not build or endorse this application. Several upstream layers referenced in [`docs/SIAHRA-implement-plan.md`](docs/SIAHRA-implement-plan.md) (e.g. some LDD soil datasets) carry non-commercial or share-alike terms and are deliberately **not** wired into the live product; verify licensing before adding any new source.
 

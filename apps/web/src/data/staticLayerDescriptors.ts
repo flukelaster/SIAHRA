@@ -76,6 +76,26 @@ export const STATIC_LAYER_DESCRIPTORS: Partial<Record<keyof MapLayers, HazardLay
     fetchedAt: null,
     sourceIds: ["osm"],
   },
+  /**
+   * ขอบเขต อปท. จาก OSM `admin_level=7` (E11.2) — ครอบคลุมเฉพาะที่ OSM มีขอบเขต
+   * จริงเท่านั้น (431/488 relation ที่จับคู่กับทะเบียน DLA ได้ ณ ตอนสร้าง ครบทั้ง
+   * เทศบาลนคร บางส่วนของเทศบาลเมือง/ตำบล/อบต. — ดูตัวเลขจริงที่
+   * apps/etl/data/sources/osm-admin/COVERAGE.md) ไม่ใช่ทั้ง 7,849 อปท.
+   *
+   * ค่า publishedAt/fetchedAt เป็นค่าคงที่จริงจากรอบ extraction ล่าสุด (ไม่ใช่
+   * เดา) — ไม่ถูกเติมโดย `useLayerDescriptors`'s `PROVENANCE_LAYER_FOR` เพราะ
+   * `localAuthorities` ไม่ใช่ layer ใน `AoiProvenanceLayer` (ตั้งใจไม่แตะ
+   * refreshManifests.ts — ดู E11.2 task) อัปเดตคู่กับ COVERAGE.md เวลารีรัน
+   */
+  localAuthorities: {
+    id: "local-authority-boundaries",
+    epistemicClass: "static-reference",
+    liveOrStatic: "static",
+    // osmosis_replication_timestamp ของ thailand-latest.osm.pbf ตอน extract
+    publishedAt: "2026-08-15T20:21:20Z",
+    fetchedAt: "2026-08-22T18:07:56Z",
+    sourceIds: ["osm-admin"],
+  },
   trees: {
     id: "trees",
     epistemicClass: "static-reference",
