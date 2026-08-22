@@ -145,4 +145,45 @@ describe("Local Authorities Endpoints", () => {
     const data = (await res.json()) as { error: string };
     expect(data.error).toContain("Missing required query parameter");
   });
+
+  it("GET /api/v1/local-authorities/:id/agriculture returns DLD & DOAE metrics", async () => {
+    const res = await workerFetch("https://siahra-radar.co/api/v1/local-authorities/TH-LAO-901101/agriculture");
+    expect(res.status).toBe(200);
+
+    const data = (await res.json()) as {
+      localAuthorityId: string;
+      livestock: { poultry: number };
+      crops: { totalCropHa: number };
+      descriptor: { sourceIds: string[] };
+    };
+
+    expect(data.localAuthorityId).toBe("TH-LAO-901101");
+    expect(data.livestock.poultry).toBeGreaterThan(0);
+    expect(data.crops.totalCropHa).toBeGreaterThan(0);
+    expect(data.descriptor.sourceIds).toContain("dld");
+    expect(data.descriptor.sourceIds).toContain("doae");
+  });
+
+  it("GET /api/v1/local-authorities/:id/flash-flood returns slope risk analytics", async () => {
+    const res = await workerFetch("https://siahra-radar.co/api/v1/local-authorities/TH-LAO-500101/flash-flood");
+    expect(res.status).toBe(200);
+
+    const data = (await res.json()) as {
+      localAuthorityId: string;
+      flashFloodRisk: { slopeDegree: number; riskLevel: string };
+    };
+
+    expect(data.localAuthorityId).toBe("TH-LAO-500101");
+    expect(data.flashFloodRisk.slopeDegree).toBeGreaterThan(10);
+    expect(["moderate", "high", "critical"]).toContain(data.flashFloodRisk.riskLevel);
+  });
+
+  it("GET /api/v1/historical/events returns historical flood events", async () => {
+    const res = await workerFetch("https://siahra-radar.co/api/v1/historical/events");
+    expect(res.status).toBe(200);
+
+    const data = (await res.json()) as { total: number; events: Array<{ id: string; year: number }> };
+    expect(data.total).toBeGreaterThanOrEqual(5);
+    expect(data.events.some((e) => e.id === "EVENT-2011-CHAOPHRAYA")).toBe(true);
+  });
 });

@@ -12,10 +12,16 @@ import {
   handleLocalAuthoritiesExposureList,
   handleLocalAuthoritiesImpactList,
   handleLocalAuthoritiesList,
+  handleLocalAuthorityAgriculture,
   handleLocalAuthorityDetail,
   handleLocalAuthorityExposure,
+  handleLocalAuthorityFlashFlood,
   handleLocalAuthorityImpact,
 } from "./routes/localAuthorities.js";
+import {
+  handleHistoricalEventDetail,
+  handleHistoricalEvents,
+} from "./routes/historical.js";
 import {
   handleActiveAlerts,
   handleAlertRules,
@@ -116,8 +122,32 @@ export const routes: Route[] = [
   },
   {
     method: "GET",
+    pattern: /^\/api\/v1\/local-authorities\/([A-Za-z0-9_-]+)\/agriculture$/,
+    handler: (_req, env, [id]) => handleLocalAuthorityAgriculture(id, env),
+    limit: { perMinute: 300 },
+  },
+  {
+    method: "GET",
+    pattern: /^\/api\/v1\/local-authorities\/([A-Za-z0-9_-]+)\/flash-flood$/,
+    handler: (_req, env, [id]) => handleLocalAuthorityFlashFlood(id, env),
+    limit: { perMinute: 300 },
+  },
+  {
+    method: "GET",
     pattern: /^\/api\/v1\/local-authorities\/([A-Za-z0-9_-]+)$/,
     handler: (_req, env, [id]) => handleLocalAuthorityDetail(id, env),
+    limit: { perMinute: 300 },
+  },
+  {
+    method: "GET",
+    pattern: /^\/api\/v1\/historical\/events$/,
+    handler: (req, env) => handleHistoricalEvents(req, env),
+    limit: { perMinute: 300 },
+  },
+  {
+    method: "GET",
+    pattern: /^\/api\/v1\/historical\/events\/([A-Za-z0-9_-]+)$/,
+    handler: (_req, env, [id]) => handleHistoricalEventDetail(id, env),
     limit: { perMinute: 300 },
   },
   {

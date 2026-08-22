@@ -179,3 +179,53 @@ export async function handleLocalAuthoritiesImpactList(req: Request, env: AppEnv
     },
   );
 }
+
+/**
+ * GET /api/v1/local-authorities/:id/agriculture
+ */
+export async function handleLocalAuthorityAgriculture(id: string, _env: AppEnv): Promise<Response> {
+  const baseline = getBaselineExposure(id);
+  if (!baseline) {
+    return json({ error: `Agriculture exposure for local authority "${id}" not found` }, { status: 404 });
+  }
+
+  return json(
+    {
+      localAuthorityId: id,
+      livestock: baseline.livestock,
+      crops: baseline.crops,
+      descriptor: {
+        id: "agriculture-exposure",
+        epistemicClass: "static-reference",
+        liveOrStatic: "static",
+        publishedAt: "2026-08-20T00:00:00Z",
+        fetchedAt: "2026-08-20T00:00:00Z",
+        sourceIds: ["dld", "doae"],
+      },
+    },
+    {
+      cache: cachePolicy.slowMoving,
+    },
+  );
+}
+
+/**
+ * GET /api/v1/local-authorities/:id/flash-flood
+ */
+export async function handleLocalAuthorityFlashFlood(id: string, _env: AppEnv): Promise<Response> {
+  const baseline = getBaselineExposure(id);
+  if (!baseline) {
+    return json({ error: `Flash flood analytics for local authority "${id}" not found` }, { status: 404 });
+  }
+
+  return json(
+    {
+      localAuthorityId: id,
+      flashFloodRisk: baseline.flashFloodRisk,
+    },
+    {
+      cache: cachePolicy.slowMoving,
+    },
+  );
+}
+

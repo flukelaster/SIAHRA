@@ -55,6 +55,10 @@ edit in that table.
 | `/api/v1/local-authorities/impact` | GET | 300 | default | per route | Live observed impact summary for local authorities in a province |
 | `/api/v1/local-authorities/{id}/impact` | GET | 300 | default | per route | Live observed impact detail for a specific local authority |
 | `/api/v1/local-authorities/{id}` | GET | 300 | default | per route | Local authority detail by canonical ID or DLA code |
+| `/api/v1/local-authorities/{id}/agriculture` | GET | 300 | default | per route | Livestock (DLD) and agricultural crops (DOAE) exposure |
+| `/api/v1/local-authorities/{id}/flash-flood` | GET | 300 | default | per route | Flash flood vulnerability and slope catchment risk |
+| `/api/v1/historical/events` | GET | 300 | default | per route | List historical benchmark flood events |
+| `/api/v1/historical/events/{id}` | GET | 300 | default | per route | Historical flood event benchmark detail |
 | `/api/v1/alerts/active` | GET | 300 | default | per route | Query currently active alert events (with DO persistence) |
 | `/api/v1/alerts/rules` | GET | 300 | default | per route | List configured deterministic threshold rules |
 | `/api/v1/alerts/evaluate` | POST | 60 | default | per route | Deterministic evaluation of telemetry against threshold rules |
@@ -98,6 +102,10 @@ Two rules are enforced by `json()` in `apps/api/src/router.ts` rather than by ea
 | `/api/v1/local-authorities/impact` | `floodExtent(retrievedAt)` | `public, max-age=300, s-maxage=600`, or `no-store` when nothing has ever been retrieved |
 | `/api/v1/local-authorities/{id}/impact` | `floodExtent(retrievedAt)` | as above |
 | `/api/v1/local-authorities/{id}` | `slowMoving` | `public, max-age=300` |
+| `/api/v1/local-authorities/{id}/agriculture` | `slowMoving` | `public, max-age=300` |
+| `/api/v1/local-authorities/{id}/flash-flood` | `slowMoving` | `public, max-age=300` |
+| `/api/v1/historical/events` | `slowMoving` | `public, max-age=300` |
+| `/api/v1/historical/events/{id}` | `slowMoving` | `public, max-age=300` |
 | `/api/v1/alerts/active` | `realtime` | `public, max-age=10, s-maxage=20` |
 | `/api/v1/alerts/rules` | `slowMoving` | `public, max-age=300` |
 | `/api/v1/alerts/evaluate` | `noStore` | `no-store` |
