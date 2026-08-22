@@ -18,7 +18,8 @@ export type SourceId =
   | "osm"
   | "worldcover"
   | "esri-world-imagery"
-  | "eox-s2cloudless";
+  | "eox-s2cloudless"
+  | "dla";
 
 export interface SourceDescriptor {
   id: SourceId;
@@ -163,6 +164,23 @@ export const SOURCES: Record<SourceId, SourceDescriptor> = {
     licenseName: "CC BY-NC-SA 4.0",
     licenseUrl: "https://creativecommons.org/licenses/by-nc-sa/4.0/",
     attributionText: "Sentinel-2 cloudless by EOX IT Services (CC BY-NC-SA 4.0), Copernicus",
+    kind: "static",
+  },
+  dla: {
+    id: "dla",
+    nameTh: "ทะเบียนองค์กรปกครองส่วนท้องถิ่น (กรมส่งเสริมการปกครองท้องถิ่น)",
+    nameEn: "Local Administrative Organization registry (DLA)",
+    agency: "กรมส่งเสริมการปกครองท้องถิ่น (DLA)",
+    homepageUrl: "https://opendata.dla.go.th/en/dataset/dlads_05_01",
+    // เว็บ dataset ของ DLA ระบุชื่อสัญญาอนุญาตไว้ตรง ๆ ว่า "Open Data Common" —
+    // เป็นชื่อที่ไม่ปกติ (ไม่ใช่ Open Data Commons ที่รู้จักกันทั่วไป) แต่คงไว้ตามที่
+    // ต้นทางเขียนจริง ไม่ตั้งชื่อใหม่ให้เอง
+    licenseName: "Open Data Common",
+    // ไม่มีหน้าสัญญาอนุญาตแยกต่างหาก — ลิงก์ไปหน้า dataset เอง
+    licenseUrl: "https://opendata.dla.go.th/en/dataset/dlads_05_01",
+    attributionText:
+      "ทะเบียนองค์กรปกครองส่วนท้องถิ่นจากชุดข้อมูลเปิดของกรมส่งเสริมการปกครองท้องถิ่น (DLA)",
+    // baked เข้า bundle ตอน build (ETL) ไม่ได้ poll สด จึงไม่มีสถานะให้รายงานใน /api/v1/health
     kind: "static",
   },
 };
