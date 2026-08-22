@@ -49,19 +49,6 @@ edit in that table.
 | `/api/v1/exposure/runs/{runId}` | GET | 120 | default | shared `exposure-run` | Reads one immutable R2 object per call; one shared bucket across all run ids |
 | `/api/v1/radar/frames` | GET | 300 | default | per route | Frame index for the last N hours |
 | `/api/v1/radar/frame/{tsMs}.png` | GET | 600 | default | shared `radar-frame` | An animation loop pulls one image per frame; one shared bucket across all frames |
-| `/api/v1/local-authorities` | GET | 300 | default | per route | Search and filter local authorities (อปท.) |
-| `/api/v1/local-authorities/exposure` | GET | 300 | default | per route | List baseline exposures (WorldPop/OSM) per อปท. |
-| `/api/v1/local-authorities/{id}/exposure` | GET | 300 | default | per route | Baseline exposure detail for a specific อปท. |
-| `/api/v1/local-authorities/impact` | GET | 300 | default | per route | Live observed impact summary for local authorities in a province |
-| `/api/v1/local-authorities/{id}/impact` | GET | 300 | default | per route | Live observed impact detail for a specific local authority |
-| `/api/v1/local-authorities/{id}` | GET | 300 | default | per route | Local authority detail by canonical ID or DLA code |
-| `/api/v1/local-authorities/{id}/agriculture` | GET | 300 | default | per route | Livestock (DLD) and agricultural crops (DOAE) exposure |
-| `/api/v1/local-authorities/{id}/flash-flood` | GET | 300 | default | per route | Flash flood vulnerability and slope catchment risk |
-| `/api/v1/historical/events` | GET | 300 | default | per route | List historical benchmark flood events |
-| `/api/v1/historical/events/{id}` | GET | 300 | default | per route | Historical flood event benchmark detail |
-| `/api/v1/alerts/active` | GET | 300 | default | per route | Query currently active alert events (with DO persistence) |
-| `/api/v1/alerts/rules` | GET | 300 | default | per route | List configured deterministic threshold rules |
-| `/api/v1/alerts/evaluate` | POST | 60 | default | per route | Deterministic evaluation of telemetry against threshold rules |
 
 A rejected request answers `429 {"error":"Too many requests","retryAfterSeconds":N}` plus
 `Retry-After: N`. `/api/v1/health` reports how many 429s this isolate issued in the last hour under
@@ -96,19 +83,6 @@ Two rules are enforced by `json()` in `apps/api/src/router.ts` rather than by ea
 | `/api/v1/exposure/runs/{runId}` | `frozenArtifact(key)` | `public, max-age=31536000, immutable` — the key contains the run's content hash, so it can never change |
 | `/api/v1/radar/frames` | `radarFrames` | `public, max-age=60` |
 | `/api/v1/radar/frame/{tsMs}.png` | `radarFrame` | `public, max-age=86400, immutable` |
-| `/api/v1/local-authorities` | `slowMoving` | `public, max-age=300` |
-| `/api/v1/local-authorities/exposure` | `slowMoving` | `public, max-age=300` |
-| `/api/v1/local-authorities/{id}/exposure` | `slowMoving` | `public, max-age=300` |
-| `/api/v1/local-authorities/impact` | `floodExtent(retrievedAt)` | `public, max-age=300, s-maxage=600`, or `no-store` when nothing has ever been retrieved |
-| `/api/v1/local-authorities/{id}/impact` | `floodExtent(retrievedAt)` | as above |
-| `/api/v1/local-authorities/{id}` | `slowMoving` | `public, max-age=300` |
-| `/api/v1/local-authorities/{id}/agriculture` | `slowMoving` | `public, max-age=300` |
-| `/api/v1/local-authorities/{id}/flash-flood` | `slowMoving` | `public, max-age=300` |
-| `/api/v1/historical/events` | `slowMoving` | `public, max-age=300` |
-| `/api/v1/historical/events/{id}` | `slowMoving` | `public, max-age=300` |
-| `/api/v1/alerts/active` | `realtime` | `public, max-age=10, s-maxage=20` |
-| `/api/v1/alerts/rules` | `slowMoving` | `public, max-age=300` |
-| `/api/v1/alerts/evaluate` | `noStore` | `no-store` |
 | any 4xx / 5xx | `noStore` | `no-store` |
 
 `stale-while-revalidate` was considered for the observations response (roadmap E4.6 sketches it) and

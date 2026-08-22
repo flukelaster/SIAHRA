@@ -484,16 +484,6 @@ const LAYER_ROWS: {
     noteKey: "legend.layer.buildings.note",
     swatch: <span className="h-3 w-5 rounded-sm bg-[#d6d9de]" />,
   },
-  {
-    key: "localAuthorities",
-    labelKey: "legend.layer.localAuthorities",
-    noteKey: "legend.layer.localAuthorities.note",
-    swatch: (
-      <span
-        className="h-3 w-5 rounded-sm border border-sky-400 bg-sky-500/20 shadow-[0_0_6px_rgba(56,189,248,0.4)]"
-      />
-    ),
-  },
 ];
 
 /**

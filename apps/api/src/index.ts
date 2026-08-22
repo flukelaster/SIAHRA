@@ -8,28 +8,8 @@ import { handleObservations } from "./routes/observations.js";
 import { handleRadarFrame, handleRadarFrames } from "./routes/radar.js";
 import { handleDams, handleStationHistory } from "./routes/stations.js";
 import { handleArchiveDays, handleArchiveSnapshot } from "./routes/archive.js";
-import {
-  handleLocalAuthoritiesExposureList,
-  handleLocalAuthoritiesImpactList,
-  handleLocalAuthoritiesList,
-  handleLocalAuthorityAgriculture,
-  handleLocalAuthorityDetail,
-  handleLocalAuthorityExposure,
-  handleLocalAuthorityFlashFlood,
-  handleLocalAuthorityImpact,
-} from "./routes/localAuthorities.js";
-import {
-  handleHistoricalEventDetail,
-  handleHistoricalEvents,
-} from "./routes/historical.js";
-import {
-  handleActiveAlerts,
-  handleAlertRules,
-  handleEvaluateAlerts,
-} from "./routes/alerts.js";
 import type { AppEnv } from "./types.js";
 
-export { AlertEngineDO } from "./durable-objects/alert-engine.js";
 export { EarthquakeFeedDO } from "./durable-objects/earthquake-feed.js";
 export { FloodExtentDO } from "./durable-objects/flood-extent.js";
 export { ForecastPointerDO } from "./durable-objects/forecast-pointer.js";
@@ -89,84 +69,6 @@ export const routes: Route[] = [
     // และเป็น artefact แช่แข็งที่ CDN แคชได้หนึ่งปี คำขอที่ถึง origin จริงจึงมีน้อย
     limit: { perMinute: 120 },
     limitScope: "exposure-run",
-  },
-  {
-    method: "GET",
-    pattern: /^\/api\/v1\/local-authorities$/,
-    handler: (req, env) => handleLocalAuthoritiesList(req, env),
-    limit: { perMinute: 300 },
-  },
-  {
-    method: "GET",
-    pattern: /^\/api\/v1\/local-authorities\/exposure$/,
-    handler: (req, env) => handleLocalAuthoritiesExposureList(req, env),
-    limit: { perMinute: 300 },
-  },
-  {
-    method: "GET",
-    pattern: /^\/api\/v1\/local-authorities\/impact$/,
-    handler: (req, env) => handleLocalAuthoritiesImpactList(req, env),
-    limit: { perMinute: 300 },
-  },
-  {
-    method: "GET",
-    pattern: /^\/api\/v1\/local-authorities\/([A-Za-z0-9_-]+)\/exposure$/,
-    handler: (_req, env, [id]) => handleLocalAuthorityExposure(id, env),
-    limit: { perMinute: 300 },
-  },
-  {
-    method: "GET",
-    pattern: /^\/api\/v1\/local-authorities\/([A-Za-z0-9_-]+)\/impact$/,
-    handler: (_req, env, [id]) => handleLocalAuthorityImpact(id, env),
-    limit: { perMinute: 300 },
-  },
-  {
-    method: "GET",
-    pattern: /^\/api\/v1\/local-authorities\/([A-Za-z0-9_-]+)\/agriculture$/,
-    handler: (_req, env, [id]) => handleLocalAuthorityAgriculture(id, env),
-    limit: { perMinute: 300 },
-  },
-  {
-    method: "GET",
-    pattern: /^\/api\/v1\/local-authorities\/([A-Za-z0-9_-]+)\/flash-flood$/,
-    handler: (_req, env, [id]) => handleLocalAuthorityFlashFlood(id, env),
-    limit: { perMinute: 300 },
-  },
-  {
-    method: "GET",
-    pattern: /^\/api\/v1\/local-authorities\/([A-Za-z0-9_-]+)$/,
-    handler: (_req, env, [id]) => handleLocalAuthorityDetail(id, env),
-    limit: { perMinute: 300 },
-  },
-  {
-    method: "GET",
-    pattern: /^\/api\/v1\/historical\/events$/,
-    handler: (req, env) => handleHistoricalEvents(req, env),
-    limit: { perMinute: 300 },
-  },
-  {
-    method: "GET",
-    pattern: /^\/api\/v1\/historical\/events\/([A-Za-z0-9_-]+)$/,
-    handler: (_req, env, [id]) => handleHistoricalEventDetail(id, env),
-    limit: { perMinute: 300 },
-  },
-  {
-    method: "GET",
-    pattern: /^\/api\/v1\/alerts\/active$/,
-    handler: (req, env) => handleActiveAlerts(req, env),
-    limit: { perMinute: 300 },
-  },
-  {
-    method: "GET",
-    pattern: /^\/api\/v1\/alerts\/rules$/,
-    handler: (req, env) => handleAlertRules(req, env),
-    limit: { perMinute: 300 },
-  },
-  {
-    method: "POST",
-    pattern: /^\/api\/v1\/alerts\/evaluate$/,
-    handler: (req, env) => handleEvaluateAlerts(req, env),
-    limit: { perMinute: 60 },
   },
 ];
 
