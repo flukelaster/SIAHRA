@@ -70,7 +70,17 @@ function withProvenance(
 /** เรียงจากดีสุดไปแย่สุด — ชั้นหนึ่งอาจใช้หลายแหล่ง จึงรายงานอันที่แย่ที่สุด */
 const HEALTH_ORDER: SourceHealth[] = ["ok", "delayed", "stale", "degraded", "down", "unknown"];
 
-function worstHealth(ids: readonly SourceId[], health: HealthResponse | null): SourceHealth | null {
+/** เรียงจากดีสุดไปแย่สุด — ชั้นหนึ่งอาจใช้หลายแหล่ง จึงรายงานอันที่แย่ที่สุด
+ *
+ * Exported for reuse outside this hook (e.g. `hooks/useLocalAuthorityImpact.ts`,
+ * `hooks/useAffectedAuthorities.ts`): any card that renders a `HazardLayerDescriptor`
+ * needs the same "worst of its `sourceIds`" join against `/api/v1/health`, and
+ * copying this loop a second time would let the two drift. `null` here means
+ * "no `sourceIds` matched a live entry in `/health`" — e.g. a purely
+ * static-reference source like `dla`/`osm`/`worldpop` that has no live feed and
+ * therefore no health row by design; callers must render that as "no live
+ * source to check", never as a green "ok" dot. */
+export function worstHealth(ids: readonly SourceId[], health: HealthResponse | null): SourceHealth | null {
   if (!health) return null;
   let worst: SourceHealth | null = null;
   for (const id of ids) {

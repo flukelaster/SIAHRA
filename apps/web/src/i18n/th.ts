@@ -321,6 +321,7 @@ export const th = {
   "sheet.tab.province": "จังหวัด",
   "sheet.tab.layers": "ชั้นข้อมูล",
   "sheet.tab.flood": "น้ำท่วม",
+  "sheet.tab.impact": "ผลกระทบ อปท.",
   "sheet.tab.water": "ระดับน้ำ",
   "sheet.tab.rain": "ฝน",
   "sheet.tab.dams": "เขื่อน",
@@ -489,4 +490,57 @@ export const th = {
    */
   "methodology.thaiOnly":
     "เอกสารวิธีคำนวณฉบับนี้มีเฉพาะภาษาไทย ยังไม่มีฉบับแปลเป็นภาษาอังกฤษ",
+
+  // ── ประเภท อปท. (E11.1) ───────────────────────────────────────────────
+  "localAuthority.type.provincial_admin_org": "อบจ.",
+  "localAuthority.type.city_municipality": "เทศบาลนคร",
+  "localAuthority.type.town_municipality": "เทศบาลเมือง",
+  "localAuthority.type.subdistrict_municipality": "เทศบาลตำบล",
+  "localAuthority.type.subdistrict_admin_org": "อบต.",
+  "localAuthority.type.special_admin_area": "ท้องถิ่นรูปแบบพิเศษ",
+
+  // ── สรุปผลกระทบ อปท. (E11.6) ─────────────────────────────────────────
+  "impact.card.title": "สรุปผลกระทบ อปท.",
+  "impact.card.selectPrompt": "เลือก อปท. จากรายการด้านล่างเพื่อดูรายละเอียด",
+  "impact.card.noCoverage":
+    "อปท. รายนี้ยังไม่มีขอบเขตหรือเส้นฐานข้อมูลจริงให้คำนวณผลกระทบ",
+  "impact.card.loadError": "โหลดข้อมูลผลกระทบไม่สำเร็จ: {error}",
+  "impact.section.baseline": "ข้อมูลพื้นฐาน (คงที่)",
+  "impact.section.flood": "ผลกระทบจากน้ำท่วมปัจจุบัน",
+  "impact.population.label": "ประชากร",
+  "impact.population.estimateNote": "ประมาณการ WorldPop 2020 — ไม่ใช่ตัวเลขนับจริง",
+  "impact.buildings.label": "อาคาร (เส้นฐาน)",
+  "impact.floodedArea.label": "พื้นที่น้ำท่วม",
+  "impact.floodedFraction.label": "สัดส่วนพื้นที่ท่วม",
+  "impact.floodedFraction.neverFetched": "GISTDA ยังไม่เคยดึงฉากน้ำท่วมสำเร็จเลย",
+  "impact.facilitiesExposed.label": "สถานที่สำคัญในพื้นที่น้ำท่วม",
+  "impact.facilitiesExposed.hospitals": "โรงพยาบาล {n}",
+  "impact.facilitiesExposed.schools": "โรงเรียน {n}",
+  "impact.facilitiesExposed.fireStations": "สถานีดับเพลิง {n}",
+  "impact.facilitiesExposed.none": "ไม่มีสถานที่สำคัญในพื้นที่น้ำท่วมขณะนี้",
+  "impact.populationExposed.label": "ประชากรที่อาจเผชิญน้ำท่วม (คำนวณจากสัดส่วนพื้นที่)",
+  "impact.buildingsExposed.label": "อาคารที่อาจเผชิญน้ำท่วม (คำนวณจากสัดส่วนพื้นที่)",
+  "impact.method.areaWeighted":
+    "คำนวณจากสัดส่วนพื้นที่ที่ถูกน้ำท่วมทับเส้นฐาน ไม่ใช่การนับทีละหลัง ไม่ใช่การพยากรณ์",
+
+  // ── แถบแจ้งเตือน อปท. (E11.6) ─────────────────────────────────────────
+  "alert.banner.title": "การแจ้งเตือน อปท.",
+  "alert.banner.neverEvaluated": "ระบบแจ้งเตือนยังไม่เคยประมวลผลเลยตั้งแต่เริ่มทำงาน",
+  "alert.banner.unreachable": "ติดต่อระบบแจ้งเตือนไม่ได้ในขณะนี้",
+  "alert.banner.none": "ประเมินแล้ว — ไม่มีการแจ้งเตือนที่ active อยู่ในขณะนี้",
+  "alert.banner.degraded": "เชื่อมต่อระบบแจ้งเตือนไม่ได้ในรอบล่าสุด — รายการด้านล่างอาจไม่ทันปัจจุบัน",
+  "alert.banner.evaluatedAge": "ประเมินล่าสุด {age}",
+  "alert.banner.stale": "ค้าง — สถานีขาดข้อมูลในรอบล่าสุด",
+  "alert.banner.triggeredAt": "เริ่มเมื่อ {time}",
+  "alert.banner.count": "{n} รายการ active",
+
+  // ── รายชื่อ อปท. ที่ได้รับผลกระทบ (E11.6) ───────────────────────────────
+  "authorityList.title": "อปท. ที่ได้รับผลกระทบ",
+  "authorityList.empty.noCoverage":
+    "จังหวัดนี้ยังไม่มี อปท. รายใดมีขอบเขต E11.2 จริงให้คำนวณ",
+  "authorityList.loadError": "โหลดรายชื่อ อปท. ไม่สำเร็จ: {error}",
+  "authorityList.floodedFraction": "ท่วม {pct}%",
+  "authorityList.neverFetched": "GISTDA ยังไม่เคยดึงข้อมูลสำเร็จ",
+  "authorityList.unavailable": "ตรวจสอบผลกระทบของรายนี้ไม่สำเร็จ",
+  "authorityList.facilitiesCount": "{n} สถานที่สำคัญในพื้นที่ท่วม",
 } as const;

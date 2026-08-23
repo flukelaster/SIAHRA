@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BottomBar } from "./components/layout/BottomBar";
 import type { MapApi, MapInfo, MapLayers } from "./components/layout/Map3DCanvas";
 import { MapViewport } from "./components/layout/MapViewport";
@@ -15,6 +15,9 @@ import { useEarthquakeFeed } from "./hooks/useEarthquakeFeed";
 import { useDams } from "./hooks/useDams";
 import { useFloodExposure } from "./hooks/useFloodExposure";
 import { useFloodExtent } from "./hooks/useFloodExtent";
+import { useAffectedAuthorities } from "./hooks/useAffectedAuthorities";
+import { useActiveAlerts } from "./hooks/useActiveAlerts";
+import { useLocalAuthorityImpact } from "./hooks/useLocalAuthorityImpact";
 import { useRadar } from "./hooks/useRadar";
 import { TimelineBar } from "./components/layout/TimelineBar";
 import { useObservations } from "./hooks/useObservations";
@@ -28,6 +31,9 @@ import { WaterLevelCard } from "./components/hazard/WaterLevelCard";
 import { RainfallCard } from "./components/hazard/RainfallCard";
 import { DamCard } from "./components/hazard/DamCard";
 import { EarthquakeLiveCard } from "./components/hazard/EarthquakeLiveCard";
+import { ActiveAlertBanner } from "./components/hazard/ActiveAlertBanner";
+import { AffectedAuthorityList } from "./components/hazard/AffectedAuthorityList";
+import { ImpactSummaryCard } from "./components/hazard/ImpactSummaryCard";
 import { BRAND, DATA_ATTRIBUTION_TH } from "./branding";
 import type { CameraPose } from "./scene/setupScene";
 import type { QualityLevel, QualityMode } from "./scene/quality";
@@ -122,6 +128,13 @@ export default function App() {
   const floodExtent = useFloodExtent(provinceCode);
   // ชั้นปิดอยู่ = ไม่ยิงคำขอเลยแม้แต่ครั้งเดียว (รูปแบบเดียวกับ useRadar)
   const exposure = useFloodExposure(provinceCode, layers.exposure);
+  // E11.6 — แดชบอร์ดผลกระทบ อปท.: รายชื่อจัดอันดับ + แจ้งเตือนทั้งจังหวัด + ราย
+  // ละเอียดของ อปท. ที่เลือกอยู่ (สาม hook อิสระ ผูกกันด้วย provinceCode/id เดียวกัน
+  // ตามรูปแบบเดียวกับ observations/earthquakes/floodExtent/dams ด้านบน)
+  const affectedAuthorities = useAffectedAuthorities(provinceCode);
+  const activeAlerts = useActiveAlerts(provinceCode);
+  const [selectedAuthorityId, setSelectedAuthorityId] = useState<string | null>(null);
+  const localAuthorityImpact = useLocalAuthorityImpact(selectedAuthorityId);
   const thaiwater = sourceStatus(apiHealth.health, "thaiwater");
   // Stale/failed station data is drawn dimmed so nobody reads an old reading as current.
   // เงื่อนไข `!== "ok"` ครอบ `delayed` ด้วยโดยตั้งใจ (E3.3): ต้นทางตอบปกติแต่ค่า
@@ -216,7 +229,28 @@ export default function App() {
     initialPoseRef.current = null;
     setPose(null);
     setProvinceCode(code);
+    // เปลี่ยนจังหวัด = เลิกเลือก อปท. ทันที ห้ามให้ตัวเลขของ อปท. จังหวัดก่อนหน้า
+    // ค้างอยู่ใต้หัวข้อของจังหวัดใหม่แม้เสี้ยววินาที (บั๊กที่เวอร์ชันก่อนถูกย้อนกลับเจอ)
+    setSelectedAuthorityId(null);
   }, []);
+
+  // เมื่อรายชื่อ อปท. ที่ได้รับผลกระทบของจังหวัดนี้โหลดเสร็จและตัวที่เลือกอยู่ไม่ได้
+  // อยู่ในรายการนี้แล้ว (ยังไม่เคยเลือกเลย หรือเป็นตัวที่เลือกไว้จากจังหวัดก่อนหน้า
+  // ที่ setSelectedAuthorityId(null) ใน selectProvince ยังมาไม่ทัน) ให้เลือกอันดับ
+  // แรกให้อัตโนมัติ (อันดับแรก = โดนน้ำท่วมมากที่สุด) — เช็คด้วย "อยู่ในรายการไหม"
+  // ไม่ใช่แค่ "เป็น null ไหม" เพื่อไม่ให้ useLocalAuthorityImpact ค้าง poll id ของ
+  // จังหวัดเก่าต่อไปได้ในทุกกรณี ไม่ใช่แค่ตอนที่ผ่าน selectProvince เท่านั้น
+  const affectedAuthoritiesEntries = affectedAuthorities.entries;
+  useEffect(() => {
+    if (affectedAuthoritiesEntries.length === 0) return;
+    if (
+      selectedAuthorityId &&
+      affectedAuthoritiesEntries.some((e) => e.id === selectedAuthorityId)
+    ) {
+      return;
+    }
+    setSelectedAuthorityId(affectedAuthoritiesEntries[0].id);
+  }, [affectedAuthoritiesEntries, selectedAuthorityId]);
 
   // Search index: amphoe centroids (from station coordinates), stations, dams of this province.
   const places = useMemo<SearchPlace[]>(() => {
@@ -405,6 +439,43 @@ export default function App() {
               },
               { key: "flood", label: t("sheet.tab.flood"), content: <FloodExtentCard state={floodExtent} /> },
               {
+                // E11.6 — บนมือถือรวมทั้งสามคอมโพเนนต์ไว้แท็บเดียว (ไม่ใช่ "โหมดภาคสนาม"
+                // อะไรเป็นพิเศษ แค่เป็นการ์ดเดียวกับฝั่งเดสก์ท็อปวางต่อกัน) เพราะ
+                // MobileSheet เลื่อนได้อยู่แล้ว ไม่จำเป็นต้องตัดอะไรออก
+                key: "impact",
+                label: t("sheet.tab.impact"),
+                content: (
+                  <div className="flex flex-col gap-3">
+                    <ActiveAlertBanner
+                      state={activeAlerts}
+                      authorityNames={
+                        new Map(affectedAuthorities.entries.map((e) => [e.id, e.nameTh]))
+                      }
+                    />
+                    <AffectedAuthorityList
+                      state={affectedAuthorities}
+                      alerts={activeAlerts.data?.alerts ?? []}
+                      selectedId={selectedAuthorityId}
+                      onSelect={setSelectedAuthorityId}
+                    />
+                    <ImpactSummaryCard
+                      authority={
+                        affectedAuthorities.entries.find((e) => e.id === selectedAuthorityId) ?? null
+                      }
+                      state={localAuthorityImpact}
+                      health={apiHealth.health}
+                      alerts={
+                        selectedAuthorityId
+                          ? (activeAlerts.data?.alerts.filter(
+                              (a) => a.localAuthorityId === selectedAuthorityId,
+                            ) ?? [])
+                          : []
+                      }
+                    />
+                  </div>
+                ),
+              },
+              {
                 key: "water",
                 label: t("sheet.tab.water"),
                 content: (
@@ -458,6 +529,12 @@ export default function App() {
             earthquakes={earthquakes}
             floodExtent={floodExtent}
             dams={dams}
+            activeAlerts={activeAlerts}
+            affectedAuthorities={affectedAuthorities}
+            localAuthorityImpact={localAuthorityImpact}
+            selectedAuthorityId={selectedAuthorityId}
+            onSelectAuthority={setSelectedAuthorityId}
+            health={apiHealth.health}
             atIso={atIso}
             width={RIGHT_W}
             top={dockTop}

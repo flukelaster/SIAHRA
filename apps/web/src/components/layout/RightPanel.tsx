@@ -1,12 +1,19 @@
+import type { HealthResponse } from "@siahra/shared-types";
 import type { EarthquakeFeedState } from "../../hooks/useEarthquakeFeed";
 import type { DamsState } from "../../hooks/useDams";
 import type { FloodExtentState } from "../../hooks/useFloodExtent";
 import type { ObservationsState } from "../../hooks/useObservations";
+import type { AffectedAuthoritiesState } from "../../hooks/useAffectedAuthorities";
+import type { ActiveAlertsState } from "../../hooks/useActiveAlerts";
+import type { LocalAuthorityImpactState } from "../../hooks/useLocalAuthorityImpact";
 import { EarthquakeLiveCard } from "../hazard/EarthquakeLiveCard";
 import { DamCard } from "../hazard/DamCard";
 import { FloodExtentCard } from "../hazard/FloodExtentCard";
 import { RainfallCard } from "../hazard/RainfallCard";
 import { WaterLevelCard } from "../hazard/WaterLevelCard";
+import { ActiveAlertBanner } from "../hazard/ActiveAlertBanner";
+import { AffectedAuthorityList } from "../hazard/AffectedAuthorityList";
+import { ImpactSummaryCard } from "../hazard/ImpactSummaryCard";
 import { useT } from "../../i18n/context";
 import { resolveError } from "../../lib/errorMessage";
 
@@ -16,6 +23,12 @@ export function RightPanel({
   earthquakes,
   floodExtent,
   dams,
+  activeAlerts,
+  affectedAuthorities,
+  localAuthorityImpact,
+  selectedAuthorityId,
+  onSelectAuthority,
+  health,
   atIso,
   width,
   top,
@@ -24,12 +37,27 @@ export function RightPanel({
   earthquakes: EarthquakeFeedState;
   floodExtent: FloodExtentState;
   dams: DamsState;
+  /** E11.5/E11.6 — แจ้งเตือน อปท. ทั้งจังหวัดที่กำลังดู */
+  activeAlerts: ActiveAlertsState;
+  /** E11.6 — รายชื่อ อปท. ที่ได้รับผลกระทบ เรียงลำดับแล้ว */
+  affectedAuthorities: AffectedAuthoritiesState;
+  /** E11.6 — รายละเอียดของ อปท. ที่เลือกอยู่ */
+  localAuthorityImpact: LocalAuthorityImpactState;
+  selectedAuthorityId: string | null;
+  onSelectAuthority: (id: string) => void;
+  health: HealthResponse | null;
   atIso: string | null;
   width: number;
   top: number;
 }) {
   const t = useT();
   const { data, loading, error } = observations;
+  const selectedAuthority =
+    affectedAuthorities.entries.find((e) => e.id === selectedAuthorityId) ?? null;
+  const authorityNames = new Map(affectedAuthorities.entries.map((e) => [e.id, e.nameTh]));
+  const selectedAuthorityAlerts = selectedAuthorityId
+    ? (activeAlerts.data?.alerts.filter((a) => a.localAuthorityId === selectedAuthorityId) ?? [])
+    : [];
 
   return (
     <aside
@@ -50,7 +78,23 @@ export function RightPanel({
         </div>
       ) : null}
 
+      <ActiveAlertBanner state={activeAlerts} authorityNames={authorityNames} />
+
       <FloodExtentCard state={floodExtent} />
+
+      <AffectedAuthorityList
+        state={affectedAuthorities}
+        alerts={activeAlerts.data?.alerts ?? []}
+        selectedId={selectedAuthorityId}
+        onSelect={onSelectAuthority}
+      />
+
+      <ImpactSummaryCard
+        authority={selectedAuthority}
+        state={localAuthorityImpact}
+        health={health}
+        alerts={selectedAuthorityAlerts}
+      />
 
       <WaterLevelCard
         stations={data?.waterlevel ?? []}

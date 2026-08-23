@@ -293,6 +293,7 @@ export const en: Record<keyof typeof th, string> = {
   "sheet.tab.province": "Province",
   "sheet.tab.layers": "Layers",
   "sheet.tab.flood": "Flood",
+  "sheet.tab.impact": "Local-authority impact",
   "sheet.tab.water": "Water level",
   "sheet.tab.rain": "Rain",
   "sheet.tab.dams": "Dams",
@@ -464,4 +465,57 @@ export const en: Record<keyof typeof th, string> = {
    */
   "methodology.thaiOnly":
     "This methodology document is available in Thai only; there is no English translation yet.",
+
+  // ── Local-authority (อปท.) types (E11.1) ────────────────────────────────
+  "localAuthority.type.provincial_admin_org": "Provincial admin org (อบจ.)",
+  "localAuthority.type.city_municipality": "City municipality",
+  "localAuthority.type.town_municipality": "Town municipality",
+  "localAuthority.type.subdistrict_municipality": "Subdistrict municipality",
+  "localAuthority.type.subdistrict_admin_org": "Subdistrict admin org (อบต.)",
+  "localAuthority.type.special_admin_area": "Special local-authority area",
+
+  // ── Local-authority impact summary (E11.6) ──────────────────────────────
+  "impact.card.title": "Local-authority impact summary",
+  "impact.card.selectPrompt": "Select a local authority from the list below to see details",
+  "impact.card.noCoverage":
+    "This local authority has no real boundary or baseline data to compute impact against yet",
+  "impact.card.loadError": "Failed to load impact data: {error}",
+  "impact.section.baseline": "Baseline (static)",
+  "impact.section.flood": "Current flood impact",
+  "impact.population.label": "Population",
+  "impact.population.estimateNote": "WorldPop 2020 estimate — not a real headcount",
+  "impact.buildings.label": "Buildings (baseline)",
+  "impact.floodedArea.label": "Flooded area",
+  "impact.floodedFraction.label": "Share of area flooded",
+  "impact.floodedFraction.neverFetched": "GISTDA has never fetched a flood scene successfully",
+  "impact.facilitiesExposed.label": "Key facilities inside the flooded area",
+  "impact.facilitiesExposed.hospitals": "{n} hospitals",
+  "impact.facilitiesExposed.schools": "{n} schools",
+  "impact.facilitiesExposed.fireStations": "{n} fire stations",
+  "impact.facilitiesExposed.none": "No key facilities inside the flooded area right now",
+  "impact.populationExposed.label": "Population possibly exposed (area-weighted share)",
+  "impact.buildingsExposed.label": "Buildings possibly exposed (area-weighted share)",
+  "impact.method.areaWeighted":
+    "Computed from the flooded area's share of the baseline — not a per-building count, not a forecast",
+
+  // ── Local-authority alert banner (E11.6) ────────────────────────────────
+  "alert.banner.title": "Local-authority alerts",
+  "alert.banner.neverEvaluated": "The alert engine has never evaluated since it started",
+  "alert.banner.unreachable": "Cannot reach the alert engine right now",
+  "alert.banner.none": "Evaluated — nothing active right now",
+  "alert.banner.degraded": "Could not reach the alert engine on the latest refresh — the list below may be out of date",
+  "alert.banner.evaluatedAge": "Last evaluated {age}",
+  "alert.banner.stale": "Held — station missing from the latest batch",
+  "alert.banner.triggeredAt": "Since {time}",
+  "alert.banner.count": "{n} active",
+
+  // ── Affected local-authority list (E11.6) ───────────────────────────────
+  "authorityList.title": "Affected local authorities",
+  "authorityList.empty.noCoverage":
+    "No local authority in this province has real E11.2 boundary coverage to compute against",
+  "authorityList.loadError": "Failed to load the authority list: {error}",
+  "authorityList.floodedFraction": "{pct}% flooded",
+  "authorityList.neverFetched": "GISTDA has never been fetched successfully",
+  "authorityList.unavailable": "Could not check this one's impact",
+  "authorityList.facilitiesCount": "{n} key facilities in the flooded area",
 };
