@@ -79,6 +79,12 @@ below is the human-facing explanation of the same thing. Mechanical checks stay 
 - The same-origin guard or rate limiting in `apps/api/src/router.ts` weakened or bypassed; a
   Durable Object / R2 change that loses or corrupts stored observations; a leaked credential; a
   `wrangler.jsonc`, route or binding change that breaks a deploy
+- A hand-typed numeric-literal array or object in `apps/api/src/data/*.ts` (or a similar
+  hardcoded-data file elsewhere) that claims a `HazardLayerDescriptor`/`sourceIds`/provenance —
+  with no `apps/etl` build script producing it and no `SOURCE.md`/coverage doc behind it. This is
+  the exact shape of PRs #37–#43, reverted once already for fabricating measured data this way;
+  a file importing a sibling `.json` baked by a real ETL script (`localAuthorities.ts`,
+  `provinceRings.ts`) is the honest version of this pattern and is not this rule
 
 ### P2 — non-blocking; same comment, never its own thread
 These are the only non-blocking findings worth a comment. They go under `### Minor / optional` at
@@ -114,6 +120,9 @@ correct.
 - Same-origin guard or rate limiting in `apps/api/src/router.ts` weakened or bypassed
 - Durable Object / R2 change that loses or corrupts stored observations
 - Config change that breaks a deploy (`wrangler.jsonc`, routes, bindings, environments)
+- A hand-typed numeric literal array/object in `apps/api/src/data/*.ts` claiming a
+  `HazardLayerDescriptor`/`sourceIds`, with no `apps/etl` build script and no `SOURCE.md` behind
+  it (the PRs #37–#43 pattern) — a file importing a sibling `.json` a real ETL script wrote is fine
 
 **P2 — non-blocking; goes under `### Minor / optional` in that same comment, never its own thread**
 - Error handling that swallows failures instead of surfacing them

@@ -65,6 +65,28 @@ Do this when the diff touches `apps/web/index.html`, `src/App.tsx`, `src/main.ts
 - Are stale data and dead sources still visible?
 - If `packages/shared-types` changed, were all api/web/etl consumers updated?
 
+### 3a. Fabricated static-data gate — this repo reverted PRs #37–#43 for exactly this
+```
+git diff HEAD --name-only --diff-filter=AM -- 'apps/api/src/data/*.ts' | grep -v '\.test\.ts$'
+```
+For each file this lists, open it and check:
+- **Does it import a sibling `.json`** (`import raw from "./X.json"`) rather than embedding values
+  itself? That is the honest bake-into-bundle pattern this repo already uses
+  (`localAuthorities.ts`, `provinceRings.ts`, `localAuthorityExposure.ts`, `alertRules.json`'s
+  loader) — real numbers, produced by a real `apps/etl` script. Fine, move on.
+- **If instead the numbers are typed directly into the `.ts` file** (a literal array/object with
+  several numeric fields) **and** the file also builds or exports a `HazardLayerDescriptor` /
+  claims a `sourceIds` entry, that is the PR #37–#43 shape verbatim — hand-typed measurements
+  wearing a provenance claim. Confirm there is a real source behind it:
+  ```
+  grep -rl "<the sibling .json name, or the .ts file's own basename>" apps/etl/src/*.ts
+  ls apps/etl/data/sources/*/SOURCE.md apps/etl/data/sources/*/COVERAGE.md 2>/dev/null
+  ```
+  No ETL script produces the data and no `SOURCE.md`/`COVERAGE.md` documents where the numbers
+  came from → this is a **blocker**, not a minor, whatever else the diff does right. Quote the
+  literal values in your finding, not just the file name — the reviewer needs to see the fabricated
+  numbers directly, the same way this pattern was caught the first time.
+
 ## 4. Check each `acceptance_criteria` entry you were given, one by one
 
 ## Output — a single JSON object, nothing wrapped around it
