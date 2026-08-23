@@ -85,6 +85,15 @@ below is the human-facing explanation of the same thing. Mechanical checks stay 
   the exact shape of PRs #37–#43, reverted once already for fabricating measured data this way;
   a file importing a sibling `.json` baked by a real ETL script (`localAuthorities.ts`,
   `provinceRings.ts`) is the honest version of this pattern and is not this rule
+- **A Durable Object SQL statement that scans a table on a per-request or per-item path.** DO rows
+  read are billed by rows *scanned*, not returned — an aggregate (`COUNT`, `MAX`), an unindexed
+  `WHERE`/`ORDER BY`, or a retention `DELETE` that runs inside a request handler, a `status()`, or a
+  loop over stations/provinces is this finding, however small the table looks today. The 2026-08-18..23
+  bill was 72B rows read on 64 MB of storage from exactly two such statements. Whole-table reads are
+  acceptable only once per refresh/alarm tick or once an hour, and every one of them must be listed
+  with its reason in `ALLOWED_SCANS` of `apps/api/test/sqlQueryPlans.test.ts` — a new statement that
+  scans and is not listed there fails that test, so a PR that adds a scan must also add the entry,
+  and the entry's reason is what this review checks
 
 ### P2 — non-blocking; same comment, never its own thread
 These are the only non-blocking findings worth a comment. They go under `### Minor / optional` at
@@ -123,6 +132,11 @@ correct.
 - A hand-typed numeric literal array/object in `apps/api/src/data/*.ts` claiming a
   `HazardLayerDescriptor`/`sourceIds`, with no `apps/etl` build script and no `SOURCE.md` behind
   it (the PRs #37–#43 pattern) — a file importing a sibling `.json` a real ETL script wrote is fine
+- A Durable Object SQL statement that scans a table on a per-request or per-item path (rows read are
+  billed by rows *scanned*): aggregates, unindexed filters, or retention deletes inside a request
+  handler, `status()`, or a per-station/per-province loop. Whole-table reads belong on the
+  refresh/alarm path only and must be listed with a reason in `ALLOWED_SCANS`
+  (`apps/api/test/sqlQueryPlans.test.ts`)
 
 **P2 — non-blocking; goes under `### Minor / optional` in that same comment, never its own thread**
 - Error handling that swallows failures instead of surfacing them
