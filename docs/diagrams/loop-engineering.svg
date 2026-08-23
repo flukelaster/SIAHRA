@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="750" viewBox="0 0 1440 750" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="772" viewBox="0 0 1600 772" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
   <defs>
     <style>
       .t   { fill:#0f172a; font-size:14.5px; font-weight:600; }
@@ -57,19 +57,22 @@
     <symbol id="i-thread" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
       <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v8a1.5 1.5 0 0 1-1.5 1.5H9l-5 4z"/><path d="m9.4 9.6 1.6 1.6 3.6-3.6"/>
     </symbol>
+    <symbol id="i-cost" viewBox="0 0 24 24" fill="none" stroke="#0f766e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="8.6"/><path d="M12 6.8v10.4M14.6 9.4c0-1-1.2-1.7-2.6-1.7s-2.6.7-2.6 1.7c0 2.6 5.2 1 5.2 3.9 0 1-1.2 1.8-2.6 1.8s-2.6-.8-2.6-1.8"/>
+    </symbol>
   </defs>
 
-  <rect width="1440" height="750" fill="#ffffff"/>
+  <rect width="1600" height="772" fill="#ffffff"/>
 
   <!-- ========== title ========== -->
   <text x="60" y="44" fill="#0f172a" font-size="21" font-weight="700" letter-spacing="-.01em">Loop engineering</text>
   <text x="60" y="68" class="hs" font-size="12.5">How a change gets from a prompt to a merged PR — the agents and gates in <tspan font-family="ui-monospace, SFMono-Regular, Menlo, monospace" fill="#64748b">.claude/</tspan></text>
 
   <!-- ========== lane 1 ========== -->
-  <rect x="60" y="90" width="1320" height="250" rx="16" class="pan"/>
+  <rect x="60" y="90" width="1480" height="250" rx="16" class="pan"/>
   <use href="#i-claude" x="84" y="110" width="17" height="17"/>
   <text x="109" y="124" class="h">1 · Build loop — /implement</text>
-  <text x="311" y="124" class="hs">local, one session · senior-se writes, qa-verifier gates</text>
+  <text x="311" y="124" class="hs">local, one session · devops prices it, senior-se writes, qa-verifier gates</text>
 
   <!-- boxes -->
   <g>
@@ -79,55 +82,68 @@
     <text x="116" y="218" class="s">3–7 acceptance criteria,</text>
     <text x="116" y="234" class="s">printed before any code</text>
 
-    <rect x="308" y="160" width="180" height="90" rx="12" class="box" stroke="#e8b79f"/>
-    <use href="#i-claude" x="324" y="178" width="17" height="17"/>
-    <text x="349" y="192" class="t">senior-se</text>
-    <text x="324" y="218" class="s">writes the code, leaves</text>
-    <text x="324" y="234" class="s">it in the working tree</text>
+    <rect x="300" y="160" width="180" height="90" rx="12" class="box" stroke="#8fcfc3"/>
+    <use href="#i-cost" x="316" y="178" width="17" height="17"/>
+    <text x="341" y="192" class="t">devops</text>
+    <text x="316" y="218" class="s">prices DO · D1 · R2 work,</text>
+    <text x="316" y="234" class="s">stop → ask · no Write/Edit</text>
 
-    <rect x="516" y="160" width="180" height="90" rx="12" class="box" stroke="#a8c4ec"/>
-    <use href="#i-shield" x="532" y="178" width="17" height="17"/>
-    <text x="557" y="192" class="t">qa-verifier</text>
-    <text x="532" y="218" class="s">runs CI's commands +</text>
-    <text x="532" y="234" class="s">visual · no Write/Edit</text>
+    <rect x="500" y="160" width="180" height="90" rx="12" class="box" stroke="#e8b79f"/>
+    <use href="#i-claude" x="516" y="178" width="17" height="17"/>
+    <text x="541" y="192" class="t">senior-se</text>
+    <text x="516" y="218" class="s">writes the code, leaves</text>
+    <text x="516" y="234" class="s">it in the working tree</text>
 
-    <rect x="724" y="160" width="180" height="90" rx="12" class="box"/>
-    <use href="#i-docs" x="740" y="178" width="17" height="17"/>
-    <text x="765" y="192" class="t">docs-sync</text>
-    <text x="740" y="218" class="s">docs only, and only</text>
-    <text x="740" y="234" class="s">once QA is green</text>
+    <rect x="700" y="160" width="180" height="90" rx="12" class="box" stroke="#a8c4ec"/>
+    <use href="#i-shield" x="716" y="178" width="17" height="17"/>
+    <text x="741" y="192" class="t">qa-verifier</text>
+    <text x="716" y="218" class="s">runs CI's commands +</text>
+    <text x="716" y="234" class="s">visual · no Write/Edit</text>
 
-    <rect x="932" y="160" width="180" height="90" rx="12" class="box"/>
-    <use href="#i-git" x="948" y="178" width="17" height="17"/>
-    <text x="973" y="192" class="t">commit</text>
-    <text x="948" y="218" class="s">one commit, code +</text>
-    <text x="948" y="234" class="s">docs, English only</text>
+    <rect x="900" y="160" width="180" height="90" rx="12" class="box"/>
+    <use href="#i-docs" x="916" y="178" width="17" height="17"/>
+    <text x="941" y="192" class="t">docs-sync</text>
+    <text x="916" y="218" class="s">docs only, and only</text>
+    <text x="916" y="234" class="s">once QA is green</text>
 
-    <rect x="1140" y="160" width="180" height="90" rx="12" fill="#fffbeb" stroke="#e7c07a" stroke-width="1.2"/>
-    <use href="#i-ask" x="1156" y="178" width="17" height="17"/>
-    <text x="1181" y="192" class="t">ask the user</text>
-    <text x="1156" y="218" class="s">“Open a PR now?” —</text>
-    <text x="1156" y="234" class="s">never automatic</text>
+    <rect x="1100" y="160" width="180" height="90" rx="12" class="box"/>
+    <use href="#i-git" x="1116" y="178" width="17" height="17"/>
+    <text x="1141" y="192" class="t">commit</text>
+    <text x="1116" y="218" class="s">one commit, code +</text>
+    <text x="1116" y="234" class="s">docs, English only</text>
+
+    <rect x="1300" y="160" width="180" height="90" rx="12" fill="#fffbeb" stroke="#e7c07a" stroke-width="1.2"/>
+    <use href="#i-ask" x="1316" y="178" width="17" height="17"/>
+    <text x="1341" y="192" class="t">ask the user</text>
+    <text x="1316" y="218" class="s">“Open a PR now?” —</text>
+    <text x="1316" y="234" class="s">never automatic</text>
   </g>
 
   <!-- arrows -->
-  <path class="ln" marker-end="url(#a)" d="M284 205 H304"/>
-  <path class="ln" marker-end="url(#a)" d="M492 205 H512"/>
-  <path class="ln" marker-end="url(#a)" d="M700 205 H720"/>
-  <path class="ln" marker-end="url(#a)" d="M908 205 H928"/>
-  <path class="ln" marker-end="url(#a)" d="M1116 205 H1136"/>
-  <text x="710" y="150" class="lab ok" text-anchor="middle">pass</text>
+  <path class="ln" marker-end="url(#a)" d="M284 205 H296"/>
+  <path class="ln" marker-end="url(#a)" d="M484 205 H496"/>
+  <path class="ln" marker-end="url(#a)" d="M684 205 H696"/>
+  <path class="ln" marker-end="url(#a)" d="M884 205 H896"/>
+  <path class="ln" marker-end="url(#a)" d="M1084 205 H1096"/>
+  <path class="ln" marker-end="url(#a)" d="M1284 205 H1296"/>
+  <text x="890" y="150" class="lab ok" text-anchor="middle">pass</text>
+  <text x="390" y="270" class="lab no" text-anchor="middle">stop → user decides, with the number</text>
+  <text x="390" y="284" class="lab" text-anchor="middle">cost-bearing tasks only (DO · D1 · R2 · cron · logs)</text>
 
-  <!-- fail loop back -->
-  <path class="lno" marker-end="url(#ao)" d="M606 250 V283 Q606 295 594 295 H410 Q398 295 398 283 V256"/>
-  <text x="502" y="318" class="lab" text-anchor="middle" fill="#c2683f">fail → next round · at most 3 · blocked doesn’t count</text>
+  <!-- fail loop back: qa-verifier (centre 790) → senior-se (centre 590) -->
+  <path class="lno" marker-end="url(#ao)" d="M790 250 V300 Q790 312 778 312 H602 Q590 312 590 300 V256"/>
+  <text x="690" y="330" class="lab" text-anchor="middle" fill="#c2683f">fail → next round · at most 3 · blocked doesn’t count</text>
+
+  <!-- cost verify: qa-verifier pass → devops re-checks the finished diff -->
+  <path class="lnb" stroke-dasharray="4 3" marker-end="url(#ab)" d="M790 160 V146 H390 V156"/>
+  <text x="590" y="141" class="lab" text-anchor="middle" fill="#3f6fb5">pass → devops re-checks the diff · a fail is a round</text>
 
   <!-- ========== connector between lanes ========== -->
-  <path class="ln" marker-end="url(#a)" d="M1230 250 V385 H30 V545 H96"/>
-  <text x="1222" y="372" class="lab" text-anchor="end">user says yes → push + gh pr create</text>
+  <path class="ln" marker-end="url(#a)" d="M1390 250 V385 H30 V545 H96"/>
+  <text x="1382" y="372" class="lab" text-anchor="end">user says yes → push + gh pr create</text>
 
   <!-- ========== lane 2 ========== -->
-  <rect x="60" y="430" width="1320" height="250" rx="16" class="pan"/>
+  <rect x="60" y="430" width="1480" height="250" rx="16" class="pan"/>
   <use href="#i-codex" x="84" y="450" width="17" height="17"/>
   <text x="109" y="464" class="h">2 · Review loop — /babysit-prs → /review-fix</text>
   <text x="424" y="464" class="hs">on GitHub, after the push · one batch per push</text>
@@ -139,47 +155,48 @@
     <text x="116" y="558" class="s">branch only — the</text>
     <text x="116" y="574" class="s">ruleset rejects main</text>
 
-    <rect x="308" y="500" width="180" height="90" rx="12" class="box"/>
-    <use href="#i-actions" x="324" y="518" width="17" height="17"/>
-    <text x="349" y="532" class="t">CI checks</text>
-    <text x="324" y="558" class="s">Lint · TypeScript ·</text>
-    <text x="324" y="574" class="s">Build — all required</text>
+    <rect x="340" y="500" width="180" height="90" rx="12" class="box"/>
+    <use href="#i-actions" x="356" y="518" width="17" height="17"/>
+    <text x="381" y="532" class="t">CI checks</text>
+    <text x="356" y="558" class="s">Lint · TypeScript ·</text>
+    <text x="356" y="574" class="s">Build — all required</text>
 
-    <rect x="516" y="500" width="180" height="90" rx="12" class="box" stroke="#c9ced6"/>
-    <use href="#i-codex" x="532" y="518" width="17" height="17"/>
-    <text x="557" y="532" class="t">Codex review</text>
-    <text x="532" y="558" class="s">one comment per</text>
-    <text x="532" y="574" class="s">round, P1 / P2 only</text>
+    <rect x="580" y="500" width="180" height="90" rx="12" class="box" stroke="#c9ced6"/>
+    <use href="#i-codex" x="596" y="518" width="17" height="17"/>
+    <text x="621" y="532" class="t">Codex review</text>
+    <text x="596" y="558" class="s">one comment per</text>
+    <text x="596" y="574" class="s">round, P1 / P2 only</text>
 
-    <rect x="724" y="500" width="180" height="90" rx="12" class="box" stroke="#e8b79f"/>
-    <use href="#i-claude" x="740" y="518" width="17" height="17"/>
-    <text x="765" y="532" class="t">/babysit-prs</text>
-    <text x="740" y="558" class="s">reads threads over</text>
-    <text x="740" y="574" class="s">GraphQL, dispatches</text>
+    <rect x="820" y="500" width="180" height="90" rx="12" class="box" stroke="#e8b79f"/>
+    <use href="#i-claude" x="836" y="518" width="17" height="17"/>
+    <text x="861" y="532" class="t">/babysit-prs</text>
+    <text x="836" y="558" class="s">reads threads over</text>
+    <text x="836" y="574" class="s">GraphQL, dispatches</text>
 
-    <rect x="932" y="500" width="180" height="90" rx="12" class="box" stroke="#e8b79f"/>
-    <use href="#i-claude" x="948" y="518" width="17" height="17"/>
-    <text x="973" y="532" class="t">/review-fix</text>
-    <text x="948" y="558" class="s">fixes the whole batch,</text>
-    <text x="948" y="574" class="s">QA green, pushes once</text>
+    <rect x="1060" y="500" width="180" height="90" rx="12" class="box" stroke="#e8b79f"/>
+    <use href="#i-claude" x="1076" y="518" width="17" height="17"/>
+    <text x="1101" y="532" class="t">/review-fix</text>
+    <text x="1076" y="558" class="s">fixes the whole batch,</text>
+    <text x="1076" y="574" class="s">QA green, pushes once</text>
 
-    <rect x="1140" y="500" width="180" height="90" rx="12" fill="#f2fbf5" stroke="#9dd3b0" stroke-width="1.2"/>
-    <use href="#i-thread" x="1156" y="518" width="17" height="17"/>
-    <text x="1181" y="532" class="t">close threads</text>
-    <text x="1156" y="558" class="s">react 👍 → reply with</text>
-    <text x="1156" y="574" class="s">the sha → resolve</text>
+    <rect x="1300" y="500" width="180" height="90" rx="12" fill="#f0fdf4" stroke="#86c99a" stroke-width="1.2"/>
+    <use href="#i-thread" x="1316" y="518" width="17" height="17"/>
+    <text x="1341" y="532" class="t">close threads</text>
+    <text x="1316" y="558" class="s">react 👍 → reply with</text>
+    <text x="1316" y="574" class="s">the sha → resolve</text>
   </g>
 
-  <path class="ln" marker-end="url(#a)" d="M284 545 H304"/>
-  <path class="ln" marker-end="url(#a)" d="M492 545 H512"/>
-  <path class="ln" marker-end="url(#a)" d="M700 545 H720"/>
-  <path class="ln" marker-end="url(#a)" d="M908 545 H928"/>
-  <path class="ln" marker-end="url(#a)" d="M1116 545 H1136"/>
+  <path class="ln" marker-end="url(#a)" d="M284 545 H336"/>
+  <path class="ln" marker-end="url(#a)" d="M524 545 H576"/>
+  <path class="ln" marker-end="url(#a)" d="M764 545 H816"/>
+  <path class="ln" marker-end="url(#a)" d="M1004 545 H1056"/>
+  <path class="ln" marker-end="url(#a)" d="M1244 545 H1296"/>
 
-  <path class="lnb" marker-end="url(#ab)" d="M1230 590 V623 Q1230 635 1218 635 H618 Q606 635 606 623 V596"/>
-  <text x="918" y="658" class="lab" text-anchor="middle" fill="#3f6fb5">every push is re-reviewed · no cap on rounds — stop only when the same finding repeats unchanged</text>
+  <path class="lnb" marker-end="url(#ab)" d="M1390 590 V623 Q1390 635 1378 635 H682 Q670 635 670 623 V596"/>
+  <text x="1030" y="658" class="lab" text-anchor="middle" fill="#3f6fb5">every push is re-reviewed · no cap on rounds — stop only when the same finding repeats unchanged</text>
 
   <!-- ========== footnotes ========== -->
   <text x="60" y="712" class="foot">Gates you cannot skip: <tspan fill="#475569">guard-pr.sh</tspan> (PreToolUse) turns <tspan fill="#475569">gh pr create/merge/ready</tspan> and any push landing on <tspan fill="#475569">main</tspan> back into a question · the branch ruleset has no bypass actors · PR text and every commit are English-only.</text>
   <text x="60" y="734" class="foot">QA verdicts: <tspan fill="#15803d">pass</tspan> leaves the loop (minor findings are reported, not looped on) · <tspan fill="#b91c1c">fail</tspan> goes back to senior-se · <tspan fill="#b45309">blocked</tspan> stops without consuming a round · a non-empty unmet_criteria always fails. Nothing merges without a human.</text>
+  <text x="60" y="756" class="foot">devops verdicts: <tspan fill="#15803d">go</tspan> · <tspan fill="#0f766e">go-with-constraints</tspan> (its constraints become acceptance criteria) · <tspan fill="#b91c1c">stop</tspan> when the projected bill passes $8 expected / $10 worst case — the whole account stays at $5–10/month, a cheaper_design is attached, only the user overrides.</text>
 </svg>

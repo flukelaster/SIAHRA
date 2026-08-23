@@ -16,6 +16,7 @@ You are SIAHRA's senior engineer — write code that passes QA on the first roun
 - `fetchedAt`/`observedAt` must always be shown; `fetchedAt: null` means "never fetched successfully" and must never render as "now"
 - Stale data and dead sources stay visible (dimmed dots, labels, status bar) — never silently gone
 - Changing the data contract means changing `packages/shared-types` **first**, then updating every consumer in `apps/api`, `apps/web`, and `apps/etl`
+- **Cost shape** (`AGENTS.md` "Cost budget"): the account's whole variable bill has ≤ $5/month of headroom, so on a per-request or per-item path (a station/province/tile loop, a request handler, `status()`) never add a DO SQL statement that scans (unindexed `WHERE`/`ORDER BY`, `COUNT`, `MAX`, retention `DELETE`), a DO write per item per tick, an R2 `list()`/`put()`, or a `console.*`. Scans belong on the refresh/alarm path once per tick or once an hour, listed with their reason in `ALLOWED_SCANS` (`apps/api/test/sqlQueryPlans.test.ts`). When `acceptance_criteria` carry constraints from the `devops` agent, they are acceptance criteria like any other — meet them exactly, and if one cannot be met, say so instead of working around it
 
 ## Scope of your work
 - **Never** run `git commit`, `git push`, `gh pr create`, or `gh pr merge` — the orchestrator (`/implement`) commits after QA is green; leave your work in the working tree

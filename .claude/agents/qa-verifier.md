@@ -88,6 +88,11 @@ For each file this lists, open it and check:
   numbers directly, the same way this pattern was caught the first time.
 
 ## 4. Check each `acceptance_criteria` entry you were given, one by one
+Entries that came from the `devops` cost gate (they name a statement, a path, an index, an
+`ALLOWED_SCANS` entry, or a forbidden `console.*`/R2 call) are checked like any other — grep the
+diff for the statement or call and confirm which function calls it; `npm test` already runs
+`sqlQueryPlans.test.ts`, so a new scan without its allowlist entry shows up there. An unmet one is
+`unmet_criteria`, whatever it costs in dollars — the dollar judgement is devops's, the check is yours
 
 ## Output — a single JSON object, nothing wrapped around it
 ```json

@@ -26,6 +26,12 @@
 ## Orca worktree
 `orca.yaml` → `.orca/setup.sh` → `scripts/setup-worktree.sh` (symlink the dataset, copy state, reserve ports, npm ci — no web build any more); the Quick Command runs `.orca/run.sh`; the archive hook stops only that worktree's dev server
 
+## Cost budget (Cloudflare) — the `devops` gate
+- **The whole account stays at $5–10 USD/month.** Workers Paid is a fixed $5, so every feature ever shipped shares **≤ $5/month of variable headroom** (DO rows read/written, R2 operations and storage past the free 10 GB, Workers Logs) — the reason is the 2026-08-18..23 bill: 72.38B DO rows read on 64.57 MB of storage, $20.31 in five days, $104.95 projected, from two statements that looked trivial (`docs/deploy.md` "ค่าใช้จ่ายโดยประมาณ", PRs #53/#54/#55)
+- **A cost-bearing task goes through `Agent(devops)` *before* senior-se writes a line** (`/implement` step 1b), and again on the finished diff after QA is green (step 2b). A task is cost-bearing when it touches any of: `apps/api/src/durable-objects/**`, `apps/api/src/archive.ts`, `apps/api/src/ingestion/**`, `ctx.storage` / `sql.exec` / `setAlarm` / `stub.fetch`; either `wrangler.jsonc` (bindings — DO, **D1**, R2 — `migrations`, `triggers.crons`, `observability`); `HAZARD_BUCKET` / R2 anywhere (`apps/web/worker/**`, `scripts/upload-tiles.sh`, `scripts/release-dataset.sh`, a new tile layer or R2 prefix); a `console.*` on a per-station / per-province / per-request path; or is described with the words Durable Object, DO, D1, R2, cron, alarm, retention, archive, history, migration, backfill. When in doubt, run it — it is read-only
+- `devops` (`.claude/agents/devops.md`) models **frequency × rows scanned (or ops, or log events)** per path — per request, per item in a loop, per alarm tick, hourly, daily — prices it from the Cloudflare pricing pages (fetched, dated), and returns JSON: `go` / `go-with-constraints` (its `constraints[]` become acceptance criteria senior-se must meet and qa-verifier checks) / `stop` (projected total above $8 expected or $10 worst case, or a one-off above $2 — it must attach a `cheaper_design`, and only the user can override, with the number in front of them). Like qa-verifier it **has no Write/Edit tool**: it decides, it does not build
+- The meters that have actually bitten, so they are P1 in review as well: a DO SQL scan on a per-request/per-item path (rows are billed as *scanned*); a DO write per station per tick (5,800 stations × 288 five-minute ticks × 30 days = 50M rows = the whole included amount); an R2 `list()` on a request path (Class A, $4.50/M); a `console.*` inside a per-station loop (Workers Logs, $0.60/M events past 20M — ≈ $18/month from one line on the 5-min refresh). **No D1 binding exists today** — adding one is both a cost line and a deploy change
+
 ## Git workflow (enforced by a GitHub ruleset — `.github/rulesets/main.json`)
 - **Never push straight to `main`**, however small or urgent — branch, then open a PR, even when the user says "push" (unless they explicitly override in that moment); the ruleset has no bypass actors, so a direct push is rejected anyway
 - `main` is mergeable once every status check passes: **Lint / TypeScript / Build** (`.github/workflows/ci.yml` — the same commands as "Checks" above). `ci.yml` also runs a **`Test`** gate on every PR, deliberately not yet in the required set: promoting it means editing `.github/rulesets/main.json` and running `scripts/apply-branch-rules.sh`; never make a path-filtered job a required check (a PR that does not touch those paths would wait forever) — that rule is why the per-workspace `Test (…)` legs sit behind an `if: always()` gate instead of being candidates themselves
@@ -40,8 +46,9 @@
 - To change the ruleset: edit `.github/rulesets/main.json` and run `scripts/apply-branch-rules.sh` (idempotent; needs `gh` with admin rights)
 
 ## Loop engineering (`.claude/`)
-The standard loop for writing code: `/implement <task>` → **senior-se** writes it → **qa-verifier** checks it → up to 3 rounds of fixes until the verdict is `pass` → **docs-sync** updates the docs → commit → **always ask the user before opening a PR**
-- Agent definitions live in `.claude/agents/{senior-se,qa-verifier,docs-sync}.md`; commands in `.claude/commands/{implement,review-fix,babysit-prs}.md`
+The standard loop for writing code: `/implement <task>` → **devops** cost-gates it first when it touches DO/D1/R2/cron/logs (see "Cost budget") → **senior-se** writes it → **qa-verifier** checks it → up to 3 rounds of fixes until the verdict is `pass` → **devops** re-verifies the diff (cost-bearing tasks only; a `fail` is a round) → **docs-sync** updates the docs → commit → **always ask the user before opening a PR**
+- Agent definitions live in `.claude/agents/{devops,senior-se,qa-verifier,docs-sync}.md`; commands in `.claude/commands/{implement,review-fix,babysit-prs}.md`
+- `devops` **has no Write/Edit tool either** — it returns JSON `{verdict, delta_usd, constraints[], cheaper_design}`; `go-with-constraints` turns its constraints into acceptance criteria, `stop` halts before any code is written and puts the projected number in front of the user
 - `qa-verifier` **has no Write/Edit tool, deliberately** — QA cannot fix its own findings, and that is what makes the loop a loop; it returns JSON `{verdict, findings[], screenshots[]}` so the loop condition is machine-checkable rather than a matter of interpretation
 - QA runs exactly the commands `ci.yml` runs (if they drift, QA goes green while CI goes red) plus a visual acceptance pass with `playwright-cli` — it **must not start a dev server itself** (one per worktree; if none is running it returns `blocked`)
 - **Agents do not open PRs**, whatever the user said earlier about "push" — `.claude/hooks/guard-pr.sh` (PreToolUse) intercepts `gh pr create/merge/ready` and `git push … main` and forces the question back to the user; the hook is a safety net, not an excuse to skip asking
@@ -94,6 +101,14 @@ below is the human-facing explanation of the same thing. Mechanical checks stay 
   with its reason in `ALLOWED_SCANS` of `apps/api/test/sqlQueryPlans.test.ts` — a new statement that
   scans and is not listed there fails that test, so a PR that adds a scan must also add the entry,
   and the entry's reason is what this review checks
+- **Any other metered call on a per-request or per-item path** — the same bill, a different meter:
+  a Durable Object *write* per station per tick (50M included rows/month is exactly 5,800 stations
+  × 288 five-minute ticks × 30 days, then $1.00/M), an R2 `list()` or `put()` inside a request
+  handler or a station/province/tile loop (Class A, $4.50/M), a `console.*` inside such a loop
+  (Workers Logs, $0.60/M events past 20M — one line on the 5-min refresh is ≈ $18/month), or a
+  new D1/DO/R2 binding, cron, or migration in `wrangler.jsonc` with no cost line in the PR body.
+  The account budget is $5–10/month in total (AGENTS.md "Cost budget"); a change that the
+  `devops` gate would call `stop` is a P1 here
 
 ### P2 — non-blocking; same comment, never its own thread
 These are the only non-blocking findings worth a comment. They go under `### Minor / optional` at
@@ -137,6 +152,10 @@ correct.
   handler, `status()`, or a per-station/per-province loop. Whole-table reads belong on the
   refresh/alarm path only and must be listed with a reason in `ALLOWED_SCANS`
   (`apps/api/test/sqlQueryPlans.test.ts`)
+- Any other metered call on a per-request or per-item path: a DO write per station per tick, an R2
+  `list()`/`put()` in a request handler or loop (Class A), a `console.*` inside a per-station loop
+  (Workers Logs), or a new D1/DO/R2 binding, cron, or migration with no cost line in the PR body —
+  the account budget is $5–10/month in total, and the `devops` gate's `stop` is this P1
 
 **P2 — non-blocking; goes under `### Minor / optional` in that same comment, never its own thread**
 - Error handling that swallows failures instead of surfacing them
