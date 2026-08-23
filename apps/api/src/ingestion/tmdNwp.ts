@@ -44,6 +44,21 @@ export const DAILY_DURATION_D = 7;
  */
 export const TMD_NWP_MISSING_TOKEN = "TMD NWP token not configured";
 
+/**
+ * ต้นทางคิดโควตาเป็น "datapoint" = จำนวนจุด × จำนวนขั้นเวลา × จำนวน field
+ * (วัดจริง 2026-08-23 ตรงกับที่เอกสารบอก) เพดานคือ 100,000 ต่อ **ชั่วโมง**
+ * หนึ่งรอบของเราคือ 77 จังหวัด × 48 ขั้น × 3 field + 77 × 7 ขั้น × 2 field
+ */
+export const NWP_ROUND_DATAPOINTS = 77 * HOURLY_DURATION_H * 3 + 77 * DAILY_DURATION_D * 2;
+
+/**
+ * โยนเมื่อโควตา datapoint ของต้นทางใกล้หมดหรือหมดแล้ว — แยกจากความล้มเหลวอื่น
+ * เพราะวิธีรับมือตรงข้ามกัน: ต้นทางล่มให้ **ลองใหม่เร็ว** (RETRY_MS) แต่โควตาหมด
+ * ให้ **ถอยยาว** (REFRESH_MS) เพราะรอบถัดไปที่ยิงเร็วมีแต่จะกินโควตาที่ไม่มีให้กิน
+ * และเสี่ยงโดนต้นทางปิดกุญแจ ดู `ForecastNwpDO.alarm()` ที่อ่านค่านี้
+ */
+export class NwpQuotaExhaustedError extends Error {}
+
 /** อ่าน token จาก env — ไม่มี fallback โดยตั้งใจ (เหมือน `tmdCredentials`) */
 export function nwpToken(env: { TMD_NWP_TOKEN?: string }): string | null {
   const token = env.TMD_NWP_TOKEN?.trim();
@@ -155,6 +170,24 @@ async function nwpFetch(url: string, token: string): Promise<Response> {
     // แยกจาก 5xx โดยตั้งใจ: "กุญแจถูกปฏิเสธ" ลองใหม่กี่ครั้งก็เหมือนเดิม และเป็น
     // ข้อความที่ผู้ดูแลต้องเห็นตรง ๆ ที่แถบสถานะ ไม่ใช่ "ต้นทางล่ม"
     throw new Error(`TMD NWP token rejected (${res.status})`);
+  }
+  /**
+   * โควตาหมด/ใกล้หมด — อ่านจาก **คำตอบตรงหน้า** ไม่ใช่ค่าที่เก็บไว้ใน meta
+   * โดยตั้งใจ: รอบที่พังทั้งรอบจะ return ก่อนเขียน `datapointRemaining` และ
+   * region ที่ throw ก็ไม่เคยอัปเดตค่านั้น การถอยที่อิงค่าที่เก็บไว้จึงเป็น
+   * โค้ดที่ไม่มีวันทำงานในสถานะที่ต้องใช้มันจริง ๆ
+   *
+   * เคสที่ทำให้เรื่องนี้สำคัญคือ **ต้นทางเปลี่ยนรูปข้อมูล**: ตอบ 200 (จ่าย
+   * datapoint ไปแล้ว) แต่ schema ไม่ผ่าน ทุกภาคจึงพังพร้อมกัน ถ้าถอยแค่ 5 นาที
+   * จะกลายเป็น 12 รอบ/ชม. × 12,166 ≈ 146k datapoint ต่อชั่วโมง ทะลุเพดาน 100k
+   */
+  const remaining = headerInt(res, "x-datapoint-remaining");
+  if (res.status === 429 || (remaining !== null && remaining <= NWP_ROUND_DATAPOINTS)) {
+    throw new NwpQuotaExhaustedError(
+      res.status === 429
+        ? "TMD NWP rate limited (429)"
+        : `TMD NWP datapoint quota nearly exhausted (${remaining} left, a round costs ${NWP_ROUND_DATAPOINTS})`,
+    );
   }
   if (!res.ok) throw new Error(`TMD NWP ${res.status}`);
   return res;

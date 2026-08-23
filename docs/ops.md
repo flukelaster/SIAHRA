@@ -286,6 +286,15 @@ else in the code path prunes these objects.
   round collected, named — failed regions, a failed availability read, unknown geocodes — never
   silently dropped), `writtenLastRound`, `unknownGeocodes` (non-null = TMD changed its geocode scheme,
   not "that province has no forecast") and `dailyAvailability`.
+  The path that could actually blow the quota is **not** an outage — a 5xx or a timeout spends
+  nothing, so retrying every 5 minutes is free. It is an upstream **shape change**: a `200 OK` whose
+  body no longer matches the schema has already spent its datapoints, and every region fails at once,
+  so a 5-minute retry would mean 12 rounds/hour ≈ **146k datapoints against a 100k/hour ceiling**.
+  `nwpFetch()` therefore treats `429` or an `x-datapoint-remaining` at or below one round's cost as a
+  distinct `NwpQuotaExhaustedError`, and `alarm()` re-arms at the **normal hourly interval** rather
+  than the 5-minute retry for that case only. It reads the header **on the response in hand**, never
+  the stored `datapointRemaining`: a wholly-failed round returns before that meta is written, so a
+  backoff keyed on stored state would be dead code in exactly the situation that needs it.
 - **`tmd-nwp` `degraded` with `lastError: "availability: …"` while every province is fresh** → the
   six region rounds all succeeded and were stored; only the small availability call failed, so the
   previous date window is kept with its own older `detail`/`fetchedAt` and the failure is reported

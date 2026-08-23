@@ -12,6 +12,7 @@ import {
   DAILY_DURATION_D,
   HOURLY_DURATION_H,
   NWP_REGIONS,
+  NwpQuotaExhaustedError,
   TMD_NWP_MISSING_TOKEN,
   fetchDailyAvailability,
   fetchRegionForecast,
@@ -93,6 +94,11 @@ function layerFor(kind: "hourly" | "daily", fetchedAt: string | null, horizonHou
 
 export class ForecastNwpDO extends DurableObject<Env> {
   private inflight: Promise<boolean> | null = null;
+  /**
+   * รอบล่าสุดพังเพราะโควตาของต้นทางหมด (ไม่ใช่ต้นทางล่ม) — `alarm()` อ่านค่านี้
+   * ทันทีหลัง `refreshOnce()` ในบริบทการทำงานเดียวกัน จึงไม่ต้องเก็บลง storage
+   */
+  private lastRoundQuotaExhausted = false;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -115,8 +121,11 @@ export class ForecastNwpDO extends DurableObject<Env> {
   }
 
   async alarm(): Promise<void> {
+    this.lastRoundQuotaExhausted = false;
     const ok = await this.refreshOnce();
-    await this.armAlarm(ok ? REFRESH_MS : RETRY_MS);
+    // โควตาหมดแล้วยิงซ้ำใน 5 นาทีมีแต่เสีย: โควตาเป็นรายชั่วโมง และการรัวคำขอ
+    // ตอนต้นทางบอกว่าพอแล้วคือทางลัดไปสู่การโดนปิดกุญแจ จึงถอยเท่ารอบปกติ
+    await this.armAlarm(ok || this.lastRoundQuotaExhausted ? REFRESH_MS : RETRY_MS);
   }
 
   /**
@@ -183,6 +192,7 @@ export class ForecastNwpDO extends DurableObject<Env> {
     const failures: string[] = [];
     /** นับแยกจาก `failures` เพราะ "ทั้งรอบพัง" ตัดสินจากภาคที่ถามไม่สำเร็จเท่านั้น */
     let regionsFailed = 0;
+    let quotaExhausted = false;
     const unknownGeocodes = new Set<string>();
     const codes = new Set(this.storedCodes());
     let quota: NwpQuota = { datapointRemaining: null, rateLimitRemaining: null };
@@ -223,6 +233,7 @@ export class ForecastNwpDO extends DurableObject<Env> {
         }
       } catch (err) {
         regionsFailed++;
+        if (err instanceof NwpQuotaExhaustedError) quotaExhausted = true;
         failures.push(`${region}: ${shortReason(err)}`);
         logWarn("tmd-nwp region failed", { region, error: errorText(err) });
       }
@@ -235,6 +246,8 @@ export class ForecastNwpDO extends DurableObject<Env> {
       writeMeta(this.sql, "regionsOk", "0");
       // รอบนี้ไม่ได้เขียนอะไรเลย — ตัวเลขของรอบก่อนต้องไม่ค้างอยู่ใน status()
       writeMeta(this.sql, "writtenLastRound", "0");
+      // โควตาต้นทางหมด ≠ ต้นทางล่ม — `alarm()` ต้องถอยยาว ไม่ใช่ลองใหม่ใน 5 นาที
+      this.lastRoundQuotaExhausted = quotaExhausted;
       return false;
     }
 

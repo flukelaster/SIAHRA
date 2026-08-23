@@ -248,6 +248,32 @@ describe("ความล้มเหลวต้องมองเห็น", (
    * ยิงต้นทางใหม่ทั้ง 12 คำขอทุกนาที = ลบ backoff 5 นาทีของ `alarm()` ทิ้ง และ
    * กลายเป็นการถล่มต้นทางที่กำลังมีปัญหา เทสนี้ตรึงตัวกั้นนั้นไว้
    */
+  /**
+   * โควตา datapoint ของ TMD เป็น **รายชั่วโมง** และเคสที่กัดคือต้นทางเปลี่ยนรูป
+   * ข้อมูล: ตอบ 200 (จ่าย datapoint ไปแล้ว) แต่ schema ไม่ผ่าน ทุกภาคจึงพังพร้อมกัน
+   * ถ้าถอยแค่ RETRY_MS จะกลายเป็น 12 รอบ/ชม. ≈ 146k datapoint ทะลุเพดาน 100k
+   * รอบที่พังเพราะโควตาจึงต้องถอยเท่ารอบปกติ ไม่ใช่ถอยสั้น
+   */
+  it("โควตาต้นทางใกล้หมด: ถอยยาวเท่ารอบปกติ ไม่ใช่ลองใหม่ใน RETRY_MS", async () => {
+    const name = "nwp-quota";
+    const stub = appEnv.FORECAST_NWP.getByName(name);
+    // ต้นทางตอบ 200 แต่บอกว่าโควตาเหลือน้อยกว่าราคาหนึ่งรอบ
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
+      new Response(JSON.stringify({ WeatherForecasts: [] }), {
+        headers: { "content-type": "application/json", "x-datapoint-remaining": "10" },
+      }),
+    );
+    const before = Date.now();
+    await runInDurableObject(stub, (instance) => instance.alarm());
+
+    const st = await statusOf(name);
+    expect(st.fetchedAt).toBeNull();
+    expect(st.lastError).toMatch(/quota/i);
+    // นัดครั้งถัดไปต้องห่างกว่า RETRY_MS (5 นาที) มาก — คือระยะรอบปกติ 1 ชม.
+    const nextMs = Date.parse(st.nextAttemptAt!);
+    expect(nextMs - before).toBeGreaterThan(30 * 60 * 1000);
+  });
+
   it("ต้นทางล่ม: cron รอบถัดมาที่ยังไม่พ้น RETRY_MS ต้องไม่ยิงต้นทางซ้ำ", async () => {
     const name = "nwp-cron-backoff";
     const stub = appEnv.FORECAST_NWP.getByName(name);
