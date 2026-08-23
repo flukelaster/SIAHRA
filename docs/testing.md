@@ -63,6 +63,11 @@ Two rules that keep the suite honest:
    a frozen date that is compared against the real clock is a test that fails on a future Tuesday for
    no reason.
 
+   One pruner is **rate-limited rather than age-only**: `ObservationCacheDO.pruneRetention()` runs at
+   most once an hour, gated by `lastPruneMs` in the DO's `meta` table. A test that calls it twice
+   inside the same hour sees the second call do nothing unless it clears that key or passes a later
+   `nowMs` — that is the behaviour, not a flake (`test/historyRetention.test.ts`).
+
    **`vi.useFakeTimers()` does not reach the Durable Object alarm.** Fake timers replace the clock in
    the *test's* isolate; `ctx.storage.setAlarm()` is scheduled by workerd against the real one. Pass a
    frozen constant to `setAlarm()` and the moment real time walks past it the alarm is already due, so

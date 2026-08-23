@@ -68,6 +68,9 @@ const RETRY_MAX_MS = 10 * 60 * 1000;
 /** Station history is re-pulled at most this often, kept this long. */
 const HISTORY_TTL_MS = 10 * 60 * 1000;
 const HISTORY_RETENTION_MS = 8 * 24 * 60 * 60 * 1000;
+
+/** ระยะห่างขั้นต่ำระหว่างการกวาดแถวพ้นอายุสองครั้ง (ดู `pruneRetention`) */
+const PRUNE_INTERVAL_MS = 60 * 60 * 1000;
 /** Hot window served from SQLite; older requests go to the R2 archive. */
 const HOT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_HISTORY_HOURS = 30 * 24;
@@ -169,6 +172,11 @@ export class ObservationCacheDO extends DurableObject<Env> {
           discharge REAL,
           PRIMARY KEY (station_id, ts_ms)
         );
+        -- PK คือ (station_id, ts_ms) การกรองด้วย ts_ms เดี่ยว ๆ จึงเป็น full scan
+        -- ทั้งตาราง และ Cloudflare คิดเงิน rows read ตามแถวที่ถูก "สแกน" ไม่ใช่แถว
+        -- ที่ถูกคืนหรือถูกลบ ดัชนีนี้คือครึ่งหนึ่งของการแก้ อีกครึ่งคือ pruneRetention()
+        -- ที่ทำให้การกวาดเกิดชั่วโมงละครั้ง ไม่ใช่ทุกครั้งที่ดึงประวัติรายสถานี
+        CREATE INDEX IF NOT EXISTS idx_waterlevel_history_ts ON waterlevel_history(ts_ms);
         CREATE TABLE IF NOT EXISTS history_meta (
           station_id INTEGER PRIMARY KEY,
           fetched_ms INTEGER NOT NULL,
@@ -187,6 +195,8 @@ export class ObservationCacheDO extends DurableObject<Env> {
           value_msl REAL,
           PRIMARY KEY (station_id, ts_ms)
         );
+        -- เหตุผลเดียวกับ idx_waterlevel_history_ts และ exposureHistory() ก็ใช้ดัชนีนี้
+        CREATE INDEX IF NOT EXISTS idx_hourly_levels_ts ON hourly_levels(ts_ms);
         CREATE TABLE IF NOT EXISTS archive_cache (
           key TEXT PRIMARY KEY,
           body TEXT NOT NULL,
@@ -244,11 +254,40 @@ export class ObservationCacheDO extends DurableObject<Env> {
        */
       this.inflight = this.refresh(nowMs)
         .then(() => this.publishExposure(nowMs))
+        .then(() => {
+          this.pruneRetention(nowMs);
+        })
         .finally(() => {
           this.inflight = null;
         });
     }
     return this.inflight;
+  }
+
+  /**
+   * กวาดแถวที่พ้นอายุ `HISTORY_RETENTION_MS` ออกจากทั้งสองตารางประวัติ —
+   * **ชั่วโมงละครั้ง** ไม่ใช่ทุกครั้งที่ดึงประวัติรายสถานี
+   *
+   * ทำไมถึงสำคัญ: DELETE ที่กรองด้วย `ts_ms` ต้องอ่านแถวเพื่อหาว่าจะลบอะไร และ
+   * Cloudflare คิดเงิน rows read ตามแถวที่ถูก "สแกน" การเรียกมันท้าย
+   * `pullHistory()` (เดิม) จึงทำให้การดูจังหวัดหนึ่งครั้ง = กวาดตารางประวัติ
+   * ทั้งตาราง 24 รอบ ซึ่งวัดได้จริงเป็นหลักหมื่นล้านแถว/วันในโปรดักชัน
+   * (2026-08-18..23: 72.38B rows read เทียบกับ 4.16M rows written)
+   *
+   * ตัวมันเองไม่โยน: การกวาดที่พลาดคือ "แถวเก่าค้างอีกหนึ่งชั่วโมง" ไม่ใช่เหตุผล
+   * ที่จะทำให้รอบ refresh (และการตั้ง alarm ที่ตามมา) ล้มทั้งรอบ
+   */
+  private pruneRetention(nowMs: number): void {
+    const last = Number(this.readMeta("lastPruneMs") ?? "0");
+    if (Number.isFinite(last) && nowMs - last < PRUNE_INTERVAL_MS) return;
+    const cutoff = nowMs - HISTORY_RETENTION_MS;
+    try {
+      this.ctx.storage.sql.exec("DELETE FROM waterlevel_history WHERE ts_ms < ?", cutoff);
+      this.ctx.storage.sql.exec("DELETE FROM hourly_levels WHERE ts_ms < ?", cutoff);
+      this.writeMeta("lastPruneMs", String(nowMs));
+    } catch (err) {
+      logWarn("history retention prune failed", { error: errorText(err) });
+    }
   }
 
   /** Cron/alarm entry point: refresh if due, and (re)arm the alarm. */
@@ -364,7 +403,7 @@ export class ObservationCacheDO extends DurableObject<Env> {
         ...binds,
       );
     }
-    this.ctx.storage.sql.exec("DELETE FROM hourly_levels WHERE ts_ms < ?", nowMs - HISTORY_RETENTION_MS);
+    // การกวาดของเก่าอยู่ที่ `pruneRetention()` เช่นกัน — ที่นี่เขียนอย่างเดียว
     // R2 archive write — best-effort from here on. If this (or the index
     // write below) throws, `archiveTick()`'s catch records `archiveError`
     // (surfaced in `/health`'s `thaiwater` source detail) and
@@ -705,7 +744,10 @@ export class ObservationCacheDO extends DurableObject<Env> {
       nowMs,
       this.detectDatum(stationId, points),
     );
-    this.ctx.storage.sql.exec("DELETE FROM waterlevel_history WHERE ts_ms < ?", nowMs - HISTORY_RETENTION_MS);
+    // การกวาดของเก่าอยู่ที่ `pruneRetention()` ซึ่งวิ่งชั่วโมงละครั้งบนเส้นทาง
+    // refresh **ไม่ใช่ที่นี่**: ที่นี่คือโค้ดที่ถูกเรียกต่อสถานี (สูงสุด 24 ตัวต่อ
+    // การดูหนึ่งจังหวัด ดู `warmProvinceHistory`) การกวาดตรงนี้จึงเท่ากับสแกน
+    // ทั้งตารางประวัติ 24 รอบต่อการดูหนึ่งครั้ง
   }
 
   private historyFresh(stationId: number, nowMs: number): boolean {
@@ -891,7 +933,11 @@ export class ObservationCacheDO extends DurableObject<Env> {
   private exposureHistory(nowMs: number, windowH: number): StationHourlyLevels[] {
     const rows = this.ctx.storage.sql
       .exec<{ station_id: number; ts_ms: number; value_msl: number | null }>(
-        "SELECT station_id, ts_ms, value_msl FROM hourly_levels WHERE ts_ms >= ? ORDER BY station_id, ts_ms",
+        // `ORDER BY ts_ms` (ไม่ใช่ `station_id, ts_ms`) โดยตั้งใจ: มันคือลำดับของ
+        // `idx_hourly_levels_ts` เอง SQLite จึงอ่านเฉพาะหน้าต่างที่ขอ แทนที่จะ
+        // สแกนทั้งตารางเพื่อเรียงตาม PK — การจัดกลุ่มรายสถานีทำใน JS ข้างล่าง
+        // และยังได้จุดเรียงตามเวลาเหมือนเดิม เพราะ push ตามลำดับเวลาอยู่แล้ว
+        "SELECT station_id, ts_ms, value_msl FROM hourly_levels WHERE ts_ms >= ? ORDER BY ts_ms",
         nowMs - windowH * 60 * 60 * 1000,
       )
       .toArray();
