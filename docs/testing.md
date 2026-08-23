@@ -180,7 +180,14 @@ suite — keep it that way when editing it. `exposureStyle.test.ts` pins `hasUsa
 collapsing into "no data". `i18n/catalog.test.ts` guards the same honesty
 from the other side: it fails the suite on forecast/probability wording in either catalogue, and its
 "not a forecast" exemption allows at most one intervening word (none in Thai) — its positive control
-pins the bypass spellings that a looser gap let through.
+pins the bypass spellings that a looser gap let through. E12.1 adds the only exemption that lets a
+string *assert* a forecast, and it is narrow three ways: the key must be in the forecast family
+(`badge.forecast*`, `freshness.missing.forecast`, `forecast.*`), the value itself must contain **TMD**,
+and only the forecast-family words are lifted — every probability word
+(`probabilit`, `probable`, `chance of`, `likelihood`, `likely`, `risk score`, `โอกาสเกิด`,
+`ความน่าจะเป็น`)
+stays banned even on those keys, because TMD's model is deterministic. A guard test pins all three
+narrowings.
 
 Its `include` covers two roots, `src/**/*.test.ts` and `worker/**/*.test.ts` — `worker/` sits outside `src`
 because wrangler bundles it, but `worker/tilePath.ts` (the tile path parser the Worker and the Vite

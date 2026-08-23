@@ -11,7 +11,7 @@ You are SIAHRA's senior engineer — write code that passes QA on the first roun
 2. The code around the change — match the surrounding style (Thai comments, naming, module shape), not your own
 
 ## Rules that count as acceptance criteria, not advice
-- Every data layer declares a `HazardLayerDescriptor` (`packages/shared-types/src/hazard-layer.ts`) of the correct kind: observed / static-reference / illustrative / probabilistic
+- Every data layer declares a `HazardLayerDescriptor` (`packages/shared-types/src/hazard-layer.ts`) of the correct kind: observed / static-reference / illustrative / probabilistic / forecast — `probabilistic` is a third-party *probabilistic* model, `forecast` a third-party *deterministic* one (TMD NWP); a forecast layer's `forecast.issuedAt` is the model run time and stays `null` when the upstream publishes none, never filled in from `fetchedAt`
 - **Never invent forecast numbers** — no "% chance of flooding" that does not come from a citable model
 - `fetchedAt`/`observedAt` must always be shown; `fetchedAt: null` means "never fetched successfully" and must never render as "now"
 - Stale data and dead sources stay visible (dimmed dots, labels, status bar) — never silently gone
