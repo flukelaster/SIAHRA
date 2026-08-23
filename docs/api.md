@@ -52,6 +52,7 @@ edit in that table.
 | `/api/v1/local-authorities` | GET | 300 | default | per route | Static registry baked into the bundle; cheap to serve |
 | `/api/v1/local-authorities/{id}` | GET | 300 | default | per route | Same registry, same reasoning |
 | `/api/v1/local-authorities/{id}/exposure` | GET | 300 | default | per route | Static E11.3 baseline-exposure artefact baked into the bundle; same reasoning as the registry rows above it |
+| `/api/v1/local-authorities/{id}/impact` | GET | 300 | default | per route | E11.4 real polygon intersection against the current GISTDA flood scene; same budget as the flood-extent routes it depends on |
 
 A rejected request answers `429 {"error":"Too many requests","retryAfterSeconds":N}` plus
 `Retry-After: N`. `/api/v1/health` reports how many 429s this isolate issued in the last hour under
@@ -89,6 +90,7 @@ Two rules are enforced by `json()` in `apps/api/src/router.ts` rather than by ea
 | `/api/v1/local-authorities` | `slowMoving` | `public, max-age=300` |
 | `/api/v1/local-authorities/{id}` | `slowMoving` | `public, max-age=300` |
 | `/api/v1/local-authorities/{id}/exposure` | `slowMoving` | `public, max-age=300` |
+| `/api/v1/local-authorities/{id}/impact` | `floodExtent(retrievedAt)` | as above — depends on live flood data, not the static exposure artefact |
 | any 4xx / 5xx | `noStore` | `no-store` |
 
 `stale-while-revalidate` was considered for the observations response (roadmap E4.6 sketches it) and

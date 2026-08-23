@@ -7,6 +7,7 @@ import { handleHealth } from "./routes/health.js";
 import {
   handleLocalAuthorityDetail,
   handleLocalAuthorityExposure,
+  handleLocalAuthorityImpact,
   handleLocalAuthoritiesList,
 } from "./routes/localAuthorities.js";
 import { handleObservations } from "./routes/observations.js";
@@ -50,6 +51,15 @@ export const routes: Route[] = [
     method: "GET",
     pattern: /^\/api\/v1\/local-authorities\/([A-Za-z0-9-]+)\/exposure$/,
     handler: (_req, _env, [id]) => handleLocalAuthorityExposure(id),
+    limit: { perMinute: 300 },
+  },
+  {
+    // ต่างจากสองเส้นทาง /local-authorities ด้านบน: อ่าน FloodExtentDO ต่อคำขอ
+    // (turf intersect กับฉาก GISTDA ปัจจุบัน) ไม่ใช่ artefact นิ่ง ๆ ที่ bake
+    // เข้า bundle — จำกัดอัตราเท่ากับเส้นทางอื่นที่พึ่งพา flood extent
+    method: "GET",
+    pattern: /^\/api\/v1\/local-authorities\/([A-Za-z0-9-]+)\/impact$/,
+    handler: (_req, env, [id]) => handleLocalAuthorityImpact(id, env),
     limit: { perMinute: 300 },
   },
   { method: "GET", pattern: /^\/api\/v1\/archive\/days$/, handler: handleArchiveDays, limit: { perMinute: 300 } },

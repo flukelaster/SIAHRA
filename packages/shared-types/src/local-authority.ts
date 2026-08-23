@@ -153,3 +153,114 @@ export interface LocalAuthorityExposureArtefact {
 export interface LocalAuthorityExposureResponse {
   exposure: LocalAuthorityBaselineExposure;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E11.4 — real flood-extent intersection (replaces the reverted name-matching
+// version, which never read flood geometry at all)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** A `Polygon`/`MultiPolygon` in WGS84 lon/lat — same shape GISTDA's flood
+ *  features use, so the two can be intersected with no reprojection. */
+export type LocalAuthorityBoundaryGeometry =
+  | { type: "Polygon"; coordinates: number[][][] }
+  | { type: "MultiPolygon"; coordinates: number[][][][] };
+
+/** One authority's real boundary polygon, repackaged for the API bundle —
+ *  see `apps/api/src/data/localAuthorityBoundaries.json`. */
+export interface LocalAuthorityBoundaryRecord {
+  /** `TH-LAO-{dlaCode}` — joins to `LocalAuthorityRef.id`. */
+  id: string;
+  geometry: LocalAuthorityBoundaryGeometry;
+}
+
+/** The artefact written to `apps/api/src/data/localAuthorityBoundaries.json` —
+ *  a Worker-bundle-friendly repackaging of the real E11.2 geometry already
+ *  committed under `apps/web/public/aoi/{code}/local-authorities.geojson`.
+ *  Purely a repackaging step: geometry is copied verbatim, never recomputed. */
+export interface LocalAuthorityBoundariesArtefact {
+  generatedAt: string;
+  recordCount: number;
+  boundaries: LocalAuthorityBoundaryRecord[];
+}
+
+/** An area-weighted derived number — `illustrative`, not `observed`: a
+ *  proportional share of a static baseline, not a directly measured value
+ *  and not a density-adjusted or otherwise modeled estimate. `estimate` is
+ *  null exactly when the underlying E11.3 baseline itself is null (e.g. a
+ *  failed WorldPop zonal crop) — never coerced to 0. */
+export interface LocalAuthorityImpactEstimate {
+  estimate: number | null;
+  method: "area-weighted";
+  descriptor: HazardLayerDescriptor;
+}
+
+/**
+ * Real polygon intersection between the current GISTDA flood-extent scene
+ * and one local authority's real E11.2 boundary — E11.4. Computed by
+ * `apps/api/src/geo/floodIntersection.ts` on every request (cheap: turf
+ * against at most a few dozen tambon polygons per province), only for
+ * authorities that have both a real E11.2 boundary and a real E11.3
+ * baseline exposure record — everything else is 404, never a fabricated
+ * record (see `LocalAuthorityImpactResponse`'s route doc).
+ *
+ * `floodedAreaKm2` / `floodedFraction` / `facilitiesExposed` are genuinely
+ * `observed`: `turf.intersect()` against real geometry and
+ * `turf.booleanPointInPolygon()` against real facility coordinates — not an
+ * interpretation, a direct computation on two real polygons.
+ *
+ * `floodedAreaKm2` and `floodedFraction` are `null` — not `0` — when GISTDA
+ * has never been fetched successfully (`descriptor.fetchedAt === null`):
+ * "never fetched" and "fetched, no overlap" are different facts and must
+ * stay visibly different, same rule as everywhere else in this codebase.
+ * `0` is a real, valid answer for "fetched, but this authority has no
+ * overlap right now."
+ *
+ * Scope limitation, stated rather than silently absorbed: flood features are
+ * looked up by the authority's own province only (`FloodExtentDO.getProvince`
+ * has no cross-province accessor) — a flood polygon GISTDA attributed to a
+ * neighbouring province that physically overlaps a boundary-adjacent
+ * authority is not counted here.
+ */
+export interface LocalAuthorityImpact {
+  localAuthorityId: string;
+  /** Real area of the authority's own polygon, `turf.area()` in km². */
+  authorityAreaKm2: number;
+  /** Sum of `turf.area(intersection)` over every flood feature (in the
+   *  authority's own province) that overlaps it, in km². Zero when there is
+   *  no overlap right now — a real answer, not an error. Not clamped to
+   *  `authorityAreaKm2`: adjacent flood polygons can each contribute area
+   *  along a shared edge, so the raw sum is reported as computed rather than
+   *  silently capped. Null — never 0 — when GISTDA has never been fetched
+   *  successfully. */
+  floodedAreaKm2: number | null;
+  /** `floodedAreaKm2 / authorityAreaKm2`, clamped to `[0, 1]`. Null under
+   *  the same never-fetched condition as `floodedAreaKm2`. */
+  floodedFraction: number | null;
+  /** Real facility points (from the E11.3 baseline's own facility list) that
+   *  fall inside the flooded intersection geometry — not merely inside the
+   *  authority's boundary. Empty (not null) both when GISTDA has never been
+   *  fetched and when nothing is currently flooded — `descriptor.fetchedAt`
+   *  is what distinguishes those two cases. */
+  facilitiesExposed: {
+    hospitals: LocalAuthorityFacility[];
+    schools: LocalAuthorityFacility[];
+    fireStations: LocalAuthorityFacility[];
+  };
+  /** Area-weighted share of the E11.3 population baseline. */
+  populationExposed: LocalAuthorityImpactEstimate;
+  /** Area-weighted share of the E11.3 building-count baseline. */
+  buildingsExposed: LocalAuthorityImpactEstimate;
+  /** Covers `floodedAreaKm2` / `floodedFraction` / `facilitiesExposed`.
+   *  `fetchedAt` mirrors `FloodExtentResponse.retrievedAt` honestly — null
+   *  when GISTDA has never been fetched successfully, never substituted with
+   *  "now". No `confidence` field anywhere in this type: nothing in this
+   *  computation produces a calibrated confidence value. */
+  descriptor: HazardLayerDescriptor;
+  /** When this computation ran — real, not a fabricated stamp. */
+  computedAt: string;
+}
+
+/** `GET /api/v1/local-authorities/:id/impact` */
+export interface LocalAuthorityImpactResponse {
+  impact: LocalAuthorityImpact;
+}
