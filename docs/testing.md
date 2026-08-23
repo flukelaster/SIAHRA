@@ -52,6 +52,7 @@ Version notes that cost time to rediscover (they are also in `apps/api/vitest.co
 | `test/upstreamShape.test.ts`, `test/upstreamShapeDurableObjects.test.ts` | Malformed payloads (`{}`, `[]`, truncated JSON) are **rejected** and never overwrite stored data |
 | `test/ingestion/*.test.ts` | **Normalisation**: raw payload → our types, per upstream (units, timezones, ids, nulls) |
 | `test/sourceStatus.test.ts`, `test/scheduledTick.test.ts`, `test/cachePolicy.test.ts`, … | Freshness ladder, cron orchestration, cache policy, archive keys |
+| `test/sqlQueryPlans.test.ts`, `test/historyRetention.test.ts`, `test/healthRowsRead.test.ts` | **Rows-read guard**: every static SQL literal in `src/durable-objects/*.ts` is run through `EXPLAIN QUERY PLAN` on the real schema and may only full-scan if it is listed in `ALLOWED_SCANS` with a reason; retention stays off the per-station path; `status()` reads cached stats and `/health` is edge-cached. Adding a scan to a DO means adding the allowlist entry in the same PR — the reason is what review checks (`docs/ops.md` §9) |
 
 Two rules that keep the suite honest:
 

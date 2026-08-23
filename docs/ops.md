@@ -62,6 +62,7 @@ curl -s .../api/v1/health | jq --arg now "$(date -u +%FT%TZ)" '
 | `unknown` on a fresh deploy | No attempt has produced a result yet | Wait one cron tick (1 min). If it persists, the DO is throwing before it records anything — check `wrangler tail` (§3). |
 | API answers `500`/`503` broadly, health itself errors | Durable Objects quota (see §7) or a bad deploy | `wrangler tail`, then roll back (§8) if a deploy caused it. |
 | `429` with `Retry-After` for a normal client | Per-route rate limit tripped (`apps/api/src/index.ts` route table) | Check `api.rateLimited429LastHour`. Limits are per isolate and per client IP; a single client can only starve itself. |
+| **Durable Objects "SQL rows read" climbing by billions a day** while "Total SQL storage" stays in the tens of MB | A statement that scans a whole table is running per request or per item (the 2026-08-18..23 incident: a retention `DELETE` per station pull + five aggregates per `/health`) | §9. Do not wait for the billing page — it lags a day; read the counter on **Workers & Pages → Durable Objects**. |
 | Map loads but radar/tiles are missing | R2 object missing or the tile route is wrong | For radar: check `detail.skippedFrames` on the `tmd-radar` source in `/api/v1/health`. For tiles: see `docs/deploy.md` §2. |
 
 ## 3. Reading the logs
@@ -302,3 +303,35 @@ Notes before you press it:
 - Rollback does not touch R2 or secrets.
 - After rolling back, confirm with `curl -s .../api/v1/health | jq '.ok, .worst'` and one real data
   route; `ok: false` right after a rollback is normal for a minute while each DO re-fetches.
+
+## 9. Durable Object rows read — finding what scans
+
+Rows read are billed by rows **scanned**, not returned (D1/DO pricing), so a small, quiet database
+can bill billions: 2026-08-18..23 was 72.38B rows read on 64.57 MB of storage — $1 per billion past
+the 25B included per cycle. The two statements responsible were a retention `DELETE … WHERE ts_ms < ?`
+at the end of a per-station history pull (PK is `(station_id, ts_ms)`, so `ts_ms` alone cannot use
+it → full scan, × 24 stations per province view) and five `COUNT`/`MAX` aggregates inside
+`ObservationCacheDO.status()`, which `/health` calls once a minute per open tab. Fixed in #53 and #54.
+
+**Where to look, in order**
+1. **Workers & Pages → Durable Objects** (dashboard): the usage tiles are live; the billing page
+   lags ~a day. Note the number and the time, come back in 30 min — after the fixes the counter
+   moves by ~0.01B every few hours, not every minute. Per-namespace `Requests` on the same page shows
+   which DO is being hit.
+2. **Find the statement**: copy the DO's SQLite file out of a dev worktree
+   (`apps/api/.wrangler/state/v3/do/siahra-api-<DO>/*.sqlite`) and run `EXPLAIN QUERY PLAN` on each
+   suspect statement with `sqlite3`. `SCAN <table>` with no `USING INDEX` = every row is read.
+   `apps/api/test/sqlQueryPlans.test.ts` does exactly this for every static SQL literal in
+   `src/durable-objects/*.ts` and fails on any scan that is not in its `ALLOWED_SCANS` list with a
+   reason, so a new offender normally never reaches `main`.
+3. **Then ask how often it runs.** A scan once per 5-minute refresh is fine; the same scan inside a
+   request handler, `status()`, or a loop over stations is the bug. Fix by (a) adding the index the
+   predicate needs, (b) moving the statement onto the refresh/alarm path and caching its result in
+   `meta`, or (c) rate-gating it (`pruneRetention()` runs at most hourly) — then list any remaining
+   whole-table read in `ALLOWED_SCANS` with the reason.
+4. **Set a budget alert** once: Durable Objects page → *Add Budget Alert* on the billing card. This
+   is a one-time dashboard action, not something the repo can enforce.
+
+**Included per cycle on Workers Paid** (2026-08): 25B rows read, 50M rows written, 1M DO requests,
+400k GB-s. The post-#54 steady state is ≈ 80M rows read/day (≈ 2.4B/cycle, ~10% of the allowance)
+and well under the request quota; anything an order of magnitude above that is a regression.
