@@ -53,6 +53,8 @@ edit in that table.
 | `/api/v1/local-authorities/{id}` | GET | 300 | default | per route | Same registry, same reasoning |
 | `/api/v1/local-authorities/{id}/exposure` | GET | 300 | default | per route | Static E11.3 baseline-exposure artefact baked into the bundle; same reasoning as the registry rows above it |
 | `/api/v1/local-authorities/{id}/impact` | GET | 300 | default | per route | E11.4 real polygon intersection against the current GISTDA flood scene; same budget as the flood-extent routes it depends on |
+| `/api/v1/alerts/active` | GET | 300 | default | per route | E11.5 read of `AlertEngineDO`'s already-computed state; same budget as the other frequently-polled per-province routes |
+| `/api/v1/alerts/rules` | GET | 300 | default | per route | Static baked rule table (286 rules); cheap to serve |
 
 A rejected request answers `429 {"error":"Too many requests","retryAfterSeconds":N}` plus
 `Retry-After: N`. `/api/v1/health` reports how many 429s this isolate issued in the last hour under
@@ -91,6 +93,8 @@ Two rules are enforced by `json()` in `apps/api/src/router.ts` rather than by ea
 | `/api/v1/local-authorities/{id}` | `slowMoving` | `public, max-age=300` |
 | `/api/v1/local-authorities/{id}/exposure` | `slowMoving` | `public, max-age=300` |
 | `/api/v1/local-authorities/{id}/impact` | `floodExtent(retrievedAt)` | as above — depends on live flood data, not the static exposure artefact |
+| `/api/v1/alerts/active` | `observations` | `public, max-age=60, s-maxage=120` — reflects live evaluation state (`AlertEngineDO.alarm()` re-evaluates every 5 min), so it gets the same short cache as the observations it is derived from |
+| `/api/v1/alerts/rules` | `slowMoving` | `public, max-age=300` — the baked rule table changes only on redeploy |
 | any 4xx / 5xx | `noStore` | `no-store` |
 
 `stale-while-revalidate` was considered for the observations response (roadmap E4.6 sketches it) and
@@ -228,10 +232,12 @@ decided for it at all and never fires.
 | `earthquakes` | `null` | `latestObservedAt` is when an earthquake *happened*. A quiet day is a normal day, not a stalled feed — marking it `delayed` would be inventing a failure that no observation supports. |
 | `exposure-illustrative` | `1800` (30 min) | Not an upstream feed: it is the run this API computes from ThaiWater after every refresh. `latestObservedAt` is **`run.computedAt` of the latest published run — when we computed it, not when any station was read.** A run is published on *every* successful refresh (`inputs.thaiwaterFetchedAt` is inside the hashed content, so the content always differs), so 30 minutes without a new one means **our** refresh loop stopped producing runs — a missed alarm or cron tick — not that the upstream went quiet. The newest station observation actually inside that run is reported separately as `detail.runObservedAt`, and it is normally 17–77 min older than `latestObservedAt`; read that one, not this one, for observation age. A *failed* publish is a different state and shows as `lastError` (`degraded`/`down`). `staleAfterSeconds` is deliberately **larger** (3600) than this: the health ladder checks `stale` before `delayed`, so equal budgets would make `delayed` unreachable — silence for 30 min reads as "the run loop slipped", silence past an hour as "our side stopped fetching altogether". |
 | `gistda-flood` | `null` | GISTDA publishes no acquisition or observation time with the flood scene (E3.2), so there is no cadence to compare against. Guessing one would be a fabricated timestamp. |
+| `alert-engine` | `null` | Not an upstream feed: it is `AlertEngineDO`'s own evaluation cadence (E11.5), reusing the same ThaiWater observations `exposure-illustrative` reads. `latestObservedAt` is the newest `last_observed_at` actually held across rule state, not the time of the last evaluation tick. There is no separate publication cadence to be `delayed` about — a stalled engine just means the tick has not run, which `staleAfterSeconds` already covers. |
 
 `staleAfterSeconds` is the separate fetch-side budget: thaiwater 900 s (refresh every 5 min),
 tmd-radar 900 s (refresh 5 min, retry 1 min → three missed rounds), gistda-flood 10800 s (refresh
-every 30 min), earthquakes 300 s (cron every minute).
+every 30 min), earthquakes 300 s (cron every minute), alert-engine 1800 s (evaluated every 5 min;
+30 min without a successful tick means the evaluation loop itself stopped).
 
 ### `down`, `ok` and `worst`
 

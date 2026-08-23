@@ -1,5 +1,6 @@
 import { createRouter, type Route } from "./router.js";
 import { runScheduledTick } from "./scheduledTick.js";
+import { handleActiveAlerts, handleAlertRules } from "./routes/alerts.js";
 import { handleEarthquakesLive, handleEarthquakesRecent } from "./routes/earthquakes.js";
 import { handleExposureRun, handleProvinceExposureLatest } from "./routes/exposure.js";
 import { handleFloodExtentSummary, handleProvinceFloodExtent } from "./routes/flood.js";
@@ -16,6 +17,7 @@ import { handleDams, handleStationHistory } from "./routes/stations.js";
 import { handleArchiveDays, handleArchiveSnapshot } from "./routes/archive.js";
 import type { AppEnv } from "./types.js";
 
+export { AlertEngineDO } from "./durable-objects/alert-engine.js";
 export { EarthquakeFeedDO } from "./durable-objects/earthquake-feed.js";
 export { FloodExtentDO } from "./durable-objects/flood-extent.js";
 export { ForecastPointerDO } from "./durable-objects/forecast-pointer.js";
@@ -103,6 +105,19 @@ export const routes: Route[] = [
     limit: { perMinute: 120 },
     limitScope: "exposure-run",
   },
+  {
+    // อ่านอย่างเดียว — ไม่มี POST /api/v1/alerts/evaluate ในตารางนี้เลย (E11.5)
+    method: "GET",
+    pattern: /^\/api\/v1\/alerts\/active$/,
+    handler: (req, env) => handleActiveAlerts(req, env),
+    limit: { perMinute: 300 },
+  },
+  {
+    method: "GET",
+    pattern: /^\/api\/v1\/alerts\/rules$/,
+    handler: (req, env) => handleAlertRules(req, env),
+    limit: { perMinute: 300 },
+  },
 ];
 
 const route = createRouter(routes);
@@ -127,6 +142,10 @@ export default {
       { id: "thaiwater", run: () => env.OBSERVATION_CACHE.getByName("thaiwater").ensureFresh() },
       { id: "gistda-flood", run: () => env.FLOOD_EXTENT.getByName("gistda").ensureFresh() },
       { id: "tmd-radar", run: () => env.RADAR.getByName("tmd").ensureFresh() },
+      // ประเมิน rule เทียบกับ ObservationCacheDO — งานทุกตัวในลิสต์นี้รันพร้อมกัน
+      // ไม่ใช่ตามลำดับ (ดู scheduledTick.ts) แต่ไม่เป็นปัญหา: evaluate() เรียก
+      // ObservationCacheDO.getObservations() เอง ซึ่ง refresh ตัวเองถ้าของเก่าหมดอายุ
+      { id: "alert-engine", run: () => env.ALERT_ENGINE.getByName("primary").ensureFresh() },
     ]);
   },
 } satisfies ExportedHandler<AppEnv>;

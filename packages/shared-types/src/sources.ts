@@ -14,6 +14,7 @@ export type SourceId =
   | "gistda-flood"
   | "tmd-radar"
   | "exposure-illustrative"
+  | "alert-engine"
   | "copernicus-dem"
   | "osm"
   | "osm-admin"
@@ -110,6 +111,21 @@ export const SOURCES: Record<SourceId, SourceDescriptor> = {
     licenseUrl: "https://github.com/flukelaster/SIAHRA/blob/main/LICENSE",
     attributionText:
       "ระดับการเผชิญน้ำ (ภาพประกอบ) คำนวณโดย SIAHRA จากค่าตรวจวัดของคลังข้อมูลน้ำแห่งชาติ (ThaiWater) ตามวิธีใน docs/methodology/flood-exposure.md — เป็นการจัดอันดับค่าที่วัดได้แล้ว ไม่ใช่การพยากรณ์",
+    kind: "live",
+  },
+  "alert-engine": {
+    id: "alert-engine",
+    nameTh: "การประเมินแจ้งเตือนระดับท้องถิ่น (คำนวณเอง)",
+    nameEn: "Local-authority alert evaluation (computed here)",
+    // ไม่ใช่ฟีดของหน่วยงานใด: ตัวเลขที่ประกอบเป็นการแจ้งเตือนมาจาก ThaiWater
+    // ผ่านตารางเกณฑ์ของ exposure-illustrative อยู่แล้ว ชั้นนี้คือกฎเงื่อนไข
+    // (station → อปท. + tier + hysteresis) ที่โปรเจกต์นี้ประกาศเองและรันเอง
+    agency: "SIAHRA (โครงการนี้) — ประเมินจาก ThaiWater (สสน.) ผ่านตารางเกณฑ์ flood-exposure",
+    homepageUrl: "https://siahra-radar.co/methodology/flood-exposure",
+    licenseName: "MIT (โค้ดและผลลัพธ์ของโครงการ) — ข้อมูลตั้งต้นเป็นของ ThaiWater",
+    licenseUrl: "https://github.com/flukelaster/SIAHRA/blob/main/LICENSE",
+    attributionText:
+      "การแจ้งเตือนระดับท้องถิ่นประเมินโดย SIAHRA จากค่าตรวจวัดของคลังข้อมูลน้ำแห่งชาติ (ThaiWater) ตามกฎเงื่อนไขที่ผูกกับสถานีจริง — ไม่ใช่การพยากรณ์",
     kind: "live",
   },
   "copernicus-dem": {
