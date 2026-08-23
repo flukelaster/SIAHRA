@@ -16,7 +16,27 @@ import type { AppEnv } from "../types.js";
  * it. Each DO reports its own status; a DO that throws is reported as
  * "unknown" rather than failing the whole endpoint.
  */
-export async function handleHealth(_request: Request, env: AppEnv): Promise<Response> {
+export async function handleHealth(request: Request, env: AppEnv, _params: string[], ctx: ExecutionContext): Promise<Response> {
+  /**
+   * แคชที่ขอบ (Cache API) 15 วินาที — เท่ากับ `max-age=15` ที่ประกาศให้เบราว์เซอร์
+   * อยู่แล้ว แต่เบราว์เซอร์ส่ง `cache: "no-store"` มา (ตั้งใจ: แถบสถานะห้ามโชว์
+   * ของค้าง) และ Worker บน `/api/*` รันทุกคำขอ ดังนั้นถ้าไม่ใส่ไว้ตรงนี้ ทุกแท็บ
+   * ที่เปิดค้างจะแตกเป็น 6 DO call ต่อนาทีต่อแท็บ — วัดจริง 2026-08-23: ~30k
+   * คำขอ/วันคูณ 6 DO = DO requests เกินโควตา และ rows read หลักร้อยล้าน/วัน
+   *
+   * ความสดของข้อมูลไม่เสีย: สถานะทุกแหล่งขยับเป็นนาที (รอบสั้นสุดคือแผ่นดินไหว
+   * 1 นาที) ของค้างสูงสุด 15 วิ จึงเล็กกว่าหนึ่งรอบของทุกแหล่ง และคำตอบที่ถูกแคช
+   * ยังมี `serverTime` ของตอนที่คำนวณอยู่ในตัว — ไม่มี `fetchedAt` ไหนถูกประทับใหม่
+   *
+   * ใช้เฉพาะ GET/HEAD (router ส่ง HEAD มาเป็น GET อยู่แล้ว) และคีย์คือ URL ล้วน —
+   * คำขอที่ผ่านกำแพง same-origin มาได้ทุกอันเห็นคำตอบเดียวกัน ไม่มีอะไรต่อผู้ใช้
+   * ในคำตอบนี้ให้รั่ว
+   */
+  const cache = caches.default;
+  const cacheKey = new Request(new URL(request.url).toString(), { method: "GET" });
+  const cached = await cache.match(cacheKey);
+  if (cached) return cached;
+
   const collectors: Promise<SourceStatus[]>[] = [
     env.OBSERVATION_CACHE.getByName("thaiwater")
       .status()
@@ -55,7 +75,9 @@ export async function handleHealth(_request: Request, env: AppEnv): Promise<Resp
     sources,
     api: { rateLimited429LastHour: rejectedLastHour() },
   };
-  return json(body, { cache: cachePolicy.health });
+  const res = json(body, { cache: cachePolicy.health });
+  ctx.waitUntil(cache.put(cacheKey, res.clone()));
+  return res;
 }
 
 /**
