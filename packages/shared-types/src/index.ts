@@ -9,3 +9,4 @@ export * from "./radar.js";
 export * from "./exposure.js";
 export * from "./provinces.js";
 export * from "./local-authority.js";
+export * from "./threshold.js";

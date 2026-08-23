@@ -16,6 +16,7 @@
     "build:local-authority-boundaries": "tsx src/buildLocalAuthorityBoundaries.ts",
     "build:local-authority-boundaries-bundle": "tsx src/buildLocalAuthorityBoundariesBundle.ts",
     "build:local-authority-exposure": "tsx src/buildLocalAuthorityExposure.ts",
+    "build:alert-rules": "tsx src/buildAlertRules.ts",
     "refresh:manifests": "tsx src/refreshManifests.ts",
     "test": "vitest run"
   },

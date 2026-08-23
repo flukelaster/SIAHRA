@@ -12,6 +12,7 @@ import { fetchGistdaFloodExtent, type FetchOptions } from "../ingestion/gistda.j
 import { keys as archiveKeys, putJsonGz } from "../archive.js";
 import { deriveSourceHealth } from "../sourceHealth.js";
 import { errorText, logError, logInfo, logWarn } from "../log.js";
+import { META_TABLE_DDL, readMeta, writeMeta } from "./metaKv.js";
 
 /** GISTDA re-interprets scenes irregularly; half-hourly polling is plenty. */
 const REFRESH_MS = 30 * 60 * 1000;
@@ -43,10 +44,6 @@ interface FeatureRow extends Record<string, SqlStorageValue> {
   last_seen_ms: number;
 }
 
-interface MetaRow extends Record<string, SqlStorageValue> {
-  value: string;
-}
-
 /**
  * Cache + change tracker for the GISTDA flood-extent scene. Because the
  * upstream features carry no timestamp, this DO records when each polygon
@@ -71,26 +68,17 @@ export class FloodExtentDO extends DurableObject<Env> {
         );
         CREATE INDEX IF NOT EXISTS idx_flood_province ON flood_features(province_code);
         CREATE INDEX IF NOT EXISTS idx_flood_last_seen ON flood_features(last_seen_ms);
-        CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+        ${META_TABLE_DDL}
       `);
     });
   }
 
   private readMeta(key: string): string | null {
-    return (
-      this.ctx.storage.sql.exec<MetaRow>("SELECT value FROM meta WHERE key = ?", key).toArray()[0]
-        ?.value ?? null
-    );
+    return readMeta(this.ctx.storage.sql, key);
   }
 
   private writeMeta(key: string, value: string | null): void {
-    if (value === null) this.ctx.storage.sql.exec("DELETE FROM meta WHERE key = ?", key);
-    else
-      this.ctx.storage.sql.exec(
-        "INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-        key,
-        value,
-      );
+    writeMeta(this.ctx.storage.sql, key, value);
   }
 
   private retrievedMs(): number | null {

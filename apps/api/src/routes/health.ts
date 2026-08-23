@@ -40,6 +40,12 @@ export async function handleHealth(_request: Request, env: AppEnv): Promise<Resp
       .exposureStatus()
       .then((s) => [s])
       .catch((err: unknown) => [unknownStatus("exposure-illustrative", String(err))]),
+    // ชั้น threshold/alert engine (E11.5) — DO ของตัวเอง วิ่งบนคนละคาบ (5 นาที)
+    // จาก ObservationCacheDO เอง จึงมีสถานะที่ล่ม/ค้างแยกต่างหากจากทั้งสองแหล่งข้างต้น
+    env.ALERT_ENGINE.getByName("primary")
+      .status()
+      .then((s) => [s])
+      .catch((err: unknown) => [unknownStatus("alert-engine", String(err))]),
   ];
   const sources = (await Promise.all(collectors)).flat();
   const body: HealthResponse = {

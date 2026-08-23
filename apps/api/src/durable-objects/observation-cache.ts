@@ -905,6 +905,19 @@ export class ObservationCacheDO extends DurableObject<Env> {
   }
 
   /**
+   * เวอร์ชัน public ของ `exposureHistory` — ให้ผู้เรียกภายนอก DO นี้ (E11.5's
+   * `AlertEngineDO`) คำนวณ `ExposureLevel` ด้วยอินพุตชุดเดียวกับที่
+   * `publishExposure()` ใช้เป๊ะ ๆ รวม `freeboardTrendMPerH` ด้วย — ถ้าผู้เรียก
+   * ป้อน `hourlyLevels: []` เข้า `computeExposure` เอง สถานีระดับน้ำทุกสถานีจะ
+   * ไม่มีวันมี trend (ต้องมีอย่างน้อยสองจุด) และได้ระดับต่ำกว่าที่ run เดียวกัน
+   * ของ `/api/v1/provinces/{NN}/exposure/latest` รายงานไว้จริง — ระดับที่ต่างกัน
+   * ของสถานีเดียวกันในเวลาเดียวกันคือบั๊กความน่าเชื่อถือ ไม่ใช่รายละเอียดภายใน
+   */
+  async getExposureHistory(windowH: number): Promise<StationHourlyLevels[]> {
+    return this.exposureHistory(Date.now(), windowH);
+  }
+
+  /**
    * คำนวณ run ทั่วประเทศหนึ่งชุดแล้วเผยแพร่ ถ้า **อะไรก็ตามที่เปิดเผยเปลี่ยน**
    *
    * เมธอดนี้ **ไม่มีวัน reject** — ทุกความล้มเหลวถูกเก็บลง `exposureError` แล้ว

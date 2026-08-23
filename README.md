@@ -87,7 +87,7 @@ The project follows a clean separation between three data classes: **base geospa
 ## Architecture
 
 <p align="center">
-  <img src="docs/images/architecture.png" alt="SIAHRA architecture: five upstream sources (TMD, ThaiWater/HII, GISTDA, USGS/EMSC, and an offline Copernicus DEM + OSM dataset) feed the siahra-api Cloudflare Worker, whose router applies a same-origin guard and rate limiting in front of five SQLite Durable Objects kept warm by a one-minute cron; the offline apps/etl pipeline and the Durable Object archive both write to the R2 bucket siahra-geodata, which the siahra-web Worker reads to serve the tile pyramid to a React 19 and three.js r185 client that calls the API same-origin" width="100%" />
+  <img src="docs/images/architecture.png" alt="SIAHRA architecture: five upstream sources (TMD, ThaiWater/HII, GISTDA, USGS/EMSC, and an offline Copernicus DEM + OSM dataset) feed the siahra-api Cloudflare Worker, whose router applies a same-origin guard and rate limiting in front of six SQLite Durable Objects kept warm by a one-minute cron; the offline apps/etl pipeline and the Durable Object archive both write to the R2 bucket siahra-geodata, which the siahra-web Worker reads to serve the tile pyramid to a React 19 and three.js r185 client that calls the API same-origin" width="100%" />
 </p>
 
 <p align="center"><sub>Rendered from <a href="docs/diagrams/architecture.svg"><code>docs/diagrams/architecture.svg</code></a> with <code>node docs/diagrams/render.mjs</code> — edit the SVG and re-render.</sub></p>
@@ -159,6 +159,8 @@ The Worker exposes a versioned JSON API under `/api/v1`:
 | `GET /api/v1/local-authorities` · `/:id` | National local-authority (อปท.) registry, sourced from DLA — static-reference, baked into the build, not live-polled |
 | `GET /api/v1/local-authorities/:id/exposure` | Baseline exposure (WorldPop 2020 population, OSM buildings/roads/facilities) for the 431 local authorities with a real E11.2 boundary — static-reference, baked into the build |
 | `GET /api/v1/local-authorities/:id/impact` | Real `turf.intersect()` between the current GISTDA flood scene and the authority's real E11.2 boundary — flooded area/fraction and facilities-in-flood are observed, population/buildings exposed are an illustrative area-weighted share of the E11.3 baseline |
+| `GET /api/v1/alerts/active` | Currently active threshold alerts (real ThaiWater stations bound to local authorities, hysteresis-evaluated) — read-only, GET-only |
+| `GET /api/v1/alerts/rules` | The baked threshold-rule table (rainfall/water-level, real stations and boundaries) an alert can fire from |
 
 ## CI & contributing
 

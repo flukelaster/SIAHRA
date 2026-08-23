@@ -45,7 +45,8 @@
       { "name": "FORECAST_POINTER", "class_name": "ForecastPointerDO" },
       { "name": "OBSERVATION_CACHE", "class_name": "ObservationCacheDO" },
       { "name": "FLOOD_EXTENT", "class_name": "FloodExtentDO" },
-      { "name": "RADAR", "class_name": "RadarDO" }
+      { "name": "RADAR", "class_name": "RadarDO" },
+      { "name": "ALERT_ENGINE", "class_name": "AlertEngineDO" }
     ]
   },
   "migrations": [
@@ -53,11 +54,16 @@
     { "tag": "v2", "new_sqlite_classes": ["ObservationCacheDO"] },
     { "tag": "v3", "new_sqlite_classes": ["FloodExtentDO"] },
     { "tag": "v4", "new_sqlite_classes": ["RadarDO"] },
-    // v5 สร้าง AlertEngineDO และถูก apply บน production ไปแล้ว จึงลบทิ้งไม่ได้ —
-    // migrations เป็นบัญชีแบบ append-only ที่ Cloudflare เทียบกับ tag ล่าสุดที่ apply แล้ว
-    // การถอดคลาสออกต้องทำด้วย v6 (deleted_classes) ไม่ใช่การลบบรรทัด v5
+    // v5 สร้าง AlertEngineDO ตัวเก่า (ทะเบียนสถานีปลอม) และถูก apply บน production
+    // ไปแล้ว จึงลบทิ้งไม่ได้ — migrations เป็นบัญชีแบบ append-only ที่ Cloudflare
+    // เทียบกับ tag ล่าสุดที่ apply แล้ว การถอดคลาสออกต้องทำด้วย v6 (deleted_classes)
+    // ไม่ใช่การลบบรรทัด v5
     { "tag": "v5", "new_sqlite_classes": ["AlertEngineDO"] },
-    { "tag": "v6", "deleted_classes": ["AlertEngineDO"] }
+    { "tag": "v6", "deleted_classes": ["AlertEngineDO"] },
+    // v7 สร้าง AlertEngineDO ใหม่ทั้งหมด (E11.5) — สถานีจริง, ระดับจาก
+    // computeExposure(), ไม่มี write endpoint — ชื่อคลาสซ้ำกับ v5 ได้เพราะ v6
+    // ลบไปแล้วก่อนหน้านี้ ไม่ใช่การนำ tag เดิมกลับมาใช้ซ้ำ
+    { "tag": "v7", "new_sqlite_classes": ["AlertEngineDO"] }
   ],
 
   "triggers": { "crons": ["* * * * *"] },
