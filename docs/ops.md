@@ -136,7 +136,11 @@ refresh, so they cannot double-fetch.
 
 Side cadences inside `ObservationCacheDO`: dams every 30 min (5 min pause after a failure so a broken
 feed is not hammered), station history at most every 10 min per station, one nationwide R2 snapshot
-per Bangkok hour, and the previous day's per-province archive written after 00:20 Bangkok time.
+per Bangkok hour, the previous day's per-province archive written after 00:20 Bangkok time, and the
+retention sweep of both history tables **at most once an hour** (`pruneRetention()`, gated by
+`lastPruneMs` in the DO's `meta` table) — on the shared refresh path, deliberately not on the
+per-station history pull. A failed prune is logged and leaves `lastPruneMs` alone, so the next tick
+retries; it can never take the refresh or the alarm rearm down with it.
 
 If `nextAttemptAt` is `null` for a source, no alarm is scheduled — the next cron tick will re-arm it.
 
@@ -224,6 +228,10 @@ else in the code path prunes these objects.
   ~100k DO rows written per day. There is no code fix; the account needs **Workers Paid** ($5/month),
   which Durable Objects require anyway (`docs/deploy.md` §0). Confirm from `wrangler tail`: the errors
   come from the DO call, not from the route.
+  Rows **read** is a separate dimension from rows written, and it is billed by rows *scanned*, not
+  rows returned or deleted — so a small, quiet database can still bill billions of rows read. Watch
+  it independently of the rows-written cliff; the numbers and the query rule behind them are in
+  `docs/deploy.md` § ค่าใช้จ่ายโดยประมาณ.
 - **No new exposure run for 30 minutes** → `exposure-illustrative` is `delayed`, and this one **is
   worth looking at: it means our own refresh loop stopped producing runs**, not that the upstream went
   quiet. A run is published after *every* successful refresh — `inputs.thaiwaterFetchedAt` is part of
