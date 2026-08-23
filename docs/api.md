@@ -51,6 +51,7 @@ edit in that table.
 | `/api/v1/radar/frame/{tsMs}.png` | GET | 600 | default | shared `radar-frame` | An animation loop pulls one image per frame; one shared bucket across all frames |
 | `/api/v1/local-authorities` | GET | 300 | default | per route | Static registry baked into the bundle; cheap to serve |
 | `/api/v1/local-authorities/{id}` | GET | 300 | default | per route | Same registry, same reasoning |
+| `/api/v1/local-authorities/{id}/exposure` | GET | 300 | default | per route | Static E11.3 baseline-exposure artefact baked into the bundle; same reasoning as the registry rows above it |
 
 A rejected request answers `429 {"error":"Too many requests","retryAfterSeconds":N}` plus
 `Retry-After: N`. `/api/v1/health` reports how many 429s this isolate issued in the last hour under
@@ -87,6 +88,7 @@ Two rules are enforced by `json()` in `apps/api/src/router.ts` rather than by ea
 | `/api/v1/radar/frame/{tsMs}.png` | `radarFrame` | `public, max-age=86400, immutable` |
 | `/api/v1/local-authorities` | `slowMoving` | `public, max-age=300` |
 | `/api/v1/local-authorities/{id}` | `slowMoving` | `public, max-age=300` |
+| `/api/v1/local-authorities/{id}/exposure` | `slowMoving` | `public, max-age=300` |
 | any 4xx / 5xx | `noStore` | `no-store` |
 
 `stale-while-revalidate` was considered for the observations response (roadmap E4.6 sketches it) and

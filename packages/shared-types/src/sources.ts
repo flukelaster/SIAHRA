@@ -17,6 +17,7 @@ export type SourceId =
   | "copernicus-dem"
   | "osm"
   | "osm-admin"
+  | "worldpop"
   | "worldcover"
   | "esri-world-imagery"
   | "eox-s2cloudless"
@@ -146,6 +147,18 @@ export const SOURCES: Record<SourceId, SourceDescriptor> = {
     licenseUrl: "https://opendatacommons.org/licenses/odbl/1-0/",
     attributionText:
       "ขอบเขตองค์กรปกครองส่วนท้องถิ่น © ผู้ร่วมสร้าง OpenStreetMap (ODbL) — ผู้ร่วมสร้าง OSM ไม่ได้รับรองหรือมีส่วนเกี่ยวข้องกับโครงการนี้",
+    kind: "static",
+  },
+  worldpop: {
+    id: "worldpop",
+    nameTh: "ประชากรเชิงพื้นที่ WorldPop 100 ม. ปรับค่าตาม UN (2020)",
+    nameEn: "WorldPop 100 m gridded population, UN-adjusted (2020)",
+    agency: "WorldPop, University of Southampton (ทุนสนับสนุนโดย Bill & Melinda Gates Foundation)",
+    homepageUrl: "https://hub.worldpop.org/geodata/summary?id=6439",
+    licenseName: "CC BY 4.0",
+    licenseUrl: "https://creativecommons.org/licenses/by/4.0/",
+    attributionText:
+      "ประชากรเชิงพื้นที่ WorldPop 2020 (UN-adjusted, 100 ม.) โดย WorldPop, University of Southampton — DOI 10.5258/SOTON/WP00645 (CC BY 4.0)",
     kind: "static",
   },
   worldcover: {

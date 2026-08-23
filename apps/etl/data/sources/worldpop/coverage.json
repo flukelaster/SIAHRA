@@ -1,0 +1,15 @@
+{
+  "generatedAt": "2026-08-23T02:53:28.000Z",
+  "worldpopSha256": "5ae1dc11b888da6a5e8c947a3a8e10b055d43a1cf093faef63d9d28eb570083f",
+  "worldpopFetchedAt": "2026-08-23T02:44:33.000Z",
+  "worldpopPublishedAt": "2020-02-12T06:00:58.000Z",
+  "osmPublishedAt": "2026-08-15T20:21:20.000Z",
+  "recordCount": 431,
+  "zeroPopulationCount": 0,
+  "populationFailures": [],
+  "buildingCountDistribution": {
+    "min": 0,
+    "max": 30920,
+    "median": 39
+  }
+}
