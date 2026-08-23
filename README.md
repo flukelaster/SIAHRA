@@ -157,6 +157,7 @@ The Worker exposes a versioned JSON API under `/api/v1`:
 | `GET /api/v1/radar/frames` · `/radar/frame/:ts.png` | Weather radar composite frames |
 | `GET /api/v1/stations/:id/history` | Historical readings for one gauge station |
 | `GET /api/v1/local-authorities` · `/:id` | National local-authority (อปท.) registry, sourced from DLA — static-reference, baked into the build, not live-polled |
+| `GET /api/v1/local-authorities/:id/exposure` | Baseline exposure (WorldPop 2020 population, OSM buildings/roads/facilities) for the 431 local authorities with a real E11.2 boundary — static-reference, baked into the build |
 
 ## CI & contributing
 
@@ -213,6 +214,7 @@ Two conventions a branch ruleset can't express — a PR that touches UI files mu
 | Earthquake cross-check | USGS, EMSC | Public data policy |
 | Local-authority (อปท.) registry | Department of Local Administration (DLA) | Open Data Common |
 | Local-authority (อปท.) boundaries | OpenStreetMap (`admin_level=7` relations) | ODbL |
+| Local-authority baseline exposure (population) | WorldPop 2020, UN-adjusted, 100 m (University of Southampton) | CC BY 4.0 |
 
 This is an attribution list, **not** a claim of authorship or endorsement — these agencies supply the data; they did not build or endorse this application. Several upstream layers referenced in [`docs/SIAHRA-implement-plan.md`](docs/SIAHRA-implement-plan.md) (e.g. some LDD soil datasets) carry non-commercial or share-alike terms and are deliberately **not** wired into the live product; verify licensing before adding any new source.
 

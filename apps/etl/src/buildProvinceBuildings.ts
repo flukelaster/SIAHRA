@@ -19,7 +19,10 @@ interface RawFeature {
   geometry: { type: string; coordinates: unknown };
 }
 
-function parseOtherTags(raw: string | undefined): Record<string, string> {
+/** Parses osmium/ogr2ogr's `other_tags` hstore-style string into a plain object.
+ *  Exported for reuse by `buildLocalAuthorityExposure.ts` (E11.3) — same tag
+ *  format, no reason to reimplement the parser. */
+export function parseOtherTags(raw: string | undefined): Record<string, string> {
   if (!raw) return {};
   const out: Record<string, string> = {};
   const re = /"((?:[^"\\]|\\.)*)"=>"((?:[^"\\]|\\.)*)"/g;

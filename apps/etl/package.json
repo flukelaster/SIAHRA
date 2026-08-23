@@ -14,6 +14,7 @@
     "build:province-rings": "tsx src/buildProvinceRings.ts",
     "build:local-authorities": "tsx src/buildLocalAuthorities.ts",
     "build:local-authority-boundaries": "tsx src/buildLocalAuthorityBoundaries.ts",
+    "build:local-authority-exposure": "tsx src/buildLocalAuthorityExposure.ts",
     "refresh:manifests": "tsx src/refreshManifests.ts",
     "test": "vitest run"
   },

@@ -4,6 +4,7 @@ import {
   LOCAL_AUTHORITY_TYPES,
   type LocalAuthoritiesResponse,
   type LocalAuthorityDetailResponse,
+  type LocalAuthorityExposureResponse,
 } from "@siahra/shared-types";
 import * as cachePolicy from "../cachePolicy.js";
 import {
@@ -11,6 +12,7 @@ import {
   LOCAL_AUTHORITIES_DESCRIPTOR,
   queryLocalAuthorities,
 } from "../data/localAuthorities.js";
+import { getExposureByLocalAuthorityId } from "../data/localAuthorityExposure.js";
 import { json } from "../router.js";
 
 /**
@@ -57,5 +59,27 @@ export function handleLocalAuthorityDetail(id: string): Response {
     layer: LOCAL_AUTHORITIES_DESCRIPTOR,
     localAuthority,
   };
+  return json(body, { cache: cachePolicy.slowMoving });
+}
+
+/**
+ * GET /api/v1/local-authorities/:id/exposure — E11.3 baseline exposure
+ * (population/buildings/roads/facilities). 404 both when `id` is not a real
+ * registry record, and when it is real but has no E11.2 boundary polygon to
+ * compute zonal statistics against — never a fabricated zero/estimated record.
+ */
+export function handleLocalAuthorityExposure(id: string): Response {
+  const localAuthority = getLocalAuthorityById(id);
+  if (!localAuthority) return json({ error: `No such local authority: ${id}` }, { status: 404 });
+
+  const exposure = getExposureByLocalAuthorityId(localAuthority.id);
+  if (!exposure) {
+    return json(
+      { error: `No baseline exposure for ${localAuthority.id} — no E11.2 boundary polygon to compute it against` },
+      { status: 404 },
+    );
+  }
+
+  const body: LocalAuthorityExposureResponse = { exposure };
   return json(body, { cache: cachePolicy.slowMoving });
 }
