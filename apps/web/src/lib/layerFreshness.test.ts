@@ -5,7 +5,13 @@ import { neverReceived } from "./time";
 import { LANGS, translate, translator, type Lang } from "../i18n";
 
 const NOW = Date.parse("2026-08-19T10:00:00+07:00");
-const KINDS: EpistemicClass[] = ["observed", "static-reference", "illustrative", "probabilistic"];
+const KINDS: EpistemicClass[] = [
+  "observed",
+  "static-reference",
+  "illustrative",
+  "probabilistic",
+  "forecast",
+];
 
 function descriptor(kind: EpistemicClass, fetchedAt: string | null): HazardLayerDescriptor {
   return {
@@ -35,6 +41,8 @@ describe("missingFetchedAtKey", () => {
     expect(missingText("static-reference", "th")).toBe("ไม่ได้บันทึกเวลาที่ดึงข้อมูล");
     expect(missingText("illustrative", "th")).toContain("ไม่มีการดึงข้อมูลรายครั้ง");
     expect(missingText("probabilistic", "th")).toContain("ยังไม่เคยได้รับผล");
+    // ชั้นพยากรณ์ต้องบอกด้วยว่าเป็นผลของ TMD ไม่ใช่ของโครงการนี้
+    expect(missingText("forecast", "th")).toContain("TMD");
   });
 
   it("ภาษาอังกฤษก็ต้องแยกความหมายเดียวกันไว้", () => {
@@ -42,6 +50,7 @@ describe("missingFetchedAtKey", () => {
     expect(missingText("static-reference", "en")).toMatch(/not recorded/i);
     expect(missingText("illustrative", "en")).toMatch(/computed from terrain/i);
     expect(missingText("probabilistic", "en")).toMatch(/model output/i);
+    expect(missingText("forecast", "en")).toMatch(/TMD/);
   });
 
   it.each(LANGS)(
@@ -84,6 +93,8 @@ describe("describeLayerFreshness", () => {
     expect(describe_(descriptor("observed", null), null).amber).toBe(true);
     expect(describe_(descriptor("static-reference", null), null).amber).toBe(false);
     expect(describe_(descriptor("illustrative", null), null).amber).toBe(false);
+    // ชั้นพยากรณ์มีรอบดึงจริง ดึงไม่สำเร็จจึงต้องเหลืองเหมือนข้อมูลตรวจวัด
+    expect(describe_(descriptor("forecast", null), null).amber).toBe(true);
   });
 
   it("delayed พูดคนละประโยคกับข้อมูลค้าง (E3.3) แต่ยังเตือนด้วยสีเหมือนกัน", () => {

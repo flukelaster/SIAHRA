@@ -60,6 +60,39 @@ const NEGATED =
 /** ยังเหลือคำต้องห้ามอยู่ไหม หลังตัดประโยคปฏิเสธออกแล้ว */
 const flagsAsClaim = (s: string) => BANNED.test(s.replace(NEGATED, ""));
 
+/**
+ * ข้อยกเว้นเดียวที่ยอมให้ "กล่าวอ้าง" คำว่าพยากรณ์ได้: ชั้นข้อมูลพยากรณ์ของ TMD
+ * (E12) ซึ่งเป็นแบบจำลองเชิงตัวเลขของหน่วยงานภายนอกที่อ้างอิงได้จริง — ข้อห้ามเดิม
+ * มีไว้กันเรา "แต่งตัวเลขอนาคตขึ้นเอง" ไม่ได้ห้ามอ้างถึงแบบจำลองที่มีเจ้าของ
+ *
+ * รัดไว้สองชั้น ไม่ใช่ปลดล็อกทั้งแคตาล็อก:
+ *
+ *   - **ผูกกับคีย์** (`ELIGIBLE_KEY`): เฉพาะคีย์ตระกูลพยากรณ์เท่านั้นที่มีสิทธิ์ —
+ *     คีย์อื่นที่มีคำว่า forecast/พยากรณ์ ยังแดงเหมือนเดิม ถ้ายกเว้นตาม "ค่า" อย่างเดียว
+ *     ประโยคไหนก็ตามที่เผลอพิมพ์คำว่า TMD ลงไปจะปลดล็อกตัวเองได้ทันที
+ *   - **ต้องมีคำว่า "TMD" ในค่าเดียวกัน**: ประโยคต้องแบกที่มาของมันเองไปด้วยเสมอ
+ *     ผู้ใช้ที่อ่านชิปนั้นต้องรู้ทันทีว่าใครเป็นคนพยากรณ์ ไม่ใช่โครงการนี้
+ *
+ * และข้อยกเว้นนี้ยก **เฉพาะคำตระกูลพยากรณ์** (`FORECAST_FAMILY`) ออกก่อนส่งค่าที่
+ * เหลือให้ `flagsAsClaim` ตัวเดิมตัดสิน — คำตระกูลความน่าจะเป็น (probabilit,
+ * chance of, likelihood, likely, risk score, โอกาสเกิด, ความน่าจะเป็น) ไม่เคยถูก
+ * ตัดออก จึงยังโดน `BANNED` เต็ม ๆ แม้บนคีย์ที่มีสิทธิ์: การพยากรณ์เชิงกำหนด
+ * (deterministic) ของ TMD ไม่ใช่ความน่าจะเป็น และห้ามเขียนให้อ่านเป็นอย่างนั้น
+ */
+const ELIGIBLE_KEY = /^(badge\.forecast|freshness\.missing\.forecast|forecast\.)/;
+
+/**
+ * คำตระกูล "พยากรณ์" ล้วน ๆ — ตัวเดียวที่ข้อยกเว้นข้างบนยกออกได้
+ * มี `g` ได้เพราะใช้กับ `.replace()` เท่านั้น (replace รีเซ็ต `lastIndex` ให้เอง)
+ */
+const FORECAST_FAMILY = /forecast|predict|คาดการณ์|พยากรณ์/gi;
+
+/** เหมือน `flagsAsClaim` แต่รู้จักคีย์ จึงยกข้อยกเว้นของชั้นพยากรณ์ TMD ได้ */
+const flagsAsClaimForKey = (key: string, value: string) =>
+  ELIGIBLE_KEY.test(key) && value.includes("TMD")
+    ? flagsAsClaim(value.replace(FORECAST_FAMILY, ""))
+    : flagsAsClaim(value);
+
 describe("i18n catalogs", () => {
   it("มีคีย์ชุดเดียวกันทั้งสองภาษา", () => {
     const thKeys = keysOf(th);
@@ -95,7 +128,8 @@ describe("i18n catalogs", () => {
       for (const [key, value] of Object.entries(CATALOGS[lang])) {
         if (!BANNED.test(value)) continue;
         // ตัดประโยคปฏิเสธออกก่อน แล้วดูว่ายังเหลือคำต้องห้ามอยู่ไหม
-        if (flagsAsClaim(value)) offenders.push(`${lang}:${key}`);
+        // (คีย์ตระกูลพยากรณ์ที่อ้าง TMD ไว้ในประโยคเดียวกันได้รับการยกเว้นเฉพาะคำพยากรณ์)
+        if (flagsAsClaimForKey(key, value)) offenders.push(`${lang}:${key}`);
       }
     }
     expect(offenders).toEqual([]);
@@ -136,6 +170,35 @@ describe("i18n catalogs", () => {
       ),
     ).toBe(false);
     expect(flagsAsClaim("Estimated from terrain elevation; not a flood forecast")).toBe(false);
+  });
+
+  /**
+   * ตัวคุมของข้อยกเว้น "ชั้นพยากรณ์ TMD" — ใช้ `flagsAsClaimForKey` ตัวเดียวกับที่
+   * เทสข้างบนใช้จริง ข้อยกเว้นนี้ต้องแคบสามทาง: ผูกกับคีย์ · ต้องมี TMD · ยกได้เฉพาะ
+   * คำตระกูลพยากรณ์ ไม่ใช่คำตระกูลความน่าจะเป็น
+   */
+  it("ข้อยกเว้นของชั้นพยากรณ์ TMD ผูกกับคีย์ ต้องอ้าง TMD และไม่เคยปลดคำความน่าจะเป็น", () => {
+    // ผ่าน: คีย์ที่มีสิทธิ์ + มี TMD อยู่ในประโยคเดียวกัน
+    expect(flagsAsClaimForKey("badge.forecast", "พยากรณ์จากแบบจำลอง TMD")).toBe(false);
+    expect(flagsAsClaimForKey("badge.forecast.title", "TMD numerical model forecast")).toBe(false);
+    expect(
+      flagsAsClaimForKey("freshness.missing.forecast", "ยังไม่เคยได้รับผลพยากรณ์จาก TMD"),
+    ).toBe(false);
+
+    // 1. คีย์ที่มีสิทธิ์แต่ไม่ได้อ้าง TMD → ยังต้องแดง (ประโยคไม่ได้แบกที่มาไปด้วย)
+    expect(flagsAsClaimForKey("badge.forecast", "พยากรณ์อากาศ")).toBe(true);
+    expect(flagsAsClaimForKey("badge.forecast.title", "A weather forecast")).toBe(true);
+
+    // 2. คีย์ที่มีสิทธิ์แต่ใช้คำตระกูลความน่าจะเป็น → ยังต้องแดง แม้จะมี TMD
+    expect(flagsAsClaimForKey("badge.forecast", "TMD บอกโอกาสเกิดฝน 70%")).toBe(true);
+    expect(
+      flagsAsClaimForKey("badge.forecast.title", "TMD forecast: 70% chance of flooding"),
+    ).toBe(true);
+    expect(flagsAsClaimForKey("forecast.note", "TMD forecast probability of rain")).toBe(true);
+
+    // 3. คีย์ที่ไม่มีสิทธิ์ ต่อให้มี TMD ก็ยังแดง
+    expect(flagsAsClaimForKey("badge.observed", "พยากรณ์ฝนจาก TMD")).toBe(true);
+    expect(flagsAsClaimForKey("water.note", "TMD forecast for tomorrow")).toBe(true);
   });
 
   it("แทนค่าตัวแปร และคงวงเล็บไว้เมื่อไม่ได้ส่งค่ามา", () => {

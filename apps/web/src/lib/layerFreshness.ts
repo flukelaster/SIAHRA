@@ -14,6 +14,9 @@
  *                            แต่ไปป์ไลน์ยังไม่ได้บันทึกเวลาของ artefact นั้นไว้ — E9.1)
  *      - illustrative     → ไม่ได้ "ดึง" มาจากไหน เพราะคำนวณจากภูมิประเทศเอง
  *      - probabilistic    → ยังไม่มีชั้นแบบนี้ในระบบ แต่ต้องมีข้อความรองรับไว้
+ *      - forecast         → "ยังไม่เคยได้รับผลพยากรณ์จาก TMD" (เราดึงจากแบบจำลอง
+ *                            ของหน่วยงานภายนอกไม่สำเร็จจริง ๆ — ต่างจาก probabilistic
+ *                            ตรงที่ชั้นชนิดนี้มีใช้จริง)
  *    การใช้ "ยังไม่เคยได้รับข้อมูล" กับ static-reference จะเป็นการกล่าวหาว่าดึงพลาด
  *    ทั้งที่ความจริงคือไม่เคยจดเวลาไว้ — คนละเรื่องกัน
  *
@@ -34,7 +37,7 @@ export interface EpistemicBadge {
 }
 
 /**
- * ป้ายสี่ชนิดตาม `EpistemicClass` — ผู้ใช้ต้องแยกออกว่าอันไหน "มีคนวัดมา" และ
+ * ป้ายห้าชนิดตาม `EpistemicClass` — ผู้ใช้ต้องแยกออกว่าอันไหน "มีคนวัดมา" และ
  * อันไหน "เราคำนวณเอง" ก่อนจะอ่านตัวเลขใด ๆ บนแผนที่
  */
 export const EPISTEMIC_BADGE: Record<EpistemicClass, EpistemicBadge> = {
@@ -60,6 +63,15 @@ export const EPISTEMIC_BADGE: Record<EpistemicClass, EpistemicBadge> = {
     titleKey: "badge.probabilistic.title",
     className: "bg-[var(--color-risk-low)]/15 text-[var(--color-risk-low)] ring-[var(--color-risk-low)]/35",
   },
+  forecast: {
+    // ต่างจาก probabilistic ข้างบน: ชั้นชนิดนี้มีข้อมูลจริงกำลังจะเข้ามา (TMD NWP)
+    // จึงต้องอ่านออกทันทีว่าเป็นค่าของอนาคตจากแบบจำลองภายนอก ไม่ใช่ค่าที่วัดมา
+    labelKey: "badge.forecast",
+    titleKey: "badge.forecast.title",
+    // ตามแบบเดียวกับชิปอื่น: พื้น/ขอบใช้โทเคน ส่วนสีตัวอักษรเป็นเฉดอ่อนของโทเคนนั้น
+    // (พื้นเป็นสีจาง 18% ไม่ใช่สีทึบ ตัวอักษรจึงต้องเป็นสีที่อ่านบนพื้นเข้ม ไม่ใช่ --color-accent-fg)
+    className: "bg-[var(--color-accent)]/18 text-[#9dc0ff] ring-[var(--color-accent)]/40",
+  },
 };
 
 /**
@@ -84,6 +96,8 @@ export function missingFetchedAtKey(kind: EpistemicClass): MessageKey {
       return "freshness.missing.illustrative";
     case "probabilistic":
       return "freshness.missing.probabilistic";
+    case "forecast":
+      return "freshness.missing.forecast";
   }
   // ชนิดที่ยังไม่รู้จัก: บอกว่าไม่ทราบเวลา ห้ามเดาเป็นเวลาใด ๆ
   return "freshness.missing.unknown";
@@ -123,7 +137,12 @@ export interface LayerFreshness {
 function isStale(d: HazardLayerDescriptor, nowMs: number): boolean {
   if (!d.fetchedAt) {
     // ไม่เคยดึงสำเร็จ = ข้อมูลสด "หายไป" จริง; ส่วนชั้นคงที่/ภาพประกอบไม่มีรอบดึง
-    return d.epistemicClass === "observed" || d.epistemicClass === "probabilistic";
+    // ชั้นพยากรณ์มีรอบดึงเหมือนข้อมูลสด จึงนับเป็นข้อมูลหายเช่นกัน
+    return (
+      d.epistemicClass === "observed" ||
+      d.epistemicClass === "probabilistic" ||
+      d.epistemicClass === "forecast"
+    );
   }
   if (!d.staleAfterSeconds) return false;
   const ms = Date.parse(d.fetchedAt);

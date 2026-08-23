@@ -9,8 +9,16 @@ import type { SourceId } from "./sources.js";
  * - static-reference:  a government-published hazard-zone/geology dataset; not live, not a forecast
  * - illustrative:      a topographic approximation we computed; explicitly not a calibrated model
  * - probabilistic:     a named, cited, third-party probabilistic model (e.g. USGS aftershock forecast)
+ * - forecast:          a named, cited, third-party DETERMINISTIC model forecast (e.g. TMD NWP);
+ *                      never computed here, and never a probability — a value valid for a future
+ *                      instant is still not a statement about how likely anything is
  */
-export type EpistemicClass = "observed" | "static-reference" | "illustrative" | "probabilistic";
+export type EpistemicClass =
+  | "observed"
+  | "static-reference"
+  | "illustrative"
+  | "probabilistic"
+  | "forecast";
 
 /**
  * A layer carries three distinct timestamps, and conflating any two of them is
@@ -44,6 +52,29 @@ export interface HazardLayerDescriptor {
   methodologyUrl?: string;
   /** Join key into SOURCES / /api/v1/health `.sources[].id`. */
   sourceIds: SourceId[];
+  /**
+   * Only for `epistemicClass: "forecast"`: which third-party model produced the
+   * values, at what grid resolution, and how far ahead it reaches — so the UI can
+   * name the model instead of implying we computed anything.
+   *
+   * `issuedAt` is the model RUN time (the cycle the numbers came out of), and it
+   * exists only when the upstream publishes one. TMD's NWP API does not: it
+   * returns the forecast valid time and nothing about the run, so `issuedAt` is
+   * `null` for that source. Null must never be filled in from `fetchedAt` —
+   * exactly the rule `publishedAt` carries. "When we asked" is not "when the
+   * model ran", and synthesising one from the other invents a provenance the
+   * upstream never gave us.
+   */
+  forecast?: {
+    /** ชื่อแบบจำลองตามที่ต้นทางเรียก (เช่น "TMD WRF-ARW") */
+    modelName: string;
+    /** ความละเอียดกริดของแบบจำลอง (กม.) ตามที่ต้นทางประกาศ */
+    resolutionKm: number;
+    /** ระยะเวลาที่แบบจำลองพยากรณ์ไปข้างหน้า (ชม.) */
+    horizonHours: number;
+    /** เวลารอบรันของแบบจำลอง — null = ต้นทางไม่ได้บอกไว้ (ห้ามแทนด้วย fetchedAt) */
+    issuedAt: string | null;
+  };
 }
 
 export type RiskLevel = "low" | "medium" | "high" | "extreme";

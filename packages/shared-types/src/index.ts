@@ -10,3 +10,4 @@ export * from "./exposure.js";
 export * from "./provinces.js";
 export * from "./local-authority.js";
 export * from "./threshold.js";
+export * from "./forecast.js";

@@ -13,6 +13,12 @@ import type { th } from "./th";
  *   จาก `health.stale` ที่แปลว่าฝั่งเราดึงไม่สำเร็จมานาน
  * - "ไม่ใช่การพยากรณ์" → "not a forecast" ทุกจุด และห้ามมีคำว่า probability /
  *   chance / risk score ที่ไม่ได้อยู่ในประโยคปฏิเสธ
+ * - ข้อยกเว้นเดียว (E12): คีย์ตระกูล `badge.forecast*` / `freshness.missing.forecast`
+ *   / `forecast.*` พูดคำว่า forecast ตรง ๆ ได้ เพราะเป็นผลจากแบบจำลองเชิงตัวเลข
+ *   ของ TMD ที่อ้างอิงได้ — แต่ทุกประโยคต้องมีคำว่า "TMD" อยู่ในประโยคเดียวกัน
+ *   และยังห้ามคำตระกูลความน่าจะเป็น (probability / chance / likelihood / likely /
+ *   risk score) เด็ดขาด เพราะแบบจำลองนี้เป็น deterministic ไม่ใช่ความน่าจะเป็น
+ *   (บังคับด้วยเทสใน `catalog.test.ts`)
  *
  * ข้อความที่ **ไม่แปล** โดยตั้งใจ: `attributionText` / `licenseName` / `agency`
  * ใน `SOURCES` (เป็นข้อความเครดิตตามเงื่อนไขของต้นทาง ไม่ใช่ข้อความ UI),
@@ -72,6 +78,10 @@ export const en: Record<keyof typeof th, string> = {
   "badge.probabilistic": "Cited external model",
   "badge.probabilistic.title":
     "Output of an external agency's model with a citable source, not computed by this project",
+  /** Every forecast-layer string must contain "TMD" — see catalog.test.ts */
+  "badge.forecast": "TMD model forecast",
+  "badge.forecast.title":
+    "Values from TMD's numerical weather model — an external agency's deterministic forecast, not a measurement and not computed by this project",
   "badge.unknown": "Unknown data kind",
   "badge.unknown.title": "This build of the app does not recognise this layer's data kind",
 
@@ -82,6 +92,7 @@ export const en: Record<keyof typeof th, string> = {
   "freshness.missing.staticReference": "Retrieval time not recorded",
   "freshness.missing.illustrative": "Computed from terrain; nothing is retrieved per refresh",
   "freshness.missing.probabilistic": "No model output has ever been received",
+  "freshness.missing.forecast": "No TMD forecast has ever been received",
   "freshness.missing.unknown": "Retrieval time unknown",
   "freshness.status.unknown": "Source status not known",
   "freshness.publishedAt": "published {time}",

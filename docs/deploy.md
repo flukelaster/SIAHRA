@@ -150,9 +150,16 @@ fallback — loader จะได้ HTML มาแทน binary แล้วพ�
   | `data.tmd.go.th/api/DailySeismicEvent/v1/` | `uid` + `ukey` (สมัคร `…/api/registerPre.php`) | เหตุการณ์แผ่นดินไหว | ✅ `TMD_UID`/`TMD_UKEY` |
   | `data.tmd.go.th/nwpapi/v1/` | OAuth Bearer token (สมัคร `…/nwpapi/register`) | พยากรณ์อากาศจากแบบจำลอง | ❌ ยังไม่ใช้ |
 
-  ระบบ OAuth **ไม่ได้มาแทน** ระบบ `uid`/`ukey` — ทั้งคู่ยังให้บริการอยู่คนละชุดข้อมูล ถ้าวันหน้าจะดึง
-  ข้อมูลพยากรณ์จาก `nwpapi` มาแสดง ต้องมาพร้อม `HazardLayerDescriptor` แบบ `probabilistic` และอ้างอิง
+  ระบบ OAuth **ไม่ได้มาแทน** ระบบ `uid`/`ukey` — ทั้งคู่ยังให้บริการอยู่คนละชุดข้อมูล ถ้าจะดึง
+  ข้อมูลพยากรณ์จาก `nwpapi` มาแสดง ต้องมาพร้อม `HazardLayerDescriptor` แบบ **`forecast`** ไม่ใช่
+  `probabilistic` — NWP ของ TMD เป็นแบบจำลอง **เชิงกำหนด (deterministic)** ไม่ได้ให้ค่าความน่าจะเป็น
+  (E12.1 เพิ่มชนิด `forecast` ลงใน `packages/shared-types/src/hazard-layer.ts` แล้ว) — และต้องอ้างอิง
   แบบจำลองที่ยกมาอ้างได้ ตามกฎ data honesty ใน `AGENTS.md` — ห้ามแสดงตัวเลขพยากรณ์ลอย ๆ
+
+  อีกข้อที่ต้องรู้ก่อนต่อท่อ: `nwpapi` คืนมาแต่ **เวลาที่ค่ามีผล (valid time)** ไม่เคยบอกเวลารอบรัน
+  ของแบบจำลอง `forecast.issuedAt` ของแหล่งนี้จึงเป็น `null` เสมอ และห้ามเอา `fetchedAt` มาใส่แทน
+- **`TMD_NWP_TOKEN` ยังไม่มีในระบบ** — ยังไม่มีโค้ดไหนอ่านมัน ตอนนี้จึงยังไม่ต้องตั้ง secret ตัวนี้
+  จะถูกเพิ่มพร้อมกับ ingestion ของ `nwpapi` ใน E12.2 (E12.1 เป็นสัญญาชนิดข้อมูลอย่างเดียว)
 - เรดาร์ฝน (`apps/api/src/ingestion/tmdRadar.ts`) ดึงจาก `weather.tmd.go.th/composite/` ซึ่ง**ไม่ต้อง
   ยืนยันตัวตน** — ไม่เกี่ยวกับ secret คู่บน
 - `ALLOWED_ORIGINS`: ว่าง = same-origin เท่านั้น — ไม่ต้องตั้ง เพราะ route ของสอง Worker อยู่บน host

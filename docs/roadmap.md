@@ -747,6 +747,41 @@ artefact exists or is needed) — but polygon distance is what this task specifi
 6. `provinceRings.json` is ≤400 KB and `wrangler deploy --dry-run` for `siahra-api` stays inside the Worker script-size limit (`ci.yml` bounds only `apps/web/dist`, so it does not cover this).
 7. The wording contains nothing that reads as a forecast or a prediction; screenshot in the PR.
 
+### E12 — TMD numerical weather forecast
+
+Unlike E1–E10 above, this epic does not come from the audit: it is **W7+W8** of
+`docs/roadmap-Impact Decision-Support.md`. Only E12.1 has landed, and it is **contract only** — no
+ingestion, no Durable Object, no route, no UI. E12.2–E12.4 are named here for order, not specified;
+each still needs its own task block in the format described in §0 before it is implemented.
+
+- **E12.1 — forecast contract and epistemic class** — *done*. `EpistemicClass` gains a fifth member
+  `"forecast"`: a named, cited, third-party **deterministic** model (TMD NWP), deliberately not
+  `probabilistic`, which stays reserved for a *probabilistic* third-party model and stays unused.
+  `HazardLayerDescriptor` gains an optional `forecast` block (`modelName`, `resolutionKm`,
+  `horizonHours`, `issuedAt`), and new `packages/shared-types/src/forecast.ts` carries
+  `ForecastStep` / `ProvinceForecastBatch` / `ProvinceForecastResponse`. The honesty facts the
+  contract encodes: TMD's NWP API publishes only the forecast **valid** time — no run/issue time, no
+  cycle — so `issuedAt` is `null` for it and is never filled in from `fetchedAt`; a field TMD did not
+  return is `null`, never `0`; `batchId` is *our* fetch round, not a model run id; `queryPoint` is
+  the grid point TMD used, not the one we sent; `batch: null` means "never fetched successfully" and
+  must not render as an empty table. `apps/web/src/lib/layerFreshness.ts` gains the fifth badge and
+  counts a `forecast` layer with `fetchedAt: null` as stale, and `i18n/catalog.test.ts` gains a
+  narrow key-scoped, TMD-gated exemption to the banned-word gate that still bans every
+  probability word. `sources.ts` is deliberately **untouched**: the `tmd-nwp` `SourceId` belongs with
+  the ingestion that feeds `/api/v1/health`, because `apps/api/test/contract.test.ts` asserts that
+  every `LIVE_SOURCE_IDS` entry appears in `/health` — registering the id now would either fail that
+  test or force a fabricated health row for an ingestion path that does not exist, so it lands in
+  E12.2, not here.
+- **E12.2** — ingestion Durable Object, the routes, and the `tmd-nwp` entry on `/api/v1/health`
+  (plus the `TMD_NWP_TOKEN` secret, `docs/deploy.md` §3).
+- **E12.3** — the per-province forecast card.
+- **E12.4** — the forecast time strip, and the observed-versus-forecast visual language.
+
+**Scope decision.** **W9 (forecast → per-อปท. impact) is deliberately not in E12.** Turning forecast
+rainfall into an impact number needs a hydrological model, which stays deferred as Tier B/C
+(scoping decision 1 in §0 and **Forecast Tier B/C** in §5). E12 shows what TMD's model says; it does
+not translate that into an impact.
+
 ## 3. Suggested first two weeks
 
 - **Week 1** (all independent, can run in any order): E1.1, E1.2, E2.1, E2.2, E2.3 (once the secrets
@@ -774,6 +809,10 @@ Tracked as one pinned `needs-user` checklist issue, not as tasks.
 - **D-1 contract gap for in-house validated models** — `probabilistic` means a third-party model
   today. Widening it (operator plus `skillMetricsUrl`) or adding a class is a shared-types change
   with all consumers. Trigger: published hindcast metrics for the E10 computation exist.
+  **Partly answered by E12.1, but not for this entry's own subject:** a fifth class `forecast` was
+  added — and it is again a *third-party* model, a cited deterministic one (TMD NWP). An in-house
+  validated model still has no class it can honestly claim, `probabilistic` still means a
+  third-party model, and the trigger above is unchanged.
 - **Forecast Tier B/C** — needs a hydrologist and external compute; not a Workers workload.
 - **Platform: PostGIS/Hyperdrive, Queues, Workflows, KV** — triggers: a DO SQLite table beyond about
   1 GB, or a write rate causing alarm overlap; more than about 8 sources making even an isolated
