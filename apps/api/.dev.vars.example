@@ -1,8 +1,9 @@
 # apps/api — local secrets for `wrangler dev`. Copy to `.dev.vars` (gitignored)
-# and fill in. In production the same two keys are set with
+# and fill in. In production the same keys are set with
 #   npx wrangler secret put TMD_UID
 #   npx wrangler secret put TMD_UKEY
-# (see docs/deploy.md §0 and §3). Without them only the TMD seismic feed
+#   npx wrangler secret put TMD_NWP_TOKEN
+# (see docs/deploy.md §0 and §3). Without TMD_UID/TMD_UKEY only the TMD seismic feed
 # degrades — /api/v1/health reports the earthquakes source as `degraded` with
 # lastError "TMD credentials not configured"; USGS, EMSC and every other
 # source keep working.
@@ -10,3 +11,11 @@
 # TMD open-data API credentials — register at https://data.tmd.go.th/
 TMD_UID=""
 TMD_UKEY=""
+
+# TMD NWP (numerical weather forecast) API bearer token — a separate key from
+# TMD_UID/TMD_UKEY above, issued at https://data.tmd.go.th/nwpapi/. The issued
+# token is a 365-day JWT; the one in use expires 2027-08-18, after which the
+# forecast source reports "TMD NWP token rejected (401)" until it is replaced.
+# Without it /api/v1/health reports tmd-nwp as degraded with lastError
+# "TMD NWP token not configured"; every other source keeps working.
+TMD_NWP_TOKEN=""

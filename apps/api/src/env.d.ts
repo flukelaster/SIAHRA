@@ -17,4 +17,10 @@ interface __BaseEnv_Env {
   TMD_UID?: string;
   /** TMD open-data API key — `wrangler secret put TMD_UKEY`. */
   TMD_UKEY?: string;
+  /**
+   * TMD NWP API bearer token — `wrangler secret put TMD_NWP_TOKEN` (คนละกุญแจ
+   * กับ TMD_UID/TMD_UKEY ข้างบน ซึ่งเป็นของฟีดแผ่นดินไหว) ไม่มี = ForecastNwpDO
+   * รายงาน `lastError: "TMD NWP token not configured"` แหล่งอื่นไม่กระทบ
+   */
+  TMD_NWP_TOKEN?: string;
 }

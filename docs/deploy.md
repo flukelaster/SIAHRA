@@ -15,10 +15,12 @@ R2 bucket `siahra-geodata` ตรวจแล้วว่า `/api/v1/health` �
   cd apps/api
   npx wrangler secret put TMD_UID     # ลงทะเบียนที่ data.tmd.go.th
   npx wrangler secret put TMD_UKEY
+  npx wrangler secret put TMD_NWP_TOKEN   # คนละระบบกับสองตัวบน — ดู §3
   ```
-  ยังไม่ตั้งก็ deploy ผ่าน แต่ฟีดแผ่นดินไหวจะรายงานที่ `/api/v1/health` ว่า source `earthquakes`
-  เป็น `degraded` พร้อม `lastError: "TMD credentials not configured"` (USGS/EMSC และอีกสาม source
-  ทำงานตามปกติ) — ตั้งใจให้เห็นชัดแทนที่จะแอบใช้คีย์สาธารณะร่วมกับคนอื่น
+  ยังไม่ตั้งก็ deploy ผ่าน แต่จะเสื่อมให้เห็นทีละแหล่ง: ไม่มี `TMD_UID`/`TMD_UKEY` เฉพาะฟีดแผ่นดินไหวจะรายงานที่
+  `/api/v1/health` ว่า source `earthquakes` เป็น `degraded` พร้อม `lastError: "TMD credentials not configured"`
+  ส่วนไม่มี `TMD_NWP_TOKEN` จะทำให้ source `tmd-nwp` เป็น `degraded` พร้อม `lastError: "TMD NWP token not
+  configured"` (USGS/EMSC และแหล่งที่เหลือทำงานตามปกติในทั้งสองกรณี) — ตั้งใจให้เห็นชัดแทนที่จะแอบใช้คีย์สาธารณะร่วมกับคนอื่น
   เครื่อง dev ใช้ `apps/api/.dev.vars` (gitignored) โดยคัดลอกจาก `apps/api/.dev.vars.example`
 
 ## 0.1 สอง Worker แยก deploy กัน
@@ -148,7 +150,7 @@ fallback — loader จะได้ HTML มาแทน binary แล้วพ�
   | API | ยืนยันตัวตน | ข้อมูล | SIAHRA ใช้ |
   |---|---|---|---|
   | `data.tmd.go.th/api/DailySeismicEvent/v1/` | `uid` + `ukey` (สมัคร `…/api/registerPre.php`) | เหตุการณ์แผ่นดินไหว | ✅ `TMD_UID`/`TMD_UKEY` |
-  | `data.tmd.go.th/nwpapi/v1/` | OAuth Bearer token (สมัคร `…/nwpapi/register`) | พยากรณ์อากาศจากแบบจำลอง | ❌ ยังไม่ใช้ |
+  | `data.tmd.go.th/nwpapi/v1/` | OAuth Bearer token (สมัคร `…/nwpapi/register`) | พยากรณ์อากาศจากแบบจำลอง | ✅ `TMD_NWP_TOKEN` (E12.2) |
 
   ระบบ OAuth **ไม่ได้มาแทน** ระบบ `uid`/`ukey` — ทั้งคู่ยังให้บริการอยู่คนละชุดข้อมูล ถ้าจะดึง
   ข้อมูลพยากรณ์จาก `nwpapi` มาแสดง ต้องมาพร้อม `HazardLayerDescriptor` แบบ **`forecast`** ไม่ใช่
@@ -158,16 +160,30 @@ fallback — loader จะได้ HTML มาแทน binary แล้วพ�
 
   อีกข้อที่ต้องรู้ก่อนต่อท่อ: `nwpapi` คืนมาแต่ **เวลาที่ค่ามีผล (valid time)** ไม่เคยบอกเวลารอบรัน
   ของแบบจำลอง `forecast.issuedAt` ของแหล่งนี้จึงเป็น `null` เสมอ และห้ามเอา `fetchedAt` มาใส่แทน
-- **`TMD_NWP_TOKEN` ยังไม่มีในระบบ** — ยังไม่มีโค้ดไหนอ่านมัน ตอนนี้จึงยังไม่ต้องตั้ง secret ตัวนี้
-  จะถูกเพิ่มพร้อมกับ ingestion ของ `nwpapi` ใน E12.2 (E12.1 เป็นสัญญาชนิดข้อมูลอย่างเดียว)
+- **`TMD_NWP_TOKEN`** (E12.2) — bearer token ของ `nwpapi` ตั้งด้วย
+  `npx wrangler secret put TMD_NWP_TOKEN` (เครื่อง dev อ่านจาก `apps/api/.dev.vars`)
+  ยังไม่ตั้งก็ deploy ผ่าน แต่ `/api/v1/health` จะรายงาน source `tmd-nwp` เป็น `degraded` พร้อม
+  `lastError: "TMD NWP token not configured"` และ `/api/v1/provinces/{NN}/forecast` จะตอบ
+  `batch: null` — คือ "ยังไม่เคยได้รับข้อมูล" ไม่ใช่ "แบบจำลองบอกว่าไม่มีอะไร" แหล่งอื่นไม่กระทบ
+
+  **token หมดอายุ** — ที่ TMD ออกให้เป็น JWT อายุ 365 วัน ตัวที่ใช้อยู่หมดอายุ **2027-08-18**
+  หลังจากนั้นแหล่งนี้จะขึ้น `lastError: "TMD NWP token rejected (401)"` จนกว่าจะออก token ใหม่แล้ว
+  `wrangler secret put` ทับ — เขียนไว้ตรงนี้เพื่อไม่ให้กลายเป็นเหตุขัดข้องลึกลับในอีกหนึ่งปี
+
+  โควตาของ `nwpapi`: 100,000 datapoint/ชม. (คิดจาก `locations × duration × fields`) และ 60 คำขอ/นาที
+  หนึ่งรอบของเรา = 6 ภาค × (hourly+daily) + availability = **13 คำขอ** และ 77×48×3 + 77×7×2 = **12,166
+  datapoint (12%)** รอบละชั่วโมง ค่า `x-datapoint-remaining` / `x-ratelimit-remaining` ที่ต้นทางส่งกลับมา
+  ถูกเก็บไว้ใน `detail` ของ `/api/v1/health` เพื่อให้เห็นทันทีถ้าโควตาถูกเปลี่ยน
 - เรดาร์ฝน (`apps/api/src/ingestion/tmdRadar.ts`) ดึงจาก `weather.tmd.go.th/composite/` ซึ่ง**ไม่ต้อง
   ยืนยันตัวตน** — ไม่เกี่ยวกับ secret คู่บน
 - `ALLOWED_ORIGINS`: ว่าง = same-origin เท่านั้น — ไม่ต้องตั้ง เพราะ route ของสอง Worker อยู่บน host
   เดียวกัน (`siahra-radar.co`) ตามหัวข้อ 0.1 ; ถ้าวันหน้าย้าย SPA ไปคนละ host ต้องใส่ origin ของ SPA ที่นี่
   **และ** เติม CORS header ใน `apps/api/src/router.ts` ด้วย ไม่ใช่ตั้งค่านี้ตัวเดียว
-- migrations v1–v7 (DO SQLite) มีครบ, cron `* * * * *` มีแล้ว — v5 สร้าง `AlertEngineDO` ตัวเก่า
+- migrations v1–v8 (DO SQLite) มีครบ, cron `* * * * *` มีแล้ว — v5 สร้าง `AlertEngineDO` ตัวเก่า
   (ทะเบียนสถานีปลอม, E11.5 revert), v6 ลบคลาสทิ้ง, v7 สร้าง `AlertEngineDO` ใหม่ทั้งหมด (E11.5 จริง —
-  สถานีจริง, ระดับจาก `computeExposure()`, ไม่มี write route) tag ที่ apply ไปแล้วห้ามลบออกจาก
+  สถานีจริง, ระดับจาก `computeExposure()`, ไม่มี write route), v8 สร้าง `ForecastNwpDO` (E12.2, binding
+  `FORECAST_NWP`) เป็นคลาสใหม่ล้วน ๆ **ไม่ได้** นำ `ForecastPointerDO` มาใช้ซ้ำทั้งที่ชื่อคล้ายกัน — ตัวนั้นคือ
+  ตัวชี้ exposure run (E10.3) และการนำมาใช้ซ้ำต้องลบคลาสก่อน ซึ่งทำลายข้อมูลที่เก็บอยู่ tag ที่ apply ไปแล้วห้ามลบออกจาก
   `wrangler.jsonc` เพราะ Cloudflare เทียบ migrations กับ tag ล่าสุดที่ apply บน production
 - โดเมน: `wrangler deploy` สร้าง/อัปเดต Custom Domain + route ให้เองจาก `routes` ในแต่ละ config
   แต่ zone `siahra-radar.co` ต้องอยู่ใน account เดียวกันก่อน — deploy **web ก่อน api** ในครั้งแรก
@@ -220,6 +236,12 @@ Workers Logs ต้องผ่าน agent `devops` (`.claude/agents/devops.md`
 (`/implement` ขั้น 1b) และอีกครั้งบน diff ที่เสร็จแล้ว (ขั้น 2b): มันคิด ความถี่ × แถวที่สแกน (หรือ ops / log events) ต่อเส้นทาง
 แล้วตีราคาจากหน้า pricing ของ Cloudflare — `stop` เมื่อยอดรวมคาดการณ์เกิน $8 (กรณีปกติ) / $10 (กรณีแย่สุด) หรือค่าครั้งเดียวเกิน $2
 ซึ่งเฉพาะผู้ใช้เท่านั้นที่ override ได้ โดยต้องเห็นตัวเลขก่อนตัดสินใจ
+
+ตั้งแต่ E12.2 มีอีกมิติที่ขยับ: `/api/v1/health` กระจายไปหา Durable Object **7 คำขอต่อครั้ง แทนที่จะเป็น 6**
+(หก instance — `ObservationCacheDO` ถูกถามสองครั้ง) จำนวน DO requests จึงเพิ่มราว 17% กรณีแย่สุดประมาณ 1.2M
+เทียบกับโควตาที่รวมมา 1M ต่อรอบบิล = ราว **$0.03–0.10/เดือน** ส่วนตัว `ForecastNwpDO` เองเขียนราว 66k–130k
+แถว/รอบบิล (0.13–0.26% ของ 50M) เพราะเก็บหนึ่งแถวต่อจังหวัด ไม่มีตารางประวัติ และไม่มี `DELETE` ตามอายุ
+(ดู `docs/ops.md` §9)
 
 **รายการที่สี่ที่ประมาณการข้างบนไม่ได้นับ และเป็นตัวที่ทำให้บิลบานจริง: Durable Objects SQL rows read**
 — คิดตามแถวที่ถูก *สแกน* ไม่ใช่แถวที่ถูกคืนหรือถูกลบ (Workers Paid รวมมาให้ 25B แถว/รอบบิล)

@@ -56,6 +56,8 @@ curl -s .../api/v1/health | jq --arg now "$(date -u +%FT%TZ)" '
 | One source `degraded`, `lastError` names an upstream HTTP status | Upstream had a bad round; retry is already scheduled | Nothing. Check `nextAttemptAt` is in the future, then re-check in one refresh interval (§4). |
 | One source `degraded`, `lastError` contains `shape` or a JSON path | **The upstream changed its payload shape.** The old data is intentionally still being served | Not self-healing. Capture the new payload, update the schema in `apps/api/src/ingestion/schemas/` and the fixture ([`docs/testing.md`](./testing.md)). |
 | `earthquakes` `degraded` with `TMD credentials not configured` | `TMD_UID`/`TMD_UKEY` are unset — the deliberate honest-degradation path | Expected unless the secrets have been set. To fix: `npx wrangler secret put TMD_UID` (and `TMD_UKEY`) in `apps/api`. USGS and EMSC are unaffected. |
+| `tmd-nwp` `degraded` with `TMD NWP token not configured` | `TMD_NWP_TOKEN` is unset — the honest-degradation path, and it means **we never asked**, not that TMD published nothing | `npx wrangler secret put TMD_NWP_TOKEN` in `apps/api` (`docs/deploy.md` §3). Until then `/api/v1/provinces/{NN}/forecast` answers `200` with `batch: null`; every other source is unaffected. |
+| `tmd-nwp` `degraded`/`down` with `TMD NWP token rejected (401)` | The bearer token expired or was revoked — **retrying cannot fix it** | Issue a new token at `data.tmd.go.th/nwpapi/` and overwrite the secret. The token in use expires **2027-08-18**; an outage on or after that date with no other symptom is almost certainly this. |
 | A source is `stale` (no error at all) | **Our side did not fetch** — a missed alarm or cron, not an upstream problem | Check `nextAttemptAt`. If `null`, force a refresh (§5). If cron is not firing at all, every source goes `stale` together — check the Worker's cron trigger in the dashboard. |
 | A source is `down` | Every feed of that source failed, or an error is standing and the last success is past its budget | Read `lastError`. Curl the upstream yourself. If the upstream is genuinely down, the correct state *is* `down` — leave it visible. |
 | A source is `delayed` | Fetching works; the upstream has not published a newer observation | Nothing to do. This is upstream cadence, not a fault. |
@@ -122,7 +124,7 @@ well** — a failure that only exists in the log is a silent failure.
 
 ## 4. Alarm cadence
 
-Cron (`* * * * *`, `apps/api/wrangler.jsonc`) refreshes all four sources every minute, each with its
+Cron (`* * * * *`, `apps/api/wrangler.jsonc`) runs all six refresh jobs every minute, each with its
 own ~25 s budget, concurrently and in isolation. On top of that **every Durable Object schedules its
 own alarm**, so a missed cron tick does not freeze a source. Both paths share the same in-flight
 refresh, so they cannot double-fetch.
@@ -133,6 +135,7 @@ refresh, so they cannot double-fetch.
 | `RadarDO` | `tmd-radar` | 5 min | 1 min | 900 (15 min) | 5400 (90 min) | frames 30 days |
 | `FloodExtentDO` | `gistda-flood` | 30 min | 5 → 10 → 20 → 30 min (±15 % jitter on the alarm; the in-round fetch retry uses ±25 %) | 10800 (3 h) | `null` (no upstream cadence) | features 30 days |
 | `EarthquakeFeedDO` | `earthquakes` | 1 min | next tick (1 min) | 300 (5 min) | `null` (quakes have no cadence) | events 30 days |
+| `ForecastNwpDO` | `tmd-nwp` | 1 h | 5 min | 10800 (3 h) | `null` (a forecast has no observation to be late about) | none — latest round only, one row per province, overwritten in place |
 | `ObservationCacheDO` (exposure) | `exposure-illustrative` | on every ThaiWater refresh (~5 min) | with that refresh | 3600 (1 h) | 1800 (30 min) | runs kept indefinitely (see §6) |
 
 Side cadences inside `ObservationCacheDO`: dams every 30 min (5 min pause after a failure so a broken
@@ -143,6 +146,18 @@ retention sweep of both history tables **at most once an hour** (`pruneRetention
 per-station history pull. A failed prune is logged and leaves `lastPruneMs` alone, so the next tick
 retries; it can never take the refresh or the alarm rearm down with it.
 
+**Why a slow source needs more than a "is it old enough?" test.** The cron fires every minute and
+`scheduledTick` has no per-job cadence gate, so each job's own `ensureFresh()` decides whether to go
+out. A round that fails *entirely* deliberately does not write `fetchedAt` — so "older than an hour?"
+stays true for as long as the upstream is down, and an age-only gate would send `ForecastNwpDO` out
+for a fresh 12-call round **every 60 s**, erasing the 5-minute `alarm()` backoff and hammering an
+upstream that is already struggling. `ForecastNwpDO.ensureFresh()` therefore also gates on
+`lastAttemptAt` (written on every round, successful or not) so the cron path keeps `RETRY_MS`.
+`RadarDO` contains the same code and is **deliberately unchanged**: its `RETRY_MS` is 60 s, exactly
+the cron tick, so there is nothing there to over-drive. The difference is the cadence constant, not
+the code — do not "fix" `RadarDO` to match. A regression test pins this
+(`test/forecastNwpDurableObject.test.ts`).
+
 If `nextAttemptAt` is `null` for a source, no alarm is scheduled — the next cron tick will re-arm it.
 
 ## 5. Forcing a refresh by hand
@@ -151,6 +166,11 @@ If `nextAttemptAt` is `null` for a source, no alarm is scheduled — the next cr
   `ensureFresh()` when the data is past its TTL, so `curl -s .../api/v1/radar/frames?hours=1
   > /dev/null` (or `/api/v1/observations`, `/api/v1/flood-extent/summary`,
   `/api/v1/earthquakes/recent`) triggers a real refresh. The next cron tick does the same.
+  **`tmd-nwp` is the exception**: `/api/v1/provinces/{NN}/forecast` and `/api/v1/forecast/availability`
+  read the Durable Object only and never call the upstream, by design (one primary-key read per
+  request). The only things that fetch it are the cron tick and the DO's own alarm, so to force a
+  round in production you wait for the next tick — and a round is skipped anyway if the last attempt
+  was under 5 minutes ago (§4).
 - **`wrangler dev`:** cron does **not** fire. Run the whole tick by hand:
 
   ```bash
@@ -252,6 +272,28 @@ else in the code path prunes these objects.
   outage reaches it indirectly, through `fetchedAt` ageing past `staleAfterSeconds` (1 h). ThaiWater
   failing for 45 min therefore shows on the `thaiwater` row first — that is the row to act on — while
   exposure is still serving the last honestly-computed run.
+- **`tmd-nwp` has no `latestObservedAt` and can never be `delayed`** → `latestObservedAt` and
+  `observedLagSeconds` are `null` by design: a forecast measures nothing, and its valid times are in
+  the future. Putting a future time in `latestObservedAt` would claim we observed the future. Judge
+  this source by `fetchedAt` and `lastError` only.
+- **TMD NWP quota is generous and worth watching anyway** → 100,000 datapoints per hour (rolling from
+  the first request, counted as `locations × duration × fields`) and 60 requests per minute. One round
+  costs 77×48×3 + 77×7×2 = **12,166 datapoints (≈ 12%)** over **13 requests** (6 regions × hourly and
+  daily, plus one availability call). The upstream's own counters are surfaced on `/api/v1/health` as
+  `detail.datapointRemaining` and `detail.rateLimitRemaining` — these are the headers from the **last
+  region call that carried them in that round**, not a round-level minimum, so read them as a
+  trend, not a floor. Also on that source's `detail`: `regionsOk`, `regionsFailed` (every reason the
+  round collected, named — failed regions, a failed availability read, unknown geocodes — never
+  silently dropped), `writtenLastRound`, `unknownGeocodes` (non-null = TMD changed its geocode scheme,
+  not "that province has no forecast") and `dailyAvailability`.
+- **`tmd-nwp` `degraded` with `lastError: "availability: …"` while every province is fresh** → the
+  six region rounds all succeeded and were stored; only the small availability call failed, so the
+  previous date window is kept with its own older `detail`/`fetchedAt` and the failure is reported
+  rather than papered over. Nothing to do beyond confirming it clears on the next hourly round.
+- **One TMD NWP region fails, the rest do not** → `degraded` with the region named in `lastError`;
+  the provinces of that region keep the previous round's values **with their own older
+  `batch.fetchedAt`**, because the timestamp lives in the province row, not in one shared `meta` key.
+  A round in which *every* region failed writes no `fetchedAt` at all and overwrites nothing.
 - **Radar frames skipped** → `detail.skippedFrames > 0` with a `lastError` naming the files. TMD's
   24-slot ring buffer occasionally serves a truncated PNG; the good frames of that round are kept.
 
@@ -333,5 +375,18 @@ it → full scan, × 24 stations per province view) and five `COUNT`/`MAX` aggre
    is a one-time dashboard action, not something the repo can enforce.
 
 **Included per cycle on Workers Paid** (2026-08): 25B rows read, 50M rows written, 1M DO requests,
-400k GB-s. The post-#54 steady state is ≈ 80M rows read/day (≈ 2.4B/cycle, ~10% of the allowance)
-and well under the request quota; anything an order of magnitude above that is a regression.
+400k GB-s. The post-#54 steady state is ≈ 80M rows read/day (≈ 2.4B/cycle, ~10% of the allowance);
+anything an order of magnitude above that is a regression. **DO requests are the one dimension that
+is no longer comfortable**: E12.2 made `/api/v1/health` fan out to 7 DO calls instead of 6 (six
+distinct instances — `ObservationCacheDO` is asked twice), so DO requests rise ~17% and the worst
+case lands around 1.2M against the 1M included, i.e. ~$0.03–0.10/month. The lever if it matters is
+the `/health` cache (`public, max-age=15`), not removing a source from the endpoint.
+
+**`ForecastNwpDO` (E12.2) is the worked example of designing for this from the start**: one table,
+one row per province holding the whole batch as JSON (not one row per forecast step, which would be
+4,235 writes per round instead of 77), no history table and therefore no retention `DELETE` that
+could scan, `status()` reading precomputed counters out of `meta`, and a per-request path that is a
+single primary-key lookup which never calls `ensureFresh()`. It is registered in
+`sqlQueryPlans.test.ts` with **zero `ALLOWED_SCANS` entries** — none of its statements full-scans — and
+measures at ~66k–130k rows written per cycle (0.13–0.26% of the 50M
+allowance).

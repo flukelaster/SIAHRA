@@ -60,6 +60,12 @@ export async function handleHealth(request: Request, env: AppEnv, _params: strin
       .exposureStatus()
       .then((s) => [s])
       .catch((err: unknown) => [unknownStatus("exposure-illustrative", String(err))]),
+    // พยากรณ์ NWP (E12.2) — คาบรายชั่วโมง จึงมีสถานะค้าง/ล่มของตัวเองแยกจาก
+    // ฟีดเรดาร์ ทั้งที่เป็น TMD เหมือนกัน (คนละ API คนละกุญแจ คนละคาบ)
+    env.FORECAST_NWP.getByName("tmd")
+      .status()
+      .then((s) => [s])
+      .catch((err: unknown) => [unknownStatus("tmd-nwp", String(err))]),
     // ชั้น threshold/alert engine (E11.5) — DO ของตัวเอง วิ่งบนคนละคาบ (5 นาที)
     // จาก ObservationCacheDO เอง จึงมีสถานะที่ล่ม/ค้างแยกต่างหากจากทั้งสองแหล่งข้างต้น
     env.ALERT_ENGINE.getByName("primary")

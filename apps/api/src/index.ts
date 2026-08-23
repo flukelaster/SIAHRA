@@ -4,6 +4,7 @@ import { handleActiveAlerts, handleAlertRules } from "./routes/alerts.js";
 import { handleEarthquakesLive, handleEarthquakesRecent } from "./routes/earthquakes.js";
 import { handleExposureRun, handleProvinceExposureLatest } from "./routes/exposure.js";
 import { handleFloodExtentSummary, handleProvinceFloodExtent } from "./routes/flood.js";
+import { handleForecastAvailability, handleProvinceForecast } from "./routes/forecast.js";
 import { handleHealth } from "./routes/health.js";
 import {
   handleLocalAuthorityDetail,
@@ -20,6 +21,7 @@ import type { AppEnv } from "./types.js";
 export { AlertEngineDO } from "./durable-objects/alert-engine.js";
 export { EarthquakeFeedDO } from "./durable-objects/earthquake-feed.js";
 export { FloodExtentDO } from "./durable-objects/flood-extent.js";
+export { ForecastNwpDO } from "./durable-objects/forecast-nwp.js";
 export { ForecastPointerDO } from "./durable-objects/forecast-pointer.js";
 export { ObservationCacheDO } from "./durable-objects/observation-cache.js";
 export { RadarDO } from "./durable-objects/radar.js";
@@ -88,6 +90,20 @@ export const routes: Route[] = [
     limit: { perMinute: 300 },
   },
   {
+    // อ่านแถวเดียวด้วย primary key ไม่ปลุกการดึงต้นทาง — ถูกกว่า
+    // `/exposure/latest` (อ่าน R2 หนึ่งก้อน) จึงตั้งงบเท่ากันได้อย่างสบาย
+    method: "GET",
+    pattern: /^\/api\/v1\/provinces\/([0-9]{2})\/forecast$/,
+    handler: (_req, env, [province]) => handleProvinceForecast(province, env),
+    limit: { perMinute: 300 },
+  },
+  {
+    method: "GET",
+    pattern: /^\/api\/v1\/forecast\/availability$/,
+    handler: (_req, env) => handleForecastAvailability(env),
+    limit: { perMinute: 300 },
+  },
+  {
     method: "GET",
     pattern: /^\/api\/v1\/provinces\/([0-9]{2})\/exposure\/latest$/,
     handler: (_req, env, [province]) => handleProvinceExposureLatest(province, env),
@@ -142,6 +158,11 @@ export default {
       { id: "thaiwater", run: () => env.OBSERVATION_CACHE.getByName("thaiwater").ensureFresh() },
       { id: "gistda-flood", run: () => env.FLOOD_EXTENT.getByName("gistda").ensureFresh() },
       { id: "tmd-radar", run: () => env.RADAR.getByName("tmd").ensureFresh() },
+      // พยากรณ์ NWP รีเฟรชรายชั่วโมง — ensureFresh() ตรวจอายุเองแล้วข้ามรอบที่ยังสด
+      // จึงเรียกได้ทุกนาทีเหมือนงานอื่น ในทางที่ดีคือชั่วโมงละครั้ง ส่วนตอนต้นทางล่ม
+      // (รอบพังทั้งรอบ = ไม่เขียน fetchedAt) ตัวกั้น lastAttemptAt ใน ensureFresh()
+      // คือสิ่งที่ทำให้ยังห่างกันอย่างน้อย RETRY_MS ไม่ใช่ยิงใหม่ทุกนาที
+      { id: "tmd-nwp", run: () => env.FORECAST_NWP.getByName("tmd").ensureFresh() },
       // ประเมิน rule เทียบกับ ObservationCacheDO — งานทุกตัวในลิสต์นี้รันพร้อมกัน
       // ไม่ใช่ตามลำดับ (ดู scheduledTick.ts) แต่ไม่เป็นปัญหา: evaluate() เรียก
       // ObservationCacheDO.getObservations() เอง ซึ่ง refresh ตัวเองถ้าของเก่าหมดอายุ

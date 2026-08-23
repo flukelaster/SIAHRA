@@ -48,11 +48,36 @@ export interface ProvinceForecastBatch {
 /**
  * คำตอบของ endpoint พยากรณ์รายจังหวัด
  *
+ * **ทำไมมีสอง descriptor ไม่ใช่หนึ่ง** — TMD ปล่อยสองชุดที่มี "ระยะพยากรณ์"
+ * ไม่เท่ากัน: รายชั่วโมงไปข้างหน้า 48 ชม. รายวันไปข้างหน้า 7 วัน (168 ชม.)
+ * ทั้งสองค่านี้ **นับจากจำนวนขั้นที่ต้นทางส่งมาจริง** ไม่ใช่จากที่เราขอ ถ้าใช้
+ * descriptor เดียว `forecast.horizonHours` ต้องเลือกเลขเดียว แล้วชุดรายชั่วโมง
+ * จะถูกประกาศว่าไปไกลกว่าความจริง 3.5 เท่า — UI ที่วาดแถบ 48 ชม. ข้าง ๆ คำว่า
+ * "168 ชม." คือการโกหกด้วยโครงสร้างข้อมูล จึงแยกเป็นชุดละ descriptor
+ * (`resolutionKm` เป็น `null` ทั้งคู่ด้วยเหตุผลคนละข้อ ดู `hazard-layer.ts`)
+ *
  * `batch: null` = ยังไม่เคยดึงสำเร็จเลย — UI ต้องแสดงว่า "ยังไม่เคยได้รับข้อมูล"
  * ไม่ใช่แสดงเป็นตารางว่าง ซึ่งอ่านได้เป็น "แบบจำลองบอกว่าไม่มีอะไร" คนละเรื่องกัน
- * (`layer.fetchedAt` ก็จะเป็น null คู่กัน ดูกฎใน `hazard-layer.ts`)
+ * (`layers.*.fetchedAt` ก็จะเป็น null คู่กัน ดูกฎใน `hazard-layer.ts`)
  */
 export interface ProvinceForecastResponse {
-  layer: HazardLayerDescriptor;
+  layers: {
+    /** ชุดรายชั่วโมง — `forecast.horizonHours` = ระยะที่ชุดนี้ไปถึงจริง */
+    hourly: HazardLayerDescriptor;
+    /** ชุดรายวัน — คนละระยะพยากรณ์กับรายชั่วโมง จึงคนละ descriptor */
+    daily: HazardLayerDescriptor;
+  };
   batch: ProvinceForecastBatch | null;
+}
+
+/**
+ * ช่วงวันที่ TMD ประกาศว่ามีผลพยากรณ์รายวันให้ (endpoint availability ของต้นทาง)
+ *
+ * `daily: null` = เรายังไม่เคยอ่านค่านี้สำเร็จ ไม่ใช่ "TMD ไม่มีข้อมูล" — สองอย่างนี้
+ * คนละเรื่อง และ `fetchedAt: null` คู่กันคือสิ่งที่บอกว่าเป็นแบบแรก
+ */
+export interface ForecastAvailabilityResponse {
+  daily: { min: string; max: string } | null;
+  /** เวลาที่เราอ่านช่วงนี้สำเร็จล่าสุด — null = ไม่เคยสำเร็จ (ห้ามแสดงเป็น "ตอนนี้") */
+  fetchedAt: string | null;
 }

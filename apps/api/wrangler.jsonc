@@ -26,7 +26,7 @@
 
   "vars": {
     "EQ_DEFAULT_BBOX": "{\"minLat\":-2,\"maxLat\":29,\"minLon\":90,\"maxLon\":108}",
-    // TMD_UID / TMD_UKEY are NOT here: they are secrets
+    // TMD_UID / TMD_UKEY / TMD_NWP_TOKEN are NOT here: they are secrets
     // (`npx wrangler secret put TMD_UID`, `.dev.vars` locally — see
     // .dev.vars.example). Without them the earthquake feed reports the TMD
     // source as degraded instead of falling back to a shared public key.
@@ -43,6 +43,7 @@
     "bindings": [
       { "name": "EARTHQUAKE_FEED", "class_name": "EarthquakeFeedDO" },
       { "name": "FORECAST_POINTER", "class_name": "ForecastPointerDO" },
+      { "name": "FORECAST_NWP", "class_name": "ForecastNwpDO" },
       { "name": "OBSERVATION_CACHE", "class_name": "ObservationCacheDO" },
       { "name": "FLOOD_EXTENT", "class_name": "FloodExtentDO" },
       { "name": "RADAR", "class_name": "RadarDO" },
@@ -63,7 +64,12 @@
     // v7 สร้าง AlertEngineDO ใหม่ทั้งหมด (E11.5) — สถานีจริง, ระดับจาก
     // computeExposure(), ไม่มี write endpoint — ชื่อคลาสซ้ำกับ v5 ได้เพราะ v6
     // ลบไปแล้วก่อนหน้านี้ ไม่ใช่การนำ tag เดิมกลับมาใช้ซ้ำ
-    { "tag": "v7", "new_sqlite_classes": ["AlertEngineDO"] }
+    { "tag": "v7", "new_sqlite_classes": ["AlertEngineDO"] },
+    // v8 สร้าง ForecastNwpDO (E12.2 — พยากรณ์ TMD NWP) เป็นคลาสใหม่ล้วน ๆ
+    // **ไม่ได้** ไปใช้ ForecastPointerDO ซ้ำ ทั้งที่ชื่อชวนให้เข้าใจผิด: ตัวนั้นคือ
+    // ตัวชี้ run ของ exposure (E10.3) การเปลี่ยนชื่อ/นำมาใช้ซ้ำต้องลบคลาสก่อน
+    // ซึ่งจะทำลายข้อมูลที่เก็บอยู่
+    { "tag": "v8", "new_sqlite_classes": ["ForecastNwpDO"] }
   ],
 
   "triggers": { "crons": ["* * * * *"] },
