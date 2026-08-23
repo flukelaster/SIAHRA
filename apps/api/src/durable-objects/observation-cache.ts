@@ -586,6 +586,7 @@ export class ObservationCacheDO extends DurableObject<Env> {
      */
     if (rainfall) this.replaceRainfall(rainfall);
     if (waterlevel) this.replaceWaterLevel(waterlevel);
+    if (rainfall || waterlevel) this.recomputeStationStats();
 
     // Keep the two station feeds independently auditable.  `fetchedAt` and
     // `lastError` below remain the aggregate source state, while these fields
@@ -629,6 +630,49 @@ export class ObservationCacheDO extends DurableObject<Env> {
       rainfall: rainfall?.length ?? "failed",
       waterlevel: waterlevel?.length ?? "failed",
     });
+  }
+
+  /**
+   * จำนวนสถานีและเวลาตรวจวัดใหม่สุดของสองตารางสถานี — คำนวณ **ครั้งเดียวต่อรอบ
+   * refresh** แล้วเก็บลง `meta` ให้ `status()` อ่าน ไม่ใช่ให้ `status()` นับเอง
+   *
+   * ทำไม: `/api/v1/health` ถูก poll ทุก 60 วิจากทุกแท็บที่เปิดค้าง และ `status()`
+   * เคยยิง `COUNT(*)` กับ `MAX(observed_at)` รวมห้าคำสั่งต่อครั้ง ≈ 18,000 แถวที่
+   * ถูกสแกน Cloudflare คิดเงิน rows read ตามแถวที่สแกน จึงกลายเป็น ~540M แถว/วัน
+   * จากข้อมูลที่เปลี่ยนเพียงทุก 5 นาที ค่าที่เก็บไว้นี้ยังคงมาจากตารางจริงทุกค่า —
+   * แค่ถูกวัดตอนที่ตารางเปลี่ยน ไม่ใช่ตอนที่มีคนถาม
+   *
+   * อ่านผ่าน `stationStats()` ซึ่งจะคำนวณให้หนึ่งครั้งถ้า meta ยังไม่มี (แคชที่
+   * สร้างก่อนโค้ดนี้ดีพลอย) — ไม่มีทางที่ค่าจะถูกรายงานเป็น 0/null ทั้งที่ตารางมีของ
+   */
+  private recomputeStationStats(): void {
+    const sql = this.ctx.storage.sql;
+    const rainCount = sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM rainfall").toArray()[0]?.n ?? 0;
+    const waterCount = sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM waterlevel").toArray()[0]?.n ?? 0;
+    const latestRainfall =
+      sql.exec<{ t: string | null }>("SELECT MAX(observed_at) AS t FROM rainfall").toArray()[0]?.t ?? null;
+    const latestWaterlevel =
+      sql.exec<{ t: string | null }>("SELECT MAX(observed_at) AS t FROM waterlevel").toArray()[0]?.t ?? null;
+    this.writeMeta("statRainfallCount", String(rainCount));
+    this.writeMeta("statWaterlevelCount", String(waterCount));
+    this.writeMeta("statLatestRainfall", latestRainfall);
+    this.writeMeta("statLatestWaterlevel", latestWaterlevel);
+    this.writeMeta("statStationsComputed", "1");
+  }
+
+  private stationStats(): {
+    rainCount: number;
+    waterCount: number;
+    latestRainfall: string | null;
+    latestWaterlevel: string | null;
+  } {
+    if (this.readMeta("statStationsComputed") !== "1") this.recomputeStationStats();
+    return {
+      rainCount: Number(this.readMeta("statRainfallCount") ?? "0"),
+      waterCount: Number(this.readMeta("statWaterlevelCount") ?? "0"),
+      latestRainfall: this.readMeta("statLatestRainfall"),
+      latestWaterlevel: this.readMeta("statLatestWaterlevel"),
+    };
   }
 
   /**
@@ -1100,22 +1144,12 @@ export class ObservationCacheDO extends DurableObject<Env> {
         .filter(Boolean)
         .join("; ")
         .slice(0, 300) || null;
-    const rainCount =
-      this.ctx.storage.sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM rainfall").toArray()[0]?.n ?? 0;
-    const waterCount =
-      this.ctx.storage.sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM waterlevel").toArray()[0]?.n ?? 0;
-    const latest =
-      this.ctx.storage.sql
-        .exec<{ t: string | null }>(
-          "SELECT MAX(observed_at) AS t FROM (SELECT observed_at FROM rainfall UNION ALL SELECT observed_at FROM waterlevel)",
-        )
-        .toArray()[0]?.t ?? null;
-    const latestRainfall =
-      this.ctx.storage.sql.exec<{ t: string | null }>("SELECT MAX(observed_at) AS t FROM rainfall").toArray()[0]?.t ??
-      null;
-    const latestWaterlevel =
-      this.ctx.storage.sql.exec<{ t: string | null }>("SELECT MAX(observed_at) AS t FROM waterlevel").toArray()[0]?.t ??
-      null;
+    // ค่าเหล่านี้ถูกวัดจากตารางตอนจบรอบ refresh (ดู `recomputeStationStats`) —
+    // `status()` เองต้องไม่สแกนตารางสถานี เพราะมันถูกเรียกทุกนาทีจากทุกแท็บ
+    const { rainCount, waterCount, latestRainfall, latestWaterlevel } = this.stationStats();
+    // MAX ของสองตารางรวมกัน = ค่าที่มากกว่าของ MAX แต่ละตาราง (เทียบสตริง ISO ได้ตรง ๆ
+    // เพราะ observed_at เก็บเป็น ISO-8601 UTC ความยาวเท่ากัน เหมือนที่ SQLite เทียบ)
+    const latest = [latestRainfall, latestWaterlevel].filter((t): t is string => t !== null).sort().at(-1) ?? null;
     const rainfallFetchedAt = this.readMeta("rainfallFetchedAt");
     const waterlevelFetchedAt = this.readMeta("waterlevelFetchedAt");
     const rainfallError = this.readMeta("rainfallError");
