@@ -158,6 +158,7 @@ The Worker exposes a versioned JSON API under `/api/v1`:
 | `GET /api/v1/stations/:id/history` | Historical readings for one gauge station |
 | `GET /api/v1/local-authorities` · `/:id` | National local-authority (อปท.) registry, sourced from DLA — static-reference, baked into the build, not live-polled |
 | `GET /api/v1/local-authorities/:id/exposure` | Baseline exposure (WorldPop 2020 population, OSM buildings/roads/facilities) for the 431 local authorities with a real E11.2 boundary — static-reference, baked into the build |
+| `GET /api/v1/local-authorities/:id/impact` | Real `turf.intersect()` between the current GISTDA flood scene and the authority's real E11.2 boundary — flooded area/fraction and facilities-in-flood are observed, population/buildings exposed are an illustrative area-weighted share of the E11.3 baseline |
 
 ## CI & contributing
 
