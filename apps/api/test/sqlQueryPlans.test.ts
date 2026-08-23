@@ -5,6 +5,7 @@ import type { AppEnv } from "../src/types";
 import alertEngineSrc from "../src/durable-objects/alert-engine.ts?raw";
 import earthquakeSrc from "../src/durable-objects/earthquake-feed.ts?raw";
 import floodSrc from "../src/durable-objects/flood-extent.ts?raw";
+import forecastNwpSrc from "../src/durable-objects/forecast-nwp.ts?raw";
 import observationSrc from "../src/durable-objects/observation-cache.ts?raw";
 import radarSrc from "../src/durable-objects/radar.ts?raw";
 
@@ -39,6 +40,9 @@ const SOURCES: DoSource[] = [
   { label: "RadarDO", source: radarSrc, stub: () => appEnv.RADAR.getByName("plan-test") },
   { label: "EarthquakeFeedDO", source: earthquakeSrc, stub: () => appEnv.EARTHQUAKE_FEED.getByName("plan-test") },
   { label: "AlertEngineDO", source: alertEngineSrc, stub: () => appEnv.ALERT_ENGINE.getByName("plan-test") },
+  // E12.2 — ตารางเดียว หนึ่งแถวต่อจังหวัด อ่านด้วย PK เท่านั้น จึงไม่มีรายการใน
+  // ALLOWED_SCANS เลย ถ้าวันหน้ามีคนเพิ่มคำสั่งที่สแกน เทสนี้จะแดงทันที
+  { label: "ForecastNwpDO", source: forecastNwpSrc, stub: () => appEnv.FORECAST_NWP.getByName("plan-test") },
 ];
 
 /**

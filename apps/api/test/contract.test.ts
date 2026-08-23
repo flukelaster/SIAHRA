@@ -23,6 +23,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * ส่วน /api/v1/archive/* ไม่อยู่ในรายการนี้เพราะไม่ได้ส่ง layer descriptor และ
  * ตอบ 404 เมื่อ R2 ว่าง
  */
+/**
+ * บางเส้นทางส่ง descriptor มากกว่าหนึ่งอันเพราะข้อมูลในคำตอบเป็นคนละชุดจริง ๆ
+ * (`/provinces/{NN}/forecast` มี `layers.hourly` กับ `layers.daily` ซึ่ง
+ * `forecast.horizonHours` ไม่เท่ากัน) ข้อบังคับทุกข้อในไฟล์นี้จึงเดินกับ
+ * **ทุก** descriptor ที่คำตอบนั้นมี ไม่ใช่ยกเว้นเส้นทางที่รูปไม่ตรงกับ `body.layer`
+ */
+function layersOf(body: unknown): HazardLayerDescriptor[] {
+  const b = body as { layer?: HazardLayerDescriptor; layers?: Record<string, HazardLayerDescriptor> };
+  if (b?.layer) return [b.layer];
+  if (b?.layers) return Object.values(b.layers);
+  return [];
+}
+
 const DATA_ROUTES: { path: string; mayFail503?: boolean }[] = [
   { path: "/api/v1/observations" },
   { path: "/api/v1/observations?province=50" },
@@ -35,6 +48,9 @@ const DATA_ROUTES: { path: string; mayFail503?: boolean }[] = [
   // จะเริ่มบังคับกับเส้นทางนี้ทันทีโดยไม่ต้องแก้อะไร
   { path: "/api/v1/provinces/50/exposure/latest", mayFail503: true },
   { path: "/api/v1/radar/frames?hours=1" },
+  // พยากรณ์ NWP: DO ที่ยังเย็นตอบ 200 พร้อม `batch: null` และ fetchedAt เป็น null
+  // ทั้งสอง descriptor — ไม่ใช่ 503 เพราะจังหวัดนั้นมีอยู่จริง
+  { path: "/api/v1/provinces/50/forecast" },
   { path: "/api/v1/stations/1/history?hours=24", mayFail503: true },
   { path: "/api/v1/earthquakes/recent?limit=5" },
 ];
@@ -143,13 +159,14 @@ describe("data routes", () => {
       const res = await call(path);
       if (mayFail503 && res.status === 503) continue; // ต้นทางล่ม = ตอบตามจริง ไม่มี layer ให้ตรวจ
       expect(res.status, path).toBe(200);
-      const body = (await res.json()) as { layer?: HazardLayerDescriptor };
-      expect(body.layer, `${path} ไม่มี layer descriptor`).toBeTruthy();
-      const layer = body.layer as HazardLayerDescriptor;
-      expect(layer.sourceIds.length, `${path} layer.sourceIds ว่าง`).toBeGreaterThan(0);
-      expectPublishedNotAfterFetched(layer, path);
-      for (const id of layer.sourceIds) {
-        expect([...ids], `${path} อ้าง source "${id}" ที่ /health ไม่รายงาน`).toContain(id);
+      const layers = layersOf(await res.json());
+      expect(layers.length, `${path} ไม่มี layer descriptor`).toBeGreaterThan(0);
+      for (const layer of layers) {
+        expect(layer.sourceIds.length, `${path} layer.sourceIds ว่าง`).toBeGreaterThan(0);
+        expectPublishedNotAfterFetched(layer, path);
+        for (const id of layer.sourceIds) {
+          expect([...ids], `${path} อ้าง source "${id}" ที่ /health ไม่รายงาน`).toContain(id);
+        }
       }
     }
   }, 30_000);
@@ -165,9 +182,12 @@ describe("data routes", () => {
     for (const { path, mayFail503 } of DATA_ROUTES) {
       const res = await call(path);
       if (mayFail503 && res.status === 503) continue;
-      const body = (await res.json()) as { layer?: HazardLayerDescriptor };
-      expect(body.layer?.fetchedAt, `${path} fetchedAt ต้องเป็น null ตอนยังไม่เคยดึงสำเร็จ`).toBeNull();
-      expectIsoOrNull(body.layer?.publishedAt, `${path} publishedAt`);
+      const layers = layersOf(await res.json());
+      expect(layers.length, `${path} ไม่มี layer descriptor`).toBeGreaterThan(0);
+      for (const layer of layers) {
+        expect(layer.fetchedAt, `${path} fetchedAt ต้องเป็น null ตอนยังไม่เคยดึงสำเร็จ`).toBeNull();
+        expectIsoOrNull(layer.publishedAt, `${path} publishedAt`);
+      }
     }
   }, 30_000);
 });

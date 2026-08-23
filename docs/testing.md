@@ -24,7 +24,7 @@ lines above.
 ## How the API suite is arranged
 
 `apps/api` runs on **`@cloudflare/vitest-pool-workers`**, so tests execute in `workerd` through
-miniflare with the real bindings from `wrangler.jsonc` — R2 and all five Durable Objects.
+miniflare with the real bindings from `wrangler.jsonc` — R2 and all seven Durable Objects.
 
 Version notes that cost time to rediscover (they are also in `apps/api/vitest.config.ts`):
 
@@ -52,6 +52,8 @@ Version notes that cost time to rediscover (they are also in `apps/api/vitest.co
 | `test/upstreamShape.test.ts`, `test/upstreamShapeDurableObjects.test.ts` | Malformed payloads (`{}`, `[]`, truncated JSON) are **rejected** and never overwrite stored data |
 | `test/ingestion/*.test.ts` | **Normalisation**: raw payload → our types, per upstream (units, timezones, ids, nulls) |
 | `test/sourceStatus.test.ts`, `test/scheduledTick.test.ts`, `test/cachePolicy.test.ts`, … | Freshness ladder, cron orchestration, cache policy, archive keys |
+| `test/forecastNwpDurableObject.test.ts` | E12.2: cron → `ForecastNwpDO` → route end to end. Pins the things that cost money or honesty — **one row written per province, never one per forecast step**; a cold DO answering `200` with `batch: null` and `fetchedAt: null` on *both* descriptors; `404` for a code that is not one of the 77; a partly failed round keeping the good regions and naming the failed ones; a wholly failed round moving neither `fetchedAt` nor any row; **a second cron tick inside `RETRY_MS` making no upstream call at all** (the backoff the one-minute cron would otherwise erase, `docs/ops.md` §4); a missing token making zero requests; and `401` reported as a rejected key rather than "no data" |
+| `test/ingestion/tmdNwp.test.ts` | TMD NWP normalisation: `geocode` → province code, the requested `fields`/`duration` (the numbers the quota estimate is built on), the quota headers, `rain: 0` as a real value against a missing key as `null`, daily having no standalone `tc`, unknown geocodes surfaced rather than dropped, and the key TMD's own docs give (`WeatherForcasts`) being treated as a shape error |
 | `test/sqlQueryPlans.test.ts`, `test/historyRetention.test.ts`, `test/healthRowsRead.test.ts` | **Rows-read guard**: every static SQL literal in `src/durable-objects/*.ts` is run through `EXPLAIN QUERY PLAN` on the real schema and may only full-scan if it is listed in `ALLOWED_SCANS` with a reason; retention stays off the per-station path; `status()` reads cached stats and `/health` is edge-cached. Adding a scan to a DO means adding the allowlist entry in the same PR — the reason is what review checks (`docs/ops.md` §9) |
 
 Two rules that keep the suite honest:
@@ -80,8 +82,9 @@ Two rules that keep the suite honest:
 
 ## The fixtures
 
-All six upstreams share **one** fixture directory, `apps/api/test/fixtures/`. Do not create a second
-set beside it; extend these.
+All seven upstreams share **one** fixture directory, `apps/api/test/fixtures/`. Do not create a second
+set beside it; extend these. (A per-upstream subdirectory *inside* it — `fixtures/tmdNwp/` — is not a
+second set and is fine when one upstream needs several whole documents.)
 
 **These are hand-built, shape-faithful replicas, not raw captures.** Each one reproduces the structure,
 field names, encodings and quirks measured from the live upstream on the date below, with the record
@@ -101,6 +104,8 @@ you add one.
 | `thaiwater-waterlevel-load.json` | ThaiWater water level | 2026-08-19 | `…/public/waterlevel_load` |
 | `thaiwater-waterlevel-graph.json` | ThaiWater station history | 2026-08-19 | `…/public/waterlevel_graph?station_type=tele_waterlevel&station_id=…` |
 | `thaiwater-analyst-dam.json` | ThaiWater dams | 2026-08-19 | `…/analyst/dam` |
+| `tmdNwp/hourly-region-S.json` | TMD NWP hourly, one region | 2026-08-23 | `https://data.tmd.go.th/nwpapi/v1/forecast/location/hourly/region?region=S&fields=tc,rain,cond&duration=48` (Bearer token — **never store it here**) — ตัดเหลือ 5 จังหวัด (90–94) ให้อยู่ในเพดาน 50 KB, คงครบทุกขั้นเวลา |
+| `tmdNwp/daily-region-S.json` | TMD NWP daily, one region | 2026-08-23 | `…/forecast/location/daily/region?region=S&fields=rain,cond&duration=7` — ตัดเหลือ 5 จังหวัด (90–94) ให้อยู่ในเพดาน 50 KB, คงครบทุกขั้นเวลา |
 | `gistda-wfs.json` | GISTDA flood extent (WFS) | 2026-08-19 | `https://flood-innotech.gistda.or.th/flooding_vis_public?service=WFS&version=2.0.0&request=GetFeature&typeNames=flooding_vis:FloodArea_Poly&outputFormat=application/json` |
 
 Rules for every fixture:

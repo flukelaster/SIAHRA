@@ -750,9 +750,10 @@ artefact exists or is needed) — but polygon distance is what this task specifi
 ### E12 — TMD numerical weather forecast
 
 Unlike E1–E10 above, this epic does not come from the audit: it is **W7+W8** of
-`docs/roadmap-Impact Decision-Support.md`. Only E12.1 has landed, and it is **contract only** — no
-ingestion, no Durable Object, no route, no UI. E12.2–E12.4 are named here for order, not specified;
-each still needs its own task block in the format described in §0 before it is implemented.
+`docs/roadmap-Impact Decision-Support.md`. E12.1 (contract) and E12.2 (ingestion, Durable Object,
+routes) have landed; **there is still no forecast UI** — E12.3 and E12.4 are named here for order,
+not specified, and each still needs its own task block in the format described in §0 before it is
+implemented.
 
 - **E12.1 — forecast contract and epistemic class** — *done*. `EpistemicClass` gains a fifth member
   `"forecast"`: a named, cited, third-party **deterministic** model (TMD NWP), deliberately not
@@ -772,8 +773,25 @@ each still needs its own task block in the format described in §0 before it is 
   every `LIVE_SOURCE_IDS` entry appears in `/health` — registering the id now would either fail that
   test or force a fabricated health row for an ingestion path that does not exist, so it lands in
   E12.2, not here.
-- **E12.2** — ingestion Durable Object, the routes, and the `tmd-nwp` entry on `/api/v1/health`
-  (plus the `TMD_NWP_TOKEN` secret, `docs/deploy.md` §3).
+- **E12.2 — ingestion, Durable Object, routes** — *done*. `ForecastNwpDO` (binding `FORECAST_NWP`,
+  migration v8, instance `"tmd"`) polls `data.tmd.go.th/nwpapi/v1` hourly: **12 calls per round**
+  (6 TMD regions × hourly/daily — `/region` returns every province in the region and
+  `location.geocode` is the province code, so no Thai name matching) plus one availability call.
+  Storage is deliberately **one row per province holding the whole batch as JSON**, latest-only,
+  no history table and no retention `DELETE`: 77 province rows/hour = 55,440 per billing cycle,
+  plus the `meta` counters every round → **measured 66k–130k rows written per cycle (0.13–0.26% of
+  the 50M allowance)**, and one primary-key read per request. `status()` reads `meta` only, and
+  `ForecastNwpDO` is registered in `apps/api/test/sqlQueryPlans.test.ts` with **no `ALLOWED_SCANS`
+  entry at all**. `GET /api/v1/provinces/{NN}/forecast` and `GET /api/v1/forecast/availability`; the
+  `tmd-nwp` `SourceId` and its `/health` row land here. `ProvinceForecastResponse` carries **two**
+  descriptors (`layers.hourly`, `layers.daily`) because the two series reach different distances
+  ahead (48 h vs 168 h) and one descriptor would have to overstate one of them; `resolutionKm`
+  became `number | null` and is `null` for both, because the API publishes no grid metadata and the
+  TMD doc pages that carry the 2 km / 18–27 km figures were measured wrong about the response keys
+  on the same day. `horizonHours` is counted from the steps the upstream actually returned, not from
+  the `duration` we asked for (the cold state, with nothing to count, is the one exception).
+  `ensureFresh()` gates on `lastAttemptAt` as well as `fetchedAt`, so the one-minute cron cannot
+  erase the 5-minute failure backoff while the upstream is down (`docs/ops.md` §4).
 - **E12.3** — the per-province forecast card.
 - **E12.4** — the forecast time strip, and the observed-versus-forecast visual language.
 

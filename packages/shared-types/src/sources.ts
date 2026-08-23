@@ -13,6 +13,7 @@ export type SourceId =
   | "earthquakes"
   | "gistda-flood"
   | "tmd-radar"
+  | "tmd-nwp"
   | "exposure-illustrative"
   | "alert-engine"
   | "copernicus-dem"
@@ -96,6 +97,21 @@ export const SOURCES: Record<SourceId, SourceDescriptor> = {
     licenseUrl: "https://data.tmd.go.th",
     attributionText:
       "เรดาร์ตรวจอากาศ กรมอุตุนิยมวิทยา (TMD) — ข้อมูลจาก data.tmd.go.th; กรมอุตุนิยมวิทยาไม่ได้รับรองหรือมีส่วนเกี่ยวข้องกับโครงการนี้",
+    kind: "live",
+  },
+  "tmd-nwp": {
+    id: "tmd-nwp",
+    nameTh: "พยากรณ์จากแบบจำลองเชิงตัวเลข (กรมอุตุนิยมวิทยา)",
+    nameEn: "Numerical weather forecast (TMD NWP)",
+    agency: "กรมอุตุนิยมวิทยา (TMD)",
+    // เครดิตและลิงก์กลับเหมือนฟีดเรดาร์: เป็นเงื่อนไขของ data.tmd.go.th ชุดเดียวกัน
+    homepageUrl: "https://data.tmd.go.th",
+    // TMD ไม่ได้เผยแพร่ตัวบทสัญญาอนุญาตแยกสำหรับ NWP API — อ้างเงื่อนไขการใช้บริการ
+    // ของ data.tmd.go.th ตามที่ฟีดเรดาร์อ้าง ห้ามแต่งชื่อสัญญาอนุญาตขึ้นมาเอง
+    licenseName: "เงื่อนไขการใช้บริการข้อมูลของกรมอุตุนิยมวิทยา",
+    licenseUrl: "https://data.tmd.go.th",
+    attributionText:
+      "ผลพยากรณ์จากแบบจำลองเชิงตัวเลขของกรมอุตุนิยมวิทยา (TMD) — ข้อมูลจาก data.tmd.go.th; กรมอุตุนิยมวิทยาไม่ได้รับรองหรือมีส่วนเกี่ยวข้องกับโครงการนี้",
     kind: "live",
   },
   "exposure-illustrative": {

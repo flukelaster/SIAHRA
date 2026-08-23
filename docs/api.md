@@ -46,6 +46,8 @@ edit in that table.
 | `/api/v1/flood-extent/summary` | GET | 300 | default | per route | Nationwide totals, cached |
 | `/api/v1/provinces/{NN}/flood-extent` | GET | 300 | default | per route | Called for the selected province; kept high so a user browsing provinces quickly is never rate-limited into an empty layer |
 | `/api/v1/provinces/{NN}/exposure/latest` | GET | 300 | default | per route | The current flood-exposure run scoped to one province; same reasoning as flood-extent |
+| `/api/v1/provinces/{NN}/forecast` | GET | 300 | default | per route | E12.2 TMD NWP forecast for one province; one primary-key row read, and the request path never fetches upstream (the hourly cron does) |
+| `/api/v1/forecast/availability` | GET | 300 | default | per route | The date window TMD says it has daily data for, read from `meta` only |
 | `/api/v1/exposure/runs/{runId}` | GET | 120 | default | shared `exposure-run` | Reads one immutable R2 object per call; one shared bucket across all run ids |
 | `/api/v1/radar/frames` | GET | 300 | default | per route | Frame index for the last N hours |
 | `/api/v1/radar/frame/{tsMs}.png` | GET | 600 | default | shared `radar-frame` | An animation loop pulls one image per frame; one shared bucket across all frames |
@@ -86,6 +88,8 @@ Two rules are enforced by `json()` in `apps/api/src/router.ts` rather than by ea
 | `/api/v1/flood-extent/summary` | `floodExtent(retrievedAt)` | `public, max-age=300, s-maxage=600`, or `no-store` when nothing has ever been retrieved |
 | `/api/v1/provinces/{NN}/flood-extent` | `floodExtent(retrievedAt)` | as above |
 | `/api/v1/provinces/{NN}/exposure/latest` | `observations` | `public, max-age=60, s-maxage=120` |
+| `/api/v1/provinces/{NN}/forecast` | `observations` | `public, max-age=60, s-maxage=120` |
+| `/api/v1/forecast/availability` | `observations` | `public, max-age=60, s-maxage=120` |
 | `/api/v1/exposure/runs/{runId}` | `frozenArtifact(key)` | `public, max-age=31536000, immutable` — the key contains the run's content hash, so it can never change |
 | `/api/v1/radar/frames` | `radarFrames` | `public, max-age=60` |
 | `/api/v1/radar/frame/{tsMs}.png` | `radarFrame` | `public, max-age=86400, immutable` |
@@ -107,6 +111,30 @@ change is the archive **404**, which dropped `public, max-age=60` for `no-store`
 `frozenArtifact` (`public, max-age=31536000, immutable`) exists in the module but is not used by any
 route yet — it is reserved for E10.3's exposure-run artefacts. It refuses any key that is not
 content-addressed, because marking a re-writable key immutable would strand users on a year-old copy.
+
+### Forecast responses (E12.2)
+
+`GET /api/v1/provinces/{NN}/forecast` answers `ProvinceForecastResponse`
+(`packages/shared-types/src/forecast.ts`) and carries **two** descriptors, `layers.hourly` and
+`layers.daily` — not the single `layer` the other data routes use. The two series genuinely reach
+different distances ahead (48 h and 168 h), and `forecast.horizonHours` is counted from the steps
+TMD actually returned — not from the `duration` we asked for — so one descriptor would have to
+misstate one of them. The single exception is the cold state below: with no stored batch there is
+nothing to count, so the requested duration is used. Both carry
+`epistemicClass: "forecast"`, `sourceIds: ["tmd-nwp"]`, `resolutionKm: null` and `issuedAt: null` —
+TMD's API publishes neither a grid resolution nor a model run time, and neither may be filled in from
+`fetchedAt` or from a doc page.
+
+- `batch: null` (with `layers.*.fetchedAt: null`) means **no round has ever succeeded**. It is a
+  `200`, not a `503`: the province exists and "we have never received a forecast" is the true answer.
+  It must not render as an empty table, which reads as "the model says nothing is coming".
+- A province code that is two digits but not one of the 77 answers `404` (`isProvinceCode`), the same
+  as `/provinces/{NN}/exposure/latest`.
+- Neither route touches the upstream — both are a read of `ForecastNwpDO` (a primary-key row and a
+  `meta` read). Fetching is driven by the hourly cron/alarm only (`docs/ops.md` §4).
+- `GET /api/v1/forecast/availability` answers `ForecastAvailabilityResponse`: `daily: {min, max}` is
+  the date window TMD declares it holds daily data for, and `daily: null` with `fetchedAt: null`
+  means we have never read that window successfully — not that TMD has no data.
 
 ## Input rules
 
@@ -231,13 +259,15 @@ decided for it at all and never fires.
 | `tmd-radar` | `5400` (90 min) | The composite is produced on a 15-minute grid (:00/:15/:30/:45). Measured on the running API, 2026-08-19: `/api/v1/radar/frames?hours=24` returned 53 frames spanning 17.0 h, gaps between consecutive frames `{15 min: 47, 30 min: 2, 45 min: 2, 165 min: 1}`, and the newest frame was 47.6 min behind wall clock. 90 min clears both the routine publication lag and the largest *recurring* gap (45 min) with headroom; the single 165-min gap was a real publication outage, which this threshold correctly reports as `delayed`. It is also the value the code already compared against frame age. |
 | `earthquakes` | `null` | `latestObservedAt` is when an earthquake *happened*. A quiet day is a normal day, not a stalled feed — marking it `delayed` would be inventing a failure that no observation supports. |
 | `exposure-illustrative` | `1800` (30 min) | Not an upstream feed: it is the run this API computes from ThaiWater after every refresh. `latestObservedAt` is **`run.computedAt` of the latest published run — when we computed it, not when any station was read.** A run is published on *every* successful refresh (`inputs.thaiwaterFetchedAt` is inside the hashed content, so the content always differs), so 30 minutes without a new one means **our** refresh loop stopped producing runs — a missed alarm or cron tick — not that the upstream went quiet. The newest station observation actually inside that run is reported separately as `detail.runObservedAt`, and it is normally 17–77 min older than `latestObservedAt`; read that one, not this one, for observation age. A *failed* publish is a different state and shows as `lastError` (`degraded`/`down`). `staleAfterSeconds` is deliberately **larger** (3600) than this: the health ladder checks `stale` before `delayed`, so equal budgets would make `delayed` unreachable — silence for 30 min reads as "the run loop slipped", silence past an hour as "our side stopped fetching altogether". |
+| `tmd-nwp` | `null` | A forecast observes nothing: every value it carries is a **valid time in the future**, so there is no observation to be late about. `latestObservedAt` is `null` by design — filling it from a forecast step would claim we measured the future, and setting a lag without an observation would pin the source at `degraded` for ever. This source is judged on `fetchedAt` and `lastError` alone. |
 | `gistda-flood` | `null` | GISTDA publishes no acquisition or observation time with the flood scene (E3.2), so there is no cadence to compare against. Guessing one would be a fabricated timestamp. |
 | `alert-engine` | `null` | Not an upstream feed: it is `AlertEngineDO`'s own evaluation cadence (E11.5), reusing the same ThaiWater observations `exposure-illustrative` reads. `latestObservedAt` is the newest `last_observed_at` actually held across rule state, not the time of the last evaluation tick. There is no separate publication cadence to be `delayed` about — a stalled engine just means the tick has not run, which `staleAfterSeconds` already covers. |
 
 `staleAfterSeconds` is the separate fetch-side budget: thaiwater 900 s (refresh every 5 min),
 tmd-radar 900 s (refresh 5 min, retry 1 min → three missed rounds), gistda-flood 10800 s (refresh
-every 30 min), earthquakes 300 s (cron every minute), alert-engine 1800 s (evaluated every 5 min;
-30 min without a successful tick means the evaluation loop itself stopped).
+every 30 min), earthquakes 300 s (cron every minute), tmd-nwp 10800 s (refresh hourly, retry 5 min →
+three missed rounds), alert-engine 1800 s (evaluated every 5 min; 30 min without a successful tick
+means the evaluation loop itself stopped).
 
 ### `down`, `ok` and `worst`
 
@@ -270,9 +300,9 @@ every 30 min), earthquakes 300 s (cron every minute), alert-engine 1800 s (evalu
 
 ## Scheduled refresh (not an endpoint)
 
-The cron tick refreshes four sources — `earthquakes`, `thaiwater`, `gistda-flood`, `tmd-radar` —
-concurrently and in isolation (`apps/api/src/scheduledTick.ts`), each with its own ~25 s budget.
-One source failing or hanging does not stop the other three, and every source emits exactly one
+The cron tick runs six refresh jobs — `earthquakes`, `thaiwater`, `gistda-flood`, `tmd-radar`,
+`tmd-nwp` and `alert-engine` — concurrently and in isolation (`apps/api/src/scheduledTick.ts`), each
+with its own ~25 s budget. One job failing or hanging does not stop the others, and each emits exactly one
 structured log line per tick with `source`, `outcome` (`ok` / `error` / `timeout`) and `durationMs`.
 Each source's own freshness and last error stay visible in `/api/v1/health` — a failed refresh
 degrades visibly instead of disappearing. (The timeout above bounds the *tick*, not the Durable
