@@ -17,7 +17,8 @@ import { errorText, logError } from "../log.js";
  * ซึ่งเป็นข้อมูลที่ UI ต้องแสดง ไม่ใช่ความล้มเหลวของ endpoint
  */
 
-const NWP_INSTANCE = "tmd";
+// "primary" ไม่ใช่ "tmd" — ดูเหตุผลที่ index.ts บรรทัด scheduled task ของ tmd-nwp
+const NWP_INSTANCE = "primary";
 
 /** GET /api/v1/provinces/{NN}/forecast */
 export async function handleProvinceForecast(province: string, env: AppEnv): Promise<Response> {

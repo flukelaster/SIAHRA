@@ -162,7 +162,18 @@ export default {
       // จึงเรียกได้ทุกนาทีเหมือนงานอื่น ในทางที่ดีคือชั่วโมงละครั้ง ส่วนตอนต้นทางล่ม
       // (รอบพังทั้งรอบ = ไม่เขียน fetchedAt) ตัวกั้น lastAttemptAt ใน ensureFresh()
       // คือสิ่งที่ทำให้ยังห่างกันอย่างน้อย RETRY_MS ไม่ใช่ยิงใหม่ทุกนาที
-      { id: "tmd-nwp", run: () => env.FORECAST_NWP.getByName("tmd").ensureFresh() },
+      //
+      // ชื่อ instance เป็น "primary" ไม่ใช่ "tmd" เหมือนเรดาร์ข้างบน — instance เดิม
+      // ชื่อ "tmd" ค้าง env ที่ยังไม่มี TMD_NWP_TOKEN ตั้งแต่ deploy แรกของคลาสนี้
+      // (secret ถูกตั้งช้ากว่าโค้ด 436 มิลลิวินาที) และไม่ยอมสร้างใหม่แม้ deploy
+      // ซ้ำหลายรอบ เพราะ cron ปลุกมันทุกนาทีจนไม่เคยว่างพอให้ Cloudflare evict —
+      // ยืนยันจริงด้วย lastAttemptAt ที่ค้างเวลาเดิมข้าม deploy 2026-08-24 เปลี่ยน
+      // ชื่อ instance แทนการลบ+สร้างคลาสใหม่ด้วย migration: Cloudflare ปฏิเสธการลบ
+      // คลาสที่ยัง binding อยู่ในดีพลอยเดียวกัน (ต่างจาก AlertEngineDO v6/v7 ที่
+      // binding ถูกถอดพร้อมกันตอน revert ทั้งฟีเจอร์) เปลี่ยนชื่อ instance จึงเป็น
+      // ทางแก้ที่ไม่ต้องแตะ migration เลย — ห้ามเปลี่ยนกลับเป็น "tmd" โดยไม่อ่าน
+      // ประวัติของบรรทัดนี้ก่อน
+      { id: "tmd-nwp", run: () => env.FORECAST_NWP.getByName("primary").ensureFresh() },
       // ประเมิน rule เทียบกับ ObservationCacheDO — งานทุกตัวในลิสต์นี้รันพร้อมกัน
       // ไม่ใช่ตามลำดับ (ดู scheduledTick.ts) แต่ไม่เป็นปัญหา: evaluate() เรียก
       // ObservationCacheDO.getObservations() เอง ซึ่ง refresh ตัวเองถ้าของเก่าหมดอายุ
