@@ -6,10 +6,12 @@ import type { ObservationsState } from "../../hooks/useObservations";
 import type { AffectedAuthoritiesState } from "../../hooks/useAffectedAuthorities";
 import type { ActiveAlertsState } from "../../hooks/useActiveAlerts";
 import type { LocalAuthorityImpactState } from "../../hooks/useLocalAuthorityImpact";
+import type { ProvinceForecastState } from "../../hooks/useProvinceForecast";
 import { EarthquakeLiveCard } from "../hazard/EarthquakeLiveCard";
 import { DamCard } from "../hazard/DamCard";
 import { FloodExtentCard } from "../hazard/FloodExtentCard";
 import { RainfallCard } from "../hazard/RainfallCard";
+import { ForecastCard } from "../hazard/ForecastCard";
 import { WaterLevelCard } from "../hazard/WaterLevelCard";
 import { ActiveAlertBanner } from "../hazard/ActiveAlertBanner";
 import { AffectedAuthorityList } from "../hazard/AffectedAuthorityList";
@@ -28,6 +30,7 @@ export function RightPanel({
   localAuthorityImpact,
   selectedAuthorityId,
   onSelectAuthority,
+  forecast,
   health,
   atIso,
   width,
@@ -45,6 +48,8 @@ export function RightPanel({
   localAuthorityImpact: LocalAuthorityImpactState;
   selectedAuthorityId: string | null;
   onSelectAuthority: (id: string) => void;
+  /** E12.3 — พยากรณ์ TMD ของจังหวัดที่กำลังเลือกอยู่ */
+  forecast: ProvinceForecastState;
   health: HealthResponse | null;
   atIso: string | null;
   width: number;
@@ -111,6 +116,8 @@ export function RightPanel({
         loading={loading}
         attribution={data?.summary.sourceAttribution ?? null}
       />
+
+      <ForecastCard state={forecast} health={health} />
 
       <EarthquakeLiveCard feed={earthquakes} />
     </aside>

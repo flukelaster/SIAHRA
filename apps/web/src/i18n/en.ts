@@ -307,6 +307,7 @@ export const en: Record<keyof typeof th, string> = {
   "sheet.tab.impact": "Local-authority impact",
   "sheet.tab.water": "Water level",
   "sheet.tab.rain": "Rain",
+  "sheet.tab.forecast": "TMD",
   "sheet.tab.dams": "Dams",
   "sheet.tab.quake": "Earthquakes",
 
@@ -353,6 +354,20 @@ export const en: Record<keyof typeof th, string> = {
   "rain.wetSummary": "{wet} of {total} reporting stations recorded rain",
   "rain.none": "No rain gauge in this province",
   "rain.note": "Accumulated rainfall measured by telemetry stations, not a forecast",
+
+  // ── TMD forecast card (E12.3) ──────────────────────────────────────────
+  "forecast.title": "TMD weather forecast",
+  "forecast.headerCount": "{n} h ahead",
+  "forecast.none": "No TMD forecast received for this province yet",
+  "forecast.staleNote": "TMD has not published a newer forecast on schedule — the figures below are the latest available",
+  "forecast.note": "The value comes from TMD's numerical model (NWP): a deterministic figure for the future, not a probability",
+  "forecast.hourly.title": "Hourly",
+  "forecast.hourly.unit": "mm/h",
+  "forecast.hourly.none": "TMD did not send hourly rain values in this batch",
+  "forecast.hourly.chartAria": "Hourly rain chart, next 48 hours",
+  "forecast.daily.title": "Daily",
+  "forecast.daily.unit": "mm/24h",
+  "forecast.daily.none": "TMD did not send daily rain values in this batch",
 
   // ── Dam card ──────────────────────────────────────────────────────────
   "dam.title": "Dams and reservoirs",

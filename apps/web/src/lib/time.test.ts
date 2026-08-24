@@ -7,6 +7,7 @@ import {
   formatFetchedAtWithAge,
   formatFullDateTime,
   formatTime,
+  formatWeekday,
 } from "./time";
 import { LANGS } from "../i18n";
 
@@ -29,6 +30,18 @@ describe("formatters pinned to Asia/Bangkok", () => {
   it.each(LANGS)("returns a placeholder instead of throwing on an unparsable stamp (%s)", (lang) => {
     expect(formatTime(lang, "not-a-date")).toBe("—");
     expect(formatFetchedAt(lang, "not-a-date")).toBe(neverReceived(lang));
+  });
+
+  // 2026-08-17T17:30Z (จันทร์ตาม UTC) = 2026-08-18 00:30 ตามเวลาไทย ซึ่งเป็นวันอังคาร
+  // — กรณีนี้จำเป็นสำหรับแถบพยากรณ์รายวัน (E12.3): ถ้า formatWeekday อ่านวันจาก
+  // UTC จะติดป้ายแท่งผิดวันไปหนึ่งวันเต็มโดยไม่มีอาการอื่นใดให้จับผิดได้เลย
+  it("formatWeekday crosses the date boundary in Bangkok, not in UTC", () => {
+    expect(formatWeekday("en", "2026-08-17T17:30:00.000Z")).toBe("Tue");
+    expect(formatWeekday("th", "2026-08-17T17:30:00.000Z")).toBe("อังคาร");
+  });
+
+  it.each(LANGS)("formatWeekday returns a placeholder instead of throwing on an unparsable stamp (%s)", (lang) => {
+    expect(formatWeekday(lang, "not-a-date")).toBe("—");
   });
 });
 

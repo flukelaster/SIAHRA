@@ -18,6 +18,7 @@ import { useFloodExtent } from "./hooks/useFloodExtent";
 import { useAffectedAuthorities } from "./hooks/useAffectedAuthorities";
 import { useActiveAlerts } from "./hooks/useActiveAlerts";
 import { useLocalAuthorityImpact } from "./hooks/useLocalAuthorityImpact";
+import { useProvinceForecast } from "./hooks/useProvinceForecast";
 import { useRadar } from "./hooks/useRadar";
 import { TimelineBar } from "./components/layout/TimelineBar";
 import { useObservations } from "./hooks/useObservations";
@@ -30,6 +31,7 @@ import { FloodExtentCard } from "./components/hazard/FloodExtentCard";
 import { WaterLevelCard } from "./components/hazard/WaterLevelCard";
 import { RainfallCard } from "./components/hazard/RainfallCard";
 import { DamCard } from "./components/hazard/DamCard";
+import { ForecastCard } from "./components/hazard/ForecastCard";
 import { EarthquakeLiveCard } from "./components/hazard/EarthquakeLiveCard";
 import { ActiveAlertBanner } from "./components/hazard/ActiveAlertBanner";
 import { AffectedAuthorityList } from "./components/hazard/AffectedAuthorityList";
@@ -135,6 +137,9 @@ export default function App() {
   const activeAlerts = useActiveAlerts(provinceCode);
   const [selectedAuthorityId, setSelectedAuthorityId] = useState<string | null>(null);
   const localAuthorityImpact = useLocalAuthorityImpact(selectedAuthorityId);
+  // E12.3 — พยากรณ์ TMD ของจังหวัดที่กำลังเลือกอยู่เท่านั้น (ไม่วนทั้ง 77 จังหวัด —
+  // ข้อบังคับต้นทุนจาก devops cost gate PR #58 ดู useProvinceForecast.ts)
+  const forecast = useProvinceForecast(provinceCode);
   const thaiwater = sourceStatus(apiHealth.health, "thaiwater");
   // Stale/failed station data is drawn dimmed so nobody reads an old reading as current.
   // เงื่อนไข `!== "ok"` ครอบ `delayed` ด้วยโดยตั้งใจ (E3.3): ต้นทางตอบปกติแต่ค่า
@@ -499,6 +504,11 @@ export default function App() {
                   />
                 ),
               },
+              {
+                key: "forecast",
+                label: t("sheet.tab.forecast"),
+                content: <ForecastCard state={forecast} health={apiHealth.health} />,
+              },
               { key: "dams", label: t("sheet.tab.dams"), content: <DamCard state={dams} /> },
               { key: "quake", label: t("sheet.tab.quake"), content: <EarthquakeLiveCard feed={earthquakes} /> },
             ]}
@@ -534,6 +544,7 @@ export default function App() {
             localAuthorityImpact={localAuthorityImpact}
             selectedAuthorityId={selectedAuthorityId}
             onSelectAuthority={setSelectedAuthorityId}
+            forecast={forecast}
             health={apiHealth.health}
             atIso={atIso}
             width={RIGHT_W}
