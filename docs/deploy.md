@@ -174,6 +174,19 @@ fallback — loader จะได้ HTML มาแทน binary แล้วพ�
   หนึ่งรอบของเรา = 6 ภาค × (hourly+daily) + availability = **13 คำขอ** และ 77×48×3 + 77×7×2 = **12,166
   datapoint (12%)** รอบละชั่วโมง ค่า `x-datapoint-remaining` / `x-ratelimit-remaining` ที่ต้นทางส่งกลับมา
   ถูกเก็บไว้ใน `detail` ของ `/api/v1/health` เพื่อให้เห็นทันทีถ้าโควตาถูกเปลี่ยน
+
+  **`wrangler secret put` ในเชลล์ non-interactive อาจอัปโหลดค่าว่างได้เงียบ ๆ** — เหตุการณ์จริง
+  2026-08-23/24: `TMD_NWP_TOKEN` ถูกตั้งด้วยคำสั่งที่รัน stdin ว่าง (เช่น เรียกจากสคริปต์/เอเจนต์ที่
+  ไม่มี TTY โดยไม่ pipe ค่าเข้าไปจริง) แล้ว wrangler ยังพิมพ์ `✨ Success! Uploaded secret
+  TMD_NWP_TOKEN` เหมือนสำเร็จปกติ — ผลคือ `env.TMD_NWP_TOKEN` เป็นสตริงว่างตลอดมา แต่
+  `wrangler secret list` (แสดงแค่ชื่อ) และ `wrangler versions view` (ยืนยันแค่ว่า secret name
+  ผูกกับ version) ต่างก็บอกว่า "มี secret นี้อยู่" เหมือนกันทั้งคู่ ไม่มีเครื่องมือไหนแยกความต่าง
+  ระหว่าง "ชื่อ secret ผูกอยู่" กับ "ค่า secret ไม่ว่าง" ได้เลย ใช้เวลาสืบเกือบทั้งวันกว่าจะเจอด้วย
+  `wrangler tail --format=json` จับ log จริงตอน retry ที่บอกว่า token ยังไม่ถูกตั้งค่า ทั้งที่ทุก
+  อย่างดู "ผูกอยู่" หมด — **บทเรียน**: ตั้ง secret เสมอด้วยการ pipe ค่าจากไฟล์ที่รู้ว่าใช้ได้ เช่น
+  `set -a && . ./.dev.vars && set +a && printf '%s' "$TMD_NWP_TOKEN" | npx wrangler secret put
+  TMD_NWP_TOKEN` และยืนยันว่าใช้ได้จริงด้วยการดูแหล่งฟื้นตัวจริง (`/api/v1/health` ขึ้น `ok` พร้อม
+  จำนวน province ที่ดึงได้) ไม่ใช่ดูแค่ข้อความ success หรือ `wrangler secret list`/`versions view`
 - เรดาร์ฝน (`apps/api/src/ingestion/tmdRadar.ts`) ดึงจาก `weather.tmd.go.th/composite/` ซึ่ง**ไม่ต้อง
   ยืนยันตัวตน** — ไม่เกี่ยวกับ secret คู่บน
 - `ALLOWED_ORIGINS`: ว่าง = same-origin เท่านั้น — ไม่ต้องตั้ง เพราะ route ของสอง Worker อยู่บน host

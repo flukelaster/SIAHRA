@@ -62,7 +62,8 @@ export async function handleHealth(request: Request, env: AppEnv, _params: strin
       .catch((err: unknown) => [unknownStatus("exposure-illustrative", String(err))]),
     // พยากรณ์ NWP (E12.2) — คาบรายชั่วโมง จึงมีสถานะค้าง/ล่มของตัวเองแยกจาก
     // ฟีดเรดาร์ ทั้งที่เป็น TMD เหมือนกัน (คนละ API คนละกุญแจ คนละคาบ)
-    // ชื่อ instance "primary" ไม่ใช่ "tmd" — ดูเหตุผลที่ index.ts บรรทัด scheduled task
+    // ชื่อ instance "primary" ไม่ใช่ "tmd" — ประวัติเต็ม (และทำไมการเปลี่ยนชื่อไม่ใช่
+    // ตัวแก้ปัญหาจริง) อยู่ที่ index.ts บรรทัด scheduled task ของ tmd-nwp
     env.FORECAST_NWP.getByName("primary")
       .status()
       .then((s) => [s])
