@@ -69,19 +69,17 @@
     // **ไม่ได้** ไปใช้ ForecastPointerDO ซ้ำ ทั้งที่ชื่อชวนให้เข้าใจผิด: ตัวนั้นคือ
     // ตัวชี้ run ของ exposure (E10.3) การเปลี่ยนชื่อ/นำมาใช้ซ้ำต้องลบคลาสก่อน
     // ซึ่งจะทำลายข้อมูลที่เก็บอยู่
-    { "tag": "v8", "new_sqlite_classes": ["ForecastNwpDO"] },
-    // v9/v10 (2026-08-24): บังคับให้ instance "tmd" สร้างใหม่ ไม่ใช่เพิ่มความสามารถ
-    // ใด ๆ — secret TMD_NWP_TOKEN ถูกตั้งช้ากว่า deploy แรกของ v8 ไป 436 มิลลิวินาที
-    // (`wrangler secret put` ที่ 17:20:22.568Z, deploy โค้ดที่ 17:20:08.260Z) DO
-    // instance ที่เกิดไปก่อนหน้านั้นจึงผูกกับ env ที่ยังไม่มี secret และ **ไม่ยอม
-    // เปลี่ยนแม้ deploy โค้ดใหม่ซ้ำหลายรอบ** เพราะ cron ปลุกมันทุกนาที (ensureFresh)
-    // จึงไม่เคยว่างพอให้ Cloudflare evict ออกจากหน่วยความจำ — ยืนยันจริงด้วย
-    // `lastAttemptAt` ที่ค้างเวลาเดิมข้าม deploy ปกติไปหลายรอบ ก่อนบังคับลบ+สร้างใหม่
-    // ที่นี่ ตามแพตเทิร์นเดียวกับ v6/v7 ของ AlertEngineDO ข้างบน — ข้อมูลที่หายไปคือ
-    // แคชพยากรณ์ล่าสุดของแต่ละจังหวัดเท่านั้น (`latest` table) ไม่มีตารางประวัติ
-    // ให้เสีย และจะเติมกลับเองเต็มภายในรอบ refresh ถัดไป
-    { "tag": "v9", "deleted_classes": ["ForecastNwpDO"] },
-    { "tag": "v10", "new_sqlite_classes": ["ForecastNwpDO"] }
+    { "tag": "v8", "new_sqlite_classes": ["ForecastNwpDO"] }
+    // ไม่มี v9 — เคยลองเพิ่ม deleted_classes/new_sqlite_classes คู่หนึ่งเพื่อบังคับ
+    // ให้ instance "tmd" สร้างใหม่ (ดูเหตุผลใน git log ของคอมมิตนี้) แต่ Cloudflare
+    // ปฏิเสธตั้งแต่ขั้น deploy จริง: "Cannot apply --delete-class migration to
+    // class 'ForecastNwpDO' without also removing the binding that references
+    // it" — ต่างจาก AlertEngineDO's v6/v7 ตรงที่ตอนนั้น binding ถูกถอดออกไปพร้อมกัน
+    // ในดีพลอยเดียวกัน (เป็นส่วนหนึ่งของการ revert ทั้งฟีเจอร์) แล้วค่อยเพิ่มกลับใน
+    // ดีพลอยแยกต่างหากอีกวันหนึ่ง — ที่นี่ทำแบบนั้นไม่ได้เพราะจะทำให้ endpoint
+    // พยากรณ์ที่เพิ่ง ship (E12.2/E12.3) หายไปชั่วคราว แก้ปัญหา DO ค้าง env เก่า
+    // ด้วยการเปลี่ยนชื่อ instance แทน (ดู `NWP_INSTANCE` ใน `forecast-nwp.ts`) ซึ่ง
+    // ไม่ต้องแตะ migration เลย
   ],
 
   "triggers": { "crons": ["* * * * *"] },

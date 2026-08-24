@@ -92,10 +92,11 @@ afterEach(() => {
 
 afterAll(async () => {
   setToken(undefined);
-  await runInDurableObject(appEnv.FORECAST_NWP.getByName("tmd"), (_i, ctx) => ctx.storage.deleteAlarm());
+  await runInDurableObject(appEnv.FORECAST_NWP.getByName("primary"), (_i, ctx) => ctx.storage.deleteAlarm());
 });
 
-/** บล็อกนี้ต้องมาก่อนทุกบล็อกที่ทำให้ instance "tmd" อุ่น — state อยู่ยาวข้าม block ในไฟล์เดียวกัน */
+/** บล็อกนี้ต้องมาก่อนทุกบล็อกที่ทำให้ instance "primary" อุ่น — state อยู่ยาวข้าม block ในไฟล์เดียวกัน
+ *  ("primary" ไม่ใช่ "tmd" ตามชื่อ instance จริงที่ production ใช้ตั้งแต่ 2026-08-24 — ดู index.ts) */
 describe("ยังไม่เคยดึงสำเร็จ", () => {
   it("ตอบ 200 พร้อม batch: null และ fetchedAt เป็น null ทั้งสอง descriptor", async () => {
     const res = await call("/api/v1/provinces/10/forecast");
@@ -167,8 +168,8 @@ describe("cron ขับรอบดึง แล้วเส้นทางอ�
   });
 
   it("เขียนหนึ่งแถวต่อหนึ่งจังหวัด ไม่ใช่หนึ่งแถวต่อขั้นพยากรณ์", async () => {
-    const status = await statusOf("tmd");
-    const rows = await rowCount("tmd");
+    const status = await statusOf("primary");
+    const rows = await rowCount("primary");
     // fixture มี 5 จังหวัด × (48 + 7) ขั้น = 275 ขั้น ถ้าเก็บเป็นแถวละขั้นจะได้ 275
     expect(rows).toBe(5);
     expect(rows).toBe(status.detail.provinces);
@@ -176,7 +177,7 @@ describe("cron ขับรอบดึง แล้วเส้นทางอ�
   });
 
   it("/health รายงาน tmd-nwp เป็น ok พร้อมช่วงข้อมูลที่ต้นทางประกาศ", async () => {
-    const status = await statusOf("tmd");
+    const status = await statusOf("primary");
     expect(status.id).toBe("tmd-nwp");
     expect(status.health).toBe("ok");
     expect(status.lastError).toBeNull();
