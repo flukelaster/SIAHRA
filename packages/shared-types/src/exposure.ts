@@ -38,6 +38,43 @@ import type { SituationLevel } from "./observations.js";
  */
 export type ExposureLevel = "low" | "elevated" | "high" | "severe";
 
+/** ปัจจัยที่ "ค่ายิ่งมากยิ่งหนัก" — เข้าแถบเมื่อ `value > above` (รูปทรงเดียวกับ
+ *  `RisingBand` ใน `apps/api/src/exposure/compute.ts` — ประกาศซ้ำที่นี่เพื่อให้
+ *  `bandRain24h` ส่งออกได้เองโดยไม่ต้อง import ข้าม runtime ของ api) */
+export interface RainBand {
+  readonly level: ExposureLevel;
+  readonly above: number;
+}
+
+/**
+ * เกณฑ์ฝน 24 ชม. ที่กรมอุตุนิยมวิทยา (TMD) ประกาศ (ฝนปานกลาง/หนัก/หนักมาก) —
+ * ตัวเลข **ตัวเดียวที่มีอยู่ในระบบ**: `apps/api/src/exposure/compute.ts`'s
+ * `DEFAULT_EXPOSURE_THRESHOLDS.rain24hMm` และชั้นแถบฝนพยากรณ์บนแผนที่ 3 มิติ
+ * (E12.4b, `apps/web/src/lib/forecastStyle.ts`) ทั้งคู่ใช้ค่าชุดนี้ ไม่มีที่ไหน
+ * ประกาศตัวเลขซ้ำเป็นชุดที่สอง
+ */
+export const TMD_RAIN_24H_BANDS: readonly RainBand[] = [
+  { level: "severe", above: 90 },
+  { level: "high", above: 35 },
+  { level: "elevated", above: 10 },
+];
+
+/**
+ * มม./24 ชม. → แถบตามเกณฑ์ TMD — `bands` รับเข้ามาได้เพื่อให้ผู้เรียกที่มีตาราง
+ * ของตัวเอง (เช่นเทสที่สลับตารางเข้ามาตรวจว่า "ตารางเกณฑ์ถูกส่งเข้ามาได้ ไม่ใช่
+ * ค่าฝังตาย") ยังทำงานถูกต้องเหมือนเดิม ค่าเริ่มต้นคือ `TMD_RAIN_24H_BANDS` ข้างบน
+ * `null` หรือค่าที่ไม่ใช่จำนวนจำกัด → `null` (ไม่ถูกนับเป็นศูนย์) กฎเดียวกับ
+ * `bandOfRising` ใน `apps/api/src/exposure/compute.ts`
+ */
+export function bandRain24h(
+  mm: number | null,
+  bands: readonly RainBand[] = TMD_RAIN_24H_BANDS,
+): ExposureLevel | null {
+  if (mm === null || !Number.isFinite(mm)) return null;
+  for (const band of bands) if (mm > band.above) return band.level;
+  return "low";
+}
+
 /**
  * The observed inputs a station's level was derived from, so a reader can
  * always check the band against the measurement that produced it.

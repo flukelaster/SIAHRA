@@ -8,6 +8,7 @@ import {
   ILLUSTRATIVE_STRIPE_MIX,
 } from "../lib/illustrativeStyle";
 import { EXPOSURE_RGB } from "../lib/exposureStyle";
+import { FORECAST_RGB } from "../lib/forecastStyle";
 
 /** ค่าคงที่ TS → literal ของ GLSL (GLSL ต้องมีจุดทศนิยมเสมอ) */
 const glslFloat = (v: number) => v.toFixed(4);
@@ -61,6 +62,17 @@ export interface TerrainSharedUniforms {
    * และ legend บอกว่าไม่มี run ตั้งแต่เมื่อไหร่
    */
   uExposureStale: { value: number };
+  /**
+   * "แถบฝนพยากรณ์รายวัน (TMD)" (E12.4b) — รหัสแถบเดียวกันกับ `EXPOSURE_CODE`
+   * (0 = ไม่มีแถบ, 0.5/0.75/1 = elevated/high/severe; "low" ไม่มีรหัส เพราะไม่วาด)
+   * เป็น uniform หนึ่งค่าต่อจังหวัด ไม่ใช่ texture: TMD ให้ปริมาณฝนมาหนึ่งค่าต่อ
+   * จังหวัด (`ProvinceForecastBatch.queryPoint` จุดเดียว) ไม่ใช่รายสถานีแบบ
+   * `hazardOverlay.updateExposure`, การ drape เป็น texture จะสื่อความละเอียด
+   * เชิงพื้นที่ที่ข้อมูลไม่มีอยู่จริง
+   */
+  uForecastBand: { value: number };
+  /** ปิดไว้เป็นค่าเริ่มต้น: มีค่าเมื่อผู้ใช้เลือกขั้นใน ForecastStrip เท่านั้น */
+  uShowForecast: { value: number };
   /** Satellite flood-extent mask (R channel, province overlay grid). */
   uFloodMask: { value: THREE.Texture | null };
   uShowFlood: { value: number };
@@ -91,6 +103,8 @@ export function createTerrainSharedUniforms(): TerrainSharedUniforms {
     uExposure: { value: null },
     uShowExposure: { value: 0 },
     uExposureStale: { value: 0 },
+    uForecastBand: { value: 0 },
+    uShowForecast: { value: 0 },
     uFloodMask: { value: null },
     uShowFlood: { value: 0 },
     uRadar: { value: null },
@@ -127,6 +141,8 @@ uniform float uHazardStale;
 uniform sampler2D uExposure;
 uniform float uShowExposure;
 uniform float uExposureStale;
+uniform float uForecastBand;
+uniform float uShowForecast;
 uniform sampler2D uFloodMask;
 uniform float uShowFlood;
 uniform sampler2D uRadar;
@@ -157,6 +173,16 @@ vec3 siahraExposureRamp(float code) {
   c = mix(c, ${glslVec3(EXPOSURE_RGB.elevated)}, smoothstep(0.25, 0.5, code));
   c = mix(c, ${glslVec3(EXPOSURE_RGB.high)}, smoothstep(0.5, 0.75, code));
   c = mix(c, ${glslVec3(EXPOSURE_RGB.severe)}, smoothstep(0.75, 1.0, code));
+  return c;
+}
+// สีไล่ตามแถบของ "แถบฝนพยากรณ์รายวัน (TMD)" — จุดยึดตรงกับรหัสเดียวกับ
+// siahraExposureRamp ข้างบน (0.5 elevated, 0.75 high, 1.0 severe; ไม่มีแถบ 0.25
+// เพราะ "low" ไม่เคยถูกวาด — ดู ForecastBandLevel ใน lib/forecastStyle.ts) จุดสี
+// มาจาก FORECAST_RGB ไฟล์เดียวกับที่ legend อ่าน ไม่ได้เลือกเลขฐานสิบหกใหม่ที่นี่
+vec3 siahraForecastRamp(float code) {
+  vec3 c = ${glslVec3(FORECAST_RGB.elevated)};
+  c = mix(c, ${glslVec3(FORECAST_RGB.high)}, smoothstep(0.5, 0.75, code));
+  c = mix(c, ${glslVec3(FORECAST_RGB.severe)}, smoothstep(0.75, 1.0, code));
   return c;
 }
 `;
@@ -259,6 +285,42 @@ if (uShowExposure > 0.5) {
     diffuseColor.rgb = mix(diffuseColor.rgb, expoCol, expoMix);
     siahraEmissive += expoCol * expoFill * 0.07 * stripe2;
   }
+}
+
+// "แถบฝนพยากรณ์รายวัน (TMD)" (E12.4b) — ผู้ใช้เลือกขั้นรายชั่วโมงหนึ่งขั้นใน
+// ForecastStrip แล้วฝั่ง App.tsx หาขั้นรายวันของวันปฏิทินกรุงเทพฯ วันเดียวกันมา
+// จัดแถบด้วยเกณฑ์ TMD (bandRain24h) — ต่างจากทั้งสองชั้นข้างบนสามอย่างจงใจ:
+// (ห้ามใช้ backtick ในคอมเมนต์ช่วงนี้ — เทมเพลตลิเทอรัลของ JS ทั้งก้อน (COLOR_
+// FRAGMENT) ถูกครอบด้วย backtick อยู่แล้ว backtick ซ้อนในคอมเมนต์จะปิดสตริงก่อน)
+//
+//   1. ประตูคือ inside อย่างเดียว ไม่ใช่ ov.r (ช่องพื้นที่ลุ่มต่ำ) — ชั้นการเผชิญ
+//      น้ำผูกกับพื้นที่ลุ่มต่ำเพราะเป็นการชี้จุดเสี่ยงที่ใกล้แหล่งน้ำ แต่ฝนพยากรณ์
+//      เป็นค่าระดับจังหวัดล้วน ๆ (จุดกริดเดียวของ TMD) ไม่มีความหมายเชิงพื้นที่ที่
+//      จะผูกกับพื้นที่ลุ่มต่ำได้ — ระบายทั่วทั้งจังหวัดเท่ากันแทน
+//   2. ลายเส้นแนวตั้งล้วน (gl_FragCoord.x อย่างเดียว ไม่หารด้วยรากสอง เหมือน
+//      สองลายทแยงข้างบน เพราะไม่ใช่ลายทแยง 45 องศา ระยะห่างจึงตรงกับ hatchPx เป๊ะ
+//      ไม่ใช่ระยะตามแนวตั้งฉากของเส้นทแยง) — ต่างจากทแยงเดี่ยว (x+y) ของพื้นที่
+//      ลุ่มต่ำ และทแยงกลับด้าน/ลายตาราง (x-y) ของชั้นการเผชิญน้ำ ทั้งสามชั้นจึง
+//      อ่านออกได้แม้ตัดสีออกหมด (greyscale)
+//   3. สีฟ้าอมเขียว (teal/seafoam) จาก FORECAST_RGB ใน lib/forecastStyle.ts —
+//      ไม่ใช่ม่วงไปบานเย็นของชั้นการเผชิญน้ำ ไม่ใช่ฟ้า/น้ำเงินของน้ำท่วม GISTDA
+//      ด้านล่าง และไม่ใช่ส้ม/แดงของฮาโลค่าตรวจวัดจริง — luma ของทั้งสามจุดสี
+//      (ราว 0.58-0.80 ตามสูตร Rec.601) อยู่นอกแถบราว 0.50-0.54 ของ ramp ม่วง
+//      ไปบานเย็น โดยตั้งใจ (ดูหมายเหตุคำนวณเต็มใน lib/forecastStyle.ts)
+//
+// uForecastBand เป็นค่าเดียว ไม่ใช่รหัสที่แยกกรณี "ไม่มีค่า" กับ "ต่ำกว่าเกณฑ์"
+// (ทั้งสองกรณีคือ uShowForecast = 0 เท่ากัน) — สองสถานะนั้นแยกกันที่ legend
+// (MapLegend.tsx) ไม่ใช่บน terrain เพราะ uniform บนแผนที่บอกได้แค่ "มี/ไม่มี
+// สัญญาณให้ดู" ส่วนเหตุผลที่ไม่มีเป็นข้อความ ไม่ใช่สี
+if (uShowForecast > 0.5 && uForecastBand > 0.001) {
+  vec3 fcCol = siahraForecastRamp(uForecastBand);
+  float hatchT3 = gl_FragCoord.x / hatchPx;
+  float hatchTri3 = abs(fract(hatchT3) - 0.5) * 2.0;
+  float stripe3 = 1.0 - smoothstep(${glslFloat(ILLUSTRATIVE_HATCH_DUTY)} - hatchAa, ${glslFloat(ILLUSTRATIVE_HATCH_DUTY)} + hatchAa, hatchTri3);
+  float fcFill = inside * mix(0.5, 1.0, uDetailFade);
+  float fcMix = fcFill * (${glslFloat(ILLUSTRATIVE_BASE_MIX)} + ${glslFloat(ILLUSTRATIVE_STRIPE_MIX)} * stripe3);
+  diffuseColor.rgb = mix(diffuseColor.rgb, fcCol, fcMix);
+  siahraEmissive += fcCol * fcFill * 0.06 * stripe3;
 }
 
 // Satellite-observed flood extent (GISTDA): murky standing water with a

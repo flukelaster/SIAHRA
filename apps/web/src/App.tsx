@@ -43,6 +43,7 @@ import type { QualityLevel, QualityMode } from "./scene/quality";
 import { formatFullDateTime } from "./lib/time";
 import { damDisplayName } from "./lib/damName";
 import { exposureInputsAreDegraded } from "./lib/exposureInputHealth";
+import { computeForecastBandStatus } from "./lib/forecastStyle";
 import { useLang } from "./i18n/context";
 
 const DEFAULT_PROVINCE_CODE = "10"; // Bangkok
@@ -144,6 +145,22 @@ export default function App() {
   // E12.3 — พยากรณ์ TMD ของจังหวัดที่กำลังเลือกอยู่เท่านั้น (ไม่วนทั้ง 77 จังหวัด —
   // ข้อบังคับต้นทุนจาก devops cost gate PR #58 ดู useProvinceForecast.ts)
   const forecast = useProvinceForecast(provinceCode);
+  // E12.4b — จุดคำนวณเดียวของ "แถบฝนพยากรณ์รายวัน (TMD)": หาขั้นรายวันของวัน
+  // ปฏิทินกรุงเทพฯ เดียวกับ forecastAtIso แล้วจัดแถบ ครั้งเดียวตรงนี้ ไม่ใช่ใน
+  // Map3DCanvas.tsx และ MapLegend.tsx แยกกัน (ทั้งสองที่รับผลลัพธ์สำเร็จรูปนี้
+  // ไปใช้เท่านั้น ไม่งั้นสองจุดอาจตัดสินไม่ตรงกันได้ถ้าตรรกะเพี้ยนไปทีละที่)
+  // forecastAtIso === null (ยังไม่ได้เลือกขั้นใด) → null ตรง ๆ ไม่ผ่านการคำนวณ
+  const forecastDaily = forecast.data?.batch?.daily ?? null;
+  const forecastBandStatus = useMemo(
+    () => (forecastAtIso === null ? null : computeForecastBandStatus(forecastDaily, forecastAtIso)),
+    [forecastAtIso, forecastDaily],
+  );
+  const forecastBandLevel = forecastBandStatus?.kind === "band" ? forecastBandStatus.level : null;
+  const forecastLegend = {
+    atIso: forecastAtIso,
+    firstHourlyIso: forecast.data?.batch?.hourly[0]?.validAt ?? null,
+    status: forecastBandStatus,
+  };
   const thaiwater = sourceStatus(apiHealth.health, "thaiwater");
   // Stale/failed station data is drawn dimmed so nobody reads an old reading as current.
   // เงื่อนไข `!== "ok"` ครอบ `delayed` ด้วยโดยตั้งใจ (E3.3): ต้นทางตอบปกติแต่ค่า
@@ -391,6 +408,8 @@ export default function App() {
         exposure={exposure.data}
         exposureStale={exposureNoNewRun}
         atIso={atIso}
+        forecastAtIso={forecastAtIso}
+        forecastBandLevel={forecastBandLevel}
         layers={layers}
         safeArea={safeArea}
         observationsStale={observationsStale}
@@ -462,6 +481,7 @@ export default function App() {
                     terrainIntegrity={mapInfo?.terrainIntegrity}
                     buildingsError={mapInfo?.buildingsError ?? null}
                     exposure={exposureLegend}
+                    forecast={forecastLegend}
                   />
                 ),
               },
@@ -553,6 +573,7 @@ export default function App() {
             terrainIntegrity={mapInfo?.terrainIntegrity}
             buildingsError={mapInfo?.buildingsError ?? null}
             exposure={exposureLegend}
+            forecast={forecastLegend}
             width={LEFT_W}
             top={dockTop}
           />

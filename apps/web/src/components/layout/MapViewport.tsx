@@ -12,6 +12,7 @@ import type {
 import type { CameraPose, MapTool, SafeArea, SceneHandles } from "../../scene/setupScene";
 import { IconButton } from "../ui/Panel";
 import { Map3DCanvas, type MapApi, type MapInfo, type MapLayers } from "./Map3DCanvas";
+import type { ForecastBandLevel } from "../../lib/forecastStyle";
 import type { QualityLevel, QualityMode } from "../../scene/quality";
 import { formatTime } from "../../lib/time";
 import { useLang } from "../../i18n/context";
@@ -35,6 +36,8 @@ export function MapViewport({
   exposure,
   exposureStale = false,
   atIso,
+  forecastAtIso = null,
+  forecastBandLevel = null,
   layers,
   safeArea,
   observationsStale = false,
@@ -67,6 +70,11 @@ export function MapViewport({
   /** true = ไม่มีผลคำนวณรอบใหม่ → ชั้นหรี่ลง ไม่ใช่หายไป */
   exposureStale?: boolean;
   atIso: string | null;
+  /** ขั้นพยากรณ์รายชั่วโมงที่กำลังเลือกอยู่ใน ForecastStrip (E12.4b) — ส่งต่อ
+   *  ให้ Map3DCanvas หรี่หมุดสถานีเท่านั้น (ตัวแถบเองมาจาก forecastBandLevel) */
+  forecastAtIso?: string | null;
+  /** แถบฝนพยากรณ์รายวัน (TMD) ที่คำนวณไว้แล้วใน App.tsx — null = ไม่วาดแถบ */
+  forecastBandLevel?: ForecastBandLevel | null;
   layers: MapLayers;
   safeArea: SafeArea;
   observationsStale?: boolean;
@@ -144,6 +152,8 @@ export function MapViewport({
         exposure={exposure}
         exposureStale={exposureStale}
         atIso={atIso}
+        forecastAtIso={forecastAtIso}
+        forecastBandLevel={forecastBandLevel}
         exaggeration={exaggeration}
         layers={layers}
         tool={tool}

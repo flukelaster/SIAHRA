@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  bangkokDateKey,
   neverReceived,
   formatAge,
   formatDateTime,
@@ -42,6 +43,17 @@ describe("formatters pinned to Asia/Bangkok", () => {
 
   it.each(LANGS)("formatWeekday returns a placeholder instead of throwing on an unparsable stamp (%s)", (lang) => {
     expect(formatWeekday(lang, "not-a-date")).toBe("—");
+  });
+
+  // E12.4b — จับคู่ขั้นพยากรณ์รายชั่วโมงกับขั้นรายวันด้วยวันปฏิทินกรุงเทพฯ ไม่ใช่
+  // การตัดสตริง ISO ตรง ๆ (ซึ่งจะจับคู่ผิดวันสำหรับชั่วโมง 17:00Z เป็นต้นไป)
+  it("bangkokDateKey crosses the date boundary in Bangkok, not in UTC", () => {
+    expect(bangkokDateKey("2026-08-17T16:59:00.000Z")).toBe("2026-08-17");
+    expect(bangkokDateKey("2026-08-17T17:00:00.000Z")).toBe("2026-08-18");
+  });
+
+  it("bangkokDateKey returns null instead of throwing on an unparsable stamp", () => {
+    expect(bangkokDateKey("not-a-date")).toBeNull();
   });
 });
 

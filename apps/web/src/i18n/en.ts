@@ -381,6 +381,15 @@ export const en: Record<keyof typeof th, string> = {
   "forecast.strip.tickHours": "+{n} h",
   "forecast.strip.noSteps": "TMD sent no hourly steps in this batch",
 
+  // ── Daily forecast rain band on the 3D map (E12.4b) ─────────────────────
+  "forecast.band.label": "TMD 24 h forecast rain",
+  // TMD did send a value and it is below the threshold worth highlighting —
+  // a fact the model confirms, must not read the same as noValue ("we don't know")
+  "forecast.band.belowThreshold": "TMD forecasts today's rain below the threshold highlighted on the map",
+  // No daily step for today at all, or a step with a null rain value — both
+  // read as "nothing to show" from the user's side, distinct from belowThreshold above
+  "forecast.band.noValue": "TMD has no daily forecast rain value for today",
+
   // ── Dam card ──────────────────────────────────────────────────────────
   "dam.title": "Dams and reservoirs",
   "dam.count": "{n} sites",
