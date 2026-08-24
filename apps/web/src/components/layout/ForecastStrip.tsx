@@ -49,11 +49,18 @@ export function ForecastStrip({
   state,
   forecastAtIso,
   onChange,
+  variant = "full",
 }: {
   state: ProvinceForecastState;
   /** ขั้นที่กำลังเลือกอยู่ (ตรงกับ `validAt` ของขั้นใดขั้นหนึ่ง) หรือ null = ยังไม่เลือก */
   forecastAtIso: string | null;
   onChange: (forecastAtIso: string | null) => void;
+  /**
+   * `full` = แถบเดิมพร้อมขีดเวลาและค่า ฝน/อุณหภูมิ/รหัสสภาพอากาศ (dock บนมือถือ)
+   * `dense` = บรรทัดเดียวสำหรับ dock ล่างบนจอกว้าง: ล้าง · ป้ายชนิดความรู้ · หมายเหตุ
+   *           ค้าง/ข้อผิดพลาด · slider · เวลาที่เลือก + ค่าฝน (อุณหภูมิ/รหัสอยู่ในแผง TMD)
+   */
+  variant?: "full" | "dense";
 }) {
   const { lang, t } = useLang();
   const nowMs = useNow();
@@ -118,6 +125,76 @@ export function ForecastStrip({
   }
 
   const progress = selected ? (selectedIndex / Math.max(1, n - 1)) * 100 : 0;
+
+  if (variant === "dense") {
+    // ค่าดิบของขั้นที่เลือก — กติกาเดียวกับแบบเต็ม: null ต้องขึ้นข้อความว่า TMD
+    // ไม่ได้ส่งค่านี้มา ห้ามเว้นว่างหรือแสดงเป็น 0 เงียบ ๆ
+    const rainText = selected
+      ? selected.rainMm !== null
+        ? `${formatNumber(lang, selected.rainMm, 1)} ${t("forecast.hourly.unit")}`
+        : t("forecast.strip.notSent")
+      : null;
+    return (
+      <div
+        className={`glass flex h-10 min-w-0 items-center gap-2 overflow-hidden rounded-2xl py-1 pr-3 pl-1.5 ${stale ? "opacity-60" : ""}`}
+        title={t("forecast.headerCount", { n })}
+      >
+        <button
+          type="button"
+          onClick={() => onChange(null)}
+          disabled={!selected}
+          className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full text-[var(--color-fg-muted)] transition-colors hover:bg-white/8 hover:text-white disabled:cursor-default disabled:opacity-35 disabled:hover:bg-transparent"
+          aria-label={t("forecast.strip.clear")}
+          title={t("forecast.strip.clear")}
+        >
+          <X size={13} />
+        </button>
+        <span
+          className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] leading-none ring-1 ring-inset ${badge.className}`}
+          title={t(badge.titleKey)}
+        >
+          {t(badge.labelKey)}
+        </span>
+        {/* หมายเหตุค้าง/ข้อผิดพลาดย่อได้ (ข้อความเต็มอยู่ใน title) — ห้ามล้นออกนอกกล่อง */}
+        {error ? (
+          <span className="min-w-0 truncate text-[10px] text-[var(--color-danger)]" title={resolveError(t, error) ?? undefined}>
+            {resolveError(t, error)}
+          </span>
+        ) : stale ? (
+          <span
+            className="min-w-0 truncate rounded-md bg-[var(--color-risk-medium)]/15 px-1.5 py-0.5 text-[10px] leading-none text-[var(--color-risk-medium)]"
+            title={t("forecast.staleNote")}
+          >
+            {t("forecast.staleNote")}
+          </span>
+        ) : null}
+        <input
+          type="range"
+          min={0}
+          max={n - 1}
+          step={1}
+          value={selected ? selectedIndex : 0}
+          onChange={(e) => onChange(steps[Number(e.target.value)].validAt)}
+          aria-label={t("forecast.strip.slider")}
+          aria-valuetext={selected ? formatDateTime(lang, selected.validAt) : t("forecast.strip.notSelected")}
+          className="range-slider-forecast min-w-16 flex-1"
+          style={{ "--range-progress": `${progress}%` } as React.CSSProperties}
+        />
+        <span
+          className="min-w-0 truncate text-[11px] tabular-nums text-[#9dc0ff]"
+          title={selected ? formatDateTime(lang, selected.validAt) : t("forecast.strip.notSelected")}
+        >
+          {selected ? formatDateTime(lang, selected.validAt) : t("forecast.strip.notSelected")}
+        </span>
+        {rainText !== null ? (
+          <span className="shrink-0 text-[11px] whitespace-nowrap tabular-nums text-[var(--color-fg)]">
+            <span className="text-[var(--color-fg-subtle)]">{t("forecast.strip.rain")} </span>
+            {rainText}
+          </span>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className={`glass flex items-center gap-3 rounded-2xl py-2 pr-4 pl-2.5 ${stale ? "opacity-60" : ""}`}>

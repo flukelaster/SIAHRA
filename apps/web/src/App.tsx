@@ -1,13 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BottomBar } from "./components/layout/BottomBar";
-import { ForecastStrip } from "./components/layout/ForecastStrip";
+import { AppShell } from "./components/layout/AppShell";
 import type { MapApi, MapInfo, MapLayers } from "./components/layout/Map3DCanvas";
 import { MapViewport } from "./components/layout/MapViewport";
-import { ExaggerationControl } from "./components/layout/ExaggerationControl";
-import { SourceStatusBar } from "./components/layout/SourceStatusBar";
-import { RightPanel } from "./components/layout/RightPanel";
-import { Sidebar } from "./components/layout/Sidebar";
-import { TopBar, type SearchPlace } from "./components/layout/TopBar";
+import type { PanelContext } from "./components/layout/panelRegistry";
 import { PROVINCES } from "./data/provinces";
 import { aoiIdForProvince } from "./data/types";
 import { useApiHealth, sourceStatus } from "./hooks/useApiHealth";
@@ -21,42 +16,19 @@ import { useActiveAlerts } from "./hooks/useActiveAlerts";
 import { useLocalAuthorityImpact } from "./hooks/useLocalAuthorityImpact";
 import { useProvinceForecast } from "./hooks/useProvinceForecast";
 import { useRadar } from "./hooks/useRadar";
-import { TimelineBar } from "./components/layout/TimelineBar";
 import { useObservations } from "./hooks/useObservations";
 import { readPermalink, usePermalinkSync } from "./hooks/usePermalink";
-import { useViewport } from "./hooks/useViewport";
-import { MobileSheet } from "./components/layout/MobileSheet";
-import { ProvinceSelector } from "./components/layout/ProvinceSelector";
-import { MapLegend } from "./components/layout/MapLegend";
-import { FloodExtentCard } from "./components/hazard/FloodExtentCard";
-import { WaterLevelCard } from "./components/hazard/WaterLevelCard";
-import { RainfallCard } from "./components/hazard/RainfallCard";
-import { DamCard } from "./components/hazard/DamCard";
-import { ForecastCard } from "./components/hazard/ForecastCard";
-import { EarthquakeLiveCard } from "./components/hazard/EarthquakeLiveCard";
-import { ActiveAlertBanner } from "./components/hazard/ActiveAlertBanner";
-import { AffectedAuthorityList } from "./components/hazard/AffectedAuthorityList";
-import { ImpactSummaryCard } from "./components/hazard/ImpactSummaryCard";
+import { useShellState } from "./hooks/useShellState";
 import { BRAND, DATA_ATTRIBUTION_TH } from "./branding";
 import type { CameraPose } from "./scene/setupScene";
 import type { QualityLevel, QualityMode } from "./scene/quality";
 import { formatFullDateTime } from "./lib/time";
-import { damDisplayName } from "./lib/damName";
 import { exposureInputsAreDegraded } from "./lib/exposureInputHealth";
 import { computeForecastBandStatus } from "./lib/forecastStyle";
+import { buildSearchIndex, type SearchPlace } from "./lib/searchIndex";
 import { useLang } from "./i18n/context";
 
 const DEFAULT_PROVINCE_CODE = "10"; // Bangkok
-
-/** Floating-panel geometry (CSS px). The map itself is always full-bleed. */
-const GUTTER = 12;
-const TOPBAR_H = 60;
-const LEFT_W = 272;
-const RIGHT_W = 352;
-/** Initial guess for the bottom dock height; the dock reports its real size once mounted. */
-const BOTTOM_DOCK_H = 276;
-/** Compact mode: status row + timeline stacked above the sheet. */
-const COMPACT_DOCK_H = 120;
 
 const DEFAULT_LAYERS: MapLayers = {
   imagery: true,
@@ -109,7 +81,6 @@ export default function App() {
   const [exaggeration, setExaggeration] = useState(INITIAL.exaggeration ?? 1);
   const [pose, setPose] = useState<CameraPose | null>(INITIAL.pose);
   const [mapInfo, setMapInfo] = useState<MapInfo | null>(null);
-  const [dockHeight, setDockHeight] = useState(BOTTOM_DOCK_H);
   const [quality, setQuality] = useState<QualityMode>("auto");
   const [qualityLevel, setQualityLevel] = useState<QualityLevel>("high");
   const handleQualityLevel = useCallback((level: QualityLevel) => setQualityLevel(level), []);
@@ -293,50 +264,20 @@ export default function App() {
   }, [affectedAuthoritiesEntries, selectedAuthorityId]);
 
   // Search index: amphoe centroids (from station coordinates), stations, dams of this province.
-  const places = useMemo<SearchPlace[]>(() => {
-    const out: SearchPlace[] = [];
-    const data = observations.data;
-    if (data) {
-      const byAmphoe = new Map<string, { lon: number; lat: number; n: number }>();
-      const seen = new Set<string>();
-      for (const st of [...data.waterlevel.map((w) => w.station), ...data.rainfall.map((r) => r.station)]) {
-        if (st.amphoeNameTh) {
-          const a = byAmphoe.get(st.amphoeNameTh) ?? { lon: 0, lat: 0, n: 0 };
-          a.lon += st.lon;
-          a.lat += st.lat;
-          a.n++;
-          byAmphoe.set(st.amphoeNameTh, a);
-        }
-        // Rain and water-level ids overlap upstream; key on name+coords instead.
-        const key = `s:${st.nameTh ?? st.id}:${st.lon.toFixed(4)}:${st.lat.toFixed(4)}`;
-        if (st.nameTh && !seen.has(key)) {
-          seen.add(key);
-          out.push({ key, label: st.nameTh, sub: st.amphoeNameTh ?? provinceName, kind: "station", lon: st.lon, lat: st.lat });
-        }
-      }
-      for (const [name, a] of byAmphoe) {
-        out.push({
-          key: `a:${name}`,
-          label: t(provinceCode === "10" ? "province.prefix.khet" : "province.prefix.amphoe") + name,
-          sub: provinceName,
-          kind: "amphoe",
-          lon: a.lon / a.n,
-          lat: a.lat / a.n,
-        });
-      }
-    }
-    for (const d of dams.data?.dams ?? []) {
-      out.push({
-        key: `d:${d.id}`,
-        label: damDisplayName(d, lang, t),
-        sub: d.basinNameTh ?? provinceName,
-        kind: "dam",
-        lon: d.lon,
-        lat: d.lat,
-      });
-    }
-    return out;
-  }, [observations.data, dams.data, provinceName, provinceCode, lang, t]);
+  const observationsData = observations.data;
+  const damsList = dams.data?.dams;
+  const places = useMemo<SearchPlace[]>(
+    () =>
+      buildSearchIndex({
+        observations: observationsData,
+        dams: damsList ?? [],
+        provinceName,
+        provinceCode,
+        lang,
+        t,
+      }),
+    [observationsData, damsList, provinceName, provinceCode, lang, t],
+  );
 
   const selectPlace = useCallback((pl: SearchPlace) => {
     const dist = pl.kind === "amphoe" ? 12000 : 4000;
@@ -372,34 +313,47 @@ export default function App() {
     window.setTimeout(() => URL.revokeObjectURL(url), 5000);
   }, [province, provinceName, atIso, lang, t]);
 
-  const viewport = useViewport();
-  const compact = viewport.compact;
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const sheetHeight = Math.round(viewport.height * 0.45);
-  const dockTop = GUTTER + TOPBAR_H + GUTTER;
-  const safeArea = useMemo(
-    () =>
-      compact
-        ? {
-            left: 8,
-            right: 8,
-            top: dockTop,
-            bottom: (sheetOpen ? sheetHeight : 44) + 12 + COMPACT_DOCK_H,
-          }
-        : {
-            left: GUTTER + LEFT_W + GUTTER,
-            right: GUTTER + RIGHT_W + GUTTER,
-            top: dockTop,
-            bottom: GUTTER + dockHeight,
-          },
-    [dockTop, compact, sheetOpen, sheetHeight, dockHeight],
-  );
+  // เปลือกหน้าต่าง: tier / drawer / แผ่นเลื่อน / ความสูง dock → safe area (lib/shellLayout.ts)
+  // ไม่มีการ re-frame กล้องตอนเปิด-ปิด drawer — `frameTerrain` ยังถูกเรียกเฉพาะตอน
+  // AOI โหลด (Map3DCanvas) เหมือนเดิม การเปลี่ยนจังหวัดจึงจัดกรอบตามสถานะ drawer ขณะนั้น
+  const shell = useShellState();
+
+  // ทุกอย่างที่แผงใดแผงหนึ่งอาจต้องใช้ — ก้อนเดียว ส่งให้ drawer/แผ่นเลื่อนเรนเดอร์
+  // เฉพาะแผงที่เปิดอยู่ (components/layout/panels.tsx)
+  const ctx: PanelContext = {
+    province,
+    provinceName,
+    lang,
+    layers,
+    toggleLayer,
+    layerDescriptors,
+    quality,
+    qualityLevel,
+    setQuality,
+    mapInfo,
+    exposureLegend,
+    forecastLegend,
+    observations,
+    floodExtent,
+    dams,
+    earthquakes,
+    forecast,
+    activeAlerts,
+    affectedAuthorities,
+    localAuthorityImpact,
+    selectedAuthorityId,
+    setSelectedAuthorityId,
+    apiHealth: apiHealth.health,
+    atIso,
+  };
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-[var(--color-bg)]">
       <MapViewport
         aoiId={aoiId}
         provinceLabel={provinceName}
+        summary={observations.data?.summary ?? null}
+        summaryLoading={observations.loading}
         observations={observations.data}
         earthquakes={earthquakes.events}
         floodExtent={floodExtent.data}
@@ -411,209 +365,35 @@ export default function App() {
         forecastAtIso={forecastAtIso}
         forecastBandLevel={forecastBandLevel}
         layers={layers}
-        safeArea={safeArea}
+        safeArea={shell.safeArea}
         observationsStale={observationsStale}
         initialPose={initialPoseRef.current}
         exaggeration={exaggeration}
         quality={quality}
         onQualityLevel={handleQualityLevel}
-        compact={compact}
+        tier={shell.tier}
         onInfo={setMapInfo}
         onApi={handleApi}
         onPoseChange={handlePose}
       />
 
-      <TopBar
+      <AppShell
+        ctx={ctx}
+        shell={shell}
         provinces={PROVINCES}
         places={places}
         onSelectProvince={selectProvince}
         onSelectPlace={selectPlace}
         onShare={share}
         onSnapshot={() => void snapshot()}
-        height={TOPBAR_H}
-        compact={compact}
+        apiHealth={apiHealth}
+        mapInfo={mapInfo}
+        exaggeration={exaggeration}
+        onExaggerationChange={setExaggeration}
+        onAtIsoChange={handleAtIsoChange}
+        forecastAtIso={forecastAtIso}
+        onForecastAtIsoChange={handleForecastAtIsoChange}
       />
-
-      {compact ? (
-        <>
-          <div
-            className="absolute z-10 flex flex-col gap-2 @container"
-            style={{ left: 8, right: 8, bottom: (sheetOpen ? sheetHeight : 44) + 12 }}
-          >
-            <div className="flex items-center gap-2">
-              <div className="min-w-0">
-                <SourceStatusBar state={apiHealth} compact />
-              </div>
-              <div className="ml-auto shrink-0">
-                <ExaggerationControl value={exaggeration} onChange={setExaggeration} />
-              </div>
-            </div>
-            {/* TimelineBar (observed) และ ForecastStrip (TMD) ต้องอยู่แถวเดียวกัน
-                เพื่อให้ปลาย "ปัจจุบัน" ของอันแรกชนกับปลาย "0h" ของอันหลัง */}
-            <div className="flex flex-col gap-2">
-              <TimelineBar atIso={atIso} onChange={handleAtIsoChange} />
-              <ForecastStrip state={forecast} forecastAtIso={forecastAtIso} onChange={handleForecastAtIsoChange} />
-            </div>
-          </div>
-          <MobileSheet
-            open={sheetOpen}
-            onOpenChange={setSheetOpen}
-            height={sheetHeight}
-            tabs={[
-              {
-                key: "province",
-                label: t("sheet.tab.province"),
-                content: (
-                  <ProvinceSelector provinces={PROVINCES} selected={province} onSelect={(p) => selectProvince(p.code)} />
-                ),
-              },
-              {
-                key: "layers",
-                label: t("sheet.tab.layers"),
-                content: (
-                  <MapLegend
-                    layers={layers}
-                    onToggle={toggleLayer}
-                    descriptors={layerDescriptors}
-                    quality={quality}
-                    qualityLevel={qualityLevel}
-                    onQualityChange={setQuality}
-                    terrainIntegrity={mapInfo?.terrainIntegrity}
-                    buildingsError={mapInfo?.buildingsError ?? null}
-                    exposure={exposureLegend}
-                    forecast={forecastLegend}
-                  />
-                ),
-              },
-              { key: "flood", label: t("sheet.tab.flood"), content: <FloodExtentCard state={floodExtent} /> },
-              {
-                // E11.6 — บนมือถือรวมทั้งสามคอมโพเนนต์ไว้แท็บเดียว (ไม่ใช่ "โหมดภาคสนาม"
-                // อะไรเป็นพิเศษ แค่เป็นการ์ดเดียวกับฝั่งเดสก์ท็อปวางต่อกัน) เพราะ
-                // MobileSheet เลื่อนได้อยู่แล้ว ไม่จำเป็นต้องตัดอะไรออก
-                key: "impact",
-                label: t("sheet.tab.impact"),
-                content: (
-                  <div className="flex flex-col gap-3">
-                    <ActiveAlertBanner
-                      state={activeAlerts}
-                      authorityNames={
-                        new Map(affectedAuthorities.entries.map((e) => [e.id, e.nameTh]))
-                      }
-                    />
-                    <AffectedAuthorityList
-                      state={affectedAuthorities}
-                      alerts={activeAlerts.data?.alerts ?? []}
-                      selectedId={selectedAuthorityId}
-                      onSelect={setSelectedAuthorityId}
-                    />
-                    <ImpactSummaryCard
-                      authority={
-                        affectedAuthorities.entries.find((e) => e.id === selectedAuthorityId) ?? null
-                      }
-                      state={localAuthorityImpact}
-                      health={apiHealth.health}
-                      alerts={
-                        selectedAuthorityId
-                          ? (activeAlerts.data?.alerts.filter(
-                              (a) => a.localAuthorityId === selectedAuthorityId,
-                            ) ?? [])
-                          : []
-                      }
-                    />
-                  </div>
-                ),
-              },
-              {
-                key: "water",
-                label: t("sheet.tab.water"),
-                content: (
-                  <WaterLevelCard
-                    stations={observations.data?.waterlevel ?? []}
-                    loading={observations.loading}
-                    attribution={observations.data?.summary.sourceAttribution ?? null}
-                    observedAt={observations.data?.summary.latestObservedAt ?? null}
-                    historical={atIso !== null}
-                  />
-                ),
-              },
-              {
-                key: "rain",
-                label: t("sheet.tab.rain"),
-                content: (
-                  <RainfallCard
-                    stations={observations.data?.rainfall ?? []}
-                    loading={observations.loading}
-                    attribution={observations.data?.summary.sourceAttribution ?? null}
-                  />
-                ),
-              },
-              {
-                key: "forecast",
-                label: t("sheet.tab.forecast"),
-                content: <ForecastCard state={forecast} health={apiHealth.health} />,
-              },
-              { key: "dams", label: t("sheet.tab.dams"), content: <DamCard state={dams} /> },
-              { key: "quake", label: t("sheet.tab.quake"), content: <EarthquakeLiveCard feed={earthquakes} /> },
-            ]}
-          />
-        </>
-      ) : (
-        <>
-          <Sidebar
-            provinces={PROVINCES}
-            selected={province}
-            onSelect={(p) => selectProvince(p.code)}
-            observations={observations.data}
-            layers={layers}
-            onToggleLayer={toggleLayer}
-            descriptors={layerDescriptors}
-            quality={quality}
-            qualityLevel={qualityLevel}
-            onQualityChange={setQuality}
-            terrainIntegrity={mapInfo?.terrainIntegrity}
-            buildingsError={mapInfo?.buildingsError ?? null}
-            exposure={exposureLegend}
-            forecast={forecastLegend}
-            width={LEFT_W}
-            top={dockTop}
-          />
-
-          <RightPanel
-            observations={observations}
-            earthquakes={earthquakes}
-            floodExtent={floodExtent}
-            dams={dams}
-            activeAlerts={activeAlerts}
-            affectedAuthorities={affectedAuthorities}
-            localAuthorityImpact={localAuthorityImpact}
-            selectedAuthorityId={selectedAuthorityId}
-            onSelectAuthority={setSelectedAuthorityId}
-            forecast={forecast}
-            health={apiHealth.health}
-            atIso={atIso}
-            width={RIGHT_W}
-            top={dockTop}
-          />
-
-          <BottomBar
-            summary={observations.data?.summary ?? null}
-            loading={observations.loading}
-            apiHealth={apiHealth}
-            mapInfo={mapInfo}
-            exaggeration={exaggeration}
-            onExaggerationChange={setExaggeration}
-            atIso={atIso}
-            onAtIsoChange={handleAtIsoChange}
-            forecast={forecast}
-            forecastAtIso={forecastAtIso}
-            onForecastAtIsoChange={handleForecastAtIsoChange}
-            left={safeArea.left}
-            right={safeArea.right}
-            bottom={GUTTER}
-            onHeight={setDockHeight}
-          />
-        </>
-      )}
     </div>
   );
 }

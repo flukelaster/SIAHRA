@@ -39,7 +39,7 @@
   </tr>
 </table>
 
-<p align="center"><sub>The same province on a phone-sized viewport (390 × 844) — the desktop panels collapse into a bottom tab bar and a swipe-up sheet, so the map keeps the whole screen; the timeline, exaggeration switch and source-health dots stay reachable with one thumb.</sub></p>
+<p align="center"><sub>The same province on a phone-sized viewport (390 × 844) — below 768 px the panels live in a swipe-up bottom sheet whose tab strip scrolls but whose collapse button never does, so the map keeps the whole screen; the timeline, TMD forecast strip, exaggeration switch and source-health dots stay in the dock under one thumb. From 768 px up the same panels sit behind a 48 px icon rail on the left that opens at most one drawer at a time (open by default only from 1280 px), with a full-width bottom dock carrying the source-health dots, timeline, forecast strip, vertical-scale switch and the attribution line.</sub></p>
 
 <br/>
 
@@ -74,7 +74,7 @@ The project follows a clean separation between three data classes: **base geospa
 - 🏛️ **Local-authority (อปท.) decision support** — per-authority flood impact from real polygon intersection against the current GISTDA scene (flooded area/fraction and facilities-in-flood are measured; population/buildings exposed are an illustrative area-weighted share of the baseline), a flooded-fraction-ranked affected-authority list, and an alert banner that renders healthy, never-evaluated, degraded-fetch and unreachable states distinctly — covers the 431 local authorities with a real OSM boundary.
 - 📡 **Live source-health footer** — every panel discloses upstream freshness ("updated N minutes ago") and falls back to "unknown" instead of failing silently when a source is down.
 - 🔗 **Shareable permalinks** — camera position, province and layer state are encoded into the URL.
-- 📱 **Responsive layout** — a full desktop control-room view and a condensed mobile sheet for field use.
+- 📱 **Responsive layout** — one shell for every width: an icon rail with a single drawer and a full-width bottom dock from 768 px up, a swipe-up bottom sheet on phones; which panel is open is remembered per browser, never in the permalink.
 
 ## Tech stack
 

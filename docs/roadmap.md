@@ -860,6 +860,58 @@ rainfall into an impact number needs a hydrological model, which stays deferred 
 (scoping decision 1 in §0 and **Forecast Tier B/C** in §5). E12 shows what TMD's model says; it does
 not translate that into an impact.
 
+### E13 — UI shell
+
+New scope, not from the audit: decided with the user on 2026-08-25 after the 13" laptop case
+(~1470×956) was measured with three docks open at once — left 272 px, right 352 px, bottom ≈ 276 px —
+leaving the map ≈ 800×450 px, and after the reported "cannot close the menu on mobile" bug, whose cause
+was the sheet's collapse chevron sitting `ml-auto` *inside* the horizontally scrolling tab strip.
+
+#### E13.1 — UI shell: rail + one drawer — *done* (2026-08-25)
+- Why: every viewport (390 / 768 / 1024 / 1280 / 1440) should give the map the screen and keep every
+  data-honesty surface in reach; one chrome for all widths instead of a desktop branch and a compact
+  branch duplicated in `App.tsx`
+- Touches: new `components/layout/{AppShell,SideRail,SideDrawer,BottomDock,ProvinceChip,AlertToast,SourceStatusPopover,StatPills,PanelBadge}.tsx`,
+  the panel registry `panelRegistry.ts` (`PANELS`, `PanelKey`, no JSX) + `panelViews.tsx`
+  (`PanelContext`; LayersPanel = `MapLegend` + `ApiStatusFooter`, ImpactPanel = `ActiveAlertBanner` +
+  `AffectedAuthorityList` + `ImpactSummaryCard`, Water/RainPanel = card + observations-error notice),
+  `hooks/useShellState.ts`, `lib/{shellLayout,shellPrefs,alertSummary,searchIndex}.ts` (+ tests),
+  `scene/fitProjectedExtent.ts` (+ test) and `frameTerrain` in `scene/setupScene.ts`, `MobileSheet`
+  rebuilt on the registry, `TopBar` slimmed to 48 px, `TimelineBar`/`ForecastStrip` `variant: "dense"`,
+  `MapAttribution` collapsed/expanded, `SourceStatusBar` degraded count, i18n `sheet.tab.*` → `panel.*`
+  plus the new `rail.*`/`drawer.*`/`attribution.*`/`status.*`/`alert.toast.*` keys; **deleted**
+  `Sidebar.tsx`, `RightPanel.tsx`, `BottomBar.tsx`, `StatStrip.tsx` — so `ForecastCard` (E12.3) now
+  renders in the forecast drawer panel rather than `RightPanel`, and the two strips (E12.4a) sit in
+  `BottomDock` rather than `BottomBar`. `lib/permalink.ts` and `usePermalink.test.ts` untouched
+- Depends: E7.2, E12.4a
+- Size: L — one PR
+- Risk: the safe area `frameTerrain` reads once per AOI load must be right on the first synchronous
+  render, so the drawer width is a constant per tier and only the dock height is measured
+- Issue: _(not yet filed)_
+
+1. Tiers from `lib/shellLayout.ts`: phone < 768 ≤ tablet < 1024 ≤ laptop < 1280 ≤ wide; ≥ tablet renders
+   `TopBar` + `SideRail` (8 panels) + `BottomDock`, phone renders `TopBar` + phone dock + `MobileSheet`.
+2. At most one `SideDrawer` is open (320/352/360 px by tier) and only the open panel is mounted;
+   the drawer opens by default only on wide, and tablet ignores a stored "open".
+3. Safe area = `computeSafeArea()`: top 72 on every tier; ≥ tablet left 72 (+ drawer width when open),
+   right 72, bottom 12 + measured dock height; phone left/right 8, bottom = sheet height (44 collapsed)
+   + 8 + dock height. No re-frame on drawer toggle; `frameTerrain` adds up to two
+   `fitProjectedExtent` passes so a tall province's near edge no longer sits under the dock at the
+   50° tilt (measured 13–62 px overshoot before).
+4. Every data-honesty surface stays visible with the drawer closed: source-status dots plus a
+   "{n} degraded" count in the dock (full list in a popover, `apiDown` row unchanged),
+   `ApiStatusFooter` re-homed to the layers panel, `MapAttribution` always mounted (ⓘ expands the
+   terrain/cell/vertical-scale/dataset-version parts), `ExaggerationControl` always in the dock,
+   `ActiveAlertBanner` unchanged in the impact panel plus `AlertToast` (active/unreachable/degraded)
+   and a rail/tab badge for all four states from one `lib/alertSummary.ts`, the observations-error
+   notice in the water and rain panels, and an amber `viewport.historical {time}` pill when `?t=` is set.
+5. Persistence: `localStorage["siahra.shell"] = {v:1, drawerOpen, panel}`, written only after a user
+   change (never on mount), invalid → defaults, and never in the URL. Esc closes the drawer / collapses
+   the sheet, except while typing or while a popover owns Esc.
+6. Mobile close fix: the sheet's collapse button is a `shrink-0` sibling outside the scrolling tab
+   strip, visible without scrolling; tapping the active tab collapses; drag handle works.
+7. Screenshots in the PR at 390×844, 768×1024, 1024×768, 1280×720 and 1440×900, both languages.
+
 ## 3. Suggested first two weeks
 
 - **Week 1** (all independent, can run in any order): E1.1, E1.2, E2.1, E2.2, E2.3 (once the secrets

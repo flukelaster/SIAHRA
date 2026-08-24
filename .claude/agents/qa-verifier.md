@@ -55,6 +55,7 @@ Do this when the diff touches `apps/web/index.html`, `src/App.tsx`, `src/main.ts
   # wait ~25 s for imagery/tiles to load
   playwright-cli -s=siahra-qa screenshot --filename=qa-round<N>.png
   ```
+  Then repeat the capture at `resize 390 844` — the phone tier (< 768 px: `TopBar` + phone dock + `MobileSheet`) is a different chrome from the rail + drawer shell, and E7.2 AC 3 already requires desktop and 390×844 for a UI change
   Save into the session's scratchpad directory and return the full paths in `screenshots[]` — the orchestrator attaches them to the PR instead of re-shooting
 - Wheel zoom does not work headless — use the on-screen zoom buttons, or mousedown/mousemove/mouseup to drag
 

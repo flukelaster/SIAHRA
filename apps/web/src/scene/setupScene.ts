@@ -3,6 +3,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { Sky } from "three/addons/objects/Sky.js";
 import { sunPosition } from "./sun";
 import { CSS2DRenderer } from "three/addons/renderers/CSS2DRenderer.js";
+import { fitProjectedExtent } from "./fitProjectedExtent";
 import type { AoiManifest } from "@siahra/shared-types";
 
 export type MapTool = "select" | "pan";
@@ -267,7 +268,7 @@ export function setupScene(container: HTMLDivElement): SceneHandles {
     // Fit both the free height and the free width (as fractions of the view).
     const distV = radius / (tanHalfV * (freeH / height));
     const distH = radius / (tanHalfV * camera.aspect * (freeW / width));
-    const distance = Math.max(distV, distH) * 1.02;
+    let distance = Math.max(distV, distH) * 1.02;
 
     // Look down from the south-south-east: high enough to read the whole
     // province (a shallow angle makes flat provinces like Bangkok a
@@ -280,24 +281,57 @@ export function setupScene(container: HTMLDivElement): SceneHandles {
       Math.cos(elevation) * Math.cos(azimuth),
     );
 
-    const target = new THREE.Vector3(0, groundZ * exaggeration, 0);
-    camera.position.copy(target).addScaledVector(dir, distance);
-    camera.lookAt(target);
-    camera.near = Math.max(1, distance * 0.004);
-    camera.far = distance * 10;
-    camera.updateProjectionMatrix();
+    const groundY = groundZ * exaggeration;
+    /** วางกล้องที่ระยะ d แล้วเลื่อนให้ภูมิประเทศอยู่กลางพื้นที่ว่าง — คืน target ที่เลื่อนแล้ว */
+    const place = (d: number): THREE.Vector3 => {
+      const target = new THREE.Vector3(0, groundY, 0);
+      camera.position.copy(target).addScaledVector(dir, d);
+      camera.lookAt(target);
+      camera.near = Math.max(1, d * 0.004);
+      camera.far = d * 10;
+      camera.updateProjectionMatrix();
+      camera.updateMatrixWorld();
 
-    // Shift so the terrain is centred in the free area, not the full canvas.
-    const offsetXpx = (sa.left - sa.right) / 2;
-    const offsetYpx = (sa.top - sa.bottom) / 2;
-    const worldPerPx = (2 * distance * tanHalfV) / height;
-    const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
-    const up = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
-    const shift = new THREE.Vector3()
-      .addScaledVector(right, -offsetXpx * worldPerPx)
-      .addScaledVector(up, offsetYpx * worldPerPx);
-    target.add(shift);
-    camera.position.add(shift);
+      // Shift so the terrain is centred in the free area, not the full canvas.
+      const offsetXpx = (sa.left - sa.right) / 2;
+      const offsetYpx = (sa.top - sa.bottom) / 2;
+      const worldPerPx = (2 * d * tanHalfV) / height;
+      const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+      const up = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+      const shift = new THREE.Vector3()
+        .addScaledVector(right, -offsetXpx * worldPerPx)
+        .addScaledVector(up, offsetYpx * worldPerPx);
+      target.add(shift);
+      camera.position.add(shift);
+      camera.updateMatrixWorld();
+      return target;
+    };
+    let target = place(distance);
+
+    // การแก้ความเอียง (tilt asymmetry): ทรงกลมล้อม + 0.86 ข้างบนคือการเดาแรกที่คง
+    // ไว้ (จังหวัดที่พอดีอยู่แล้วไม่ขยับ) แต่กล้องเอียง 50° ทำให้ขอบใกล้ (ทิศใต้)
+    // ของจังหวัดที่สูงตามแกนเหนือ-ใต้ถูกฉายเลยวงกลมที่ฟิตไว้ลงไปใต้ dock — QA วัดได้
+    // 13–62 px ที่ 1024–1440 (น่าน 19 px, เชียงใหม่ 38–62 px) จึงฉายมุมทั้งสี่ของ
+    // bbox ภูมิประเทศที่ระดับพื้น เทียบกับกรอบพื้นที่ว่าง แล้วถอยกล้องตามอัตราส่วน
+    // ที่เกินออกมา (`fitProjectedExtent`) — perspective ไม่เป็นเชิงเส้นกับระยะ แต่
+    // สองรอบก็ลู่เข้าแล้ว
+    const corners = [
+      [-spanX / 2, -spanZ / 2],
+      [spanX / 2, -spanZ / 2],
+      [-spanX / 2, spanZ / 2],
+      [spanX / 2, spanZ / 2],
+    ];
+    const free = { left: sa.left, top: sa.top, right: width - sa.right, bottom: height - sa.bottom };
+    for (let pass = 0; pass < 2; pass++) {
+      const projected = corners.map(([x, z]) => {
+        const v = new THREE.Vector3(x, groundY, z).project(camera);
+        return { x: ((v.x + 1) / 2) * width, y: ((1 - v.y) / 2) * height };
+      });
+      const scale = fitProjectedExtent(projected, free);
+      if (scale <= 1) break;
+      distance *= scale * 1.02;
+      target = place(distance);
+    }
 
     controls.target.copy(target);
     controls.minDistance = radius * 0.04;
