@@ -751,9 +751,10 @@ artefact exists or is needed) — but polygon distance is what this task specifi
 
 Unlike E1–E10 above, this epic does not come from the audit: it is **W7+W8** of
 `docs/roadmap-Impact Decision-Support.md`. E12.1 (contract), E12.2 (ingestion, Durable Object,
-routes) and E12.3 (the per-province forecast card) have landed; **the card is not yet on the map
-or timeline** — E12.4 is named here for order, not specified, and still needs its own task block
-in the format described in §0 before it is implemented.
+routes), E12.3 (the per-province forecast card) and E12.4a (the forecast time strip) have landed;
+**the card is on the timeline now but still not on the 3D map itself** — E12.4b is named here for
+order, not specified, and still needs its own task block in the format described in §0 before it
+is implemented.
 
 - **E12.1 — forecast contract and epistemic class** — *done*. `EpistemicClass` gains a fifth member
   `"forecast"`: a named, cited, third-party **deterministic** model (TMD NWP), deliberately not
@@ -809,7 +810,30 @@ in the format described in §0 before it is implemented.
   `WaterLevelHistoryPoint` and its bank-level reference line. `lib/time.ts` gains
   `formatWeekday()` (Bangkok-pinned short weekday name) for the daily bar labels. `forecast.note`
   states outright that the figures are a deterministic model output, not a probability.
-- **E12.4** — the forecast time strip, and the observed-versus-forecast visual language.
+- **E12.4a — forecast time strip** — *done*. `ForecastStrip.tsx` scrubs forward through TMD's
+  hourly steps (≤48), rendered next to `TimelineBar` (which scrubs backward through observed
+  history) — stacked in `App.tsx`, side-by-side at `@2xl` in `BottomBar.tsx` — and reuses
+  `useProvinceForecast` from E12.3, no new fetch. New `forecastAtIso` state in `App.tsx` is kept
+  mutually exclusive with `atIso` in two places: `handleAtIsoChange`/`handleForecastAtIsoChange`
+  clear the other `useState` on selection, and `serialisePermalink`/`parsePermalink` add a `f=`
+  query param that is never written alongside the existing `t=`, with `t` winning on a
+  hand-edited URL that carries both — keyed on the `t` param being *present*, not on whether it
+  parses, so a malformed `t` still suppresses `f`. Visually distinct from `TimelineBar` by pattern,
+  not colour (`.range-slider-forecast`'s hatched/dashed track, following the same
+  observed-vs-computed convention as `lib/illustrativeStyle.ts`), using the existing
+  `EPISTEMIC_BADGE.forecast` token. No colour banding on the hourly rain values shown — no
+  TMD-cited band exists at hourly granularity, only the 24 h band E12.3 already cites; a step
+  TMD did not send renders as an explicit "not sent", never `0` or blank. Tick labels are hours
+  counted from the first returned step, not from "now" (TMD's first step may not align with it).
+  **Selecting a forecast step has zero effect on the 3D map** — no prop from `ForecastStrip`
+  reaches `scene/**`.
+- **E12.4b — observed-versus-forecast visual language on the 3D map** — *not started, not yet
+  specified*. The remaining part of the original E12.4 task: a province-level forecast rain band
+  drawn on the terrain while scrubbing `forecastAtIso`. Deliberately deferred rather than folded
+  into E12.4a — reusing the existing exposure shader channel for it would make a forecast band
+  pixel-identical to observed exposure data on the same colour ramp, a data-honesty problem that
+  needs its own design decision before implementation. Needs its own task block in the format
+  described in §0 before it is implemented.
 
 **Scope decision.** **W9 (forecast → per-อปท. impact) is deliberately not in E12.** Turning forecast
 rainfall into an impact number needs a hydrological model, which stays deferred as Tier B/C

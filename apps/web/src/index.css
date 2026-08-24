@@ -238,3 +238,99 @@ body {
   border: 2px solid var(--color-accent);
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
 }
+
+/*
+ * Forecast strip scrubber (E12.4a): same accent token as `EPISTEMIC_BADGE.forecast`
+ * (lib/layerFreshness.ts) — the distinction from `.range-slider` above is
+ * texture, not hue, matching the hatch convention `lib/illustrativeStyle.ts`
+ * documents for "not measured, modelled instead". A diagonal hatch sits over
+ * the whole track (not just the filled portion) so this control never reads
+ * as a continuation of TimelineBar's solid observed track, and the thumb is
+ * a small square rather than a circle for the same reason.
+ */
+.range-slider-forecast {
+  --range-progress: 0%;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 16px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.range-slider-forecast:focus-visible {
+  outline: none;
+}
+.range-slider-forecast:disabled {
+  cursor: default;
+}
+.range-slider-forecast::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  border: 1px dashed rgba(157, 192, 255, 0.5);
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      rgba(157, 192, 255, 0.55) 0px,
+      rgba(157, 192, 255, 0.55) 2px,
+      transparent 2px,
+      transparent 5px
+    ),
+    linear-gradient(
+      to right,
+      var(--color-accent) 0%,
+      var(--color-accent) var(--range-progress),
+      rgba(255, 255, 255, 0.06) var(--range-progress),
+      rgba(255, 255, 255, 0.06) 100%
+    );
+}
+.range-slider-forecast::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  border-radius: 3px;
+  background: #9dc0ff;
+  border: 2px solid var(--color-accent);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+  transition: transform 120ms ease;
+}
+.range-slider-forecast:hover::-webkit-slider-thumb,
+.range-slider-forecast:focus-visible::-webkit-slider-thumb {
+  transform: scale(1.15);
+}
+.range-slider-forecast:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.4);
+}
+.range-slider-forecast::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  border: 1px dashed rgba(157, 192, 255, 0.5);
+  background-color: rgba(255, 255, 255, 0.06);
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(157, 192, 255, 0.55) 0px,
+    rgba(157, 192, 255, 0.55) 2px,
+    transparent 2px,
+    transparent 5px
+  );
+}
+.range-slider-forecast::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--color-accent) 0px,
+    var(--color-accent) 2px,
+    rgba(157, 192, 255, 0.7) 2px,
+    rgba(157, 192, 255, 0.7) 5px
+  );
+}
+.range-slider-forecast::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: #9dc0ff;
+  border: 2px solid var(--color-accent);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+}

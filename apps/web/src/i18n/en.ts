@@ -369,6 +369,18 @@ export const en: Record<keyof typeof th, string> = {
   "forecast.daily.unit": "mm/24h",
   "forecast.daily.none": "TMD did not send daily rain values in this batch",
 
+  // ── Forecast time strip (E12.4a) ────────────────────────────────────────
+  "forecast.strip.clear": "Clear selection",
+  "forecast.strip.slider": "Scrub hourly figures",
+  "forecast.strip.notSelected": "No hour selected",
+  "forecast.strip.prompt": "Drag to see this hour's figures",
+  "forecast.strip.rain": "Rain",
+  "forecast.strip.temp": "Temp",
+  "forecast.strip.cond": "Cond. code",
+  "forecast.strip.notSent": "TMD did not send this value",
+  "forecast.strip.tickHours": "+{n} h",
+  "forecast.strip.noSteps": "TMD sent no hourly steps in this batch",
+
   // ── Dam card ──────────────────────────────────────────────────────────
   "dam.title": "Dams and reservoirs",
   "dam.count": "{n} sites",

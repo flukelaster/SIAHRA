@@ -10,6 +10,7 @@ describe("permalink round-trip", () => {
       layers: { terrain: true, water: true, buildings: false },
       defaultLayers: { terrain: true, water: true, buildings: true },
       atIso: "2026-08-18T09:00:00.000Z",
+      forecastAtIso: null,
       lang: "th",
     });
 
@@ -26,6 +27,7 @@ describe("permalink round-trip", () => {
       exaggeration: 1.6,
       layers: ["terrain", "water"],
       atIso: "2026-08-18T09:00:00.000Z",
+      forecastAtIso: null,
       lang: null,
     });
   });
@@ -38,6 +40,7 @@ describe("permalink round-trip", () => {
       layers: { terrain: true },
       defaultLayers: { terrain: true },
       atIso: null,
+      forecastAtIso: null,
       lang: "th",
     });
     expect(search).toBe("?p=50");
@@ -52,6 +55,7 @@ describe("permalink round-trip", () => {
       layers: { terrain: true, water: true },
       defaultLayers: { terrain: true, water: true },
       atIso: null,
+      forecastAtIso: null,
       lang: "th",
     });
     expect(search).not.toContain("layers=");
@@ -69,6 +73,7 @@ describe("permalink round-trip", () => {
       layers: { terrain: false, water: false },
       defaultLayers: { terrain: true, water: true },
       atIso: null,
+      forecastAtIso: null,
       lang: "th",
     });
     expect(search).toContain("layers=");
@@ -91,6 +96,7 @@ describe("permalink round-trip", () => {
       layers: { lowland: true, exposure: true, buildings: true },
       defaultLayers,
       atIso: null,
+      forecastAtIso: null,
       lang: "th",
     });
     expect(on).toContain("layers=");
@@ -105,6 +111,7 @@ describe("permalink round-trip", () => {
       layers: { ...defaultLayers },
       defaultLayers,
       atIso: null,
+      forecastAtIso: null,
       lang: "th",
     });
     expect(off).not.toContain("layers=");
@@ -118,6 +125,7 @@ describe("permalink round-trip", () => {
       layers: { lowland: true, exposure: false, buildings: false },
       defaultLayers,
       atIso: null,
+      forecastAtIso: null,
       lang: "th",
     });
     expect(parsePermalink(mixed).layers).toEqual(["lowland"]);
@@ -131,6 +139,7 @@ describe("permalink round-trip", () => {
       layers: {},
       defaultLayers: {},
       atIso: null,
+      forecastAtIso: null,
       lang: "th",
     });
     expect(parsePermalink(search).pose).toEqual({
@@ -157,6 +166,75 @@ describe("parsePermalink rejects junk", () => {
     expect(parsePermalink("?t=2026-08-18T09:00:00.000Z").atIso).toBe("2026-08-18T09:00:00.000Z");
   });
 
+  it("drops an unparseable forecast timestamp", () => {
+    expect(parsePermalink("?f=yesterday").forecastAtIso).toBeNull();
+    expect(parsePermalink("?f=2026-08-18T09:00:00.000Z").forecastAtIso).toBe(
+      "2026-08-18T09:00:00.000Z",
+    );
+  });
+
+  /**
+   * E12.4a — `t` (observed history) และ `f` (พยากรณ์ที่กำลังเลื่อนดู) ต้องไม่ถูก
+   * ยอมรับพร้อมกันทั้งคู่ ไม่ว่าจะทาง `serialisePermalink` (เขียนแค่ตัวเดียว)
+   * หรือทาง `parsePermalink` ตอนอ่านลิงก์ที่ถูกแก้มือให้มีทั้งสองคีย์ — `t`
+   * ชนะเสมอเพราะเป็นพารามิเตอร์เดิมที่มีมาก่อน และการย้อนกลับไปที่ค่าตรวจวัดจริง
+   * ปลอดภัยกว่าการค้างอยู่ที่ขั้นพยากรณ์ที่ยังไม่ได้ยืนยัน
+   */
+  it("t wins over f when a hand-edited URL carries both", () => {
+    // ทั้งคู่ parse ได้จริง — t ชนะ, f หายไป
+    expect(
+      parsePermalink("?t=2026-08-18T09:00:00.000Z&f=2026-08-19T00:00:00.000Z"),
+    ).toMatchObject({
+      atIso: "2026-08-18T09:00:00.000Z",
+      forecastAtIso: null,
+    });
+
+    // t มีอยู่แต่ parse ไม่ขึ้น (ขยะ) — ยังชนะอยู่ดี เพราะการมีคีย์ t เท่ากับ
+    // ผู้เขียนลิงก์ตั้งใจอ้างค่าตรวจวัดจริง แม้ค่าจะพังก็ตาม
+    expect(parsePermalink("?t=yesterday&f=2026-08-19T00:00:00.000Z")).toMatchObject({
+      atIso: null,
+      forecastAtIso: null,
+    });
+
+    // ไม่มี t เลย — f ใช้ได้ตามปกติ
+    expect(parsePermalink("?f=2026-08-19T00:00:00.000Z")).toMatchObject({
+      atIso: null,
+      forecastAtIso: "2026-08-19T00:00:00.000Z",
+    });
+  });
+
+  it("serialisePermalink never writes both t and f, even if both are passed non-null", () => {
+    const search = serialisePermalink({
+      provinceCode: "10",
+      pose: null,
+      exaggeration: 1,
+      layers: {},
+      defaultLayers: {},
+      atIso: "2026-08-18T09:00:00.000Z",
+      forecastAtIso: "2026-08-19T00:00:00.000Z",
+      lang: "th",
+    });
+    expect(search).toContain("t=2026-08-18T09%3A00%3A00.000Z");
+    expect(search).not.toContain("f=");
+    expect(parsePermalink(search).forecastAtIso).toBeNull();
+  });
+
+  it("writes f when only forecastAtIso is set", () => {
+    const search = serialisePermalink({
+      provinceCode: "10",
+      pose: null,
+      exaggeration: 1,
+      layers: {},
+      defaultLayers: {},
+      atIso: null,
+      forecastAtIso: "2026-08-19T00:00:00.000Z",
+      lang: "th",
+    });
+    expect(search).toContain("f=2026-08-19T00%3A00%3A00.000Z");
+    expect(search).not.toContain("t=");
+    expect(parsePermalink(search).forecastAtIso).toBe("2026-08-19T00:00:00.000Z");
+  });
+
   it("returns all-null for an empty query", () => {
     expect(parsePermalink("")).toEqual({
       provinceCode: null,
@@ -164,6 +242,7 @@ describe("parsePermalink rejects junk", () => {
       exaggeration: null,
       layers: null,
       atIso: null,
+      forecastAtIso: null,
       lang: null,
     });
   });

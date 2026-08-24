@@ -1,7 +1,9 @@
 import { useLayoutEffect, useRef } from "react";
 import type { ObservationSummary } from "@siahra/shared-types";
 import type { ApiHealthState } from "../../hooks/useApiHealth";
+import type { ProvinceForecastState } from "../../hooks/useProvinceForecast";
 import { ExaggerationControl } from "./ExaggerationControl";
+import { ForecastStrip } from "./ForecastStrip";
 import type { MapInfo } from "./Map3DCanvas";
 import { MapAttribution } from "./MapAttribution";
 import { SourceStatusBar } from "./SourceStatusBar";
@@ -22,6 +24,9 @@ export function BottomBar({
   onExaggerationChange,
   atIso,
   onAtIsoChange,
+  forecast,
+  forecastAtIso,
+  onForecastAtIsoChange,
   left,
   right,
   bottom,
@@ -35,6 +40,9 @@ export function BottomBar({
   onExaggerationChange: (f: number) => void;
   atIso: string | null;
   onAtIsoChange: (atIso: string | null) => void;
+  forecast: ProvinceForecastState;
+  forecastAtIso: string | null;
+  onForecastAtIsoChange: (forecastAtIso: string | null) => void;
   left: number;
   right: number;
   bottom: number;
@@ -74,8 +82,16 @@ export function BottomBar({
           <ExaggerationControl value={exaggeration} onChange={onExaggerationChange} />
         </div>
       </div>
-      <div className="pointer-events-auto">
-        <TimelineBar atIso={atIso} onChange={onAtIsoChange} />
+      {/* TimelineBar (observed, scrubs back) and ForecastStrip (TMD, scrubs
+          forward) share one row so TimelineBar's live/"now" end and
+          ForecastStrip's 0h end sit right next to each other. */}
+      <div className="pointer-events-auto flex flex-col gap-2 @2xl:flex-row @2xl:items-stretch">
+        <div className="min-w-0 @2xl:flex-1">
+          <TimelineBar atIso={atIso} onChange={onAtIsoChange} />
+        </div>
+        <div className="min-w-0 @2xl:flex-1">
+          <ForecastStrip state={forecast} forecastAtIso={forecastAtIso} onChange={onForecastAtIsoChange} />
+        </div>
       </div>
       <div className="pointer-events-auto">
         <StatStrip summary={summary} loading={loading} />
