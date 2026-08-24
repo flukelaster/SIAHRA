@@ -401,6 +401,18 @@ export const th = {
   "forecast.daily.unit": "มม./24 ชม.",
   "forecast.daily.none": "TMD ไม่ได้ส่งค่าปริมาณฝนรายวันมาในชุดนี้",
 
+  // ── แถบเวลาพยากรณ์ (ForecastStrip, E12.4a) ────────────────────────────
+  "forecast.strip.clear": "ล้างการเลือก",
+  "forecast.strip.slider": "เลื่อนดูตัวเลขรายชั่วโมง",
+  "forecast.strip.notSelected": "ยังไม่ได้เลือกชั่วโมง",
+  "forecast.strip.prompt": "ลากเพื่อดูตัวเลขของชั่วโมงนั้น",
+  "forecast.strip.rain": "ฝน",
+  "forecast.strip.temp": "อุณหภูมิ",
+  "forecast.strip.cond": "รหัสสภาพอากาศ",
+  "forecast.strip.notSent": "TMD ไม่ได้ส่งค่านี้มา",
+  "forecast.strip.tickHours": "+{n} ชม.",
+  "forecast.strip.noSteps": "TMD ไม่ได้ส่งขั้นรายชั่วโมงมาในชุดนี้เลย",
+
   // ── การ์ดเขื่อน ───────────────────────────────────────────────────────
   "dam.title": "เขื่อนและอ่างเก็บน้ำ",
   "dam.count": "{n} แห่ง",

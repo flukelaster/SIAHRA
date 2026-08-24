@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BottomBar } from "./components/layout/BottomBar";
+import { ForecastStrip } from "./components/layout/ForecastStrip";
 import type { MapApi, MapInfo, MapLayers } from "./components/layout/Map3DCanvas";
 import { MapViewport } from "./components/layout/MapViewport";
 import { ExaggerationControl } from "./components/layout/ExaggerationControl";
@@ -101,6 +102,9 @@ export default function App() {
   });
   /** null = live; otherwise an ISO time the map is scrubbed back to. */
   const [atIso, setAtIso] = useState<string | null>(INITIAL.atIso);
+  // E12.4a — ขั้นพยากรณ์ TMD ที่กำลังเลือกอยู่ใน ForecastStrip; null = ยังไม่ได้
+  // เลือก ไม่รีเซ็ตตอนเปลี่ยนจังหวัด เหมือนกับ atIso ข้างบน (ธรรมเนียมเดียวกัน)
+  const [forecastAtIso, setForecastAtIso] = useState<string | null>(INITIAL.forecastAtIso);
   const [exaggeration, setExaggeration] = useState(INITIAL.exaggeration ?? 1);
   const [pose, setPose] = useState<CameraPose | null>(INITIAL.pose);
   const [mapInfo, setMapInfo] = useState<MapInfo | null>(null);
@@ -216,6 +220,19 @@ export default function App() {
     setLayers((l) => ({ ...l, [key]: value }));
   }, []);
 
+  // E12.4a — atIso (ย้อนหลัง) กับ forecastAtIso (พยากรณ์ล่วงหน้า) แยกกันคนละ
+  // useState แต่ต้องกันไม่ให้ทั้งคู่ non-null พร้อมกัน: เลือกฝั่งไหน อีกฝั่งกลับ
+  // เป็น null ทันที — ตรงกับกฎเดียวกับที่ permalink.ts ใช้ตัดสินว่า `t` หรือ `f`
+  // ชนะเมื่อทั้งคู่ถูกส่งมาพร้อมกัน (`t`/observed ชนะเสมอ)
+  const handleAtIsoChange = useCallback((iso: string | null) => {
+    setAtIso(iso);
+    if (iso !== null) setForecastAtIso(null);
+  }, []);
+  const handleForecastAtIsoChange = useCallback((iso: string | null) => {
+    setForecastAtIso(iso);
+    if (iso !== null) setAtIso(null);
+  }, []);
+
   // `lang` ต้องอยู่ในสถานะที่ sync ลง URL ด้วย ไม่งั้นการเปิดลิงก์ `?lang=en`
   // แล้วปล่อยไว้ 400 มิลลิวินาที จะถูก replaceState เขียนทับจนพารามิเตอร์หายไป
   usePermalinkSync({
@@ -227,6 +244,7 @@ export default function App() {
     // ออกจากลิงก์ตอนที่ผู้ใช้เปิดมัน เพราะทุกชั้นกลายเป็นเปิดหมดพอดี
     defaultLayers: DEFAULT_LAYERS_RECORD,
     atIso,
+    forecastAtIso,
     lang,
   });
 
@@ -411,7 +429,12 @@ export default function App() {
                 <ExaggerationControl value={exaggeration} onChange={setExaggeration} />
               </div>
             </div>
-            <TimelineBar atIso={atIso} onChange={setAtIso} />
+            {/* TimelineBar (observed) และ ForecastStrip (TMD) ต้องอยู่แถวเดียวกัน
+                เพื่อให้ปลาย "ปัจจุบัน" ของอันแรกชนกับปลาย "0h" ของอันหลัง */}
+            <div className="flex flex-col gap-2">
+              <TimelineBar atIso={atIso} onChange={handleAtIsoChange} />
+              <ForecastStrip state={forecast} forecastAtIso={forecastAtIso} onChange={handleForecastAtIsoChange} />
+            </div>
           </div>
           <MobileSheet
             open={sheetOpen}
@@ -559,7 +582,10 @@ export default function App() {
             exaggeration={exaggeration}
             onExaggerationChange={setExaggeration}
             atIso={atIso}
-            onAtIsoChange={setAtIso}
+            onAtIsoChange={handleAtIsoChange}
+            forecast={forecast}
+            forecastAtIso={forecastAtIso}
+            onForecastAtIsoChange={handleForecastAtIsoChange}
             left={safeArea.left}
             right={safeArea.right}
             bottom={GUTTER}

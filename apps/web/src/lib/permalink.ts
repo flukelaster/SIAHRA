@@ -19,6 +19,17 @@
  *     "unspecified" and the reader's own preference decides — it never means
  *     "English". Thai is the default the project decided on, and it is never
  *     inferred from the browser (docs/roadmap.md §4)
+ *   - `t` (observed history, `atIso`) and `f` (forecast scrub, `forecastAtIso`,
+ *     E12.4a) are mutually exclusive on the wire even though the app state
+ *     they mirror is two independent `useState`s: `serialisePermalink` never
+ *     writes both, and if a caller somehow passes both non-null it writes `t`
+ *     and drops `f`. `parsePermalink` applies the same rule to a hand-edited
+ *     URL that carries both keys — `t` wins, `forecastAtIso` comes back
+ *     `null` — rather than "whichever `URLSearchParams` happens to read
+ *     first", which would make the outcome depend on key order in the query
+ *     string. `t` wins because it is the older, incumbent parameter, and
+ *     because defaulting a copied link to observed history over an unverified
+ *     forecast selection is the safer of the two misreads
  */
 import type { CameraPose } from "../scene/setupScene";
 import { DEFAULT_LANG, isLang, type Lang } from "../i18n";
@@ -29,6 +40,8 @@ export interface PermalinkState {
   exaggeration: number | null;
   layers: string[] | null;
   atIso: string | null;
+  /** null = no forecast step scrubbed (E12.4a); see the `t`/`f` note above. */
+  forecastAtIso: string | null;
   /** null = the link does not pin a language; the reader's preference wins. */
   lang: Lang | null;
 }
@@ -47,6 +60,7 @@ export interface PermalinkInput {
    */
   defaultLayers: Record<string, boolean>;
   atIso: string | null;
+  forecastAtIso: string | null;
   lang: Lang;
 }
 
@@ -65,6 +79,7 @@ export function parsePermalink(search: string): PermalinkState {
   const ex = q.get("ex");
   const layers = q.get("layers");
   const t = q.get("t");
+  const f = q.get("f");
   const lang = q.get("lang");
   return {
     provinceCode: p && /^[0-9]{2}$/.test(p) ? p : null,
@@ -72,6 +87,12 @@ export function parsePermalink(search: string): PermalinkState {
     exaggeration: ex && Number.isFinite(Number(ex)) ? Number(ex) : null,
     layers: layers ? layers.split(",").filter(Boolean) : null,
     atIso: t && Number.isFinite(Date.parse(t)) ? t : null,
+    // `t` wins over `f` on a hand-edited URL that carries both — see the
+    // header comment. The check is on the `t` *key being present at all*,
+    // not on whether it parses: a URL author who wrote both is claiming
+    // observed history, however malformed that claim turns out to be, and
+    // `f` never gets to fill the gap a bad `t` leaves behind.
+    forecastAtIso: t === null && f && Number.isFinite(Date.parse(f)) ? f : null,
     lang: isLang(lang) ? lang : null,
   };
 }
@@ -93,7 +114,11 @@ export function serialisePermalink(state: PermalinkInput): string {
     ([k, v]) => v !== (state.defaultLayers[k] ?? true),
   );
   if (differsFromDefault) q.set("layers", on.join(","));
+  // `t` and `f` never both go on the wire — see the header comment. `t`
+  // (observed) wins even if the caller passed both non-null, so `f` is only
+  // ever written once `atIso` has already been ruled out.
   if (state.atIso) q.set("t", state.atIso);
+  else if (state.forecastAtIso) q.set("f", state.forecastAtIso);
   if (state.lang !== DEFAULT_LANG) q.set("lang", state.lang);
   return `?${q.toString()}`;
 }
