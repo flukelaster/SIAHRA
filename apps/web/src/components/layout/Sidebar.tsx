@@ -4,7 +4,7 @@ import { ApiStatusFooter } from "./ApiStatusFooter";
 import type { MapLayers } from "./Map3DCanvas";
 import type { LayerDescriptors } from "../../hooks/useLayerDescriptors";
 import type { QualityLevel, QualityMode } from "../../scene/quality";
-import { MapLegend, type ExposureLegendState } from "./MapLegend";
+import { MapLegend, type ExposureLegendState, type ForecastLegendState } from "./MapLegend";
 import type { TerrainIntegrity } from "../../scene/loadAoiManifest";
 import { ProvinceSelector } from "./ProvinceSelector";
 
@@ -23,6 +23,7 @@ export function Sidebar({
   terrainIntegrity,
   buildingsError,
   exposure,
+  forecast,
   width,
   top,
 }: {
@@ -42,6 +43,8 @@ export function Sidebar({
   buildingsError?: string | null;
   /** run ล่าสุดของชั้นการเผชิญน้ำ + สถานะการดึง (E10.4) */
   exposure?: ExposureLegendState;
+  /** แถบฝนพยากรณ์รายวัน (TMD) ของขั้นที่กำลังเลือกอยู่ (E12.4b) */
+  forecast?: ForecastLegendState;
   width: number;
   top: number;
 }) {
@@ -65,6 +68,7 @@ export function Sidebar({
           terrainIntegrity={terrainIntegrity}
           buildingsError={buildingsError}
           exposure={exposure}
+          forecast={forecast}
         />
       </div>
 

@@ -1,13 +1,15 @@
-import type {
-  ExposureFactors,
-  ExposureLevel,
-  FloodExposureRun,
-  HazardLayerDescriptor,
-  RainfallObservation,
-  SituationLevel,
-  StationExposure,
-  WaterLevelHistoryPoint,
-  WaterLevelObservation,
+import {
+  bandRain24h,
+  TMD_RAIN_24H_BANDS,
+  type ExposureFactors,
+  type ExposureLevel,
+  type FloodExposureRun,
+  type HazardLayerDescriptor,
+  type RainfallObservation,
+  type SituationLevel,
+  type StationExposure,
+  type WaterLevelHistoryPoint,
+  type WaterLevelObservation,
 } from "@siahra/shared-types";
 
 /**
@@ -65,7 +67,10 @@ export interface ExposureThresholds {
 /**
  * ค่าตั้งต้น — ตรงกับตารางใน `docs/methodology/flood-exposure.md` แถวต่อแถว
  *
- * `rain24hMm` มาจากเกณฑ์ฝนที่กรมอุตุนิยมวิทยาประกาศ (ฝนปานกลาง/หนัก/หนักมาก)
+ * `rain24hMm` มาจากเกณฑ์ฝนที่กรมอุตุนิยมวิทยาประกาศ (ฝนปานกลาง/หนัก/หนักมาก) —
+ * ค่าเดียวกับ `TMD_RAIN_24H_BANDS` ใน `@siahra/shared-types` (E12.4b: ชั้นแถบฝน
+ * พยากรณ์บนแผนที่ 3 มิติก็อ้างตารางเดียวกันนี้ ผ่าน `bandRain24h`) จึงอ้างชื่อ
+ * ค่าคงที่ตัวนั้นตรง ๆ ไม่ประกาศตัวเลข 90/35/10 ซ้ำเป็นชุดที่สองที่นี่
  * ส่วน `rain1hMm` ไม่มีเกณฑ์ทางการรายชั่วโมงให้อ้าง จึงเป็นข้อตกลงของโปรเจกต์นี้เอง
  * และประกาศไว้เป็นตัวเลขทั้งในเอกสารและตรงนี้
  */
@@ -76,11 +81,7 @@ export const DEFAULT_EXPOSURE_THRESHOLDS: ExposureThresholds = {
     { level: "high", above: 30 },
     { level: "elevated", above: 10 },
   ],
-  rain24hMm: [
-    { level: "severe", above: 90 },
-    { level: "high", above: 35 },
-    { level: "elevated", above: 10 },
-  ],
+  rain24hMm: TMD_RAIN_24H_BANDS,
   freeboardM: [
     { level: "severe", below: 0.3 },
     { level: "high", below: 1 },
@@ -453,7 +454,11 @@ export function computeExposure(
 export function levelOf(factors: ExposureFactors, thresholds: ExposureThresholds): ExposureLevel {
   const candidates: (ExposureLevel | null)[] = [
     bandOfRising(factors.rain1hMm, thresholds.rain1hMm),
-    bandOfRising(factors.rain24hMm, thresholds.rain24hMm),
+    // ปัจจัยนี้ตัวเดียวเดินผ่าน bandRain24h ของ shared-types (E12.4b) แทน
+    // bandOfRising ในเครื่อง — bands ยังรับเข้ามาได้เหมือนเดิม (ดูเทส "ตารางเกณฑ์
+    // ถูกส่งเข้ามาได้ ไม่ใช่ค่าฝังตาย") ต่างกันแค่ค่าเริ่มต้นมาจากที่เดียวกับที่
+    // apps/web/src/lib/forecastStyle.ts ใช้แล้ว
+    bandRain24h(factors.rain24hMm, thresholds.rain24hMm),
     bandOfFalling(factors.freeboardM, thresholds.freeboardM),
     bandOfFalling(factors.freeboardTrendMPerH, thresholds.freeboardTrendMPerH),
     factors.situationLevel === null ? null : thresholds.situationLevel[factors.situationLevel],

@@ -35,6 +35,28 @@ const OPTIONS: Record<FormatKind, Intl.DateTimeFormatOptions> = {
 
 const cache = new Map<string, Intl.DateTimeFormat>();
 
+/**
+ * "YYYY-MM-DD" ของวันปฏิทินกรุงเทพฯ ที่เวลานี้ตกอยู่ — ไม่ผูกกับ `lang` เพราะเป็น
+ * กุญแจไว้เทียบวันภายใน ไม่ใช่ข้อความที่แสดงผล (ล็อกเป็น `en-CA` เสมอเพื่อให้ได้
+ * รูปแบบ ISO-ish ตรง ๆ จาก `Intl.DateTimeFormat` โดยไม่ต้องประกอบสตริงเอง)
+ *
+ * ใช้เทียบว่าขั้นพยากรณ์รายชั่วโมงกับรายวันของ TMD อยู่ "วันเดียวกัน" ไหม (E12.4b)
+ * — ต้องผ่านฟังก์ชันนี้เสมอ ห้ามตัดสตริง ISO ตรง ๆ (`iso.slice(0, 10)`): `validAt`
+ * เป็น UTC ส่วนวันปฏิทินที่ผู้ใช้อ่านคือกรุงเทพฯ (+7, ไม่มี DST) ขั้นเวลา 17:00–23:59Z
+ * ของวันหนึ่งจึงเป็นวันถัดไปแล้วตามเวลาไทย ตัดสตริงตรง ๆ จะจับคู่ผิดวัน
+ */
+const dateKeyFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: BANGKOK_TZ,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+export function bangkokDateKey(iso: string): string | null {
+  const ms = parse(iso);
+  return ms === null ? null : dateKeyFormatter.format(ms);
+}
+
 function formatter(lang: Lang, kind: FormatKind): Intl.DateTimeFormat {
   const key = `${lang}:${kind}`;
   let f = cache.get(key);

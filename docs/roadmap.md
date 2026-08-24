@@ -750,11 +750,9 @@ artefact exists or is needed) — but polygon distance is what this task specifi
 ### E12 — TMD numerical weather forecast
 
 Unlike E1–E10 above, this epic does not come from the audit: it is **W7+W8** of
-`docs/roadmap-Impact Decision-Support.md`. E12.1 (contract), E12.2 (ingestion, Durable Object,
-routes), E12.3 (the per-province forecast card) and E12.4a (the forecast time strip) have landed;
-**the card is on the timeline now but still not on the 3D map itself** — E12.4b is named here for
-order, not specified, and still needs its own task block in the format described in §0 before it
-is implemented.
+`docs/roadmap-Impact Decision-Support.md`. All of E12.1–E12.4b have landed — the forecast contract,
+ingestion, the per-province card, the forecast time strip and, with E12.4b, the province-level
+forecast band on the 3D terrain itself. **E12 is done.**
 
 - **E12.1 — forecast contract and epistemic class** — *done*. `EpistemicClass` gains a fifth member
   `"forecast"`: a named, cited, third-party **deterministic** model (TMD NWP), deliberately not
@@ -827,13 +825,35 @@ is implemented.
   counted from the first returned step, not from "now" (TMD's first step may not align with it).
   **Selecting a forecast step has zero effect on the 3D map** — no prop from `ForecastStrip`
   reaches `scene/**`.
-- **E12.4b — observed-versus-forecast visual language on the 3D map** — *not started, not yet
-  specified*. The remaining part of the original E12.4 task: a province-level forecast rain band
-  drawn on the terrain while scrubbing `forecastAtIso`. Deliberately deferred rather than folded
-  into E12.4a — reusing the existing exposure shader channel for it would make a forecast band
-  pixel-identical to observed exposure data on the same colour ramp, a data-honesty problem that
-  needs its own design decision before implementation. Needs its own task block in the format
-  described in §0 before it is implemented.
+- **E12.4b — observed-versus-forecast visual language on the 3D map** — *done*. A province-level
+  forecast rain band draws on the terrain whenever `ForecastStrip` (E12.4a) has an hourly step
+  selected: the scrubbed hour maps to its calendar day (`Asia/Bangkok`, via new `bangkokDateKey()` in
+  `lib/time.ts` — never a raw ISO-string slice, since a UTC-evening step already belongs to the
+  next Bangkok calendar day at UTC+7), that day's `daily` step is banded with the same 90/35/10 mm
+  TMD cutoffs E12.3 already cites. The cutoffs now live in one place: `packages/shared-types` exports
+  `TMD_RAIN_24H_BANDS` and a pure `bandRain24h()`, `apps/api/src/exposure/compute.ts`'s `rain24hMm`
+  factor calls it instead of a locally-typed copy of the same three numbers (existing exposure tests
+  pass unchanged — same numbers, one indirection), and the new `apps/web/src/lib/forecastStyle.ts`
+  imports the same function rather than re-declaring it. A band draws only for `elevated`/`high`/
+  `severe` — never `"low"` — and only when a matching, non-null `rainMm` value actually exists for
+  that day; no matching day or a `null` value renders as "no band" (`ForecastBandStatus.kind ===
+  "no-value"`), kept textually distinct in `MapLegend.tsx` from a real-but-`"low"` forecast
+  (`"kind": "low"`) per the AGENTS.md rule that "we don't know" and "the source says calm" never
+  share wording — three i18n keys (`forecast.band.label`/`.belowThreshold`/`.noValue`) carry the
+  three states. Rendering: a single `uForecastBand`/`uShowForecast` uniform pair on
+  `TerrainSharedUniforms` (not a texture — TMD publishes one rain value per province, so a per-cell
+  texture would imply spatial detail the data doesn't have), filled uniformly across the whole
+  province (gated on `inside`, not the low-lying channel), in a **teal/seafoam** ramp
+  (`FORECAST_RGB` in `forecastStyle.ts`) with **vertical-stripe** hatching (`gl_FragCoord.x` alone) —
+  deliberately distinct by both hue and hatch orientation from the low-lying wash (purple/violet,
+  45° diagonal) and the E10.4 exposure layer (purple→magenta, crosshatch) — distinct by hue and hatch
+  orientation both, so the three layers stay legible even with colour removed, not just by
+  colour-luma arithmetic. `StationMarkers` dim (not hide) whenever
+  `forecastAtIso` is set, so a station dot never reads as the source of a model-derived colour; they
+  return to full opacity when the forecast selection clears. `MapLegend.tsx` shows a labelled row,
+  with the swatch and vertical hatch matching the shader, only while a band is active. Pure
+  client-side + shared-types computation over data E12.3/E12.4a already fetch — no new request, DO
+  write or per-item scan.
 
 **Scope decision.** **W9 (forecast → per-อปท. impact) is deliberately not in E12.** Turning forecast
 rainfall into an impact number needs a hydrological model, which stays deferred as Tier B/C

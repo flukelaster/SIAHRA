@@ -48,6 +48,8 @@ import { useLang } from "../../i18n/context";
 import type { MessageKey } from "../../i18n";
 import { errorMessage, resolveError, type ErrorMessage } from "../../lib/errorMessage";
 import { ILLUSTRATIVE_HATCH_PERIOD_PX } from "../../lib/illustrativeStyle";
+import { EXPOSURE_CODE } from "../../lib/exposureStyle";
+import type { ForecastBandLevel } from "../../lib/forecastStyle";
 
 export interface MapLayers {
   imagery: boolean;
@@ -142,6 +144,8 @@ export function Map3DCanvas({
   exposure,
   exposureStale = false,
   atIso,
+  forecastAtIso = null,
+  forecastBandLevel = null,
   exaggeration,
   layers,
   tool,
@@ -166,6 +170,20 @@ export function Map3DCanvas({
   exposureStale?: boolean;
   /** Timeline position (null = live). */
   atIso: string | null;
+  /**
+   * ขั้นพยากรณ์รายชั่วโมงที่กำลังเลือกอยู่ใน ForecastStrip (E12.4a/E12.4b) —
+   * null = ยังไม่ได้เลือก ใช้แค่หรี่หมุดสถานี (`markersRef.setDimmed`) ร่วมกับ
+   * `observationsStale`: ค่าที่วาดจากแบบจำลอง TMD ไม่ใช่ค่าที่หมุดเหล่านี้วัดมา
+   */
+  forecastAtIso?: string | null;
+  /**
+   * แถบฝนพยากรณ์รายวันของวันที่ `forecastAtIso` ตกอยู่ — คำนวณครั้งเดียวใน
+   * App.tsx (`computeForecastBandStatus`) แล้วส่งลงมาเป็นค่าสำเร็จรูป
+   * `null` = ไม่วาดอะไรบนภูมิประเทศ (ไม่ว่าเพราะยังไม่ได้เลือก, TMD ไม่มีค่าของ
+   * วันนี้, หรือค่ามีแต่ต่ำกว่าเกณฑ์ elevated — สามกรณีนี้ต่างกันที่ legend
+   * (`MapLegend.tsx`) เท่านั้น ไม่ใช่บน terrain)
+   */
+  forecastBandLevel?: ForecastBandLevel | null;
   /** Camera pose to restore (permalink) instead of the default framing. */
   initialPose?: CameraPose | null;
   quality: QualityMode;
@@ -1011,11 +1029,29 @@ export function Map3DCanvas({
   }, [tool, state.status]);
 
   useEffect(() => {
-    markersRef.current?.setDimmed(observationsStale);
+    // หมุดสถานีหรี่ลงเมื่อค่าที่วาดอาจไม่ใช่ของล่าสุด (`observationsStale`) **หรือ**
+    // เมื่อกำลังดูขั้นพยากรณ์ TMD อยู่ (`forecastAtIso !== null`) — รวมเป็นเงื่อนไข
+    // เดียวในเอฟเฟกต์เดียว ไม่ใช่สองเอฟเฟกต์แยกที่ต่างเรียก `setDimmed` เอง เพราะ
+    // เอฟเฟกต์ที่รันทีหลังจะชนะเสมอ ทำให้อีกเงื่อนไขหายไปเงียบ ๆ (ทั้งที่ทั้งคู่ยัง
+    // เป็นจริงอยู่จริง) — E12.4b: หมุดต้องหรี่เพื่อให้เห็นชัดว่าไม่มีสถานีใดวัดค่า
+    // ที่กำลังแสดงบนภูมิประเทศ (สีมาจากแบบจำลอง ไม่ใช่จากหมุด)
+    const dim = observationsStale || forecastAtIso !== null;
+    markersRef.current?.setDimmed(dim);
     const u = terrainRef.current?.terrain.material.uniforms;
     if (u) u.uHazardStale.value = observationsStale ? 1 : 0;
     if (labelsRef.current) labelsRef.current.visible = layers.stations && !observationsStale;
-  }, [observationsStale, observations, layers.stations, state.status]);
+  }, [observationsStale, forecastAtIso, observations, layers.stations, state.status]);
+
+  useEffect(() => {
+    // แถบฝนพยากรณ์รายวัน (TMD, E12.4b) — ค่าสำเร็จรูปจาก App.tsx เขียนตรงลง
+    // uniform เดียวกันทุกครั้งที่ terrain โหลดใหม่ (deps มี state.status) เหมือน
+    // เอฟเฟกต์ uHazardStale/uExposureStale ข้างบน ใช้รหัสเดียวกับ EXPOSURE_CODE
+    // (elevated/high/severe เท่านั้น — "low" ไม่มีรหัสเพราะไม่เคยถูกวาด)
+    const u = terrainRef.current?.terrain.material.uniforms;
+    if (!u) return;
+    u.uShowForecast.value = forecastBandLevel !== null ? 1 : 0;
+    u.uForecastBand.value = forecastBandLevel !== null ? EXPOSURE_CODE[forecastBandLevel] : 0;
+  }, [forecastBandLevel, state.status]);
 
   useEffect(() => {
     const loaded = terrainRef.current;

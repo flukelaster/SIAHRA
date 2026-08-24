@@ -22,7 +22,8 @@ import {
   exposureCss,
   type ExposureRenderClass,
 } from "../../lib/exposureStyle";
-import { formatAge, formatFullDateTime } from "../../lib/time";
+import { forecastCss, type ForecastBandLevel, type ForecastBandStatus } from "../../lib/forecastStyle";
+import { formatAge, formatFullDateTime, formatWeekday } from "../../lib/time";
 import type { ExposureUnavailableReason } from "../../hooks/useFloodExposure";
 
 const SITUATION_LEVELS: { key: MessageKey; color: string }[] = [
@@ -360,6 +361,96 @@ function ExposureDetails({
   );
 }
 
+/**
+ * สิ่งที่ legend ต้องรู้เกี่ยวกับ "แถบฝนพยากรณ์รายวัน (TMD)" (E12.4b) — คำนวณ
+ * ครั้งเดียวใน `App.tsx` (`computeForecastBandStatus`) แล้วส่งผลสำเร็จรูปมาที่นี่
+ */
+export interface ForecastLegendState {
+  /** ขั้นรายชั่วโมงที่กำลังเลือกอยู่ใน ForecastStrip — null = ยังไม่ได้เลือก
+   *  → ไม่แสดงแถวนี้เลย (เหมือนตอนที่ยังไม่มีชั้นนี้อยู่ในระบบ) */
+  atIso: string | null;
+  /** ขั้นรายชั่วโมงตัวแรกของ batch ปัจจุบัน — ใช้คำนวณ "+N ชม." ด้วยสูตรเดียวกับ
+   *  ป้ายกำกับของ `ForecastStrip.tsx` (นับจากขั้นแรกที่ TMD ส่งมา ไม่ใช่ "ตอนนี้") */
+  firstHourlyIso: string | null;
+  /** null เฉพาะตอน `atIso` เองเป็น null (ไม่ใช่ค่าอิสระจากกัน) */
+  status: ForecastBandStatus | null;
+}
+
+/**
+ * สัญลักษณ์ของ "แถบฝนพยากรณ์รายวัน (TMD)" — ลายเส้น**แนวตั้งล้วน** (ไม่หมุน)
+ * ต่างจาก `IllustrativeSwatch`/`ExposureSwatch` ที่เป็นลายทแยงทั้งคู่ — ตรงกับลาย
+ * ที่ shader วาดจริงใน `scene/terrainMaterial.ts` (`gl_FragCoord.x` อย่างเดียว)
+ * สีมาจาก `forecastCss` (`lib/forecastStyle.ts`) ไฟล์เดียวกับที่ shader อ่าน
+ */
+function ForecastSwatch({ level }: { level: ForecastBandLevel }) {
+  const period = ILLUSTRATIVE_HATCH_PERIOD_PX;
+  const stroke = period * ILLUSTRATIVE_HATCH_DUTY;
+  const css = forecastCss(level);
+  return (
+    <svg className="h-3 w-5 rounded-sm" viewBox="0 0 20 12" aria-hidden="true">
+      <rect width="20" height="12" fill={css} opacity={0.22} />
+      <defs>
+        <pattern id={`siahra-forecast-hatch-${level}`} width={period} height={period} patternUnits="userSpaceOnUse">
+          <rect width={stroke} height={period} fill={css} />
+        </pattern>
+      </defs>
+      <rect width="20" height="12" fill={`url(#siahra-forecast-hatch-${level})`} />
+    </svg>
+  );
+}
+
+/**
+ * แถวของ "แถบฝนพยากรณ์รายวัน (TMD)" — แสดงเฉพาะตอนมีขั้นถูกเลือกอยู่ (`atIso`
+ * ไม่ null) ไม่ใช่ checkbox ของ `MapLayers` (ไม่มีสวิตช์ให้กด — ปรากฏเองตามการ
+ * เลื่อน ForecastStrip) จึงอยู่นอก `LAYER_ROWS`/`<ul>` ข้างล่าง เป็นบล็อกของตัวเอง
+ *
+ * สามสถานะที่ต้องขึ้นข้อความคนละประโยคเสมอ (AGENTS.md: "ไม่มีอะไรใหม่" ≠
+ * "แหล่งข้อมูลบอกว่าสงบ"):
+ *   - `"band"`   → สัญลักษณ์ + ป้าย "วัน +N ชม." (แถบจริงกำลังวาดอยู่บนภูมิประเทศ)
+ *   - `"low"`    → TMD **ส่งค่ามาจริง** และต่ำกว่าเกณฑ์ที่ต้องเน้น (ข้อเท็จจริง
+ *     ที่แบบจำลองยืนยัน ไม่ใช่ความเงียบ)
+ *   - `"no-value"` → ไม่มีค่าให้อ่านเลย ไม่ว่าเพราะไม่มีขั้นของวันนี้หรือ TMD ส่ง
+ *     `rainMm` มาเป็น null — ทั้งสองอ่านเหมือนกันจากมุมของผู้ใช้ (เราไม่รู้)
+ */
+function ForecastBandLegendRow({
+  forecast,
+  lang,
+  t,
+}: {
+  forecast: ForecastLegendState;
+  lang: Lang;
+  t: TFunction;
+}) {
+  if (forecast.atIso === null) return null;
+  const day = formatWeekday(lang, forecast.atIso);
+  const hoursAhead = forecast.firstHourlyIso
+    ? Math.round((Date.parse(forecast.atIso) - Date.parse(forecast.firstHourlyIso)) / 3600000)
+    : null;
+  const dayLabel = hoursAhead === null ? day : `${day} ${t("forecast.strip.tickHours", { n: hoursAhead })}`;
+  const status = forecast.status;
+
+  return (
+    <div className="flex flex-col gap-1 rounded-lg px-1.5 py-1">
+      <div className="flex items-start gap-2">
+        <span className="mt-0.5 flex w-6 shrink-0 items-center" aria-hidden="true">
+          {status?.kind === "band" ? <ForecastSwatch level={status.level} /> : <span className="h-3 w-5" />}
+        </span>
+        <span className="min-w-0 leading-tight">
+          <span className="block text-xs text-[var(--color-fg)]">{t("forecast.band.label")}</span>
+          <span className="block text-[10px] text-[var(--color-fg-subtle)]">{dayLabel}</span>
+        </span>
+      </div>
+      <div className="ml-7">
+        {status?.kind === "band" ? null : status?.kind === "low" ? (
+          <span className="text-[10px] text-[var(--color-fg-subtle)]">{t("forecast.band.belowThreshold")}</span>
+        ) : (
+          <span className="text-[10px] text-[var(--color-fg-subtle)]">{t("forecast.band.noValue")}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const LAYER_ROWS: {
   key: keyof MapLayers;
   labelKey: MessageKey;
@@ -601,6 +692,7 @@ export function MapLegend({
   terrainIntegrity = "unknown",
   buildingsError = null,
   exposure,
+  forecast,
 }: {
   layers: MapLayers;
   onToggle: (key: keyof MapLayers, value: boolean) => void;
@@ -608,6 +700,8 @@ export function MapLegend({
   descriptors: LayerDescriptors;
   /** run ล่าสุดของชั้นการเผชิญน้ำ + สถานะการดึง (E10.4) */
   exposure?: ExposureLegendState;
+  /** แถบฝนพยากรณ์รายวัน (TMD) ของขั้นที่กำลังเลือกอยู่ (E12.4b) */
+  forecast?: ForecastLegendState;
   quality: QualityMode;
   qualityLevel: QualityLevel;
   onQualityChange: (q: QualityMode) => void;
@@ -690,6 +784,13 @@ export function MapLegend({
           );
         })}
       </ul>
+
+      {forecast?.atIso ? (
+        <>
+          <div className="h-px bg-white/8" />
+          <ForecastBandLegendRow forecast={forecast} lang={lang} t={t} />
+        </>
+      ) : null}
 
       <div className="h-px bg-white/8" />
 
