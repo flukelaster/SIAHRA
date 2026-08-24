@@ -57,8 +57,9 @@ manifest-src 'self'; media-src 'none'
 - `script-src 'self'` — the built `index.html` has exactly one `<script src>` and no inline script.
   **No `'unsafe-eval'`**: three.js compiles GLSL on the GPU, it does not `eval`.
 - `style-src` needs **`'unsafe-inline'`**, and this is the one relaxation in the policy. React writes
-  inline `style` attributes in `TopBar`, `MapLegend`, `Sidebar`, `RightPanel`, `TimelineBar`,
-  `BottomBar`, `MapViewport` and `MobileSheet` — every value that depends on live data (bar widths,
+  inline `style` attributes in `TopBar`, `MapLegend`, `AppShell`, `SideDrawer`, `TimelineBar`,
+  `ForecastStrip`, `BottomDock`, `AlertToast`, `MapViewport` and `MobileSheet` — every value that
+  depends on live data (bar widths,
   marker offsets, colour ramps) is a `style={{…}}` prop, so removing it means moving hundreds of
   computed values into CSS custom properties, which is a UI refactor, not a header change. A nonce
   does not help: nonces cover `<style>` elements, not `style` attributes. Splitting it as

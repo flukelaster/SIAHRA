@@ -21,13 +21,21 @@ export function SourceStatusBar({ state, compact = false }: { state: ApiHealthSt
   const sources = state.health?.sources ?? [];
   if (sources.length === 0) return null;
   if (compact) {
-    // Dots only; the label lives in the tooltip.
+    // Dots only; the label lives in the tooltip. แหล่งที่ไม่ปกติ (รวม delayed)
+    // ต้องอ่านออกเป็นตัวเลขข้างจุดด้วย ไม่ใช่รู้ได้เฉพาะตอนเอาเมาส์ชี้
+    const degraded = sources.filter((s) => s.health !== "ok").length;
     return (
-      <div className="glass-soft flex h-8 items-center gap-2 rounded-xl px-3 text-[11px]">
+      <div className="glass-soft flex h-8 items-center gap-1.5 rounded-xl px-2.5 text-[11px]">
         {sources.map((s) => (
           <span key={s.id} className={`h-2.5 w-2.5 rounded-full ${healthMeta(s.health).dot}`} title={tooltip(s, lang, t)} />
         ))}
-        <span className="text-[var(--color-fg-subtle)]">{t("status.sources")}</span>
+        {degraded > 0 ? (
+          <span className="whitespace-nowrap text-[var(--color-risk-medium)]">
+            {t("status.degradedCount", { n: degraded })}
+          </span>
+        ) : (
+          <span className="text-[var(--color-fg-subtle)]">{t("status.sources")}</span>
+        )}
       </div>
     );
   }

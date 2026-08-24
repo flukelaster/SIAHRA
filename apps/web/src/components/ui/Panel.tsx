@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 
 /** Floating glass card used for every panel that sits over the map. */
 export function Panel({
@@ -38,20 +38,28 @@ export function IconButton({
   onClick,
   label,
   size = "md",
+  controls,
+  ref,
 }: {
   children: ReactNode;
   active?: boolean;
   onClick?: () => void;
   label: string;
   size?: "md" | "lg";
+  /** id ของแผงที่ปุ่มนี้เปิด/ปิด (`aria-controls`) — ใช้โดย SideRail */
+  controls?: string;
+  /** React 19: ref เป็น prop ธรรมดา — SideDrawer ใช้คืนโฟกัสให้ปุ่มบน rail ตอนปิด */
+  ref?: Ref<HTMLButtonElement>;
 }) {
   const dims = size === "lg" ? "h-10 w-10" : "h-9 w-9";
   return (
     <button
+      ref={ref}
       type="button"
       onClick={onClick}
       aria-label={label}
       aria-pressed={active}
+      aria-controls={controls}
       title={label}
       className={`flex ${dims} cursor-pointer items-center justify-center rounded-lg border transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] ${
         active

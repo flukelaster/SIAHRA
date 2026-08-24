@@ -28,9 +28,16 @@ function tickLabel(h: number, t: TFunction): string {
 export function TimelineBar({
   atIso,
   onChange,
+  variant = "full",
 }: {
   atIso: string | null;
   onChange: (atIso: string | null) => void;
+  /**
+   * `full` = แถบสองบรรทัดพร้อมขีดเวลา (dock บนมือถือ) — markup เดิมไม่แก้
+   * `dense` = บรรทัดเดียวสำหรับ dock ล่างบนจอกว้าง: เล่น/หยุด/รีเซ็ต · ช่วงเวลา ·
+   *           slider · ป้ายสด/ย้อนหลัง · ชิปจากคลังถาวร (ซ่อนขีดเวลา)
+   */
+  variant?: "full" | "dense";
 }) {
   const { lang, t } = useLang();
   const [playing, setPlaying] = useState(false);
@@ -77,6 +84,92 @@ export function TimelineBar({
 
   const live = atIso === null;
   const progress = (clamped / steps) * 100;
+
+  if (variant === "dense") {
+    // ชื่อแถบ + "ไม่ใช่พยากรณ์" อยู่ใน title ของทั้งแถบ (บรรทัดเดียวไม่มีที่พอ)
+    // และโผล่เป็นข้อความเมื่อ container กว้างพอ — ความหมาย "นี่คือย้อนหลัง" ยังอยู่ที่
+    // ป้ายสีเหลือง/เขียวปลายขวาเสมอ
+    return (
+      <div
+        className="glass flex h-10 min-w-0 items-center gap-2 overflow-hidden rounded-2xl py-1 pr-3 pl-1.5"
+        title={`${t("timeline.title")} · ${t("timeline.notForecast")}`}
+      >
+        <div className="flex shrink-0 items-center">
+          <button
+            type="button"
+            onClick={() => {
+              if (clamped >= steps) setStep(0);
+              setPlaying((p) => !p);
+            }}
+            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-[var(--color-accent)] text-white shadow-[0_2px_10px_rgba(59,130,246,0.45)] transition-colors hover:bg-blue-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]"
+            aria-label={playing ? t("timeline.pause") : t("timeline.play")}
+            title={playing ? t("timeline.pause") : t("timeline.play")}
+          >
+            {playing ? <Pause size={13} /> : <Play size={13} className="translate-x-px" />}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setPlaying(false);
+              onChange(null);
+            }}
+            disabled={live}
+            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-[var(--color-fg-muted)] transition-colors hover:bg-white/8 hover:text-white disabled:cursor-default disabled:opacity-35 disabled:hover:bg-transparent"
+            aria-label={t("timeline.backToLive")}
+            title={t("timeline.backToLive")}
+          >
+            <RotateCcw size={13} />
+          </button>
+        </div>
+        <Segmented
+          label={t("timeline.rangeLabel")}
+          value={rangeIdx}
+          onChange={(i) => {
+            setPlaying(false);
+            setRangeIdx(i);
+            onChange(null);
+          }}
+          options={RANGES.map((r, i) => ({ value: i, label: t(r.labelKey) }))}
+          className="min-w-0"
+        />
+        <input
+          type="range"
+          min={0}
+          max={steps}
+          step={1}
+          value={clamped}
+          onChange={(e) => {
+            setPlaying(false);
+            setStep(Number(e.target.value));
+          }}
+          aria-label={t("timeline.slider")}
+          aria-valuetext={label}
+          className="range-slider min-w-16 flex-1"
+          style={{ "--range-progress": `${progress}%` } as React.CSSProperties}
+        />
+        {fromArchive ? (
+          <span className="shrink-0 rounded-md bg-[var(--color-risk-medium)]/15 px-1.5 py-0.5 text-[10px] leading-none whitespace-nowrap text-[var(--color-risk-medium)]">
+            {t("timeline.fromArchive")}
+          </span>
+        ) : null}
+        {/* ป้ายสด/ย้อนหลังย่อได้ (ข้อความเต็มอยู่ใน title) — ห้ามล้นออกนอกกล่องไปทับแถบ TMD */}
+        <span
+          className={`flex min-w-0 items-center gap-1.5 text-[11px] tabular-nums ${
+            live ? "text-[var(--color-success)]" : "text-[var(--color-risk-medium)]"
+          }`}
+          title={label}
+        >
+          <span
+            className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+              live ? "bg-[var(--color-success)] shadow-[0_0_6px_rgba(34,197,94,0.9)]" : "bg-[var(--color-risk-medium)]"
+            }`}
+            aria-hidden="true"
+          />
+          <span className="min-w-0 truncate">{label}</span>
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className="glass flex items-center gap-3 rounded-2xl py-2 pr-4 pl-2.5">

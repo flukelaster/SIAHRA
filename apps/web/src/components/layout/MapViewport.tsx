@@ -5,6 +5,7 @@ import type {
   DamObservation,
   EarthquakeEvent,
   FloodExtentResponse,
+  ObservationSummary,
   ObservationsResponse,
   ProvinceExposureResponse,
   RadarFramesResponse,
@@ -12,9 +13,11 @@ import type {
 import type { CameraPose, MapTool, SafeArea, SceneHandles } from "../../scene/setupScene";
 import { IconButton } from "../ui/Panel";
 import { Map3DCanvas, type MapApi, type MapInfo, type MapLayers } from "./Map3DCanvas";
+import { StatPills } from "./StatPills";
 import type { ForecastBandLevel } from "../../lib/forecastStyle";
+import { GUTTER, TOOLS_W, type Tier } from "../../lib/shellLayout";
 import type { QualityLevel, QualityMode } from "../../scene/quality";
-import { formatTime } from "../../lib/time";
+import { formatDateTime, formatTime } from "../../lib/time";
 import { useLang } from "../../i18n/context";
 
 const ZOOM_FACTOR = 0.75;
@@ -28,6 +31,8 @@ function handlesHeading(h: SceneHandles): number {
 export function MapViewport({
   aoiId,
   provinceLabel,
+  summary,
+  summaryLoading = false,
   observations,
   earthquakes,
   floodExtent,
@@ -45,17 +50,21 @@ export function MapViewport({
   exaggeration,
   quality,
   onQualityLevel,
-  compact = false,
+  tier,
   onInfo,
   onApi,
   onPoseChange,
 }: {
-  compact?: boolean;
+  /** ชั้นของเปลือกหน้าต่าง — `phone` ใช้หัวข้อเล็กและ pill ห่อ 2×2 */
+  tier: Tier;
   exaggeration: number;
   quality: QualityMode;
   onQualityLevel?: (level: QualityLevel, mode: QualityMode) => void;
   aoiId: string;
   provinceLabel: string;
+  /** ตัวเลขสรุปของจังหวัด (pill ใต้ชื่อ) — null = ยังไม่มี/โหลดไม่สำเร็จ */
+  summary: ObservationSummary | null;
+  summaryLoading?: boolean;
   initialPose?: CameraPose | null;
   onApi?: (api: MapApi | null) => void;
   /** Throttled camera pose updates (permalink). */
@@ -81,6 +90,7 @@ export function MapViewport({
   onInfo?: (info: MapInfo | null) => void;
 }) {
   const { lang, t } = useLang();
+  const compact = tier === "phone";
   const [tool, setTool] = useState<MapTool>("select");
   const [heading, setHeading] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
@@ -136,8 +146,11 @@ export function MapViewport({
     else void document.documentElement.requestFullscreen();
   };
 
-  const rightEdge = `calc(${safeArea.right}px + 0.25rem)`;
   const leftEdge = `calc(${safeArea.left}px + 0.25rem)`;
+  /** กลุ่มเครื่องมือเกาะขอบขวาของ viewport เสมอ ไม่ใช่ขอบของแผงขวา (ซึ่งไม่มีแล้ว) */
+  const toolsRight = GUTTER;
+  /** หัวข้อ + pill ห้ามวิ่งใต้กลุ่มเครื่องมือ */
+  const titleRight = GUTTER + TOOLS_W + GUTTER;
 
   return (
     <div className="absolute inset-0 overflow-hidden">
@@ -167,29 +180,45 @@ export function MapViewport({
         onApi={onApi}
       />
 
-      {/* Province title */}
+      {/* Province title + stat pills (pills เปิด pointer-events เพื่อให้ tooltip ทำงาน) */}
       <div
-        className="pointer-events-none absolute"
-        style={{ top: safeArea.top + 8, left: leftEdge }}
+        className="pointer-events-none absolute flex flex-col items-start gap-1"
+        style={{ top: safeArea.top + 8, left: leftEdge, right: titleRight }}
       >
-        <h2 className={`${compact ? "text-lg" : "text-[26px]"} leading-tight font-bold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]`}>
-          {t("viewport.province", { name: provinceLabel })}
-        </h2>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <h2 className={`${compact ? "text-lg" : "text-[22px]"} leading-tight font-bold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]`}>
+            {t("viewport.province", { name: provinceLabel })}
+          </h2>
+          {/* กำลังดูค่าย้อนหลัง — ต้องบอกข้างชื่อจังหวัดเสมอ ไม่ใช่รู้ได้เฉพาะในการ์ดระดับน้ำ */}
+          {atIso !== null ? (
+            <span className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-[var(--color-risk-medium)]/20 px-2.5 py-0.5 text-[11px] text-[var(--color-risk-medium)] ring-1 ring-[var(--color-risk-medium)]/50 ring-inset backdrop-blur-sm">
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-risk-medium)]" aria-hidden="true" />
+              {t("viewport.historical", { time: formatDateTime(lang, atIso) })}
+            </span>
+          ) : null}
+        </div>
         <p className="text-sm text-white/75 drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
           {t("viewport.subtitle")}
         </p>
-        {info?.radarFrameAt ? (
-          <p className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-black/70 px-2.5 py-0.5 text-[11px] text-white/85 backdrop-blur-sm">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden="true" />
-            {t("viewport.radarFrame", { time: formatTime(lang, info.radarFrameAt) })}
-          </p>
-        ) : null}
+        <div className={`pointer-events-auto flex flex-wrap items-center ${compact ? "gap-1" : "gap-1.5"}`}>
+          <StatPills summary={summary} loading={summaryLoading} compact={compact} />
+          {info?.radarFrameAt ? (
+            <p
+              className={`inline-flex items-center gap-1.5 rounded-full bg-black/70 text-white/85 backdrop-blur-sm ${
+                compact ? "px-1.5 py-0.5 text-[10px] leading-4" : "px-2.5 py-0.5 text-[11px] leading-5"
+              }`}
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden="true" />
+              {t("viewport.radarFrame", { time: formatTime(lang, info.radarFrameAt) })}
+            </p>
+          ) : null}
+        </div>
       </div>
 
-      {/* Compass + tools, hugging the right dock */}
+      {/* Compass + tools, anchored to the viewport's right gutter */}
       <div
         className="absolute flex flex-col items-center gap-2"
-        style={{ top: safeArea.top + 8, right: rightEdge }}
+        style={{ top: safeArea.top + 8, right: toolsRight }}
       >
         <button
           type="button"

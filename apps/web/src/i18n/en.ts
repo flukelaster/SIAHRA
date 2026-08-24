@@ -297,19 +297,44 @@ export const en: Record<keyof typeof th, string> = {
   "viewport.zoomOut": "Zoom out",
   "viewport.fullscreen": "Full screen",
   "viewport.exitFullscreen": "Exit full screen",
+  /** Pill beside the province title while the timeline is scrubbed back — never reads as current */
+  "viewport.historical": "Historical view {time}",
+
+  // ── Panels (rail + drawer on wide screens / sheet tabs on phones) ──────
+  "rail.aria": "Data panels",
+  "drawer.close": "Close panel",
+  "panel.layers": "Layers",
+  "panel.flood": "Flood",
+  "panel.impact": "Local-authority impact",
+  "panel.water": "Water level",
+  "panel.rain": "Rain",
+  "panel.forecast": "TMD",
+  "panel.dams": "Dams",
+  "panel.quake": "Earthquakes",
 
   // ── Mobile sheet ──────────────────────────────────────────────────────
   "sheet.collapse": "Collapse panel",
   "sheet.expand": "Expand panel",
-  "sheet.tab.province": "Province",
-  "sheet.tab.layers": "Layers",
-  "sheet.tab.flood": "Flood",
-  "sheet.tab.impact": "Local-authority impact",
-  "sheet.tab.water": "Water level",
-  "sheet.tab.rain": "Rain",
-  "sheet.tab.forecast": "TMD",
-  "sheet.tab.dams": "Dams",
-  "sheet.tab.quake": "Earthquakes",
+  "sheet.dragHandle": "Drag to collapse or expand the panel",
+
+  // ── Province chip in the top bar ──────────────────────────────────────
+  "province.chip.aria": "Change province (current: {name})",
+
+  // ── Source status in the dock ─────────────────────────────────────────
+  "status.openAll": "Show the status of every source",
+  "status.degradedCount": "{n} sources not OK",
+
+  // ── Attribution, collapsed / expanded ─────────────────────────────────
+  "attribution.expand": "Show terrain, vertical scale and dataset details",
+  "attribution.collapse": "Hide terrain details",
+  "attribution.sourcesCount": "Sources ({n})",
+
+  // ── Local-authority alert toast / badge (lib/alertSummary.ts) ─────────
+  "alert.toast.active": "{n} local-authority alerts active",
+  "alert.toast.unreachable": "Cannot reach the local-authority alert engine",
+  "alert.toast.degraded": "Alert engine unreachable on the latest refresh — the list may be out of date",
+  "alert.toast.open": "Open",
+  "alert.badge.neverEvaluated": "The alert engine has never evaluated",
 
   // ── Satellite flood card ──────────────────────────────────────────────
   "flood.title": "Satellite flood extent",
