@@ -750,10 +750,10 @@ artefact exists or is needed) — but polygon distance is what this task specifi
 ### E12 — TMD numerical weather forecast
 
 Unlike E1–E10 above, this epic does not come from the audit: it is **W7+W8** of
-`docs/roadmap-Impact Decision-Support.md`. E12.1 (contract) and E12.2 (ingestion, Durable Object,
-routes) have landed; **there is still no forecast UI** — E12.3 and E12.4 are named here for order,
-not specified, and each still needs its own task block in the format described in §0 before it is
-implemented.
+`docs/roadmap-Impact Decision-Support.md`. E12.1 (contract), E12.2 (ingestion, Durable Object,
+routes) and E12.3 (the per-province forecast card) have landed; **the card is not yet on the map
+or timeline** — E12.4 is named here for order, not specified, and still needs its own task block
+in the format described in §0 before it is implemented.
 
 - **E12.1 — forecast contract and epistemic class** — *done*. `EpistemicClass` gains a fifth member
   `"forecast"`: a named, cited, third-party **deterministic** model (TMD NWP), deliberately not
@@ -792,7 +792,23 @@ implemented.
   the `duration` we asked for (the cold state, with nothing to count, is the one exception).
   `ensureFresh()` gates on `lastAttemptAt` as well as `fetchedAt`, so the one-minute cron cannot
   erase the 5-minute failure backoff while the upstream is down (`docs/ops.md` §4).
-- **E12.3** — the per-province forecast card.
+- **E12.3 — per-province forecast card** — *done*. `useProvinceForecast.ts` polls
+  `GET /api/v1/provinces/{NN}/forecast` for the **selected province only** (never all 77) every 10
+  minutes — above the devops cost gate's 120 s floor (PR #58) by a wide margin, and structured
+  after `useActiveAlerts.ts` (state reset before the `provinceCode` guard, `AbortController`,
+  `nextReconnectDelayMs` backoff). `ForecastCard.tsx` renders it in both `RightPanel` (desktop,
+  after `RainfallCard`) and the mobile sheet (new tab, labelled "TMD" rather than a
+  forecast-family word, since `sheet.tab.forecast` sits outside the E12.1 i18n exemption's key
+  pattern), with three explicit states: never-fetched (`batch: null` on a real `200` — the copy
+  may say "TMD" because a request actually succeeded), our-own-fetch-failed (`error`, silent on
+  TMD's own state), and stale-but-shown (dimmed, old figures never hidden). Two small chart
+  components, `HourlyRainChart` (48 h, mm/h, a null-safe gap in the line so a missing step never
+  reads as 0 mm) and `DailyRainBars` (7 d, mm/24 h — a real-but-tiny value floors at a 3 %-height
+  bar, a missing value at a visually distinct 10 % dashed marker so the two are legible without
+  relying on colour alone), rather than reusing `Sparkline.tsx`, which is hard-typed to
+  `WaterLevelHistoryPoint` and its bank-level reference line. `lib/time.ts` gains
+  `formatWeekday()` (Bangkok-pinned short weekday name) for the daily bar labels. `forecast.note`
+  states outright that the figures are a deterministic model output, not a probability.
 - **E12.4** — the forecast time strip, and the observed-versus-forecast visual language.
 
 **Scope decision.** **W9 (forecast → per-อปท. impact) is deliberately not in E12.** Turning forecast

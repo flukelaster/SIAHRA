@@ -24,12 +24,13 @@ export function neverReceived(lang: Lang): string {
   return translate(lang, "time.neverReceived");
 }
 
-type FormatKind = "time" | "dateTime" | "full";
+type FormatKind = "time" | "dateTime" | "full" | "weekday";
 
 const OPTIONS: Record<FormatKind, Intl.DateTimeFormatOptions> = {
   time: { hour: "2-digit", minute: "2-digit" },
   dateTime: { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" },
   full: { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" },
+  weekday: { weekday: "short" },
 };
 
 const cache = new Map<string, Intl.DateTimeFormat>();
@@ -65,6 +66,16 @@ export function formatDateTime(lang: Lang, iso: string): string {
 export function formatFullDateTime(lang: Lang, iso: string | number | Date): string {
   const ms = typeof iso === "string" ? parse(iso) : Number(iso);
   return ms === null || Number.isNaN(ms) ? "—" : formatter(lang, "full").format(ms);
+}
+
+/**
+ * ชื่อวันแบบย่อ เช่น "จ." / "Mon" (เขตเวลาไทย) — ใช้กับแถบพยากรณ์รายวันของ TMD
+ * (E12.3) ที่ต้องอ่านออกว่าแต่ละแท่งคือวันไหน โดยไม่ต้องเดือน/ปีกำกับเพราะช่วง
+ * พยากรณ์สั้นแค่ 7 วัน ไม่มีทางข้ามปีปฏิทินจนกำกวม
+ */
+export function formatWeekday(lang: Lang, iso: string): string {
+  const ms = parse(iso);
+  return ms === null ? "—" : formatter(lang, "weekday").format(ms);
 }
 
 /**
