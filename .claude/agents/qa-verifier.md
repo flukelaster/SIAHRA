@@ -48,8 +48,9 @@ Do this when the diff touches `apps/web/index.html`, `src/App.tsx`, `src/main.ts
 - Port: read `SIAHRA_WEB_DEV_PORT` from `.env.worktree`, defaulting to 5173
 - `curl -sf http://localhost:<port> >/dev/null` to check the dev server is up
 - **If it is not running → return `verdict: "blocked"`; never start one yourself** (one dev server per worktree, and no background process without a stop condition)
-- Capture:
+- **Browser anti-hang (mandatory):** the scene is a raw Three.js WebGL loop rendered via `requestAnimationFrame` — headless Chromium has no GPU passthrough, so every frame is drawn on a CPU software rasterizer. A left-open tab keeps that loop spinning a core indefinitely, which is why the fan runs hot well after the check itself finished. Always use the **named session `siahra-qa`** (never a bare/default session — it may belong to another worktree), close it once **before** opening (clears a stale session from a crashed prior round) and once **after** capturing both screenshots, whatever the verdict:
   ```
+  playwright-cli -s=siahra-qa close 2>/dev/null   # clear any stale session first
   playwright-cli -s=siahra-qa open http://localhost:<port>
   playwright-cli -s=siahra-qa resize 1536 960
   # wait ~25 s for imagery/tiles to load
@@ -57,6 +58,10 @@ Do this when the diff touches `apps/web/index.html`, `src/App.tsx`, `src/main.ts
   ```
   Then repeat the capture at `resize 390 844` — the phone tier (< 768 px: `TopBar` + phone dock + `MobileSheet`) is a different chrome from the rail + drawer shell, and E7.2 AC 3 already requires desktop and 390×844 for a UI change
   Save into the session's scratchpad directory and return the full paths in `screenshots[]` — the orchestrator attaches them to the PR instead of re-shooting
+  ```
+  playwright-cli -s=siahra-qa close                # close immediately after the last screenshot, success or not
+  ```
+  If a step errors or the verdict ends up `blocked`, still run the close — don't leave the WebGL tab running. `playwright-cli list` shows live sessions; if you spot a `siahra-qa` session already there from a previous crashed round, that confirms a leak — close it before opening a fresh one.
 - Wheel zoom does not work headless — use the on-screen zoom buttons, or mousedown/mousemove/mouseup to drag
 
 ## 3. Data-honesty checklist (from the diff plus any new files)
