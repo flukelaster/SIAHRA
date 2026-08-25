@@ -55,6 +55,7 @@ Each task is a `####` heading `E<epic>.<n> — <title>` followed by:
 | **M3 Resilient & observable** | E5, E6 | One failing source cannot starve the others; health `ok` is false when a source is `down`; a `delayed` state exists; DO tests with fixtures; `docs/ops.md`; deploy runs a smoke check and can roll back |
 | **M4 Bilingual, fast, versioned** | E7, E8, E9 | th/en toggle covers all visible strings; LOD no longer flickers; the deploy no longer ships legacy `buildings.geojson`; manifests carry per-layer provenance and checksums, and a `terrain.bin` checksum mismatch suppresses the terrain-derived hazard overlays instead of silently driving them; version-addressed tile prefix and a release script |
 | **M5 Illustrative exposure & quake analytics** | E10 | `/api/v1/provinces/NN/exposure/latest` serves an immutable, run-id'd, `illustrative` layer with a `methodologyUrl`; the map drapes it in the "modelled" visual language; the earthquake card shows distance-to-province; no probability, "risk" or "forecast" wording anywhere |
+| **M6 Observed flood scenes & illustrative depth** | E14 | `/aoi/NN/flood/index.json` lists every Sentinel-1 pass over the province (dry passes included) with `observedAt`/`publishedAt`; `field.bin` scenes are immutable and time-addressed; the map drapes GFM extent as `observed` and FwDET depth as `illustrative` with a `methodologyUrl`, never depth without its scene; `/api/v1/health` carries `copernicus-gfm` and a failed Actions run shows as stale; the timeline labels the gap between the chosen time and the scene's acquisition; no probability, "risk" or "forecast" wording anywhere |
 
 ## 2. Tasks
 
@@ -611,7 +612,7 @@ Deferred D-1). qa-verifier greps the touched files for the forbidden words.
 
 1. The additive types compile in api, web and etl.
 2. The methodology document contains the threshold table.
-3. It states what is **not** included: radar (until E10.5), DEM depth, hydraulics.
+3. It states what is **not** included: radar (until E10.5), DEM depth, hydraulics. *(Amended 2026-08-25: DEM-derived **illustrative** depth is now in scope as E14 — FwDET on the satellite-observed extent, class `illustrative`, its own methodology document — while hydraulics stay excluded under scoping decision 1.)*
 4. It defines the run-id format.
 5. `StationExposure.provinceCode` is documented as a snapshot of the station's province at compute time, `null` when the upstream record has none — never guessed from geometry, never back-filled into an already-published run.
 
@@ -918,6 +919,142 @@ was the sheet's collapse chevron sitting `ml-auto` *inside* the horizontally scr
 6. Mobile close fix: the sheet's collapse button is a `shrink-0` sibling outside the scrolling tab
    strip, visible without scrolling; tapping the active tab collapses; drag handle works.
 7. Screenshots in the PR at 390×844, 768×1024, 1024×768, 1280×720 and 1440×900, both languages.
+
+### E14 — Observed flood extent + illustrative depth (Copernicus GFM)
+
+New scope, not from the audit: decided with the user on 2026-08-25. Today the flood layer is one flat
+tint from GISTDA tambon polygons — no acquisition time, no depth, and the timeline scrubber does not
+move it. E14 adds a second *observed* flood source with a real acquisition time per scene (Copernicus
+EMS Global Flood Monitoring, Sentinel-1, 20 m, STAC since 2015) and an *illustrative* depth derived
+from it with FwDET (Cohen et al. 2018; v2.0 2019) on the same Copernicus GLO-30 DSM as `terrain.bin`.
+Computation runs in GitHub Actions (public repo → free) and writes immutable artefacts to R2; Workers
+and Durable Objects stay cheap. The design, the verified source facts and the honesty rules are in the
+plan `~/.claude/plans/flood-modeling-linked-mango.md` ("Honesty rules this feature must obey") — the
+short form: two descriptors (`observed` extent, `illustrative` depth) and depth is never shown without
+the scene it came from; GFM `likelihood` is the classifier's confidence, never a flood probability;
+"not estimated" ≠ 0 m; a dry scene is data, a missing scene is not; the E10 naming ban applies
+verbatim; and the `SourceId` `copernicus-gfm` is registered in F3 **together with** the health
+collector that reports it — same rule as E12.1/tmd-nwp: a live source id is registered with its
+ingestion, never before, so `/health` never carries a permanent `unknown` row for a layer that does
+not exist yet. Once F3 lands, a failed run shows as stale — never omitted, never faked as fresh.
+
+Supersedes one line of E10.1 (criterion 3 — "DEM depth" was out of scope because the DEM is a DSM);
+hydraulics stay excluded and the four scoping decisions in §0 are unchanged.
+
+#### E14.F0 — Contract, methodology document, roadmap — *done* (2026-08-25)
+- Touches: `packages/shared-types/src/flood.ts` (`FloodSceneIndexEntry`, `FloodSceneIndex`,
+  `FloodSceneMeta`, the `field.bin` layout: magic `0x444C4653` "SFLD", `FloodFieldClass`,
+  `FLOOD_FIELD_*` constants), new `docs/methodology/flood-depth.md`, this file, `docs/dataset.md` §8.
+  `sources.ts` and `health.ts` deliberately **untouched** — the `SourceId` is deferred to F3, see
+  E12.1 (registering a live id without its ingestion would force a fabricated health row)
+- Depends: —
+- Size: S
+- Risk: none identified
+- Issue: _(not yet filed)_
+
+1. tsc clean in api, web and etl; root `npm test` green.
+2. `docs/methodology/flood-depth.md` (Thai) cites Cohen et al. 2018 / 2019, states the limits (DSM
+   not DTM, SAR blind spots, 20 → 30 → overview resampling, not hydraulics, comparative depth,
+   "not estimated" ≠ 0, likelihood = classifier confidence, dry scene ≠ missing scene) and passes
+   the forbidden-word grep.
+3. `/api/v1/health` is unchanged — no `copernicus-gfm` row until F3 (SourceId deferred to F3, see E12.1).
+
+#### E14.F1 — GISTDA follows the timeline
+- Touches: `apps/api/src/durable-objects/flood-extent.ts` (`getProvince(code, atMs)`, new small
+  `flood_scenes(retrieved_ms PK, r2_key, feature_count)` table written on each `sceneHash` change),
+  `apps/api/src/routes/flood.ts` (`?at=`), `apps/web/src/hooks/useFloodExtent.ts` (`atIso`),
+  `apps/api/test/sqlQueryPlans.test.ts`
+- Depends: —
+- Size: M
+- Risk: the `first_seen_ms <= at AND last_seen_ms >= at` filter must ride `idx_flood_province` — if
+  the planner shows a scan it goes in `ALLOWED_SCANS` with a reason or the query is reshaped;
+  cost-bearing (DO), so the `devops` gate runs first
+- Issue: _(not yet filed)_
+
+1. Scrubbing 3 days back shows the polygons from that scene, not today's.
+2. An `at` older than 30 days resolves to one R2 key through `flood_scenes` — no R2 `list()`.
+3. The `retrievedAt` shown is that scene's, not the latest fetch.
+
+#### E14.F2 — Python pipeline, tests, backfill CLI
+- Touches: new `apps/etl/gfm/{stac.py,warp.py,fwdet.py,encode.py,run.py}`, `pyproject.toml` /
+  `requirements.txt`, `apps/etl/gfm/tests/` (synthetic bowl: known depth ±1 cm; masks; boundary
+  median), `scripts/release-dataset.sh` (upload `etl/{code}/dem30.tif`, `landcover30.tif` once),
+  `ci.yml` path-filtered `Test (gfm)` leg behind the always-running `Test` gate
+- Depends: E14.F0
+- Size: L
+- Risk: COG window reads from Actions runners untested — fall back to whole-COG download (360 KB)
+- Issue: _(not yet filed)_
+
+1. One province, one real scene (Chiang Rai 57, 2024-09-12) produces a plausible `field.bin`.
+2. A golden fixture is checked in and the encoder round-trips it byte for byte.
+3. Backfill is idempotent: a scene already in the index is skipped.
+
+#### E14.F3 — Actions cron, R2 serving, health
+- Touches: new `.github/workflows/gfm-ingest.yml` (cron `17 */6 * * *`, `workflow_dispatch`
+  backfill), `apps/web/worker/floodPath.ts` (+ tests, traversal rejection like `tilePath.test.ts`),
+  `apps/web/vite.config.ts` middleware, `packages/shared-types/src/sources.ts` (register `SourceId`
+  `copernicus-gfm` + `SOURCES` entry: attribution "© European Union, Copernicus Emergency Management
+  Service (GFM), EODC", PUM https://extwiki.eodc.eu/GFM/PUM, STAC
+  https://stac.eodc.eu/api/v1/collections/GFM — in the **same PR** as the health collector, same rule
+  as E12.1/tmd-nwp: a live source id is registered together with its ingestion, never before),
+  `apps/api/src/routes/health.ts` (read `flood/gfm/health.json` — one cached R2 `get` behind
+  `cachePolicy`, stale after 12 h; + `health.test.ts`, `contract.test.ts` LIVE_SOURCE_IDS),
+  `docs/deploy.md` (secrets, cost line)
+- Depends: E14.F2
+- Size: M
+- Risk: cost-bearing (R2 in a request path, new workflow) — `devops` gate before and after
+- Issue: _(not yet filed)_
+
+1. A scheduled run is green and `/aoi/57/flood/index.json` answers `200 application/json`
+   (a 200 alone is the SPA shell).
+2. `SourceId` `copernicus-gfm` + `SOURCES` entry land in this PR; `/api/v1/health` shows it with
+   `lastRunAt`; a failed run shows as `stale`; every `LIVE_SOURCE_IDS` entry still appears in `/health`.
+3. No R2 `list()` anywhere — `index.json` is the listing.
+
+#### E14.F4 — Rendering: field texture, depth-graded terrain, FloodSurface
+- Touches: new `apps/web/src/scene/{floodField,FloodSurface}.ts`, `scene/terrainMaterial.ts`,
+  `lib/floodStyle.ts`, `components/layout/Map3DCanvas.tsx`, `MapLegend.tsx`,
+  `hooks/useLayerDescriptors.ts`, `pages/MethodologyPage.tsx` (register `flood-depth`), i18n th/en
+- Depends: E14.F3
+- Size: L
+- Risk: GPU leak on scene switch — textures and the surface mesh must be disposed
+- Issue: _(not yet filed)_
+
+1. Screenshot in the PR; depth-graded water, "not estimated" cells stippled, GISTDA still
+   distinguishable.
+2. No GPU leak on scene switch; `overlayField.test.ts` untouched.
+3. Legend rows for both layers with epistemic badge and acquisition age, both languages.
+4. `copernicus-gfm` is added to `CREDIT_ORDER` in `components/layout/MapAttribution.tsx` in the same PR that first draws a GFM pixel — the list is hand-curated, so tsc will not catch the omission, and the CEMS terms require the visible credit.
+
+#### E14.F5 — Time UI: scene picker, S1 ticks, event browser, popup
+- Touches: `TimelineBar.tsx`, `FloodExtentCard.tsx` → `FloodScenesCard`, `panelRegistry.ts`,
+  `InfoPopup.tsx`, `picking.ts`
+- Depends: E14.F4
+- Size: M
+- Risk: the gap label ("latest image before the chosen time: 3 d 4 h") must never imply the state at
+  `atIso`
+- Issue: _(not yet filed)_
+
+1. Picking a 2024 event reframes time; layer, gauges and sun agree.
+2. The gap label is correct; a scene older than 14 days dims the layer with a "no image in this
+   window" chip.
+
+#### E14.F6 — Backfill 2015 → now (ops, no code)
+- Touches: — (`workflow_dispatch` by year)
+- Depends: E14.F3
+- Size: M (wall-clock)
+- Risk: index sizes and R2 storage growth — measured numbers go into `docs/deploy.md`
+- Issue: _(not yet filed)_
+
+1. Every province index stays under ~300 KB.
+2. Storage measured and written into the `docs/deploy.md` cost table.
+
+#### E14.F7 — Later: 30 m leaf flood tiles, wet band on buildings, FABDEM decision
+- Touches: — (not planned in detail; reuses the terrain pyramid `present` bitset)
+- Depends: E14.F4
+- Size: —
+- Risk: FABDEM is CC BY-NC-SA — a licence decision, not a code one
+- Issue: _(not yet filed)_
 
 ## 3. Suggested first two weeks
 
