@@ -959,7 +959,7 @@ hydraulics stay excluded and the four scoping decisions in §0 are unchanged.
    the forbidden-word grep.
 3. `/api/v1/health` is unchanged — no `copernicus-gfm` row until F3 (SourceId deferred to F3, see E12.1).
 
-#### E14.F1 — GISTDA follows the timeline
+#### E14.F1 — GISTDA follows the timeline — *done* (2026-08-25, PR #73)
 - Touches: `apps/api/src/durable-objects/flood-extent.ts` (`getProvince(code, atMs)`, new small
   `flood_scenes(retrieved_ms PK, r2_key, feature_count)` table written on each `sceneHash` change),
   `apps/api/src/routes/flood.ts` (`?at=`), `apps/web/src/hooks/useFloodExtent.ts` (`atIso`),
@@ -969,7 +969,9 @@ hydraulics stay excluded and the four scoping decisions in §0 are unchanged.
 - Risk: the `first_seen_ms <= at AND last_seen_ms >= at` filter must ride `idx_flood_province` — if
   the planner shows a scan it goes in `ALLOWED_SCANS` with a reason or the query is reshaped;
   cost-bearing (DO), so the `devops` gate runs first
-- Issue: _(not yet filed)_
+- Issue: PR #73. Shipped as specified; `flood_scenes` also gets a one-time bootstrap row when the table
+  is empty, so history on prod starts at the first refresh after deploy — every earlier `at` answers
+  `reason: "no-archived-scene"`. No R2 backfill of older `archive/flood/*` scenes (no `list()`).
 
 1. Scrubbing 3 days back shows the polygons from that scene, not today's.
 2. An `at` older than 30 days resolves to one R2 key through `flood_scenes` — no R2 `list()`.

@@ -60,9 +60,20 @@ export const archivedSnapshot = policy("archivedSnapshot", "public, max-age=3600
  * "ยังไม่เคยดึงสำเร็จ" อาจเป็นแค่ cold start ที่ refresh กำลังวิ่ง — ห้ามให้คำตอบนั้น
  * ค้างในแคชนานจนผู้ใช้เห็น "ต้นทางไม่ตอบสนอง" ทั้งที่ข้อมูลมาแล้ว
  */
-export function floodExtent(retrievedAt: string | null): CachePolicy {
-  return retrievedAt ? policy("floodExtent", "public, max-age=300, s-maxage=600") : noStore;
+export function floodExtent(retrievedAt: string | null, historical = false): CachePolicy {
+  if (!retrievedAt) return noStore;
+  return historical ? floodExtentArchived : policy("floodExtent", "public, max-age=300, s-maxage=600");
 }
+
+/**
+ * ฉากย้อนหลัง (`?at=` แล้วหาฉากที่ครอบเวลานั้นได้): ไบต์ของฉากที่ archive แล้วไม่มีวันเปลี่ยน
+ * และ `at` ถูกปัดเป็นช่วง 10 นาทีที่ฝั่งเว็บ จึงแคชได้ยาว — แต่ไม่ `immutable` เพราะ
+ * ฉากใน hot window (≤30 วัน) ยังตอบจากตาราง ซึ่ง last_seen ขยับได้จน set ของ polygon
+ * ที่ "ครอบ at" เปลี่ยนตามรอบ refresh ถัดไป
+ * ส่วน `retrievedAt: null` กับ `at` = ไม่มีฉากที่เก็บไว้ — ใช้ noStore เท่าเคส live
+ * เพราะฉากถัดไปที่ archive อาจทำให้คำตอบเปลี่ยนภายในครึ่งชั่วโมง
+ */
+export const floodExtentArchived = policy("floodExtentArchived", "public, max-age=3600, s-maxage=86400");
 
 /**
  * ไฟล์ผลลัพธ์ที่ "แช่แข็ง" แล้ว — คีย์เป็น content-addressed (มี hash อยู่ในคีย์)

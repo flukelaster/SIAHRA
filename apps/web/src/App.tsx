@@ -103,7 +103,8 @@ export default function App() {
   const radar = useRadar(layers.radar);
   const earthquakes = useEarthquakeFeed();
   const apiHealth = useApiHealth();
-  const floodExtent = useFloodExtent(provinceCode);
+  // E14.F1 — ชั้นน้ำท่วมดาวเทียมเดินตามเส้นเวลาเดียวกับ observations (ฉากที่ครอบ atIso)
+  const floodExtent = useFloodExtent(provinceCode, atIso);
   // ชั้นปิดอยู่ = ไม่ยิงคำขอเลยแม้แต่ครั้งเดียว (รูปแบบเดียวกับ useRadar)
   const exposure = useFloodExposure(provinceCode, layers.exposure);
   // E11.6 — แดชบอร์ดผลกระทบ อปท.: รายชื่อจัดอันดับ + แจ้งเตือนทั้งจังหวัด + ราย

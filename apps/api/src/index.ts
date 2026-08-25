@@ -86,7 +86,7 @@ export const routes: Route[] = [
   {
     method: "GET",
     pattern: /^\/api\/v1\/provinces\/([0-9]{2})\/flood-extent$/,
-    handler: (_req, env, [province]) => handleProvinceFloodExtent(province, env),
+    handler: (req, env, [province]) => handleProvinceFloodExtent(province, req, env),
     limit: { perMinute: 300 },
   },
   {

@@ -18,8 +18,14 @@ export interface FloodExtentFeatureProps {
   /** Upstream centroid. */
   lat: number | null;
   lon: number | null;
-  firstSeenAt: string;
-  lastSeenAt: string;
+  /**
+   * When this polygon was first/last seen by our backend. Both are null for a
+   * feature served from an archived scene (`?at=` older than the hot window):
+   * the archive stores each scene as fetched, not the per-polygon observation
+   * window, and inventing one from the scene time would be a claim we cannot back.
+   */
+  firstSeenAt: string | null;
+  lastSeenAt: string | null;
 }
 
 export interface FloodExtentFeature {
@@ -33,10 +39,21 @@ export interface FloodExtentFeature {
 
 export interface FloodExtentResponse {
   layer: HazardLayerDescriptor;
-  /** When our backend last pulled the scene successfully. */
+  /**
+   * When our backend pulled the scene that answers this request. Live: the
+   * latest successful pull. With `?at=`: the pull that covered `at` — null
+   * when no archived scene exists for that instant (see `reason`).
+   */
   retrievedAt: string | null;
   provinceCode: string;
   features: FloodExtentFeature[];
+  /**
+   * Set only on a historical request (`?at=`) that could not be answered: the
+   * DO started recording scenes after `at`, so nothing was archived for that
+   * instant. `features` is empty **because nothing was observed**, not because
+   * nothing was flooded — the UI must never phrase this as "no flooding".
+   */
+  reason?: "no-archived-scene";
 }
 
 export interface FloodExtentProvinceSummary {

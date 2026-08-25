@@ -9,7 +9,7 @@ import {
   type SourceStatus,
 } from "@siahra/shared-types";
 import { fetchGistdaFloodExtent, type FetchOptions } from "../ingestion/gistda.js";
-import { keys as archiveKeys, putJsonGz } from "../archive.js";
+import { getJsonGz, keys as archiveKeys, putJsonGz } from "../archive.js";
 import { deriveSourceHealth } from "../sourceHealth.js";
 import { errorText, logError, logInfo, logWarn } from "../log.js";
 import { META_TABLE_DDL, readMeta, writeMeta } from "./metaKv.js";
@@ -33,6 +33,14 @@ const COLD_START_WAIT_MS = 3_000;
  */
 const REQUEST_PATH_FETCH = { attempts: 1, timeoutMs: 20_000 };
 
+/**
+ * ฉากที่อ่านจาก R2 (คำขอ `?at=` เก่ากว่า HISTORY_MS) แคชไว้ในหน่วยความจำของ DO
+ * instance — ไฟล์ archive เขียนแล้วไม่แก้ จึงไม่มีทางค้าง; TTL มีไว้แค่คืนหน่วยความจำ
+ * ห้ามเขียนลง SQLite (rows written คิดเงิน และไม่มีอะไรที่ต้องอยู่รอดข้าม eviction)
+ */
+const SCENE_CACHE_TTL_MS = 60 * 60 * 1000;
+const SCENE_CACHE_MAX = 8;
+
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 interface FeatureRow extends Record<string, SqlStorageValue> {
@@ -44,6 +52,24 @@ interface FeatureRow extends Record<string, SqlStorageValue> {
   last_seen_ms: number;
 }
 
+interface SceneRow extends Record<string, SqlStorageValue> {
+  r2_key: string;
+  retrieved_ms: number;
+  feature_count: number;
+}
+
+/** รูปของไฟล์ `archive/flood/<iso>.json.gz` ที่ refresh() เขียน (properties ไม่มี first/lastSeen) */
+interface ArchivedScene {
+  retrievedAt: string;
+  featureCount: number;
+  features: {
+    type: "Feature";
+    id: string;
+    properties: Omit<FloodExtentFeature["properties"], "firstSeenAt" | "lastSeenAt">;
+    geometry: FloodExtentFeature["geometry"];
+  }[];
+}
+
 /**
  * Cache + change tracker for the GISTDA flood-extent scene. Because the
  * upstream features carry no timestamp, this DO records when each polygon
@@ -53,6 +79,8 @@ interface FeatureRow extends Record<string, SqlStorageValue> {
  */
 export class FloodExtentDO extends DurableObject<Env> {
   private inflight: Promise<boolean> | null = null;
+  /** ดู SCENE_CACHE_*: r2Key → ฉากที่ parse แล้ว; Map รักษาลำดับการใส่ จึง evict ตัวแรกได้ */
+  private sceneCache = new Map<string, { expiresMs: number; scene: ArchivedScene }>();
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -68,6 +96,14 @@ export class FloodExtentDO extends DurableObject<Env> {
         );
         CREATE INDEX IF NOT EXISTS idx_flood_province ON flood_features(province_code);
         CREATE INDEX IF NOT EXISTS idx_flood_last_seen ON flood_features(last_seen_ms);
+        -- E14.F1: หนึ่งแถวต่อฉากที่ archive ลง R2 (เฉพาะรอบที่ sceneHash เปลี่ยน) เพื่อให้
+        -- คำขอ ?at= ย้อนหลังหาคีย์ R2 ได้ด้วย PK เดียว ไม่ต้อง list() — ไม่มี retention:
+        -- ~1 แถว/ฉาก ไม่กี่ร้อยแถวต่อปี และเริ่มบันทึกจากวันที่ deploy (ไม่ backfill)
+        CREATE TABLE IF NOT EXISTS flood_scenes (
+          retrieved_ms INTEGER PRIMARY KEY,
+          r2_key TEXT NOT NULL,
+          feature_count INTEGER NOT NULL
+        );
         ${META_TABLE_DDL}
       `);
     });
@@ -207,13 +243,27 @@ export class FloodExtentDO extends DurableObject<Env> {
       const buf = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(ids));
       return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join("");
     })();
-    if (this.readMeta("sceneHash") !== sceneHash) {
+    // ตาราง flood_scenes ยังว่าง (DO ที่รันอยู่ก่อน F1 มี sceneHash เดิมค้าง จึงไม่มีทาง
+    // "เปลี่ยน" จนกว่า GISTDA จะออกฉากใหม่) → บันทึกฉากปัจจุบันเป็นจุดเริ่มของเส้นเวลา
+    // ค้นด้วย PK หนึ่งครั้งต่อรอบ refresh 30 นาที ไม่ใช่ต่อคำขอ
+    const bootstrap = this.sceneAtOrBefore(nowMs) === null;
+    if (bootstrap || this.readMeta("sceneHash") !== sceneHash) {
+      const retrievedIso = new Date(nowMs).toISOString();
+      const r2Key = archiveKeys.flood(retrievedIso);
+      // บันทึกคีย์ก่อนที่ put จะจบ — ถ้า put ล้ม การอ่านย้อนหลังจะเจอ "ไม่มีฉาก" (ไบต์หาย)
+      // ซึ่งตรงกับความจริงมากกว่าการไม่มีแถวเลย และไม่ต้องรอ R2 บนเส้นทาง refresh
+      this.ctx.storage.sql.exec(
+        "INSERT OR REPLACE INTO flood_scenes (retrieved_ms, r2_key, feature_count) VALUES (?, ?, ?)",
+        nowMs,
+        r2Key,
+        features.length,
+      );
       this.ctx.waitUntil(
-        putJsonGz(this.env.HAZARD_BUCKET, archiveKeys.flood(new Date(nowMs).toISOString()), {
-          retrievedAt: new Date(nowMs).toISOString(),
+        putJsonGz(this.env.HAZARD_BUCKET, r2Key, {
+          retrievedAt: retrievedIso,
           featureCount: features.length,
           features: features.map((f) => ({ type: "Feature", id: f.id, properties: f.props, geometry: f.geometry })),
-        }).catch((err: unknown) =>
+        } satisfies ArchivedScene).catch((err: unknown) =>
           logWarn("flood archive failed", { error: errorText(err) }),
         ),
       );
@@ -259,8 +309,14 @@ export class FloodExtentDO extends DurableObject<Env> {
     };
   }
 
-  /** Features present in the most recent successful scene, for one province. */
-  async getProvince(provinceCode: string): Promise<FloodExtentResponse> {
+  /**
+   * Features for one province. `atMs` null → the most recent successful scene
+   * (live). With `atMs`: the scene that covered that instant — from the hot
+   * table while inside HISTORY_MS, from the R2 archive beyond it. A historical
+   * read never touches the upstream: nothing about the past gets fresher.
+   */
+  async getProvince(provinceCode: string, atMs: number | null = null): Promise<FloodExtentResponse> {
+    if (atMs !== null && Number.isFinite(atMs)) return this.getProvinceAt(provinceCode, atMs);
     await this.ensureFresh();
     const retrievedAt = this.readMeta("retrievedAt");
     const r = this.retrievedMs();
@@ -279,6 +335,73 @@ export class FloodExtentDO extends DurableObject<Env> {
       provinceCode,
       features: rows.map((row) => this.rowToFeature(row)),
     };
+  }
+
+  /** ฉากล่าสุดที่ดึงมา "ก่อนหรือตรง" atMs — ค้นด้วย PK (rowid) ไม่สแกน */
+  private sceneAtOrBefore(atMs: number): SceneRow | null {
+    return (
+      this.ctx.storage.sql
+        .exec<SceneRow>(
+          "SELECT r2_key, retrieved_ms, feature_count FROM flood_scenes WHERE retrieved_ms <= ? ORDER BY retrieved_ms DESC LIMIT 1",
+          atMs,
+        )
+        .toArray()[0] ?? null
+    );
+  }
+
+  private noArchivedScene(provinceCode: string): FloodExtentResponse {
+    // features ว่างเพราะ "ไม่มีการสังเกต" ไม่ใช่ "ไม่มีน้ำท่วม" — reason บอกฝั่งเว็บให้พูดอย่างนั้น
+    return { layer: this.layer(null), retrievedAt: null, provinceCode, features: [], reason: "no-archived-scene" };
+  }
+
+  private async getProvinceAt(provinceCode: string, atMs: number): Promise<FloodExtentResponse> {
+    const scene = this.sceneAtOrBefore(atMs);
+    if (!scene) return this.noArchivedScene(provinceCode);
+    const retrievedAt = new Date(scene.retrieved_ms).toISOString();
+    if (Date.now() - atMs <= HISTORY_MS) {
+      // ตาราง hot ยังมีทุก polygon ที่เห็นในช่วงนี้ (retention 30 วันนับจาก last_seen)
+      // — ค้นด้วย idx_flood_province แล้วให้ช่วง first/last_seen กรองต่อ (ต่อจังหวัดมีไม่กี่สิบแถว)
+      // เทียบที่ "เวลาของฉาก" ไม่ใช่ atMs: polygon อยู่ในฉากนั้นก็ต่อเมื่อช่วงที่เห็นมันครอบ
+      // เวลาที่ดึงฉาก — ส่วน last_seen ถูกประทับตอน refresh จึงสั้นกว่า atMs ที่อยู่หลังรอบ
+      // ล่าสุดเสมอ (ไม่งั้น at = เมื่อ 1 นาทีก่อน จะได้ศูนย์ทั้งที่ live มี 44 polygon)
+      const rows = this.ctx.storage.sql
+        .exec<FeatureRow>(
+          "SELECT * FROM flood_features WHERE province_code = ? AND first_seen_ms <= ? AND last_seen_ms >= ?",
+          provinceCode,
+          scene.retrieved_ms,
+          scene.retrieved_ms,
+        )
+        .toArray();
+      return { layer: this.layer(retrievedAt), retrievedAt, provinceCode, features: rows.map((row) => this.rowToFeature(row)) };
+    }
+    const archived = await this.archivedScene(scene.r2_key);
+    // แถวมีแต่ไฟล์ไม่มี = put ตอนนั้นล้ม (refresh() log ไว้แล้ว) — ไม่มีฉากให้ดูจริง ๆ
+    if (!archived) return this.noArchivedScene(provinceCode);
+    return {
+      layer: this.layer(archived.retrievedAt),
+      retrievedAt: archived.retrievedAt,
+      provinceCode,
+      features: archived.features
+        .filter((f) => f.properties.provinceCode === provinceCode)
+        .map((f) => ({ ...f, properties: { ...f.properties, firstSeenAt: null, lastSeenAt: null } })),
+    };
+  }
+
+  /** อ่านฉากจาก R2 ครั้งเดียวต่อคีย์ต่อชั่วโมง (ดู SCENE_CACHE_*) */
+  private async archivedScene(r2Key: string): Promise<ArchivedScene | null> {
+    const now = Date.now();
+    const hit = this.sceneCache.get(r2Key);
+    if (hit && hit.expiresMs > now) return hit.scene;
+    if (hit) this.sceneCache.delete(r2Key);
+    const scene = await getJsonGz<ArchivedScene>(this.env.HAZARD_BUCKET, r2Key);
+    if (!scene) return null;
+    while (this.sceneCache.size >= SCENE_CACHE_MAX) {
+      const oldest = this.sceneCache.keys().next().value;
+      if (oldest === undefined) break;
+      this.sceneCache.delete(oldest);
+    }
+    this.sceneCache.set(r2Key, { expiresMs: now + SCENE_CACHE_TTL_MS, scene });
+    return scene;
   }
 
   async getSummary(): Promise<FloodExtentSummaryResponse> {

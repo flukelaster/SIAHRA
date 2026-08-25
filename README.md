@@ -152,7 +152,7 @@ The Worker exposes a versioned JSON API under `/api/v1`:
 | `GET /api/v1/observations` | Live rainfall/water-level observations |
 | `GET /api/v1/earthquakes/recent` · `/live` | Recent and live-polled seismic events |
 | `GET /api/v1/flood-extent/summary` | Nationwide flood-extent summary |
-| `GET /api/v1/provinces/:code/flood-extent` | Flood extent for one province |
+| `GET /api/v1/provinces/:code/flood-extent` | Flood extent for one province; `?at=<ISO>` returns the scene that covered that instant (`reason: "no-archived-scene"` when none was recorded) |
 | `GET /api/v1/provinces/:code/hazards/latest` | Latest hazard snapshot for one province |
 | `GET /api/v1/dams` | Reservoir storage levels |
 | `GET /api/v1/radar/frames` · `/radar/frame/:ts.png` | Weather radar composite frames |
