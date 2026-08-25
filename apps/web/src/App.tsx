@@ -317,6 +317,10 @@ export default function App() {
   // ไม่มีการ re-frame กล้องตอนเปิด-ปิด drawer — `frameTerrain` ยังถูกเรียกเฉพาะตอน
   // AOI โหลด (Map3DCanvas) เหมือนเดิม การเปลี่ยนจังหวัดจึงจัดกรอบตามสถานะ drawer ขณะนั้น
   const shell = useShellState();
+  // ปุ่ม "ชั้นข้อมูล" บนคอลัมน์เครื่องมือของมือถือ — identity คงที่เพื่อไม่ให้
+  // MapViewport (และ Map3DCanvas ใต้มัน) re-render ทุกครั้งที่ App เรนเดอร์ใหม่
+  const openPanel = shell.openPanel;
+  const openLayersPanel = useCallback(() => openPanel("layers"), [openPanel]);
 
   // ทุกอย่างที่แผงใดแผงหนึ่งอาจต้องใช้ — ก้อนเดียว ส่งให้ drawer/แผ่นเลื่อนเรนเดอร์
   // เฉพาะแผงที่เปิดอยู่ (components/layout/panels.tsx)
@@ -380,6 +384,7 @@ export default function App() {
         onInfo={setMapInfo}
         onApi={handleApi}
         onPoseChange={handlePose}
+        onOpenLayers={openLayersPanel}
       />
 
       <AppShell

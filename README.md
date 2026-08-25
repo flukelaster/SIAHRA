@@ -31,15 +31,15 @@
 <table align="center">
   <tr>
     <td align="center" width="50%">
-      <img src="docs/images/mobile-map.png" alt="SIAHRA on a phone-sized viewport (390×844): Chiang Mai province with earthquake markers, weather radar overlay, zoom/compass controls, the vertical-exaggeration switch, the 72-hour water-level timeline and the bottom tab bar" width="300" />
+      <img src="docs/images/mobile-map.png" alt="SIAHRA on a phone-sized viewport (390×844): Chiang Mai province full-bleed with earthquake markers, the four-button tool column bottom-right, and the bottom sheet at its peek snap showing the province name, source-health dots, the 72-hour water-level timeline and the attribution line" width="300" />
     </td>
     <td align="center" width="50%">
-      <img src="docs/images/mobile-layers.png" alt="SIAHRA mobile bottom sheet opened on the data-layers tab: satellite imagery, TMD radar, GISTDA flood extent, low-lying terrain, alert radii, gauge stations, OSM water and roads — each with its data-honesty subtitle" width="300" />
+      <img src="docs/images/mobile-layers.png" alt="SIAHRA mobile bottom sheet at its half snap on the data-layers tab: the peek rows stay on screen above the stat pills, TMD forecast strip and tab strip, with satellite imagery, TMD radar and GISTDA flood extent below — each with its data-honesty subtitle" width="300" />
     </td>
   </tr>
 </table>
 
-<p align="center"><sub>The same province on a phone-sized viewport (390 × 844) — below 768 px the panels live in a swipe-up bottom sheet whose tab strip scrolls but whose collapse button never does, so the map keeps the whole screen; the timeline, TMD forecast strip, exaggeration switch and source-health dots stay in the dock under one thumb. From 768 px up the same panels sit behind a 48 px icon rail on the left that opens at most one drawer at a time (open by default only from 1280 px), with a full-width bottom dock carrying the source-health dots, timeline, forecast strip, vertical-scale switch and the attribution line.</sub></p>
+<p align="center"><sub>The same province on a phone-sized viewport (390 × 844) — below 768 px the map is full-bleed and a single swipe-up bottom sheet is the only bottom chrome, with three snap points (peek, half, full); its peek section keeps the province name, the source-health dots, the timeline and the attribution line on screen at every snap, while the stat pills, the TMD forecast strip, the exaggeration switch and the panels themselves sit in the body under one thumb. From 768 px up the same panels sit behind a 48 px icon rail on the left that opens at most one drawer at a time (open by default only from 1280 px), with a full-width bottom dock carrying the source-health dots, timeline, forecast strip, vertical-scale switch and the attribution line.</sub></p>
 
 <br/>
 
@@ -74,7 +74,7 @@ The project follows a clean separation between three data classes: **base geospa
 - 🏛️ **Local-authority (อปท.) decision support** — per-authority flood impact from real polygon intersection against the current GISTDA scene (flooded area/fraction and facilities-in-flood are measured; population/buildings exposed are an illustrative area-weighted share of the baseline), a flooded-fraction-ranked affected-authority list, and an alert banner that renders healthy, never-evaluated, degraded-fetch and unreachable states distinctly — covers the 431 local authorities with a real OSM boundary.
 - 📡 **Live source-health footer** — every panel discloses upstream freshness ("updated N minutes ago") and falls back to "unknown" instead of failing silently when a source is down.
 - 🔗 **Shareable permalinks** — camera position, province and layer state are encoded into the URL.
-- 📱 **Responsive layout** — one shell for every width: an icon rail with a single drawer and a full-width bottom dock from 768 px up, a swipe-up bottom sheet on phones; which panel is open is remembered per browser, never in the permalink.
+- 📱 **Responsive layout** — one shell for every width: an icon rail with a single drawer and a full-width bottom dock from 768 px up, and on phones no dock at all — a full-bleed map under one three-snap swipe-up bottom sheet, with Google-Maps touch gestures (one finger pans, two fingers zoom, tilt and twist) instead of a tool toggle; which panel is open is remembered per browser, never in the permalink.
 
 ## Tech stack
 

@@ -130,7 +130,11 @@ export function TimelineBar({
             onChange(null);
           }}
           options={RANGES.map((r, i) => ({ value: i, label: t(r.labelKey) }))}
-          className="min-w-0"
+          // ห้ามย่อ: ป้ายช่วงเวลาที่ถูกตัดครึ่ง ("30 วั…") อ่านไม่ออกและกดผิดได้
+          // ตัวที่ยอมย่อคือป้ายสด/ย้อนหลังด้านขวา ซึ่ง truncate โดยตั้งใจและมี
+          // ข้อความเต็มอยู่ใน title อยู่แล้ว (เห็นครั้งแรกตอนแถบ dense ลงมาอยู่บน
+          // แผ่นเลื่อนของมือถือกว้าง 372px — บน tablet ขึ้นไปมันไม่เคยแคบพอ)
+          className="shrink-0"
         />
         <input
           type="range"

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   computeSafeArea,
   defaultDrawerOpen,
+  type SheetSnap,
   type ShellSafeArea,
   type Tier,
 } from "../lib/shellLayout";
@@ -12,18 +13,21 @@ export interface ShellState {
   tier: Tier;
   drawerOpen: boolean;
   panel: PanelKey;
-  sheetOpen: boolean;
-  /** ความสูงของแผ่นเลื่อนบนมือถือตอนขยาย (45% ของ viewport) */
-  sheetHeight: number;
+  /**
+   * มือถือ: ระดับของแผ่นเลื่อน — peek (เห็นเสมอ) / half / full
+   * **ไม่ถูกจำใน localStorage** — `siahra.shell` คงรูป `{v:1, drawerOpen, panel}` ไว้เท่าเดิม
+   */
+  sheetSnap: SheetSnap;
+  /** ≥ tablet เท่านั้น — มือถือไม่มี dock ล่างแล้ว */
   dockHeight: number;
   safeArea: ShellSafeArea;
   openPanel: (key: PanelKey) => void;
   closeDrawer: () => void;
   /** กดปุ่มแผงที่เปิดอยู่ = ปิด drawer; แผงอื่น = สลับไปแผงนั้น (เปิดไว้) */
   togglePanel: (key: PanelKey) => void;
-  /** มือถือ: เปลี่ยนแท็บโดยไม่แตะสถานะเปิด/ปิดของแผ่นเลื่อน */
+  /** มือถือ: เปลี่ยนแท็บโดยไม่แตะระดับของแผ่นเลื่อน */
   setPanel: (key: PanelKey) => void;
-  setSheetOpen: (open: boolean) => void;
+  setSheetSnap: (snap: SheetSnap) => void;
   setDockHeight: (px: number) => void;
 }
 
@@ -57,18 +61,18 @@ export function useShellState(): ShellState {
     const prefs = readShellPrefs(getLocalStorage);
     const key = prefs?.panel ?? "layers";
     // tablet เริ่มปิดเสมอ (ไม่เชื่อค่า "เปิด" ที่จำไว้); phone ใช้เฉพาะ `panel`
-    // (สถานะเปิด/ปิดของมันคือ sheetOpen ต่างหาก); laptop/wide ใช้ค่าที่จำไว้
+    // (ระดับของแผ่นเลื่อนคือ sheetSnap ต่างหาก); laptop/wide ใช้ค่าที่จำไว้
     // ถ้าไม่มีจึงค่อยเป็นค่าเริ่มต้นตาม tier
     const open =
       tier === "tablet" || tier === "phone" ? false : (prefs?.drawerOpen ?? defaultDrawerOpen(tier));
     return { drawerOpen: open, panel: key };
   });
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetSnap, setSheetSnap] = useState<SheetSnap>("peek");
   const [dockHeight, setDockHeight] = useState(0);
 
   // ค่าล่าสุดสำหรับ callback ที่ identity คงที่ (Escape handler / openPanel)
-  const sheetOpenRef = useRef(sheetOpen);
-  sheetOpenRef.current = sheetOpen;
+  const sheetSnapRef = useRef(sheetSnap);
+  sheetSnapRef.current = sheetSnap;
   const drawerOpenRef = useRef(drawerOpen);
   drawerOpenRef.current = drawerOpen;
   const tierRef = useRef(tier);
@@ -81,12 +85,12 @@ export function useShellState(): ShellState {
     writeShellPrefs(getLocalStorage, { drawerOpen, panel });
   }, [drawerOpen, panel]);
 
-  /** เปิดแผงที่ระบุ (toast ใช้): จอกว้าง = เปิด drawer, มือถือ = ขยายแผ่นเลื่อน */
+  /** เปิดแผงที่ระบุ (toast/ปุ่มชั้นข้อมูลใช้): จอกว้าง = เปิด drawer, มือถือ = กางครึ่ง */
   const openPanel = useCallback((key: PanelKey) => {
     userChanged.current = true;
     if (tierRef.current === "phone") {
       setShell((s) => ({ ...s, panel: key }));
-      setSheetOpen(true);
+      setSheetSnap("half");
     } else {
       setShell({ drawerOpen: true, panel: key });
     }
@@ -111,7 +115,9 @@ export function useShellState(): ShellState {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || e.defaultPrevented || isTypingTarget(e.target)) return;
       if (tierRef.current === "phone") {
-        if (sheetOpenRef.current) setSheetOpen(false);
+        // หุบทีเดียวจาก full — บันไดจาก full ไป half ไป peek จะทำให้ Escape
+        // ต้องกดสองครั้งโดยไม่มีเหตุผล
+        if (sheetSnapRef.current !== "peek") setSheetSnap("peek");
       } else if (drawerOpenRef.current) {
         closeDrawer();
       }
@@ -120,25 +126,25 @@ export function useShellState(): ShellState {
     return () => window.removeEventListener("keydown", onKey);
   }, [closeDrawer]);
 
-  const sheetHeight = Math.round(viewport.height * 0.45);
+  // บนมือถือ memo นี้ไม่ invalidate จากการเล่นแผ่นเลื่อนอีกแล้ว — identity ของ
+  // safeArea จึงนิ่งตลอด gesture และ props ของ Map3DCanvas ไม่กระเพื่อม
   const safeArea = useMemo(
-    () => computeSafeArea({ tier, drawerOpen, dockHeight, sheetOpen, sheetHeight }),
-    [tier, drawerOpen, dockHeight, sheetOpen, sheetHeight],
+    () => computeSafeArea({ tier, drawerOpen, dockHeight }),
+    [tier, drawerOpen, dockHeight],
   );
 
   return {
     tier,
     drawerOpen,
     panel,
-    sheetOpen,
-    sheetHeight,
+    sheetSnap,
     dockHeight,
     safeArea,
     openPanel,
     closeDrawer,
     togglePanel,
     setPanel,
-    setSheetOpen,
+    setSheetSnap,
     setDockHeight,
   };
 }
