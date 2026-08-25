@@ -38,7 +38,12 @@ const CREDIT_ORDER: SourceId[] = [
  * "มองเห็นได้" — เครดิตภาพดาวเทียมฉบับเต็ม (Esri ToU / CC BY-NC-SA ของ EOX)
  * ลิงก์ของทุกแหล่ง © และประโยคปฏิเสธการรับรอง; ส่วน **ขยาย** (ⓘ) คือรายละเอียด
  * ภูมิประเทศ/ขนาดเซลล์/มาตราส่วนแนวดิ่ง/อาคาร/รุ่นชุดข้อมูล ซึ่งเป็นข้อมูลประกอบ
- * ไม่ใช่เครดิตที่ต้องแสดงตลอด (ตัวเลือกมาตราส่วนแนวดิ่งเองยังอยู่ใน dock เสมอ)
+ * ไม่ใช่เครดิตที่ต้องแสดงตลอด
+ *
+ * **ยกเว้นมาตราส่วนแนวดิ่งเมื่อมันไม่ใช่ 1:1** — บนมือถือตัวเลือกมาตราส่วนอยู่ใน
+ * body ของแผ่นเลื่อน ซึ่งไม่ถูก mount ตอนหุบ ภูมิประเทศที่ถูกดึงสูงเกินจริงจึงอาจ
+ * ถูกอ่านว่าเป็นความสูงจริงโดยไม่มีอะไรค้าน ค่ามาตราส่วนจึงถูกดันขึ้นมาอยู่ใน
+ * บรรทัดย่อที่ mount เสมอ (ที่ต้องเห็นตลอดคือ *ค่า* ไม่ใช่ *ปุ่ม*)
  */
 export function MapAttribution({
   info,
@@ -61,6 +66,11 @@ export function MapAttribution({
   compact?: boolean;
 }) {
   const { lang, t } = useLang();
+  // มาตราส่วนแนวดิ่งเมื่อไม่ใช่ 1:1 — ต้องเห็นในบรรทัดย่อเสมอบนมือถือ (ดูหัวไฟล์)
+  const exaggerationNote =
+    compact && exaggeration !== 1
+      ? t("attribution.verticalScale", { scale: t("attribution.scaleExaggerated", { n: exaggeration }) })
+      : null;
   const parts: string[] = [];
   if (info) {
     parts.push(
@@ -156,6 +166,12 @@ export function MapAttribution({
             {t("attribution.sourcesCount", { n: credits.length })}
           </button>
         )}
+        {exaggerationNote ? (
+          <>
+            {sep}
+            <span className="text-[var(--color-risk-medium)]">{exaggerationNote}</span>
+          </>
+        ) : null}
         {sep}
         <span className="text-white/45">
           © {BRAND.copyrightYear} {BRAND.name} · {t("attribution.noEndorsement")}

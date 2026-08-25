@@ -2,7 +2,7 @@ import { BellRing } from "lucide-react";
 import type { ActiveAlertsState } from "../../hooks/useActiveAlerts";
 import { useT } from "../../i18n/context";
 import { alertToastState } from "../../lib/alertSummary";
-import type { ShellSafeArea, Tier } from "../../lib/shellLayout";
+import type { ShellSafeArea } from "../../lib/shellLayout";
 
 /**
  * toast บาง ๆ บนแผนที่สำหรับสถานะแจ้งเตือน อปท. ที่ต้องเห็นแม้ drawer ปิดอยู่
@@ -10,20 +10,18 @@ import type { ShellSafeArea, Tier } from "../../lib/shellLayout";
  * `lib/alertSummary.ts` ตัวเดียวกับ badge บน rail จึงไม่มีวันขัดกัน
  * กดแล้วเปิดแผงผลกระทบซึ่งมี `ActiveAlertBanner` ฉบับเต็ม
  *
- * ตำแหน่ง: กึ่งกลางด้านบนของ safe area บนจอ ≥ tablet; บนมือถือด้านบนถูกชื่อ
- * จังหวัด + pill สรุปใช้อยู่ (ชื่อจังหวัดยาว ๆ กินเกือบเต็มความกว้าง) จึงวางไว้
- * กึ่งกลาง **ด้านล่าง** ของ safe area เหนือ dock แทน — ยังอยู่ใน safe area และ
- * ไม่ทับข้อความอื่น
+ * ตำแหน่ง: กึ่งกลางด้านบนของ safe area **ทุก tier** — เวอร์ชันก่อนหน้าวางไว้
+ * ด้านล่างเฉพาะมือถือ เพราะด้านบนถูกชื่อจังหวัด + pill สรุปใช้อยู่ ทั้งสองอย่างนั้น
+ * ย้ายเข้าแผ่นเลื่อนแล้ว ด้านบนจึงว่าง ส่วนด้านล่างกลายเป็นที่ของแผ่นเลื่อนกับ
+ * คอลัมน์ปุ่มเครื่องมือ ซึ่งจะบังหรือถูกบังกันเอง
  */
 export function AlertToast({
   state,
   safeArea,
-  tier,
   onOpen,
 }: {
   state: ActiveAlertsState;
   safeArea: ShellSafeArea;
-  tier: Tier;
   onOpen: () => void;
 }) {
   const t = useT();
@@ -41,10 +39,7 @@ export function AlertToast({
       : toast.kind === "unreachable"
         ? t("alert.toast.unreachable")
         : t("alert.toast.degraded");
-  const pos =
-    tier === "phone"
-      ? { left: safeArea.left, right: safeArea.right, bottom: safeArea.bottom + 8 }
-      : { left: safeArea.left, right: safeArea.right, top: safeArea.top + 8 };
+  const pos = { left: safeArea.left, right: safeArea.right, top: safeArea.top + 8 };
   return (
     <div role="status" className="pointer-events-none absolute z-20 flex justify-center px-2" style={pos}>
       <button

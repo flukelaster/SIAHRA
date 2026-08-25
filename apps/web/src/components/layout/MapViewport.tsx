@@ -1,4 +1,4 @@
-import { Hand, Maximize2, Minimize2, Minus, MousePointer2, Navigation, Plus } from "lucide-react";
+import { Hand, Layers, Maximize2, Minimize2, Minus, MousePointer2, Navigation, Plus } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import type {
@@ -54,8 +54,12 @@ export function MapViewport({
   onInfo,
   onApi,
   onPoseChange,
+  onOpenLayers,
 }: {
-  /** ชั้นของเปลือกหน้าต่าง — `phone` ใช้หัวข้อเล็กและ pill ห่อ 2×2 */
+  /**
+   * ชั้นของเปลือกหน้าต่าง — `phone` ไม่มีหัวข้อ/StatPills บนแผนที่เลย (ย้ายไป
+   * `MobileSheet`) และคอลัมน์เครื่องมือเกาะขวาล่างเหลือ 4 ปุ่ม
+   */
   tier: Tier;
   exaggeration: number;
   quality: QualityMode;
@@ -88,6 +92,8 @@ export function MapViewport({
   safeArea: SafeArea;
   observationsStale?: boolean;
   onInfo?: (info: MapInfo | null) => void;
+  /** มือถือ: ปุ่ม "ชั้นข้อมูล" บนคอลัมน์เครื่องมือ — ไม่ส่ง = ไม่มีปุ่ม */
+  onOpenLayers?: () => void;
 }) {
   const { lang, t } = useLang();
   const compact = tier === "phone";
@@ -180,82 +186,129 @@ export function MapViewport({
         onApi={onApi}
       />
 
-      {/* Province title + stat pills (pills เปิด pointer-events เพื่อให้ tooltip ทำงาน) */}
-      <div
-        className="pointer-events-none absolute flex flex-col items-start gap-1"
-        style={{ top: safeArea.top + 8, left: leftEdge, right: titleRight }}
-      >
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <h2 className={`${compact ? "text-lg" : "text-[22px]"} leading-tight font-bold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]`}>
-            {t("viewport.province", { name: provinceLabel })}
-          </h2>
-          {/* กำลังดูค่าย้อนหลัง — ต้องบอกข้างชื่อจังหวัดเสมอ ไม่ใช่รู้ได้เฉพาะในการ์ดระดับน้ำ */}
-          {atIso !== null ? (
-            <span className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-[var(--color-risk-medium)]/20 px-2.5 py-0.5 text-[11px] text-[var(--color-risk-medium)] ring-1 ring-[var(--color-risk-medium)]/50 ring-inset backdrop-blur-sm">
-              <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-risk-medium)]" aria-hidden="true" />
-              {t("viewport.historical", { time: formatDateTime(lang, atIso) })}
-            </span>
-          ) : null}
-        </div>
-        <p className="text-sm text-white/75 drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
-          {t("viewport.subtitle")}
-        </p>
-        <div className={`pointer-events-auto flex flex-wrap items-center ${compact ? "gap-1" : "gap-1.5"}`}>
-          <StatPills summary={summary} loading={summaryLoading} compact={compact} />
-          {info?.radarFrameAt ? (
-            <p
-              className={`inline-flex items-center gap-1.5 rounded-full bg-black/70 text-white/85 backdrop-blur-sm ${
-                compact ? "px-1.5 py-0.5 text-[10px] leading-4" : "px-2.5 py-0.5 text-[11px] leading-5"
-              }`}
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden="true" />
-              {t("viewport.radarFrame", { time: formatTime(lang, info.radarFrameAt) })}
-            </p>
-          ) : null}
-        </div>
-      </div>
-
-      {/* Compass + tools, anchored to the viewport's right gutter */}
-      <div
-        className="absolute flex flex-col items-center gap-2"
-        style={{ top: safeArea.top + 8, right: toolsRight }}
-      >
-        <button
-          type="button"
-          onClick={() => sceneRef.current?.resetNorth()}
-          title={t("viewport.north")}
-          aria-label={t("viewport.north")}
-          className="glass-soft flex h-12 w-12 cursor-pointer items-center justify-center rounded-full text-white/90 transition-colors hover:text-white"
+      {/* Province title + stat pills (pills เปิด pointer-events เพื่อให้ tooltip ทำงาน)
+          บนมือถือทั้งก้อนนี้ไม่มี — ชื่อจังหวัดกับชิปย้อนหลังย้ายไปอยู่แถวสรุปของ
+          แผ่นเลื่อน และ StatPills อยู่ใน body ของแผ่น (`MobileSheet`) แทน */}
+      {compact ? null : (
+        <div
+          className="pointer-events-none absolute flex flex-col items-start gap-1"
+          style={{ top: safeArea.top + 8, left: leftEdge, right: titleRight }}
         >
-          <span
-            className="relative flex h-9 w-9 items-center justify-center rounded-full border border-white/15"
-            style={{ transform: `rotate(${-heading}deg)`, transition: "transform 120ms linear" }}
-          >
-            <Navigation size={16} className="-translate-y-[1px] fill-red-400 text-red-400" aria-hidden="true" />
-            <span className="absolute -top-[9px] text-[8px] font-bold text-white/90">N</span>
-          </span>
-        </button>
-
-        <div className="glass-soft flex flex-col gap-1.5 rounded-xl p-1.5">
-          <IconButton label={t("viewport.orbit")} active={tool === "select"} onClick={() => setTool("select")}>
-            <MousePointer2 size={16} />
-          </IconButton>
-          <IconButton label={t("viewport.pan")} active={tool === "pan"} onClick={() => setTool("pan")}>
-            <Hand size={16} />
-          </IconButton>
-          <div className="my-0.5 h-px bg-white/10" />
-          <IconButton label={t("viewport.zoomIn")} onClick={() => dolly(ZOOM_FACTOR)}>
-            <Plus size={16} />
-          </IconButton>
-          <IconButton label={t("viewport.zoomOut")} onClick={() => dolly(1 / ZOOM_FACTOR)}>
-            <Minus size={16} />
-          </IconButton>
-          <div className="my-0.5 h-px bg-white/10" />
-          <IconButton label={fullscreen ? t("viewport.exitFullscreen") : t("viewport.fullscreen")} onClick={toggleFullscreen}>
-            {fullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-          </IconButton>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <h2 className="text-[22px] leading-tight font-bold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]">
+              {t("viewport.province", { name: provinceLabel })}
+            </h2>
+            {/* กำลังดูค่าย้อนหลัง — ต้องบอกข้างชื่อจังหวัดเสมอ ไม่ใช่รู้ได้เฉพาะในการ์ดระดับน้ำ */}
+            {atIso !== null ? (
+              <span className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-[var(--color-risk-medium)]/20 px-2.5 py-0.5 text-[11px] text-[var(--color-risk-medium)] ring-1 ring-[var(--color-risk-medium)]/50 ring-inset backdrop-blur-sm">
+                <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-risk-medium)]" aria-hidden="true" />
+                {t("viewport.historical", { time: formatDateTime(lang, atIso) })}
+              </span>
+            ) : null}
+          </div>
+          <p className="text-sm text-white/75 drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
+            {t("viewport.subtitle")}
+          </p>
+          <div className="pointer-events-auto flex flex-wrap items-center gap-1.5">
+            <StatPills summary={summary} loading={summaryLoading} />
+            {info?.radarFrameAt ? (
+              <p className="inline-flex items-center gap-1.5 rounded-full bg-black/70 px-2.5 py-0.5 text-[11px] leading-5 text-white/85 backdrop-blur-sm">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden="true" />
+                {t("viewport.radarFrame", { time: formatTime(lang, info.radarFrameAt) })}
+              </p>
+            ) : null}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Compass + tools, anchored to the viewport's right gutter.
+          มือถือ: เกาะ **ขวาล่าง** เหนือส่วน peek ของแผ่นเลื่อน และเหลือ 4 ปุ่ม —
+          orbit/pan ไม่มีความหมายบนจอสัมผัสอีกแล้ว (นิ้วเดียวเลื่อน สองนิ้วหมุน/ก้มเงย)
+          และ fullscreen ใช้ไม่ได้บน iOS Safari ของ iPhone ส่วนปุ่ม "ชั้นข้อมูล"
+          เข้ามาแทนเพราะบนมือถือมันอยู่ลึกกว่าเดิมหนึ่งชั้น
+          z-10 ชัดเจน: ตอนเป็น z-auto มันถูก dock (z-10) ทับจนกดไม่ได้บนจอเตี้ย */}
+      {compact ? (
+        <div
+          className="absolute z-10 flex flex-col items-center gap-1.5"
+          style={{ bottom: safeArea.bottom + 8, right: toolsRight }}
+        >
+          {onOpenLayers ? (
+            <button
+              type="button"
+              onClick={onOpenLayers}
+              title={t("panel.layers")}
+              aria-label={t("panel.layers")}
+              className="glass-soft flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-white/90 transition-colors hover:text-white"
+            >
+              <Layers size={16} />
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => sceneRef.current?.resetNorth()}
+            title={t("viewport.north")}
+            aria-label={t("viewport.north")}
+            className="glass-soft flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-white/90 transition-colors hover:text-white"
+          >
+            <span
+              className="relative flex h-7 w-7 items-center justify-center rounded-full border border-white/15"
+              style={{ transform: `rotate(${-heading}deg)`, transition: "transform 120ms linear" }}
+            >
+              <Navigation size={14} className="-translate-y-[1px] fill-red-400 text-red-400" aria-hidden="true" />
+              <span className="absolute -top-[8px] text-[7px] font-bold text-white/90">N</span>
+            </span>
+          </button>
+          <div className="glass-soft flex flex-col gap-1.5 rounded-xl p-1.5">
+            <IconButton label={t("viewport.zoomIn")} onClick={() => dolly(ZOOM_FACTOR)}>
+              <Plus size={16} />
+            </IconButton>
+            <IconButton label={t("viewport.zoomOut")} onClick={() => dolly(1 / ZOOM_FACTOR)}>
+              <Minus size={16} />
+            </IconButton>
+          </div>
+        </div>
+      ) : (
+        <div
+          className="absolute flex flex-col items-center gap-2"
+          style={{ top: safeArea.top + 8, right: toolsRight }}
+        >
+          <button
+            type="button"
+            onClick={() => sceneRef.current?.resetNorth()}
+            title={t("viewport.north")}
+            aria-label={t("viewport.north")}
+            className="glass-soft flex h-12 w-12 cursor-pointer items-center justify-center rounded-full text-white/90 transition-colors hover:text-white"
+          >
+            <span
+              className="relative flex h-9 w-9 items-center justify-center rounded-full border border-white/15"
+              style={{ transform: `rotate(${-heading}deg)`, transition: "transform 120ms linear" }}
+            >
+              <Navigation size={16} className="-translate-y-[1px] fill-red-400 text-red-400" aria-hidden="true" />
+              <span className="absolute -top-[9px] text-[8px] font-bold text-white/90">N</span>
+            </span>
+          </button>
+
+          <div className="glass-soft flex flex-col gap-1.5 rounded-xl p-1.5">
+            <IconButton label={t("viewport.orbit")} active={tool === "select"} onClick={() => setTool("select")}>
+              <MousePointer2 size={16} />
+            </IconButton>
+            <IconButton label={t("viewport.pan")} active={tool === "pan"} onClick={() => setTool("pan")}>
+              <Hand size={16} />
+            </IconButton>
+            <div className="my-0.5 h-px bg-white/10" />
+            <IconButton label={t("viewport.zoomIn")} onClick={() => dolly(ZOOM_FACTOR)}>
+              <Plus size={16} />
+            </IconButton>
+            <IconButton label={t("viewport.zoomOut")} onClick={() => dolly(1 / ZOOM_FACTOR)}>
+              <Minus size={16} />
+            </IconButton>
+            <div className="my-0.5 h-px bg-white/10" />
+            <IconButton label={fullscreen ? t("viewport.exitFullscreen") : t("viewport.fullscreen")} onClick={toggleFullscreen}>
+              {fullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            </IconButton>
+          </div>
+        </div>
+      )}
 
     </div>
   );
