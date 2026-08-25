@@ -4,6 +4,7 @@ import { Sky } from "three/addons/objects/Sky.js";
 import { sunPosition } from "./sun";
 import { CSS2DRenderer } from "three/addons/renderers/CSS2DRenderer.js";
 import { fitProjectedExtent } from "./fitProjectedExtent";
+import { attachTouchGestures } from "./touchGestures";
 import type { AoiManifest } from "@siahra/shared-types";
 
 export type MapTool = "select" | "pan";
@@ -160,16 +161,27 @@ export function setupScene(container: HTMLDivElement): SceneHandles {
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
-  controls.dampingFactor = 0.08;
+  // `_panOffset` เป็นตัวสะสมแบบรั่ว: ระยะรวมถูกต้อง (อนุกรมเรขาคณิตรวมเป็น 1) แต่
+  // **ตามหลังนิ้ว** — 0.08 คือ τ ≈ 12.5 เฟรม ≈ 208 ms ที่ 60fps ซึ่งบนจอสัมผัสอ่าน
+  // ได้ว่า "หน่วง/ยืด" ทันที ส่วนเมาส์ไม่ได้ลากตัวชี้ไปด้วยจึงไม่รู้สึก
+  const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
+  controls.dampingFactor = coarsePointer ? 0.2 : 0.08;
   controls.maxPolarAngle = Math.PI * 0.47;
   controls.minDistance = 300;
   controls.maxDistance = 8000;
   controls.zoomSpeed = 0.9;
   controls.rotateSpeed = 0.7;
-  controls.panSpeed = 0.9;
+  // 1:1 กับนิ้วที่ระยะ target (0.9 ทำให้แผนที่ตามช้ากว่านิ้ว 10%)
+  controls.panSpeed = 1.0;
   controls.screenSpacePanning = false;
+  // Touch เป็นแบบ Google Maps และ **ไม่ขึ้นกับ tier หรือเครื่องมือ**: นิ้วเดียวเลื่อน
+  // สองนิ้วบีบซูม + ก้มเงย (Δy) + ทิศ (Δx) ส่วนการบิดเติมใน `attachTouchGestures`
+  // การแมปเมาส์ยังตามเครื่องมือเหมือนเดิม (ดู setTool)
+  controls.touches.ONE = THREE.TOUCH.PAN;
+  controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE;
   controls.target.set(0, 0, 0);
   controls.update();
+  const detachTouch = attachTouchGestures(controls, camera, renderer.domElement);
 
   // Satellite imagery is already lit by the sun, so lighting is mostly a
   // soft sky/ground ambient with one warm key light for relief and shadows.
@@ -364,10 +376,11 @@ export function setupScene(container: HTMLDivElement): SceneHandles {
     controls.update();
   };
 
+  // เมาส์เท่านั้น — touch ถูกตรึงไว้ที่ ONE=PAN / TWO=DOLLY_ROTATE ตอนตั้งค่า
+  // เพื่อให้จอสัมผัสทำตัวเหมือน Google Maps ไม่ว่าเครื่องมือจะเป็นอะไร
   const setTool = (tool: MapTool) => {
     controls.mouseButtons.LEFT = tool === "pan" ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE;
     controls.mouseButtons.RIGHT = tool === "pan" ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN;
-    controls.touches.ONE = tool === "pan" ? THREE.TOUCH.PAN : THREE.TOUCH.ROTATE;
   };
 
   let fly: {
@@ -617,6 +630,7 @@ export function setupScene(container: HTMLDivElement): SceneHandles {
     debugReaders.clear();
     cancelAnimationFrame(frameId);
     resizeObserver.disconnect();
+    detachTouch();
     controls.dispose();
     renderer.dispose();
     tickers.clear();

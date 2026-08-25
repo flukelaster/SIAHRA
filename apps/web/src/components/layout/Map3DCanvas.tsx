@@ -274,18 +274,37 @@ export function Map3DCanvas({
         qualityRef.current = quality;
         handles.addTicker(() => quality.tick(performance.now()));
 
-        // Click-to-inspect (select tool): a press+release with little movement.
-        let downAt: { x: number; y: number; t: number } | null = null;
+        // Click/tap-to-inspect: a press+release with little movement.
+        //
+        // เมาส์ยังเคารพเครื่องมือ (เฉพาะโหมด select) แต่ **จอสัมผัสไม่มีเครื่องมือแล้ว**
+        // — นิ้วเดียวเลื่อนแผนที่เสมอ การแตะจึงไม่กำกวมและต้องเลือกได้ทุกโหมด
+        // สองนิ้วขึ้นไปไม่ใช่การแตะเด็ดขาด ไม่งั้นการบีบที่จบตรงจุดเดิมจะถูกนับเป็นแตะ
+        let downAt: { x: number; y: number; t: number; touch: boolean } | null = null;
+        let activeTouches = 0;
         const onDown = (e: PointerEvent) => {
-          if (e.button !== 0) return;
-          downAt = { x: e.clientX, y: e.clientY, t: performance.now() };
+          const touch = e.pointerType === "touch";
+          if (touch) {
+            activeTouches += 1;
+            if (activeTouches > 1) {
+              downAt = null;
+              return;
+            }
+          } else if (e.button !== 0) {
+            return;
+          }
+          downAt = { x: e.clientX, y: e.clientY, t: performance.now(), touch };
         };
         const onUp = (e: PointerEvent) => {
-          if (!downAt || e.button !== 0) return;
+          const touch = e.pointerType === "touch";
+          if (touch) activeTouches = Math.max(0, activeTouches - 1);
+          if (!downAt || (!touch && e.button !== 0)) return;
           const moved = Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y);
           const held = performance.now() - downAt.t;
+          const wasTouch = downAt.touch;
           downAt = null;
-          if (moved > 5 || held > 600 || toolRef.current !== "select") return;
+          if (!wasTouch && toolRef.current !== "select") return;
+          // นิ้วสั่นกว่าเมาส์ — การเลื่อนย่อมเกินเกณฑ์นี้อยู่แล้วโดยนิยาม
+          if (moved > (wasTouch ? 10 : 5) || held > 600) return;
           const h = sceneRef.current;
           const loaded = terrainRef.current;
           if (!h || !loaded) return;
@@ -303,12 +322,20 @@ export function Map3DCanvas({
           });
           setPick(result);
         };
+        // iOS ยิง pointercancel ใจกว้าง (ปัดขอบจอ ดึงศูนย์แจ้งเตือน) — ถ้าไม่ล้าง
+        // ตัวนับนิ้วจะค้างแล้วการแตะครั้งถัดไปถูกมองเป็นการบีบตลอดไป
+        const onCancel = () => {
+          activeTouches = 0;
+          downAt = null;
+        };
         container.addEventListener("pointerdown", onDown);
         container.addEventListener("pointerup", onUp);
+        container.addEventListener("pointercancel", onCancel);
         const origDispose = handles.dispose;
         handles.dispose = () => {
           container.removeEventListener("pointerdown", onDown);
           container.removeEventListener("pointerup", onUp);
+          container.removeEventListener("pointercancel", onCancel);
           origDispose();
         };
 
@@ -1099,7 +1126,7 @@ export function Map3DCanvas({
 
   return (
     <div className="absolute inset-0">
-      <div ref={containerRef} className="map-sky absolute inset-0" />
+      <div ref={containerRef} className="map-sky absolute inset-0 touch-none" />
       {pick ? (
         <div ref={popupDivRef} className="pointer-events-none absolute top-0 left-0 z-30 will-change-transform">
           <InfoPopup pick={pick} onClose={closePopup} />
