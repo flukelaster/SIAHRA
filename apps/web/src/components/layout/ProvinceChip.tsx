@@ -16,10 +16,14 @@ export function ProvinceChip({
   provinces,
   selected,
   onSelect,
+  compact = false,
 }: {
   provinces: Province[];
   selected: Province;
   onSelect: (code: string) => void;
+  /** มือถือ: จำกัดชื่อให้แคบกว่าปกติ ไม่งั้นชื่อจังหวัดยาว ๆ แย่งที่จนช่องค้นหา
+   *  ถูกบีบเหลือไม่กี่ px (บั๊กที่เห็นจริงบน iPhone — ดู TopBar.tsx) */
+  compact?: boolean;
 }) {
   const { lang, t } = useLang();
   const [open, setOpen] = useState(false);
@@ -63,9 +67,15 @@ export function ProvinceChip({
         aria-expanded={open}
         aria-label={t("province.chip.aria", { name })}
         title={t("province.select")}
-        className="flex h-8 max-w-[9rem] cursor-pointer items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 text-sm font-medium text-[var(--color-fg)] transition-colors hover:border-white/25 hover:bg-white/8 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] @xl:max-w-[14rem]"
+        className={`flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 text-sm font-medium text-[var(--color-fg)] transition-colors hover:border-white/25 hover:bg-white/8 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] ${
+          compact ? "w-[6.5rem]" : "w-[9rem] @xl:w-[14rem]"
+        }`}
       >
-        <span className="truncate">{name}</span>
+        {/* `w-` คงที่ ไม่ใช่ `max-w-`: max-width ทำให้ปุ่มแคบ-กว้างสลับกันไปตามความ
+            ยาวชื่อจังหวัด (น่าน vs พระนครศรีอยุธยา) ดูไม่นิ่งข้างช่องค้นหาที่กว้าง
+            คงที่ — ความกว้างคงที่ทำให้ชื่อสั้นเหลือที่ว่าง ชื่อยาวถูกตัด (`truncate`)
+            แทน ซึ่งเป็นพฤติกรรมเดียวกับ `<select>` ทั่วไป */}
+        <span className="min-w-0 truncate">{name}</span>
         <ChevronDown size={14} className="shrink-0 text-[var(--color-fg-muted)]" aria-hidden="true" />
       </button>
       {open ? (
