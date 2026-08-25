@@ -70,6 +70,12 @@ export function useSheetDrag({
       tx.current = Math.max(0, elH - visibleFor(s));
       el.style.transition = animate ? REST_TRANSITION : "none";
       el.style.transform = `translate3d(0, ${tx.current}px, 0)`;
+      // แผ่นสูงคงที่แล้วถูกเลื่อนลง ก้นของมันจึงอยู่ **ต่ำกว่าขอบจอ** เท่ากับระยะเลื่อน
+      // ที่ทุกสแนปยกเว้น full — ส่วนท้ายของกล่องที่เลื่อนได้ก็เลยตกไปอยู่นอกจอ และ
+      // เนื้อหาแถวสุดท้ายเลื่อนขึ้นมาดูไม่ได้ ชดเชยด้วย padding ล่างเท่าระยะเลื่อน
+      // (padding นับรวมใน scroll extent) — เขียนเฉพาะตอนเข้าที่ ไม่ใช่ทุกเฟรมของการลาก
+      // เพราะการเปลี่ยน padding คือ layout ส่วน transform ไม่ใช่
+      el.style.setProperty("--sheet-tx", `${tx.current}px`);
     },
     [sheetRef, visibleFor],
   );

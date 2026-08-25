@@ -141,20 +141,35 @@ export function MobileSheet({
       {open ? (
         <div
           {...bodyHandlers}
-          className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-2 pb-3"
-          style={{ touchAction: "pan-y" }}
+          className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-2"
+          // pb ชดเชยส่วนของแผ่นที่ถูกเลื่อนตกขอบจอ (ดู useSheetDrag) — ที่ full ค่านี้เป็น 0
+          style={{ touchAction: "pan-y", paddingBottom: "calc(0.75rem + var(--sheet-tx, 0px))" }}
         >
-          <StatPills
-            summary={ctx.observations.data?.summary ?? null}
-            loading={ctx.observations.loading}
-            compact
-          />
-          <ForecastStrip
-            state={ctx.forecast}
-            forecastAtIso={forecastAtIso}
-            onChange={onForecastAtIsoChange}
-            variant="dense"
-          />
+          {/* ตัวเลขสรุป + มาตราส่วนแนวดิ่งอยู่แถวเดียวกัน: ทั้งคู่เป็นของทั้งแผนที่
+              ไม่ใช่ของแผงใดแผงหนึ่ง จึงต้องอยู่เหนือแถบแท็บ ไม่ใช่ท้ายสุดใต้แผง
+              ซึ่งต้องเลื่อนผ่านรายการยาว ๆ กว่าจะเจอ */}
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <StatPills
+              summary={ctx.observations.data?.summary ?? null}
+              loading={ctx.observations.loading}
+              compact
+            />
+            <div className="ml-auto">
+              <ExaggerationControl value={exaggeration} onChange={onExaggerationChange} compact />
+            </div>
+          </div>
+          {/* แบบ `dense` ใช้ไม่ได้ที่ความกว้างนี้: ป้าย "พยากรณ์จากแบบจำลอง TMD"
+              กับค่าฝนย่อไม่ได้ (ป้ายบอกว่านี่คือแบบจำลอง ไม่ใช่ค่าที่วัด — ตัดทิ้ง
+              ไม่ได้) รวมกับปุ่มล้างแล้วกินไปแล้ว ~320 จาก 372px สไลเดอร์เลยเหลือ
+              ไม่ถึงนิ้ว แบบเต็มวางสไลเดอร์คนละบรรทัดกับป้าย และ body นี้เลื่อนได้
+              อยู่แล้ว ความสูงจึงถูกกว่าความกว้าง */}
+          <div className="shrink-0">
+            <ForecastStrip
+              state={ctx.forecast}
+              forecastAtIso={forecastAtIso}
+              onChange={onForecastAtIsoChange}
+            />
+          </div>
 
           <div className="flex shrink-0 items-center gap-1 overflow-x-auto">
             {PANELS.map((p) => {
@@ -180,11 +195,10 @@ export function MobileSheet({
             })}
           </div>
 
-          <div className="min-h-0">{current.render(ctx)}</div>
-
-          <div className="shrink-0 self-start pt-1">
-            <ExaggerationControl value={exaggeration} onChange={onExaggerationChange} compact />
-          </div>
+          {/* `shrink-0` ไม่ใช่ `min-h-0`: ในคอลัมน์ flex ที่เลื่อนได้ กล่องที่ยอมหด
+              จะถูกบีบให้พอดีที่ว่างแล้วเนื้อหาข้างในล้นออกมาโดยไม่มีอะไรคลิป —
+              ของที่อยู่ถัดไปจึงถูกวาดทับรายการในแผง (เห็นบน iPhone จริง) */}
+          <div className="shrink-0">{current.render(ctx)}</div>
         </div>
       ) : null}
     </div>
