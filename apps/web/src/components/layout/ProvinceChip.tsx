@@ -16,10 +16,14 @@ export function ProvinceChip({
   provinces,
   selected,
   onSelect,
+  compact = false,
 }: {
   provinces: Province[];
   selected: Province;
   onSelect: (code: string) => void;
+  /** มือถือ: จำกัดชื่อให้แคบกว่าปกติ ไม่งั้นชื่อจังหวัดยาว ๆ แย่งที่จนช่องค้นหา
+   *  ถูกบีบเหลือไม่กี่ px (บั๊กที่เห็นจริงบน iPhone — ดู TopBar.tsx) */
+  compact?: boolean;
 }) {
   const { lang, t } = useLang();
   const [open, setOpen] = useState(false);
@@ -63,7 +67,9 @@ export function ProvinceChip({
         aria-expanded={open}
         aria-label={t("province.chip.aria", { name })}
         title={t("province.select")}
-        className="flex h-8 max-w-[9rem] cursor-pointer items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 text-sm font-medium text-[var(--color-fg)] transition-colors hover:border-white/25 hover:bg-white/8 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] @xl:max-w-[14rem]"
+        className={`flex h-8 cursor-pointer items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 text-sm font-medium text-[var(--color-fg)] transition-colors hover:border-white/25 hover:bg-white/8 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] ${
+          compact ? "max-w-[6.5rem]" : "max-w-[9rem] @xl:max-w-[14rem]"
+        }`}
       >
         <span className="truncate">{name}</span>
         <ChevronDown size={14} className="shrink-0 text-[var(--color-fg-muted)]" aria-hidden="true" />

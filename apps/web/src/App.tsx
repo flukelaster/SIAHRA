@@ -348,7 +348,12 @@ export default function App() {
   };
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-[var(--color-bg)]">
+    // `h-dvh` ไม่ใช่ `h-screen` (100vh): บน iOS Safari แถบ URL/แถบเครื่องมือหุบ-กาง
+    // ได้ระหว่างที่หน้าไม่ได้เลื่อน — `100vh` วัดความสูงตอนแถบหุบสุด (ใหญ่กว่าที่
+    // มองเห็นจริงตอนแถบกางอยู่) ทำให้ลูกที่ยึด `bottom: N` (PhoneDock/MobileSheet/
+    // BottomDock) ไปหลบอยู่ใต้แถบเครื่องมือของเบราว์เซอร์เอง กดไม่โดนเลย แม้จะยัง
+    // มองเห็นบางส่วน — เหตุผลเดียวกับที่ MethodologyPage.tsx ใช้ `dvh`
+    <div className="relative h-dvh w-screen overflow-hidden bg-[var(--color-bg)]">
       <MapViewport
         aoiId={aoiId}
         provinceLabel={provinceName}

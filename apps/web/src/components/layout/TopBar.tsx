@@ -104,10 +104,15 @@ export function TopBar({
         ) : null}
       </div>
 
-      <ProvinceChip provinces={provinces} selected={selectedProvince} onSelect={onSelectProvince} />
+      <ProvinceChip provinces={provinces} selected={selectedProvince} onSelect={onSelectProvince} compact={phone} />
 
       <div className="relative mx-auto min-w-0 w-full max-w-xl">
-        <label className="relative block">
+        {/* `overflow-hidden` บน label (ไม่ใช่ตัวห่อนอก — นั่นจะบังรายการค้นหาที่ลอย
+            ใต้ช่องด้วย): `input` มี padding ซ้าย-ขวารวม ~42px (ที่ว่างให้ไอคอนแว่น
+            ขยาย) ที่เบราว์เซอร์ไม่ยอมหดต่ำกว่านั้นแม้ตัวห่อ (`min-w-0`) จะถูกบีบ
+            เหลือไม่กี่ px บนจอแคบมาก — ถ้าไม่ตัด มันจะล้นทับปุ่มแชร์ที่อยู่ถัดไปพอดี
+            (บั๊กที่เห็นจริงบน iPhone: แว่นขยาย + ไอคอนแชร์ซ้อนกัน) */}
+        <label className="relative block overflow-hidden">
           <Search
             size={15}
             className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-[var(--color-fg-subtle)]"
@@ -178,18 +183,21 @@ export function TopBar({
         >
           <Camera size={14} />
         </button>
-        {/* ทางเข้าซอร์สโค้ด — โครงการเป็นโอเพนซอร์ส ลิงก์จึงอยู่ในแถบบนตลอด
-            รวมถึงจอแคบ (ปุ่มไอคอนล้วน กินที่เท่าปุ่มบันทึกภาพ) */}
-        <a
-          href={BRAND.repoUrl}
-          target="_blank"
-          rel="noreferrer noopener"
-          title={t("topbar.repoTitle")}
-          aria-label={t("topbar.repoTitle")}
-          className={ICON_BUTTON}
-        >
-          <GithubMark size={15} />
-        </a>
+        {/* ทางเข้าซอร์สโค้ด — โครงการเป็นโอเพนซอร์ส ลิงก์จึงอยู่ในแถบบนของจอกว้าง
+            แต่บนมือถือไม่มีที่พอจริง ๆ (พิสูจน์แล้วบน iPhone: ช่องค้นหาถูกบีบจน
+            แว่นขยายล้นทับปุ่มแชร์) จึงซ่อนเหมือนลิงก์ ThaiWater ด้านล่าง */}
+        {!phone ? (
+          <a
+            href={BRAND.repoUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+            title={t("topbar.repoTitle")}
+            aria-label={t("topbar.repoTitle")}
+            className={ICON_BUTTON}
+          >
+            <GithubMark size={15} />
+          </a>
+        ) : null}
         {/* ลิงก์ไปต้นทาง ThaiWater — บนมือถือไม่มีที่พอ (เครดิตเต็มยังอยู่ในบรรทัด
             attribution ของ dock ตลอดเวลาอยู่แล้ว) */}
         {!phone ? (
