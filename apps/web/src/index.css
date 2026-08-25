@@ -43,6 +43,9 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
+  /* กันการเด้ง rubber-band ของ iOS ตอนลากแผนที่ถึงขอบ (ซ้ำซ้อนกับ overflow:hidden
+     ข้างบนโดยตั้งใจ — Safari บางรุ่นยังเด้งแม้ body จะไม่เลื่อน) */
+  overscroll-behavior: none;
 }
 
 * {
