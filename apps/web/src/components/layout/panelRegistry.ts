@@ -31,7 +31,7 @@ export const PANELS: readonly PanelDef[] = [
     key: "flood",
     icon: Satellite,
     labelKey: "panel.flood",
-    render: (ctx) => createElement(FloodExtentCard, { state: ctx.floodExtent }),
+    render: (ctx) => createElement(FloodExtentCard, { state: ctx.floodExtent, atIso: ctx.atIso }),
   },
   {
     key: "impact",

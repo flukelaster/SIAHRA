@@ -344,6 +344,10 @@ export const en: Record<keyof typeof th, string> = {
     "The latest GISTDA scene has not been retrieved yet (retrying) — this does not mean there is no flooding",
   "flood.none": "No flooded area found in this province in the latest scene",
   "flood.noneFetched": " (retrieved {age})",
+  "flood.historicalScene": "Scene as of {time} — the GISTDA pull that covered the selected time, not the latest one",
+  "flood.noArchivedScene":
+    "No archived scene for {time} — flood outlines have only been recorded since this layer went live; this does not mean there was no flooding",
+  "flood.noneHistorical": "No flooded area was detected in this province in the scene that covered the selected time",
   "flood.tambonCount": "Flooded subdistricts",
   "flood.areaRai": "Area (rai)",
   "flood.households": "Households",

@@ -44,7 +44,7 @@ edit in that table.
 | `/api/v1/earthquakes/recent` | GET | 300 | default | per route | Cheap DO SQL query |
 | `/api/v1/earthquakes/live` | GET (WS) | 10 | 5 | per route | WebSocket upgrades: a handful per session at most, so a reconnect storm is capped |
 | `/api/v1/flood-extent/summary` | GET | 300 | default | per route | Nationwide totals, cached |
-| `/api/v1/provinces/{NN}/flood-extent` | GET | 300 | default | per route | Called for the selected province; kept high so a user browsing provinces quickly is never rate-limited into an empty layer |
+| `/api/v1/provinces/{NN}/flood-extent[?at=]` | GET | 300 | default | per route | Called for the selected province; kept high so a user browsing provinces quickly is never rate-limited into an empty layer. `at` (E14.F1) answers from the scene that covered that instant — a hot-table read inside 30 days, one R2 get (cached in DO memory for 1 h, at most 8 scenes) beyond it; the web snaps `at` to 10 minutes and debounces the timeline, so one gesture is one request |
 | `/api/v1/provinces/{NN}/exposure/latest` | GET | 300 | default | per route | The current flood-exposure run scoped to one province; same reasoning as flood-extent |
 | `/api/v1/provinces/{NN}/forecast` | GET | 300 | default | per route | E12.2 TMD NWP forecast for one province; one primary-key row read, and the request path never fetches upstream (the hourly cron does) |
 | `/api/v1/forecast/availability` | GET | 300 | default | per route | The date window TMD says it has daily data for, read from `meta` only |
@@ -86,7 +86,7 @@ Two rules are enforced by `json()` in `apps/api/src/router.ts` rather than by ea
 | `/api/v1/earthquakes/recent` | `realtime` | `public, max-age=10, s-maxage=20` |
 | `/api/v1/earthquakes/live` | — | WebSocket upgrade; no cache headers |
 | `/api/v1/flood-extent/summary` | `floodExtent(retrievedAt)` | `public, max-age=300, s-maxage=600`, or `no-store` when nothing has ever been retrieved |
-| `/api/v1/provinces/{NN}/flood-extent` | `floodExtent(retrievedAt)` | as above |
+| `/api/v1/provinces/{NN}/flood-extent` | `floodExtent(retrievedAt, historical)` | as above without `at`; with `at` and a scene found → `floodExtentArchived` = `public, max-age=3600, s-maxage=86400` (an archived scene's bytes never change, and `at` is 10-minute-snapped upstream); with `at` and no archived scene (`retrievedAt: null`, `reason: "no-archived-scene"`) → `no-store` |
 | `/api/v1/provinces/{NN}/exposure/latest` | `observations` | `public, max-age=60, s-maxage=120` |
 | `/api/v1/provinces/{NN}/forecast` | `observations` | `public, max-age=60, s-maxage=120` |
 | `/api/v1/forecast/availability` | `observations` | `public, max-age=60, s-maxage=120` |
@@ -161,7 +161,10 @@ Notes:
 - Path parameters are validated by the route pattern itself: `{NN}` is `[0-9]{2}`, a station id is
   `[0-9]+`, a radar frame id is `[0-9]+`. A path that does not match is a `404`, not a `400`.
 - `at` on `/api/v1/archive/snapshot` is **required**; a missing `at` answers `400`. On
-  `/api/v1/observations` it is optional (absent = latest).
+  `/api/v1/observations` and `/api/v1/provinces/{NN}/flood-extent` it is optional (absent = latest). For
+  flood-extent, an `at` before the first scene the Durable Object recorded (`flood_scenes` starts at deploy
+  time — a bootstrap row, no backfill) answers `200` with `features: []`, `retrievedAt: null` and
+  `reason: "no-archived-scene"`: nothing was observed, which is not the same as nothing was flooded.
 
 ## Realtime protocol (`/api/v1/earthquakes/live`)
 

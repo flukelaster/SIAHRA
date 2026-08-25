@@ -60,6 +60,24 @@ describe("floodExtent", () => {
   it("ยังไม่เคยดึงสำเร็จ = no-store (ห้ามให้ 'ต้นทางไม่ตอบสนอง' ค้างในแคช)", () => {
     expect(cachePolicy.floodExtent(null)).toBe(cachePolicy.noStore);
   });
+
+  it("?at= ที่หาฉากได้ แคชยาว (ไบต์ของฉากที่ archive แล้วไม่เปลี่ยน)", () => {
+    const p = cachePolicy.floodExtent("2026-07-01T00:00:00.000Z", true);
+    expect(p).toBe(cachePolicy.floodExtentArchived);
+    const maxAge = Number(/max-age=(\d+)/.exec(p.value)?.[1]);
+    const sMaxAge = Number(/s-maxage=(\d+)/.exec(p.value)?.[1]);
+    expect(p.value.startsWith("public, ")).toBe(true);
+    expect(maxAge).toBeGreaterThanOrEqual(3600);
+    expect(sMaxAge).toBeGreaterThanOrEqual(86400);
+  });
+
+  it("?at= ที่ไม่มีฉากเก็บไว้ = no-store เท่าเคส live", () => {
+    expect(cachePolicy.floodExtent(null, true)).toBe(cachePolicy.noStore);
+  });
+
+  it("live ไม่เปลี่ยนเมื่อ historical=false", () => {
+    expect(cachePolicy.floodExtent("2026-08-19T00:00:00.000Z", false).value).toBe("public, max-age=300, s-maxage=600");
+  });
 });
 
 describe("frozenArtifact", () => {
