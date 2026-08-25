@@ -888,6 +888,13 @@ was the sheet's collapse chevron sitting `ml-auto` *inside* the horizontally scr
 - Risk: the safe area `frameTerrain` reads once per AOI load must be right on the first synchronous
   render, so the drawer width is a constant per tier and only the dock height is measured
 - Issue: _(not yet filed)_
+- **Superseded on the phone tier (2026-08-25, same day)** — the acceptance criteria below are the
+  record of what QA verified for this task and are left as written, but criteria 1, 3 and 6 no longer
+  describe the product: the phone dock was deleted, `MobileSheet` gained three snap points, and the
+  phone safe area became the constant `SHEET_PEEK_H + 8`. On a 390-wide screen this shell left the map
+  ~410 px of an 844 px viewport, and the phone was being served the *full*-height timeline and forecast
+  strips while tablet-and-up got the dense ones. ≥ tablet is untouched. See AGENTS.md "Layout" for the
+  current shell
 
 1. Tiers from `lib/shellLayout.ts`: phone < 768 ≤ tablet < 1024 ≤ laptop < 1280 ≤ wide; ≥ tablet renders
    `TopBar` + `SideRail` (8 panels) + `BottomDock`, phone renders `TopBar` + phone dock + `MobileSheet`.
