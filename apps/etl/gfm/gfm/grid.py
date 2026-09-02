@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -22,6 +23,12 @@ import rasterio
 from rasterio.transform import Affine
 
 WORLDCOVER_MASKED = (50, 10)  # สิ่งปลูกสร้าง, ต้นไม้ — ไม่ประมาณความลึก (DSM)
+
+# รหัสจังหวัดเป็นเลขสองหลักเสมอ (`p{code}-clipped30.tif`, คีย์ `aoi/{code}/flood/…` ที่ Worker parse
+# ด้วย `\d{2}`) — ใต้ apps/web/public/aoi ยังมี AOI สาธิต `chiangmai-old-city` ซึ่งไม่ใช่จังหวัด
+# ไม่มี DEM 30 ม. และ Worker เข้าถึงคีย์ flood ของมันไม่ได้ (วัดจริง run 33617388500, 2026-09-02:
+# plan ปล่อยมันเข้า run → FileNotFoundError → health `down` ทั้งที่เขียนไป 42 ฉาก)
+_PROVINCE_CODE_RE = re.compile(r"^\d{2}$")
 
 
 @dataclass(frozen=True)
@@ -93,9 +100,25 @@ def province_box(code: str, aoi_root: Path) -> ProvinceBox:
     return ProvinceBox(code=code, bbox=(b["minLon"], b["minLat"], b["maxLon"], b["maxLat"]))
 
 
+def scan_aoi_root(aoi_root: Path) -> tuple[list[str], list[str]]:
+    """(รหัสจังหวัด, ชื่อรายการที่ข้าม) ใต้ aoi_root — เรียงชื่อทั้งสองรายการ
+
+    จังหวัด = โฟลเดอร์ชื่อตรง `^\\d{2}$` **และ** มี manifest.json; อย่างอื่น (AOI สาธิต, README.md,
+    โฟลเดอร์ที่ยังไม่มี manifest) เข้ารายการที่ข้าม ให้ `plan` log ทีเดียว — ไม่หายเงียบ ๆ
+    """
+    codes: list[str] = []
+    skipped: list[str] = []
+    for p in sorted(aoi_root.iterdir(), key=lambda p: p.name):
+        if p.is_dir() and _PROVINCE_CODE_RE.match(p.name) and (p / "manifest.json").exists():
+            codes.append(p.name)
+        else:
+            skipped.append(p.name)
+    return codes, skipped
+
+
 def list_province_codes(aoi_root: Path) -> list[str]:
-    """รหัสจังหวัดทุกตัวที่มี manifest.json ใต้ aoi_root (77 ตัวใน apps/web/public/aoi)"""
-    return sorted(d.name for d in aoi_root.iterdir() if d.is_dir() and (d / "manifest.json").exists())
+    """รหัสจังหวัดทุกตัวใต้ aoi_root (77 ตัวใน apps/web/public/aoi) — ดู scan_aoi_root ว่าอะไรนับเป็นจังหวัด"""
+    return scan_aoi_root(aoi_root)[0]
 
 
 def load_province_grid(code: str, work_dir: Path, aoi_root: Path) -> ProvinceGrid:

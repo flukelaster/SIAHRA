@@ -405,7 +405,7 @@ build ใหม่) ส่วนฉากน้ำท่วมถูกกำห
 | `aoi/{code}/flood/index.json` | job GitHub Actions (`.github/workflows/gfm-ingest.yml`, F3) เขียนทับ**เฉพาะเมื่อรายการฉากเปลี่ยน** — `generatedAt` จึงเป็นเวลาที่รายการเปลี่ยนล่าสุด ไม่ใช่เวลา run ล่าสุด | `max-age=300, stale-while-revalidate=600` |
 | `aoi/{code}/flood/{sceneId}/field.bin` | job เดียวกัน เขียน**ครั้งเดียว** (ไบต์เป็น gzip อยู่แล้ว; metadata ของอ็อบเจกต์เป็นแบบธรรมดา — Worker เป็นคนใส่ `content-encoding: gzip` เองจาก path) | `max-age=31536000, immutable` |
 | `aoi/{code}/flood/{sceneId}/meta.json` | job เดียวกัน เขียน**ครั้งเดียว** | `max-age=31536000, immutable` |
-| `flood/gfm/state.json`, `flood/gfm/health.json` | job เดียวกัน (`state` เฉพาะ `run` ไม่ใช่ `backfill`; `health` = `{lastRunAt, lastSuccessAt, lastSceneObservedAt, lastError, itemsProcessed, scenesWritten}` — `lastSuccessAt` ขยับเฉพาะ run ที่ไม่มี error และอัปถึง R2 แม้ run จะล้ม) — api อ่าน `health.json` ใบเดียว | ไม่เสิร์ฟให้เบราว์เซอร์ — prefix `flood/gfm/` ไม่มี route ใน Worker |
+| `flood/gfm/state.json`, `flood/gfm/health.json` | job เดียวกัน (`state` เฉพาะ `run` ไม่ใช่ `backfill`; `health` = `{lastRunAt, lastSuccessAt, lastSceneObservedAt, lastError, itemsProcessed, scenesWritten}` — `lastError` รวม**ทุก**ฉาก/จังหวัดที่ล้มใน run นั้นเป็นสตริงเดียว (คั่นด้วย `" | "`, ตัดที่ 500 ตัวอักษร) ไม่ใช่แค่ตัวสุดท้าย, `lastSuccessAt` ขยับเฉพาะ run ที่ไม่มี error และอัปถึง R2 แม้ run จะล้ม) — api อ่าน `health.json` ใบเดียว | ไม่เสิร์ฟให้เบราว์เซอร์ — prefix `flood/gfm/` ไม่มี route ใน Worker |
 | `etl/{code}/dem30.tif`, `etl/{code}/landcover30.tif` | คน อัป**ครั้งเดียว**ด้วย `scripts/upload-gfm-inputs.sh` (tiled DEFLATE COG ของ `p{code}-clipped30.tif` / `p{code}-worldcover30.tif` — ไบต์ชุดเดียวกับที่สร้าง `terrain.bin`) | อินพุตส่วนตัวของ pipeline ไม่มี route ใน Worker |
 
 ทุกคีย์ข้างบน (ยกเว้น `etl/`) ถูกผลิตโดย `apps/etl/gfm` (E14.F2, Python/uv) ลงดิสก์ในรูปเดียวกัน
@@ -413,11 +413,18 @@ build ใหม่) ส่วนฉากน้ำท่วมถูกกำห
 คน `rclone copy --no-traverse --checksum` ต้นไม้นั้นขึ้นไปโดยจำกัดอยู่ใต้ `aoi/{code}/flood/` (เฉพาะจังหวัด
 ใน plan) และ `flood/gfm/` เท่านั้น และดึงลงมาก่อน run แค่ `state`/`health`/`index.json`/อินพุต — ไม่เคยดึง
 โฟลเดอร์ฉาก เพราะ `index.json` บอกอยู่แล้วว่ามีฉากไหน และ CLI ข้ามฉากที่อยู่ใน index (`docs/deploy.md` §1)
+"จังหวัด" ที่ `plan` ไล่ใต้ `apps/web/public/aoi` คือโฟลเดอร์ชื่อตรง `^\d{2}$` **และ** มี `manifest.json`
+(`grid.py` `scan_aoi_root()`) — อย่างอื่น เช่น AOI สาธิต `chiangmai-old-city` ถูกข้ามและ log ครั้งเดียว
+(run แรกบน prod 2026-09-02 เคยวางมันเป็นจังหวัด → `FileNotFoundError` → `lastError` → health `down` ทั้งที่เขียนไป 42 ฉาก)
 
 สัญญาของชนิดข้อมูลอยู่ที่ `packages/shared-types/src/flood.ts` (`FloodSceneIndex`,
 `FloodSceneIndexEntry`, `FloodSceneMeta` และ layout ของ `field.bin`) — `meta.json` มี
 `fieldBytesGz` (ขนาด `field.bin` หลัง gzip ตามที่เขียนจริง) ไว้ให้ F6 รวมเป็นต้นทุน storage
-จริงแทนการประมาณ
+จริงแทนการประมาณ และมี `missingAssets` (`{itemId: [asset…]}`) **เฉพาะเมื่อไม่ว่าง**: item ของ GFM
+ไม่ได้มี `exclusion_mask` / `ensemble_likelihood` ทุกใบ (วัดบน STAC 2026-09-02: ใน 100 item ล่าสุดเหนือไทย
+ขาดอย่างละ 2 ใบ; `ensemble_flood_extent` กับ `reference_water_mask` ยังบังคับ ขาดแล้วฉากล้ม) — ขาด exclusion mask
+= เฟรมนั้นไม่ทำเครื่องหมาย `EXCLUDED` เลย (ค่าของ item ข้างเคียงที่ทับกันยังอยู่) `DRY` ในรอยเท้านั้นจึงอาจเป็น
+"มองไม่เห็น" ไม่ใช่ "ไม่มีน้ำ"; ขาด likelihood = `255` (ไม่มีค่า) ไม่ใช่ตัวเลขที่แต่งขึ้น
 
 ### ทำไมฉากถึง `immutable` ได้
 
@@ -460,7 +467,10 @@ Worker อ่าน R2 หนึ่ง `get` ต่อ miss (ผ่าน `cache
 "Flood scene not found" เมื่อไม่มีอ็อบเจกต์ และใส่ header จาก path เอง: `index.json`/`meta.json` เป็น
 `application/json`, `field.bin` เป็น `application/octet-stream` + `content-encoding: gzip` (สร้าง Response
 ด้วย `encodeBody: "manual"` ไม่ให้ runtime บีบซ้ำ — pipeline เขียน gzip ไว้แล้ว metadata ของอ็อบเจกต์บน
-R2 ไม่ต้องถูก) ตอน dev middleware ใน `vite.config.ts` อ่านจาก `apps/etl/data/flood/aoi/{code}/flood/…`
+R2 ไม่ต้องถูก) และ**ห่อ Response ใหม่ทุกครั้งที่ตอบจาก `caches.default`** (ใส่ `content-encoding: gzip` +
+`encodeBody: "manual"` ซ้ำ) เพราะ Cache API ไม่เก็บธง manual ไว้: วัดบน prod 2026-09-02 ก่อนแก้ HIT ของ `field.bin`
+ถูก gzip ซ้อนสองชั้น (66,041 B บนสาย gunzip หนึ่งครั้งยังได้ `1f8b` ต้องสองครั้งถึงได้ `SFLD`) ส่วน MISS ถูกต้อง
+ตอน dev middleware ใน `vite.config.ts` อ่านจาก `apps/etl/data/flood/aoi/{code}/flood/…`
 บนดิสก์ (ต้นไม้ที่ pipeline เขียน ใช้คีย์เดียวกับ R2 ทุกตัวอักษร) ด้วย header ชุดเดียวกัน
 
 ### นโยบายเก็บ: ไม่ลบ

@@ -1,8 +1,23 @@
 import numpy as np
 
-from gfm.grid import check_alignment, overview_index
+from gfm.grid import check_alignment, list_province_codes, overview_index, scan_aoi_root
 
 from conftest import make_grid
+
+
+def test_list_province_codes_only_two_digit_dirs_with_manifest(tmp_path):
+    """apps/web/public/aoi มี AOI สาธิต `chiangmai-old-city` (มี manifest แต่ไม่ใช่จังหวัด) และไฟล์อื่น —
+    run 33617388500 (2026-09-02) ปล่อยมันเข้า plan → FileNotFoundError → health `down` ทั้งที่เขียน 42 ฉาก"""
+    aoi = tmp_path / "aoi"
+    for name in ("57", "58", "chiangmai-old-city"):
+        (aoi / name).mkdir(parents=True)
+        (aoi / name / "manifest.json").write_text("{}")
+    (aoi / "README.md").write_text("# aoi\n")
+    (aoi / "59").mkdir()  # ชื่อถูกแต่ยังไม่มี manifest → ไม่ใช่จังหวัดที่ใช้ได้
+    assert list_province_codes(aoi) == ["57", "58"]
+    codes, skipped = scan_aoi_root(aoi)
+    assert codes == ["57", "58"]
+    assert skipped == ["59", "README.md", "chiangmai-old-city"]
 
 
 def test_check_alignment_fake_grid():

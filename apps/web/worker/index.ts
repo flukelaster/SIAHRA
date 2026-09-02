@@ -101,7 +101,21 @@ export default {
     const cache = caches.default;
     if (cacheable) {
       const hit = await cache.match(request);
-      if (hit) return hit;
+      if (hit) {
+        // A cached `field.bin` comes back as a plain Response: the gzip'd body
+        // is intact but the `encodeBody: "manual"` flag is not part of what the
+        // Cache API stores, so returning `hit` as-is lets the runtime gzip the
+        // already-gzip'd bytes a second time for any client that sent
+        // `Accept-Encoding: gzip` — measured on prod 2026-09-02: 66,041 B on the
+        // wire, one gunzip still yields a 1f8b stream, only the second yields
+        // "SFLD". Re-wrap the hit with the flag (and the header, stated from
+        // the path like the miss branch) so hit and miss are byte-identical.
+        const enc = flood ? floodHeaders(flood).contentEncoding : null;
+        if (!enc) return hit;
+        const headers = new Headers(hit.headers);
+        headers.set("content-encoding", enc);
+        return new Response(hit.body, { status: hit.status, headers, encodeBody: "manual" });
+      }
     }
 
     // A versioned URL resolves to a versioned key — the version is never

@@ -158,13 +158,17 @@ def scene_entry(
     }
 
 
-def scene_meta(entry: dict, field_bytes_gz: int) -> dict:
+def scene_meta(entry: dict, field_bytes_gz: int, missing_assets: dict[str, list[str]] | None = None) -> dict:
     """FloodSceneMeta (flood.ts) = entry + methodology ที่ใช้จริง
 
     `fieldBytesGz` (ขนาด gzip ของ field.bin — `FloodSceneMeta.fieldBytesGz` ใน flood.ts) ไว้ให้ F6
     คิดค่า storage จากตัวเลขจริง อยู่ใน meta.json เท่านั้น ไม่ใส่ใน index entry
+
+    `missingAssets` (`FloodSceneMeta.missingAssets`) = `SceneRasters.missing_assets` ของ warp.py —
+    ใส่ **เฉพาะเมื่อไม่ว่าง**: ฉากที่ทุก item มี asset ครบไม่มีคีย์นี้ (meta.json ของ fixture เดิมจึง
+    ไม่เปลี่ยน) และไม่อยู่ใน index entry เช่นกัน
     """
-    return {
+    meta = {
         **entry,
         "methodology": {
             "name": "FwDET-2",
@@ -174,6 +178,9 @@ def scene_meta(entry: dict, field_bytes_gz: int) -> dict:
         },
         "fieldBytesGz": int(field_bytes_gz),
     }
+    if missing_assets:
+        meta["missingAssets"] = {k: list(v) for k, v in missing_assets.items()}
+    return meta
 
 
 # F5 (roadmap E14): ฉากที่เก่ากว่า 14 วันถือว่าไม่มีภาพในหน้าต่างและถูกหรี่ — S1 บินซ้ำทุก 6–12 วัน

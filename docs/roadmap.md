@@ -1027,7 +1027,8 @@ hydraulics stay excluded and the four scoping decisions in §0 are unchanged.
   pinned to uv 0.9.30, apt rclone; secrets `CLOUDFLARE_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
   `R2_SECRET_ACCESS_KEY`, each missing one fails with `::error::missing secret X`),
   `apps/etl/gfm/gfm/{cli,stac,grid}.py` (`plan` subcommand, `run/backfill --plan`, `run --until`,
-  `FRAME_MERGE_WINDOW`, `ProvinceBox`, `list_province_codes()`; 41 pytest, golden fixture now
+  `FRAME_MERGE_WINDOW`, `ProvinceBox`, `list_province_codes()` / `scan_aoi_root()`; 51 pytest after the
+  2026-09-02 follow-up, golden fixture now
   `tests/fixtures/57/20240913T112151-AS020M/`), `apps/web/worker/floodPath.ts` (+ tests, traversal
   rejection like `tilePath.test.ts`), `apps/web/worker/index.ts`, `apps/web/vite.config.ts`
   middleware, `packages/shared-types/src/sources.ts` (`SourceId` `copernicus-gfm` + `SOURCES` entry:
@@ -1070,13 +1071,29 @@ hydraulics stay excluded and the four scoping decisions in §0 are unchanged.
     province has an `index.json`); (2) bootstrap with a short `--since` (a few days) or per-province
     backfills rather than 31 days × 77 provinces, which may exceed the 45-min timeout — a timeout
     uploads nothing and state does not move, so it is safe, but it never completes either
+  - **Follow-up 2026-09-02** (`fix/gfm-ingest-province-codes`, from the first production bootstrap,
+    run 33617388500 — 85 items / 72 provinces in ~35 min: plan 5, downloads 4, pipeline 24, upload
+    1.5 — and a prod probe). Three defects: (1) `plan` enumerated the demo AOI `chiangmai-old-city`
+    as a province → `FileNotFoundError` → the run wrote 42 scenes yet went red and `/api/v1/health`
+    showed `copernicus-gfm` `down` with `fetchedAt: null`; fix: `grid.py` `scan_aoi_root()` — a
+    province is a `^\d{2}$` directory holding `manifest.json`, everything else is skipped and logged
+    once. (2) `warp.py` required all four assets, but 2 of the 100 newest STAC items over Thailand
+    lack `exclusion_mask` and 2 lack `ensemble_likelihood`; fix: those two are optional (a missing
+    mask flags nothing `EXCLUDED` in that frame, a missing likelihood is `255`), `meta.json` gains
+    `missingAssets` only when non-empty (`FloodSceneMeta.missingAssets?`), `extent` and
+    `reference_water_mask` stay required. (3) a `caches.default` HIT for `field.bin` came back
+    double-gzipped on prod (66,041 B; one gunzip still yields `1f8b`) because the Cache API drops
+    `encodeBody: "manual"`; fix: the Worker re-wraps the hit with the header and the flag. Also
+    `health.lastError` now joins every failed scene/province (`" | "`, capped at 500 chars) instead
+    of keeping only the last one
 
 1. A scheduled run is green and `/aoi/57/flood/index.json` answers `200 application/json`
    (a 200 alone is the SPA shell). *Evidence:* `floodPath.test.ts` + the Worker's flood branch
    (real 404 "Flood scene not found", 405, `application/json` for the index, `application/octet-stream`
    + `content-encoding: gzip` with `encodeBody: "manual"` for `field.bin`); the first scheduled run and
-   the prod smoke (`docs/deploy.md` §6) happen after merge — the gzip cache-hit path through
-   `caches.default` is untested on prod until then, so smoke it twice.
+   the prod smoke (`docs/deploy.md` §6) happened after merge — the second smoke caught the gzip
+   cache-hit path through `caches.default` double-compressing (Follow-up 2026-09-02 above), so the
+   smoke now gunzips the body once and expects `SFLD`.
 2. `SourceId` `copernicus-gfm` + `SOURCES` entry land in this PR; `/api/v1/health` shows it with
    `lastRunAt`; a failed run shows as `stale`; every `LIVE_SOURCE_IDS` entry still appears in `/health`.
    *Evidence:* `health.test.ts`. Wording note: "a failed run shows as `stale`" is realised through the
