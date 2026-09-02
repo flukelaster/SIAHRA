@@ -16,6 +16,7 @@ export type SourceId =
   | "tmd-nwp"
   | "exposure-illustrative"
   | "alert-engine"
+  | "copernicus-gfm"
   | "copernicus-dem"
   | "osm"
   | "osm-admin"
@@ -142,6 +143,25 @@ export const SOURCES: Record<SourceId, SourceDescriptor> = {
     licenseUrl: "https://github.com/flukelaster/SIAHRA/blob/main/LICENSE",
     attributionText:
       "การแจ้งเตือนระดับท้องถิ่นประเมินโดย SIAHRA จากค่าตรวจวัดของคลังข้อมูลน้ำแห่งชาติ (ThaiWater) ตามกฎเงื่อนไขที่ผูกกับสถานีจริง — ไม่ใช่การพยากรณ์",
+    kind: "live",
+  },
+  "copernicus-gfm": {
+    id: "copernicus-gfm",
+    nameTh: "พื้นที่น้ำท่วมจากดาวเทียม Sentinel-1 (Copernicus GFM)",
+    nameEn: "Satellite flood extent (Copernicus GFM, Sentinel-1)",
+    agency: "European Commission — Copernicus Emergency Management Service / EODC",
+    // Product User Manual ของ GFM; ข้อมูลอ่านจาก STAC ของ EODC
+    // https://stac.eodc.eu/api/v1/collections/GFM (ไม่ต้อง auth; E14.F2 `apps/etl/gfm`)
+    homepageUrl: "https://extwiki.eodc.eu/GFM/PUM",
+    // ไม่มีชื่อสัญญาอนุญาตให้อ้าง — STAC collection ระบุ `license: "proprietary"` และ licensor
+    // "JRC CEMS" (https://emergency.copernicus.eu/) ส่วน PUM ข้อ 7.1.4/7.1.7 (FAQ) ตอบเพียงว่า
+    // "GFM is part of the CEMS ecosystem … the same rules apply … check the Terms and
+    // Conditions sections on GloFAS/EFAS" — จึงอ้างข้อกำหนดนั้นตามที่ต้นทางชี้ ไม่ตั้งชื่อเอง
+    licenseName: "ข้อกำหนดและเงื่อนไขของ Copernicus Emergency Management Service (GloFAS/EFAS Terms and Conditions ตาม PUM ข้อ 7.1.4)",
+    licenseUrl: "https://global-flood.emergency.copernicus.eu/terms-and-conditions/",
+    attributionText: "© European Union, Copernicus Emergency Management Service (GFM), EODC",
+    // ดึงโดย job GitHub Actions (.github/workflows/gfm-ingest.yml) ทุก 6 ชม. แล้วเขียน
+    // flood/gfm/health.json ลง R2 — api อ่านใบนั้นใบเดียวเพื่อรายงานใน /api/v1/health (E14.F3)
     kind: "live",
   },
   "copernicus-dem": {

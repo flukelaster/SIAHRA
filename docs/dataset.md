@@ -402,15 +402,17 @@ build ใหม่) ส่วนฉากน้ำท่วมถูกกำห
 
 | คีย์ | ใคร​เขียน | Cache-Control |
 |---|---|---|
-| `aoi/{code}/flood/index.json` | job GitHub Actions (F3) เขียนทับทุกครั้งที่มีฉากใหม่ | `max-age=300, stale-while-revalidate=600` |
-| `aoi/{code}/flood/{sceneId}/field.bin` | job เดียวกัน เขียน**ครั้งเดียว** | `max-age=31536000, immutable` |
+| `aoi/{code}/flood/index.json` | job GitHub Actions (`.github/workflows/gfm-ingest.yml`, F3) เขียนทับ**เฉพาะเมื่อรายการฉากเปลี่ยน** — `generatedAt` จึงเป็นเวลาที่รายการเปลี่ยนล่าสุด ไม่ใช่เวลา run ล่าสุด | `max-age=300, stale-while-revalidate=600` |
+| `aoi/{code}/flood/{sceneId}/field.bin` | job เดียวกัน เขียน**ครั้งเดียว** (ไบต์เป็น gzip อยู่แล้ว; metadata ของอ็อบเจกต์เป็นแบบธรรมดา — Worker เป็นคนใส่ `content-encoding: gzip` เองจาก path) | `max-age=31536000, immutable` |
 | `aoi/{code}/flood/{sceneId}/meta.json` | job เดียวกัน เขียน**ครั้งเดียว** | `max-age=31536000, immutable` |
-| `flood/gfm/state.json`, `flood/gfm/health.json` | job เดียวกัน (`state` เฉพาะ `run` ไม่ใช่ `backfill`) — api อ่าน `health.json` ใบเดียว | ไม่เสิร์ฟให้เบราว์เซอร์ |
+| `flood/gfm/state.json`, `flood/gfm/health.json` | job เดียวกัน (`state` เฉพาะ `run` ไม่ใช่ `backfill`; `health` = `{lastRunAt, lastSuccessAt, lastSceneObservedAt, lastError, itemsProcessed, scenesWritten}` — `lastSuccessAt` ขยับเฉพาะ run ที่ไม่มี error และอัปถึง R2 แม้ run จะล้ม) — api อ่าน `health.json` ใบเดียว | ไม่เสิร์ฟให้เบราว์เซอร์ — prefix `flood/gfm/` ไม่มี route ใน Worker |
 | `etl/{code}/dem30.tif`, `etl/{code}/landcover30.tif` | คน อัป**ครั้งเดียว**ด้วย `scripts/upload-gfm-inputs.sh` (tiled DEFLATE COG ของ `p{code}-clipped30.tif` / `p{code}-worldcover30.tif` — ไบต์ชุดเดียวกับที่สร้าง `terrain.bin`) | อินพุตส่วนตัวของ pipeline ไม่มี route ใน Worker |
 
 ทุกคีย์ข้างบน (ยกเว้น `etl/`) ถูกผลิตโดย `apps/etl/gfm` (E14.F2, Python/uv) ลงดิสก์ในรูปเดียวกัน
-ทุกตัวอักษรใต้ `apps/etl/data/flood` (gitignored) — pipeline **ไม่มีโค้ดอัปโหลด** job ของ F3 เป็น
-คน `rclone copy` ต้นไม้นั้นขึ้นไปโดยจำกัดอยู่ใต้ `aoi/{code}/flood/` และ `flood/gfm/` เท่านั้น
+ทุกตัวอักษรใต้ `apps/etl/data/flood` (gitignored) — pipeline **ไม่มีโค้ดอัปโหลด** `gfm-ingest.yml` เป็น
+คน `rclone copy --no-traverse --checksum` ต้นไม้นั้นขึ้นไปโดยจำกัดอยู่ใต้ `aoi/{code}/flood/` (เฉพาะจังหวัด
+ใน plan) และ `flood/gfm/` เท่านั้น และดึงลงมาก่อน run แค่ `state`/`health`/`index.json`/อินพุต — ไม่เคยดึง
+โฟลเดอร์ฉาก เพราะ `index.json` บอกอยู่แล้วว่ามีฉากไหน และ CLI ข้ามฉากที่อยู่ใน index (`docs/deploy.md` §1)
 
 สัญญาของชนิดข้อมูลอยู่ที่ `packages/shared-types/src/flood.ts` (`FloodSceneIndex`,
 `FloodSceneIndexEntry`, `FloodSceneMeta` และ layout ของ `field.bin`) — `meta.json` มี
@@ -420,7 +422,10 @@ build ใหม่) ส่วนฉากน้ำท่วมถูกกำห
 ### ทำไมฉากถึง `immutable` ได้
 
 `sceneId` = เวลาบันทึกภาพของ Sentinel-1 (UTC) + กลุ่มไทล์ Equi7 เช่น
-`20260824T232439-AS020M` — ภาพที่ดาวเทียมบันทึกไปแล้ว ณ เวลานั้นไม่มีวันเปลี่ยน และ
+`20260824T232439-AS020M` — **หนึ่งฉากต่อหนึ่งรอบบิน**: เฟรม 2–5 เฟรมที่ดาวเทียมถ่ายจังหวัดเดียวกันใน
+รอบเดียว (กลุ่มไทล์เดียวกัน ห่างจากเฟรมแรกไม่เกิน `FRAME_MERGE_WINDOW` = 10 นาที ใน `stac.py`) ถูกรวม
+เป็นฉากเดียวโดยใช้เวลาของเฟรม**แรกสุด**เป็น `sceneId` (ตัดสินใน F3 ก่อนฉากแรกจาก cron จะลง เพราะ
+ชื่อที่ปล่อยไปแล้วเปลี่ยนไม่ได้) — ภาพที่ดาวเทียมบันทึกไปแล้ว ณ เวลานั้นไม่มีวันเปลี่ยน และ
 `meta.json` บันทึกพารามิเตอร์ของวิธีคำนวณ (`methodology`) ที่ใช้ผลิตฉากนั้นไว้ในตัว
 ถ้าวันหนึ่งวิธีคำนวณเปลี่ยน (เช่น เปลี่ยนความกว้าง median หรือเพดานความลึก) ฉากเดิม
 **ไม่ถูกเขียนทับ** — กฎเดียวกับหัวข้อ 7: ชื่อที่ปล่อยไปแล้วห้ามใช้ซ้ำกับไบต์ชุดอื่น
@@ -451,14 +456,18 @@ Worker ฝั่ง web แค่ส่งต่อไฟล์ตามคี�
 ไม่มีทางผ่าน และ path ที่ไม่ตรงรูปร่างตกไปที่ asset layer เหมือนเดิม (ซึ่งตอบ
 `200 text/html` = หน้า SPA — การตรวจว่าฉากมีอยู่จริงจึงต้องดู `Content-Type` เป็น
 `application/json` / `application/octet-stream` ด้วย ไม่ใช่ดูแค่สถานะ 200; หัวข้อ 7)
-ตอน dev middleware ใน `vite.config.ts` อ่านจาก `apps/etl/data/flood/aoi/{code}/flood/…` บนดิสก์
-(ต้นไม้ที่ pipeline เขียน ใช้คีย์เดียวกับ R2 ทุกตัวอักษร)
+Worker อ่าน R2 หนึ่ง `get` ต่อ miss (ผ่าน `caches.default` เหมือน tile) ตอบ 404 จริง
+"Flood scene not found" เมื่อไม่มีอ็อบเจกต์ และใส่ header จาก path เอง: `index.json`/`meta.json` เป็น
+`application/json`, `field.bin` เป็น `application/octet-stream` + `content-encoding: gzip` (สร้าง Response
+ด้วย `encodeBody: "manual"` ไม่ให้ runtime บีบซ้ำ — pipeline เขียน gzip ไว้แล้ว metadata ของอ็อบเจกต์บน
+R2 ไม่ต้องถูก) ตอน dev middleware ใน `vite.config.ts` อ่านจาก `apps/etl/data/flood/aoi/{code}/flood/…`
+บนดิสก์ (ต้นไม้ที่ pipeline เขียน ใช้คีย์เดียวกับ R2 ทุกตัวอักษร) ด้วย header ชุดเดียวกัน
 
 ### นโยบายเก็บ: ไม่ลบ
 
 เหมือนหัวข้อ 7 ทุกประการ — ฉากถูกส่งด้วย `immutable` หนึ่งปี การลบทิ้งคือ 404 กลาง
 ไทม์ไลน์ของ client ที่แคช index เก่าไว้ ต้นทุนคือ storage ล้วน (ประมาณ 0.1–0.3 MB
 ต่อฉากหลัง gzip × ~77 จังหวัด × ~60 รอบบิน/ปี ≈ 0.5–1.4 GB/ปี; วัดจริงที่เชียงราย
-2024-09: ฉากแห้ง 3.4 KB, ฉากท่วม 3,197 เซลล์ 84 KB — ไบต์แปรตามเซลล์ที่สังเกตได้ ไม่ใช่
-จำนวน frame) ตัวเลขจริงหลังการ backfill (F6) รวมจาก `fieldBytesGz` แล้วเขียนไว้ใน
+2024-09-13 หลังรวมเฟรม: หนึ่งรอบบิน 6 เฟรม = ฉากเดียว `20240913T112151-AS020M`, สังเกตได้
+138,057 เซลล์ ท่วม 3,197 เซลล์ = 85,087 B — ไบต์แปรตามเซลล์ที่สังเกตได้ ไม่ใช่จำนวน frame) ตัวเลขจริงหลังการ backfill (F6) รวมจาก `fieldBytesGz` แล้วเขียนไว้ใน
 `docs/deploy.md` (ประมาณการล่วงหน้าของ devops อยู่ที่นั่นแล้ว)

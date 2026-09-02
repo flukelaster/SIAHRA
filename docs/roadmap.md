@@ -55,7 +55,7 @@ Each task is a `####` heading `E<epic>.<n> — <title>` followed by:
 | **M3 Resilient & observable** | E5, E6 | One failing source cannot starve the others; health `ok` is false when a source is `down`; a `delayed` state exists; DO tests with fixtures; `docs/ops.md`; deploy runs a smoke check and can roll back |
 | **M4 Bilingual, fast, versioned** | E7, E8, E9 | th/en toggle covers all visible strings; LOD no longer flickers; the deploy no longer ships legacy `buildings.geojson`; manifests carry per-layer provenance and checksums, and a `terrain.bin` checksum mismatch suppresses the terrain-derived hazard overlays instead of silently driving them; version-addressed tile prefix and a release script |
 | **M5 Illustrative exposure & quake analytics** | E10 | `/api/v1/provinces/NN/exposure/latest` serves an immutable, run-id'd, `illustrative` layer with a `methodologyUrl`; the map drapes it in the "modelled" visual language; the earthquake card shows distance-to-province; no probability, "risk" or "forecast" wording anywhere |
-| **M6 Observed flood scenes & illustrative depth** | E14 | `/aoi/NN/flood/index.json` lists every Sentinel-1 pass over the province (dry passes included) with `observedAt`/`publishedAt`; `field.bin` scenes are immutable and time-addressed; the map drapes GFM extent as `observed` and FwDET depth as `illustrative` with a `methodologyUrl`, never depth without its scene; `/api/v1/health` carries `copernicus-gfm` and a failed Actions run shows as stale; the timeline labels the gap between the chosen time and the scene's acquisition; no probability, "risk" or "forecast" wording anywhere |
+| **M6 Observed flood scenes & illustrative depth** | E14 | `/aoi/NN/flood/index.json` lists every Sentinel-1 pass over the province (dry passes included) with `observedAt`/`publishedAt`; `field.bin` scenes are immutable and time-addressed; the map drapes GFM extent as `observed` and FwDET depth as `illustrative` with a `methodologyUrl`, never depth without its scene; `/api/v1/health` carries `copernicus-gfm`, a failed Actions run shows as degraded/down and a silent cron as stale; the timeline labels the gap between the chosen time and the scene's acquisition; no probability, "risk" or "forecast" wording anywhere |
 
 ## 2. Tasks
 
@@ -936,7 +936,9 @@ the scene it came from; GFM `likelihood` is the classifier's confidence, never a
 verbatim; and the `SourceId` `copernicus-gfm` is registered in F3 **together with** the health
 collector that reports it — same rule as E12.1/tmd-nwp: a live source id is registered with its
 ingestion, never before, so `/health` never carries a permanent `unknown` row for a layer that does
-not exist yet. Once F3 lands, a failed run shows as stale — never omitted, never faked as fresh.
+not exist yet. Since F3 landed, a failed run shows as `degraded`/`down` (its `lastError` is in
+`health.json`, judged by the shared `deriveSourceHealth` ladder) and a cron that stopped firing shows as
+`stale` after 12 h — never omitted, never faked as fresh.
 
 Supersedes one line of E10.1 (criterion 3 — "DEM depth" was out of scope because the DEM is a DSM);
 hydraulics stay excluded and the four scoping decisions in §0 are unchanged.
@@ -977,11 +979,12 @@ hydraulics stay excluded and the four scoping decisions in §0 are unchanged.
 2. An `at` older than 30 days resolves to one R2 key through `flood_scenes` — no R2 `list()`.
 3. The `retrievedAt` shown is that scene's, not the latest fetch.
 
-#### E14.F2 — Python pipeline, tests, backfill CLI — *done* (2026-09-02)
+#### E14.F2 — Python pipeline, tests, backfill CLI — *done* (2026-09-02, PR #75)
 - Touches: new `apps/etl/gfm/gfm/{contract,grid,stac,warp,fwdet,encode,cli}.py` (Python 3.13 /
   uv, `pyproject.toml` + `uv.lock`, `uv run --frozen` — no `requirements.txt`), `apps/etl/gfm/tests/`
   (30 offline pytest tests: synthetic bowl, masks, boundary median, encoder round-trip, CLI
-  idempotency, wording grep) + golden real fixture `tests/fixtures/57/20240913T112241-AS020M/`,
+  idempotency, wording grep) + golden real fixture `tests/fixtures/57/20240913T112241-AS020M/`
+  (re-keyed to `20240913T112151-AS020M` by the F3 frame merge — that directory no longer exists),
   `apps/etl/package.json` scripts `gfm:test` / `gfm:run` / `gfm:backfill` / `gfm:check-grid`,
   `packages/shared-types/src/flood.ts` (`FloodSceneMeta.fieldBytesGz`), new
   `scripts/upload-gfm-inputs.sh` (the one-off `etl/{code}/{dem30,landcover30}.tif` upload lives
@@ -1017,41 +1020,75 @@ hydraulics stay excluded and the four scoping decisions in §0 are unchanged.
 3. Backfill is idempotent: a scene already in the index is skipped. *Evidence:* `tests/test_cli.py`
    (existing `field.bin` → skip; second run writes nothing).
 
-#### E14.F3 — Actions cron, R2 serving, health
-- Touches: new `.github/workflows/gfm-ingest.yml` (cron `17 */6 * * *`, `workflow_dispatch`
-  backfill), `apps/web/worker/floodPath.ts` (+ tests, traversal rejection like `tilePath.test.ts`),
-  `apps/web/vite.config.ts` middleware, `packages/shared-types/src/sources.ts` (register `SourceId`
-  `copernicus-gfm` + `SOURCES` entry: attribution "© European Union, Copernicus Emergency Management
-  Service (GFM), EODC", PUM https://extwiki.eodc.eu/GFM/PUM, STAC
-  https://stac.eodc.eu/api/v1/collections/GFM — in the **same PR** as the health collector, same rule
-  as E12.1/tmd-nwp: a live source id is registered together with its ingestion, never before),
-  `apps/api/src/routes/health.ts` (read `flood/gfm/health.json` — one cached R2 `get` behind
-  `cachePolicy`, stale after 12 h; + `health.test.ts`, `contract.test.ts` LIVE_SOURCE_IDS),
-  `docs/deploy.md` (secrets, cost line)
+#### E14.F3 — Actions cron, R2 serving, health — *done* (2026-09-02)
+- Touches: new `.github/workflows/gfm-ingest.yml` (cron `17 */6 * * *` + `workflow_dispatch`
+  inputs `since` for bootstrap (≤ 31 days back) and `from`/`to`/`provinces` for backfill;
+  concurrency group `gfm-ingest` without cancel, 45 min, `contents: read`, `astral-sh/setup-uv@v10.0.1`
+  pinned to uv 0.9.30, apt rclone; secrets `CLOUDFLARE_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
+  `R2_SECRET_ACCESS_KEY`, each missing one fails with `::error::missing secret X`),
+  `apps/etl/gfm/gfm/{cli,stac,grid}.py` (`plan` subcommand, `run/backfill --plan`, `run --until`,
+  `FRAME_MERGE_WINDOW`, `ProvinceBox`, `list_province_codes()`; 41 pytest, golden fixture now
+  `tests/fixtures/57/20240913T112151-AS020M/`), `apps/web/worker/floodPath.ts` (+ tests, traversal
+  rejection like `tilePath.test.ts`), `apps/web/worker/index.ts`, `apps/web/vite.config.ts`
+  middleware, `packages/shared-types/src/sources.ts` (`SourceId` `copernicus-gfm` + `SOURCES` entry:
+  attribution "© European Union, Copernicus Emergency Management Service (GFM), EODC", PUM
+  https://extwiki.eodc.eu/GFM/PUM as homepage, licence wording quoted from PUM 7.1.4 → GloFAS/EFAS
+  Terms and Conditions because the STAC collection only says `license: proprietary` — in the
+  **same PR** as the health collector, the E12.1/tmd-nwp rule), `apps/api/src/routes/health.ts`
+  (+ `health.test.ts`), `docs/deploy.md` (secrets, bootstrap/backfill, smoke checks, cost line)
 - Depends: E14.F2
 - Size: M
 - Risk: cost-bearing (R2 in a request path, new workflow) — `devops` gate before and after
-- Issue: _(not yet filed)_
-- Prerequisites carried forward from F2 (devops constraints):
-  - the workflow uploads with **`rclone copy` scoped to `aoi/{code}/flood/` and `flood/gfm/`** —
-    never `rclone sync`, never at `aoi/` or the bucket root (a root sync from an ephemeral runner
-    would delete every tile); F2's tree already mirrors those keys under `apps/etl/data/flood`
-  - the job must either `rclone copy` `etl/{code}/{dem30,landcover30}.tif` down into `--work-dir`
-    (as `p{code}-clipped30.tif` / `p{code}-worldcover30.tif`) or add `/vsicurl/` support to
-    `grid.py load_province_grid()` — F2 still reads the local files only
-  - **decide the frame merge before F6** (with F5): the 2–5 frames of one Sentinel-1 pass over a
-    province (same Equi7 tile group, ~25 s apart) should become one `sceneId` in
-    `stac.py group_by_province()`. Scenes are immutable, so re-keying after the backfill means
-    rewriting everything; the merge does not change bytes but divides objects / puts / index entries
-    by 1.5–5×, which is what keeps `INDEX_MAX_SCENES = 1500` (~0.6 KB per entry ≈ 0.9 MB) from
-    breaching F6 criterion 1
+- Issue: shipped on `feat/flood-gfm-ingest`. How the devops prerequisites from F2 were met:
+  - upload = `rclone copy --no-traverse --checksum` scoped to `aoi/{code}/flood` per planned province
+    and to `flood/gfm` — never `sync`, never `aoi/` or the bucket root; download = `rclone copyto
+    --no-traverse` of `flood/gfm/{state,health}.json`, then per planned province
+    `aoi/{code}/flood/index.json` + `etl/{code}/{dem30,landcover30}.tif` (rclone exit 3/4 = absent,
+    tolerated; anything else stops the job before it touches R2); a scene directory is never copied
+    down. `health.json` reaches R2 first and the job fails *afterwards* when the pipeline rc ≠ 0
+  - the inputs land in `--work-dir` as `p{code}-clipped30.tif` / `p{code}-worldcover30.tif` — no
+    `/vsicurl/`; a province whose inputs are absent fails inside the CLI, shows up in
+    `health.lastError`, holds `lastCreated`, and the run continues with the others
+  - **frame merge decided here, before any cron scene landed:** `stac.py` `FRAME_MERGE_WINDOW = 10 min`
+    — the frames of one Sentinel-1 pass over a province (same Equi7 tile group, within 10 min of
+    the pass's first frame) are one scene keyed on the earliest acquisition. The Chiang Rai golden
+    fixture became six frames merged into one scene (observed 138,057 cells, flooded 3,197, excluded
+    127,259, `maxDepthCm` 850, `medianDepthCm` 13, 85,087 B gz); the former separate "dry" frame
+    scene no longer exists
+  - `plan` does one country-wide STAC search (→ `provinces.txt` + `plan.json`) and `run --plan`
+    re-searches once with `until = createdMax`, so a run is two searches, never 77; a plan with
+    0 items or an error searches nothing. A scene is skipped when it is in the existing `index.json`
+    **or** a local `field.bin` exists; `index.json` is written only when the scene list changed, so
+    its `generatedAt` is the last change, not the last run
+  - `health.json` is now `{lastRunAt, lastSuccessAt, lastSceneObservedAt, lastError, itemsProcessed,
+    scenesWritten}` — `lastSuccessAt` advances only on a run with no error
   - the pytest suite still has no `ci.yml` leg (separate owner PR, see F2)
+  - devops verify: +$0.01/month expected, +$0.70 worst case (only if other workloads had already
+    exhausted the R2 free tiers) — numbers in `docs/deploy.md`. Two optional follow-ups it noted,
+    not blockers: (1) `rclone copy --no-traverse --files-from` would avoid the HEAD + LIST that
+    `copyto` spends on an optional object that does not exist yet (falls to zero once every
+    province has an `index.json`); (2) bootstrap with a short `--since` (a few days) or per-province
+    backfills rather than 31 days × 77 provinces, which may exceed the 45-min timeout — a timeout
+    uploads nothing and state does not move, so it is safe, but it never completes either
 
 1. A scheduled run is green and `/aoi/57/flood/index.json` answers `200 application/json`
-   (a 200 alone is the SPA shell).
+   (a 200 alone is the SPA shell). *Evidence:* `floodPath.test.ts` + the Worker's flood branch
+   (real 404 "Flood scene not found", 405, `application/json` for the index, `application/octet-stream`
+   + `content-encoding: gzip` with `encodeBody: "manual"` for `field.bin`); the first scheduled run and
+   the prod smoke (`docs/deploy.md` §6) happen after merge — the gzip cache-hit path through
+   `caches.default` is untested on prod until then, so smoke it twice.
 2. `SourceId` `copernicus-gfm` + `SOURCES` entry land in this PR; `/api/v1/health` shows it with
    `lastRunAt`; a failed run shows as `stale`; every `LIVE_SOURCE_IDS` entry still appears in `/health`.
-3. No R2 `list()` anywhere — `index.json` is the listing, on any Worker request path too.
+   *Evidence:* `health.test.ts`. Wording note: "a failed run shows as `stale`" is realised through the
+   shared `deriveSourceHealth` as `degraded`/`down` (a run with `lastError`, `fetchedAt = lastSuccessAt`
+   so repeated failures age into `down`), while `stale` is the *silent* cron (> 12 h with no run at all);
+   `lastAttemptAt = lastRunAt`, `latestObservedAt = lastSceneObservedAt`, `nextAttemptAt null` (GitHub
+   owns the schedule). Before the first run the object is absent → `unknown`, `fetchedAt null`, and the
+   status dot is dimmed (QA screenshot). `CREDIT_ORDER` in `MapAttribution` is untouched — F4, the
+   first rendered pixel.
+3. No R2 `list()` anywhere — `index.json` is the listing, on any Worker request path too. *Evidence:*
+   one `HAZARD_BUCKET.get` per flood request and per `/health` compute; the workflow uses only
+   `copy`/`copyto --no-traverse`.
 
 #### E14.F4 — Rendering: field texture, depth-graded terrain, FloodSurface
 - Touches: new `apps/web/src/scene/{floodField,FloodSurface}.ts`, `scene/terrainMaterial.ts`,
@@ -1074,9 +1111,8 @@ hydraulics stay excluded and the four scoping decisions in §0 are unchanged.
 - Depends: E14.F4
 - Size: M
 - Risk: the gap label ("latest image before the chosen time: 3 d 4 h") must never imply the state at
-  `atIso`; the scene picker's granularity depends on the frame-merge decision listed under F3 (one
-  `sceneId` per Sentinel-1 pass vs. one per frame) — settle it here at the latest, before F6 writes
-  ten years of immutable keys
+  `atIso`; the scene picker's granularity is settled — one `sceneId` per Sentinel-1 pass
+  (F3, `FRAME_MERGE_WINDOW`), so a pass is one tick, never 2–5
 - Issue: _(not yet filed)_
 
 1. Picking a 2024 event reframes time; layer, gauges and sun agree.
@@ -1085,8 +1121,10 @@ hydraulics stay excluded and the four scoping decisions in §0 are unchanged.
 
 #### E14.F6 — Backfill 2015 → now (ops, no code)
 - Touches: — (`workflow_dispatch` by year)
-- Depends: E14.F3, and the frame-merge decision (F3/F5) — do not start the backfill with per-frame
-  `sceneId`s
+- Depends: E14.F3 (the frame merge is done there — one `sceneId` per pass — so the backfill can
+  start with the final keys). Run it as per-year / per-province `workflow_dispatch` backfills
+  (`from`/`to`/`provinces`), not one 31-day bootstrap over 77 provinces: the job has a 45-min
+  timeout, and a timed-out run uploads nothing
 - Size: M (wall-clock)
 - Risk: index sizes and R2 storage growth — measured numbers go into `docs/deploy.md`. devops
   (F2 verify) sized ten years at 0.7 / 8.3 / 35 GB low / expected / high = +$0.01 / +$0.125 /
