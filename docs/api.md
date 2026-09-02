@@ -265,12 +265,15 @@ decided for it at all and never fires.
 | `tmd-nwp` | `null` | A forecast observes nothing: every value it carries is a **valid time in the future**, so there is no observation to be late about. `latestObservedAt` is `null` by design — filling it from a forecast step would claim we measured the future, and setting a lag without an observation would pin the source at `degraded` for ever. This source is judged on `fetchedAt` and `lastError` alone. |
 | `gistda-flood` | `null` | GISTDA publishes no acquisition or observation time with the flood scene (E3.2), so there is no cadence to compare against. Guessing one would be a fabricated timestamp. |
 | `alert-engine` | `null` | Not an upstream feed: it is `AlertEngineDO`'s own evaluation cadence (E11.5), reusing the same ThaiWater observations `exposure-illustrative` reads. `latestObservedAt` is the newest `last_observed_at` actually held across rule state, not the time of the last evaluation tick. There is no separate publication cadence to be `delayed` about — a stalled engine just means the tick has not run, which `staleAfterSeconds` already covers. |
+| `copernicus-gfm` | `null` | The only source with no Durable Object (E14.F3): `.github/workflows/gfm-ingest.yml` runs the Python pipeline every 6 h and uploads `flood/gfm/health.json` to R2; `routes/health.ts` reads that one object (one `HAZARD_BUCKET.get` per `/health` compute, under the 15 s edge cache) and maps `fetchedAt = lastSuccessAt` (the last run with **no** error — a failed run is an attempt, not a fetch), `lastAttemptAt = lastRunAt`, `latestObservedAt = lastSceneObservedAt`, `detail = {itemsProcessed, scenesWritten}`. Sentinel-1 revisits a province every 6–12 days, so acquisition age cannot decide `delayed` — "no new image this week" is not a broken feed. A missing or unparsable object is `unknown` with `fetchedAt: null` and a `lastError` naming the key (before the first run, or after a bad upload) — "no report" is not "reported failure". |
 
 `staleAfterSeconds` is the separate fetch-side budget: thaiwater 900 s (refresh every 5 min),
 tmd-radar 900 s (refresh 5 min, retry 1 min → three missed rounds), gistda-flood 10800 s (refresh
 every 30 min), earthquakes 300 s (cron every minute), tmd-nwp 10800 s (refresh hourly, retry 5 min →
 three missed rounds), alert-engine 1800 s (evaluated every 5 min; 30 min without a successful tick
-means the evaluation loop itself stopped).
+means the evaluation loop itself stopped), copernicus-gfm 43200 s (cron `17 */6 * * *`; 12 h with no
+successful run = two missed rounds → `stale` if the cron went silent, `down` if runs keep failing —
+the ladder above judges `lastError` first).
 
 ### `down`, `ok` and `worst`
 
@@ -282,7 +285,9 @@ means the evaluation loop itself stopped).
   is never derived from `fetchedAt + refresh interval`, which would be an invented time. For
   `gistda-flood` the alarm can be scheduled *earlier* than the failure backoff allows an attempt (an
   early wake-up only re-arms the alarm, it does not call the upstream), so the reported value is the
-  later of the alarm and that backoff wall — the time an attempt will actually be made.
+  later of the alarm and that backoff wall — the time an attempt will actually be made. For
+  `copernicus-gfm` it is always `null`: the schedule belongs to GitHub Actions, not to an alarm this
+  API can read, and computing the next cron slot would be exactly the invented time this rule forbids.
 - `HealthResponse.ok` is `healthOk()` in `apps/api/src/routes/health.ts`:
   `sources.every(health ∈ {ok, delayed} && !lastError)`. It is therefore **false** whenever any
   source is `down`, `unknown`, `degraded` or `stale` — silence is not health, and neither is "we have
@@ -312,4 +317,6 @@ degrades visibly instead of disappearing. (The timeout above bounds the *tick*, 
 Object call it started: a source logged as `timeout` may still finish and record its own result
 afterwards, so the log line and `/api/v1/health` answer two different questions.)
 `cron` does not fire under `wrangler dev` — trigger a tick by hand with
-`GET /__scheduled?cron=*+*+*+*+*`.
+`GET /__scheduled?cron=*+*+*+*+*`. `copernicus-gfm` is **not** one of these jobs: its refresh is the
+GitHub Actions workflow `gfm-ingest.yml` (every 6 h), and the tick never touches it — locally the
+source stays `unknown` unless a `flood/gfm/health.json` object exists in the dev R2 bucket.

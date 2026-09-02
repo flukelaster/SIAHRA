@@ -8,13 +8,16 @@ import {
 import { rejectedLastHour } from "../rateLimit.js";
 import * as cachePolicy from "../cachePolicy.js";
 import { json } from "../router.js";
+import { deriveSourceHealth } from "../sourceHealth.js";
 import type { AppEnv } from "../types.js";
 
 /**
  * GET /api/v1/health — freshness of every upstream source, so the UI can put
  * "data is N minutes old / source down" next to the map instead of hiding
  * it. Each DO reports its own status; a DO that throws is reported as
- * "unknown" rather than failing the whole endpoint.
+ * "unknown" rather than failing the whole endpoint. The one source that is
+ * not a DO (`copernicus-gfm`, ingested by a GitHub Actions job) is read from
+ * a single R2 object the same way.
  */
 export async function handleHealth(request: Request, env: AppEnv, _params: string[], ctx: ExecutionContext): Promise<Response> {
   /**
@@ -74,6 +77,10 @@ export async function handleHealth(request: Request, env: AppEnv, _params: strin
       .status()
       .then((s) => [s])
       .catch((err: unknown) => [unknownStatus("alert-engine", String(err))]),
+    // ฉากน้ำท่วม Copernicus GFM (E14.F3) — ไม่มี DO: job GitHub Actions เขียน
+    // flood/gfm/health.json ลง R2 ทุก 6 ชม. อ่านใบเดียว (หนึ่ง get ไม่มี list/head) ใต้แคช
+    // 15 วิของ endpoint นี้ = ≤ 4 Class B ops/นาที/colo
+    gfmStatus(env).then((s) => [s]).catch((err: unknown) => [unknownStatus("copernicus-gfm", String(err))]),
   ];
   const sources = (await Promise.all(collectors)).flat();
   const body: HealthResponse = {
@@ -101,6 +108,103 @@ export async function handleHealth(request: Request, env: AppEnv, _params: strin
  */
 export function healthOk(sources: readonly SourceStatus[]): boolean {
   return sources.every((s) => (s.health === "ok" || s.health === "delayed") && !s.lastError);
+}
+
+/** คีย์เดียวที่ `.github/workflows/gfm-ingest.yml` อัปโหลดหลังทุก run (apps/etl/gfm/gfm/cli.py write_health) */
+const GFM_HEALTH_KEY = "flood/gfm/health.json";
+
+/**
+ * cron วิ่งทุก 6 ชม. — ไม่มี run สำเร็จเกินสองรอบ = `stale` (cron หาย/ล้มติดกัน) ตัวเลขนี้คือ
+ * "ฝั่งเราไม่ได้ดึง" ไม่เกี่ยวกับอายุของภาพ: Sentinel-1 บินซ้ำทุก 6–12 วัน จึงตัดสิน `delayed`
+ * จากเวลาบันทึกภาพไม่ได้ (observedLagSeconds null) — "ไม่มีภาพใหม่สัปดาห์นี้" ไม่ใช่ฟีดเสีย
+ */
+const GFM_STALE_AFTER_SECONDS = 43_200;
+
+/** สตริงเวลา ISO ที่ parse ได้เท่านั้น — อย่างอื่น (หาย, null, ขยะ) คือ null ไม่ใช่ "ตอนนี้" */
+function isoOrNull(v: unknown): string | null {
+  return typeof v === "string" && Number.isFinite(Date.parse(v)) ? v : null;
+}
+
+function numberOrNull(v: unknown): number | null {
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+interface GfmStatusInput {
+  fetchedAt: string | null;
+  lastAttemptAt: string | null;
+  latestObservedAt: string | null;
+  lastError: string | null;
+  detail: SourceStatus["detail"];
+  /**
+   * health.json หาย/อ่านไม่ออก = ไม่มีผลการดึงให้ตัดสินเลย → `unknown` (แบบเดียวกับ DO ที่ throw
+   * ใน unknownStatus) ไม่ใช่ `down`: "ไม่มีรายงาน" ต่างจาก "รายงานว่าล้ม" ซึ่งบันไดใน
+   * deriveSourceHealth ตัดสินจากเนื้อในของรายงานที่อ่านได้เท่านั้น
+   */
+  unreadable?: boolean;
+}
+
+function gfmStatusFrom(i: GfmStatusInput): SourceStatus {
+  return {
+    id: "copernicus-gfm",
+    labelTh: SOURCES["copernicus-gfm"].nameTh,
+    labelEn: SOURCES["copernicus-gfm"].nameEn,
+    health: i.unreadable
+      ? "unknown"
+      : deriveSourceHealth({
+          nowMs: Date.now(),
+          fetchedAt: i.fetchedAt,
+          lastError: i.lastError,
+          latestObservedAt: i.latestObservedAt,
+          staleAfterSeconds: GFM_STALE_AFTER_SECONDS,
+          observedLagSeconds: null,
+        }),
+    fetchedAt: i.fetchedAt,
+    latestObservedAt: i.latestObservedAt,
+    lastAttemptAt: i.lastAttemptAt,
+    lastError: i.lastError,
+    detail: i.detail,
+    staleAfterSeconds: GFM_STALE_AFTER_SECONDS,
+    observedLagSeconds: null,
+    // ตารางเวลาเป็นของ GitHub Actions (cron `17 */6 * * *`) ไม่ใช่ alarm ที่อ่านได้จากที่นี่ —
+    // null คือ "ไม่รู้นัดถัดไป" ตามสัญญาของฟิลด์นี้ ไม่ใช่คำนวณช่องถัดไปมาสวม
+    nextAttemptAt: null,
+  };
+}
+
+/**
+ * สถานะของ `copernicus-gfm` จาก `flood/gfm/health.json` ใบเดียว — **หนึ่ง** `HAZARD_BUCKET.get`
+ * ต่อการคำนวณ /health หนึ่งครั้ง ไม่มี `list()`/`head()` ไม่มี DO
+ *
+ * `fetchedAt` = `lastSuccessAt` (run ที่ไม่มี error ครั้งล่าสุด) ไม่ใช่ `lastRunAt`: run ที่ล้มคือ
+ * "พยายามแล้ว" (lastAttemptAt) ไม่ใช่ "ดึงสำเร็จ" — ไม่งั้นแหล่งที่ล้มติดกันสามวันจะดู `degraded`
+ * สด ๆ ตลอดกาลแทนที่จะเป็น `down` object ที่หายหรืออ่านไม่ได้ = `unknown` พร้อม lastError ที่บอกคีย์
+ */
+async function gfmStatus(env: AppEnv): Promise<SourceStatus> {
+  const empty = { fetchedAt: null, lastAttemptAt: null, latestObservedAt: null, detail: {}, unreadable: true };
+  const object = await env.HAZARD_BUCKET.get(GFM_HEALTH_KEY);
+  if (!object) {
+    return gfmStatusFrom({
+      ...empty,
+      lastError: `R2 object ${GFM_HEALTH_KEY} not found — the gfm-ingest job has never uploaded a health report`,
+    });
+  }
+  let raw: unknown;
+  try {
+    raw = await object.json();
+  } catch (err) {
+    return gfmStatusFrom({ ...empty, lastError: `R2 object ${GFM_HEALTH_KEY} is not valid JSON: ${String(err)}` });
+  }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return gfmStatusFrom({ ...empty, lastError: `R2 object ${GFM_HEALTH_KEY} is not a JSON object` });
+  }
+  const h = raw as Record<string, unknown>;
+  return gfmStatusFrom({
+    fetchedAt: isoOrNull(h.lastSuccessAt),
+    lastAttemptAt: isoOrNull(h.lastRunAt),
+    latestObservedAt: isoOrNull(h.lastSceneObservedAt),
+    lastError: typeof h.lastError === "string" && h.lastError !== "" ? h.lastError : null,
+    detail: { itemsProcessed: numberOrNull(h.itemsProcessed), scenesWritten: numberOrNull(h.scenesWritten) },
+  });
 }
 
 /** id ถูกบังคับเป็น SourceId เพื่อไม่ให้ /health โผล่ชื่อแหล่งที่ layer ไหนอ้างไม่ได้ */

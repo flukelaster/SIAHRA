@@ -186,7 +186,7 @@ Detect affected ──┬─ Test (api, apps/api)  ┐
 - **Test (name, path)** — one vitest run per affected workspace: `apps/api` in `workerd`, `apps/web` and `apps/etl` as pure modules in node. These names are generated and a leg can be absent, so none of them may ever be a required check
 - **Test** — the aggregate gate, `if: always()`. It reports pass/fail for whatever the matrix did, including "nothing was affected", which makes it the only test check that is safe to require. It is **not** required yet — promoting it is an owner action
 
-Two conventions a branch ruleset can't express — a PR that touches UI files must embed a screenshot (or carry the `no-screenshot` label), and PR titles/descriptions are English-only — used to live in a `pr-rules.yml` workflow. They are still the rules, but they are now checked locally by the `/implement` loop instead of burning Actions minutes on every edit to a PR description. `pr-image-cleanup.yml` / `pr-cache-cleanup.yml` tidy up screenshot releases and npm caches when a PR closes; `dependabot.yml` batches minor/patch bumps weekly and opens majors one-by-one.
+Two conventions a branch ruleset can't express — a PR that touches UI files must embed a screenshot (or carry the `no-screenshot` label), and PR titles/descriptions are English-only — used to live in a `pr-rules.yml` workflow. They are still the rules, but they are now checked locally by the `/implement` loop instead of burning Actions minutes on every edit to a PR description. `pr-image-cleanup.yml` / `pr-cache-cleanup.yml` tidy up screenshot releases and npm caches when a PR closes; `dependabot.yml` batches minor/patch bumps weekly and opens majors one-by-one. `gfm-ingest.yml` is the one workflow that is not about the repo itself: every six hours it runs the Copernicus GFM flood pipeline (`apps/etl/gfm`) on a runner and `rclone`s the resulting scenes into R2 (it deploys nothing — see [`docs/deploy.md`](docs/deploy.md) §1 for the secrets, bootstrap and backfill commands).
 
 **Rules on `main`** ([`.github/rulesets/main.json`](.github/rulesets/main.json), applied with `scripts/apply-branch-rules.sh`): no direct pushes, no force-push or deletion, every change via a pull request with `Lint`, `TypeScript` and `Build` green.
 
@@ -217,6 +217,7 @@ Two conventions a branch ruleset can't express — a PR that touches UI files mu
 | Rainfall / radar / seismic | Thai Meteorological Department (TMD) | Official API terms |
 | River / rainfall telemetry, dams | Hydro-Informatics Institute / ThaiWater (สสน.) | Official API terms |
 | Satellite flood extent | GISTDA | Open Data Commons |
+| Satellite flood extent (Sentinel-1) + illustrative depth input | [Copernicus Emergency Management Service — Global Flood Monitoring](https://extwiki.eodc.eu/GFM/PUM) (EODC STAC) | CEMS terms (GloFAS/EFAS Terms and Conditions per PUM 7.1.4); attribution "© European Union, Copernicus Emergency Management Service (GFM), EODC" |
 | Earthquake cross-check | USGS, EMSC | Public data policy |
 | Local-authority (อปท.) registry | Department of Local Administration (DLA) | Open Data Common |
 | Local-authority (อปท.) boundaries | OpenStreetMap (`admin_level=7` relations) | ODbL |

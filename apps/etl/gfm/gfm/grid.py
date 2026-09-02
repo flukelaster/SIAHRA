@@ -77,6 +77,27 @@ def load_manifest(aoi_root: Path, code: str) -> dict:
         return json.load(f)
 
 
+@dataclass(frozen=True)
+class ProvinceBox:
+    """จังหวัดที่รู้แค่ bbox (จาก manifest ที่ track ใน repo) — พอสำหรับ `plan` ซึ่งยังไม่มี DEM ในเครื่อง
+
+    `stac.group_by_province` ใช้แค่ `.code`/`.bbox` จึงรับทั้งชนิดนี้และ ProvinceGrid
+    """
+
+    code: str
+    bbox: tuple[float, float, float, float]  # lon/lat minx,miny,maxx,maxy
+
+
+def province_box(code: str, aoi_root: Path) -> ProvinceBox:
+    b = load_manifest(aoi_root, code)["bbox"]
+    return ProvinceBox(code=code, bbox=(b["minLon"], b["minLat"], b["maxLon"], b["maxLat"]))
+
+
+def list_province_codes(aoi_root: Path) -> list[str]:
+    """รหัสจังหวัดทุกตัวที่มี manifest.json ใต้ aoi_root (77 ตัวใน apps/web/public/aoi)"""
+    return sorted(d.name for d in aoi_root.iterdir() if d.is_dir() and (d / "manifest.json").exists())
+
+
 def load_province_grid(code: str, work_dir: Path, aoi_root: Path) -> ProvinceGrid:
     m = load_manifest(aoi_root, code)
     dem_path = work_dir / f"p{code}-clipped30.tif"

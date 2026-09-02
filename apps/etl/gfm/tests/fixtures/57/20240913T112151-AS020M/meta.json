@@ -1,0 +1,31 @@
+{
+ "sceneId": "20240913T112151-AS020M",
+ "observedAt": "2024-09-13T11:21:51Z",
+ "publishedAt": "2024-11-06T14:19:47Z",
+ "orbit": null,
+ "floodedCells": 3197,
+ "excludedCells": 127259,
+ "observedCells": 138057,
+ "floodedAreaKm2": 131.7452,
+ "maxDepthCm": 850,
+ "medianDepthCm": 13,
+ "depthEstimatedFraction": 0.9881,
+ "gfmItemIds": [
+  "ENSEMBLE_FLOOD_20240913T112151_VV_AS020M_E048N015T3",
+  "ENSEMBLE_FLOOD_20240913T112216_VV_AS020M_E048N015T3",
+  "ENSEMBLE_FLOOD_20240913T112241_VV_AS020M_E048N015T3",
+  "ENSEMBLE_FLOOD_20240913T112241_VV_AS020M_E048N018T3",
+  "ENSEMBLE_FLOOD_20240913T112306_VV_AS020M_E048N018T3",
+  "ENSEMBLE_FLOOD_20240913T112331_VV_AS020M_E048N018T3"
+ ],
+ "methodology": {
+  "name": "FwDET-2",
+  "boundarySmoothingCells": 3,
+  "depthCapCm": 1000,
+  "maskedClasses": [
+   50,
+   10
+  ]
+ },
+ "fieldBytesGz": 85087
+}

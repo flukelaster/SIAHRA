@@ -6,9 +6,12 @@ collection `GFM` ไม่ต้อง auth; item id รูป `ENSEMBLE_FLOOD_2
 (ปกติ ~4 ชม. หลังบันทึกภาพ แต่การประมวลผลซ้ำอาจตามมาหลังเป็นเดือน — ตัวกรอง "ใหม่กว่ารอบก่อน"
 จึงต้องดูที่ `created` ไม่ใช่ `datetime`); `sat:orbit_state` อาจไม่มี
 
-ฉาก (scene) = item ทุกใบที่มีวินาทีบันทึกภาพเดียวกัน + กลุ่มไทล์เดียวกัน และทับซ้อน bbox ของ
-จังหวัด — sceneId คือ `{acq:%Y%m%dT%H%M%S}-{tile_group}` ตามที่ docs/dataset.md §8 กำหนดไว้
-(`\\d{8}T\\d{6}-[A-Z]{2}\\d{3}M`) ไทล์ Equi7 หลายใบของวินาทีเดียวกันถูก mosaic ใน warp.py
+ฉาก (scene) = item ทุกใบของ **รอบบินเดียวกัน** (กลุ่มไทล์ Equi7 เดียวกัน และเวลาบันทึกภาพห่างจาก
+เฟรมแรกของรอบไม่เกิน FRAME_MERGE_WINDOW) ที่ทับซ้อน bbox ของจังหวัด — sceneId คือ
+`{acq:%Y%m%dT%H%M%S}-{tile_group}` ของเฟรม **แรกสุด** ตามที่ docs/dataset.md §8 กำหนดไว้
+(`\\d{8}T\\d{6}-[A-Z]{2}\\d{3}M`) ทุกเฟรม/ไทล์ของรอบถูก mosaic ลงตารางเดียวใน warp.py (E14.F3:
+Sentinel-1 ถ่ายจังหวัดหนึ่งเป็น 2–5 เฟรมห่างกัน ~25 วิ — เฟรมละฉากคือ object/index entry มากขึ้น
+1.5–5 เท่าโดยไม่มีข้อมูลเพิ่ม)
 """
 
 from __future__ import annotations
@@ -22,7 +25,7 @@ import pystac
 import pystac_client
 from pystac_client.stac_api_io import StacApiIO
 
-from .grid import ProvinceGrid
+from .grid import ProvinceBox, ProvinceGrid
 
 STAC_URL = "https://stac.eodc.eu/api/v1"
 COLLECTION = "GFM"
@@ -49,6 +52,12 @@ CREATED_LOOKBACK = timedelta(days=30)
 PAGE_SIZE = 100
 REQUEST_TIMEOUT_S = 120
 MAX_RETRIES = 3
+
+# เฟรมของรอบบินเดียวกัน (กลุ่มไทล์เดียวกัน) ที่บันทึกภาพห่างจากเฟรมแรกของรอบไม่เกินนี้ = ฉากเดียว
+# วัดจริงเชียงราย 2024-09-13: เฟรม 11:22:16 กับ 11:22:41 (25 วิ) คือรอบเดียวกัน ส่วนรอบถัดไปของ
+# Sentinel-1 บนพื้นที่เดิมห่างกันเป็นวัน (6–12 วัน) — 10 นาทีจึงกว้างพอสำหรับทุกเฟรมของ swath เดียว
+# และแคบกว่าช่องว่างระหว่างรอบหลายพันเท่า
+FRAME_MERGE_WINDOW = timedelta(minutes=10)
 
 
 def open_client() -> pystac_client.Client:
@@ -148,29 +157,55 @@ def _bbox_intersects(a: Sequence[float], b: Sequence[float]) -> bool:
     return not (a[2] < b[0] or a[0] > b[2] or a[3] < b[1] or a[1] > b[3])
 
 
+def merge_frames(keyed: Iterable[tuple[SceneKey, pystac.Item]]) -> dict[str, list[pystac.Item]]:
+    """{sceneId: [item...]} — รวมเฟรมของรอบบินเดียวกันเป็นฉากเดียว (ต่อจังหวัดหนึ่ง)
+
+    ไล่ item ของแต่ละกลุ่มไทล์ตามเวลาบันทึกภาพ: item ที่ห่างจาก **เฟรมแรกของฉาก** ไม่เกิน
+    FRAME_MERGE_WINDOW เข้าฉากเดิม ไม่งั้นเปิดฉากใหม่ — sceneId จึงเป็นของเฟรมแรกสุดเสมอ
+    (เทียบกับเฟรมแรก ไม่ใช่เฟรมก่อนหน้า เพื่อไม่ให้ห่วงโซ่ของเฟรมลากฉากยาวเกินหน้าต่าง)
+    """
+    by_group: dict[str, list[tuple[SceneKey, pystac.Item]]] = {}
+    for key, it in keyed:
+        by_group.setdefault(key.tile_group, []).append((key, it))
+    out: dict[str, list[pystac.Item]] = {}
+    for pairs in by_group.values():
+        pairs.sort(key=lambda p: (p[0].acquisition_utc, p[1].id))
+        first: SceneKey | None = None
+        for key, it in pairs:
+            if first is None or key.acquisition_utc - first.acquisition_utc > FRAME_MERGE_WINDOW:
+                first = key
+            out.setdefault(first.scene_id, []).append(it)
+    return out
+
+
 def group_by_province(
-    items: Iterable[pystac.Item], provinces: Iterable[ProvinceGrid]
+    items: Iterable[pystac.Item], provinces: Iterable[ProvinceGrid | ProvinceBox]
 ) -> dict[tuple[str, str], list[pystac.Item]]:
-    """{(รหัสจังหวัด, sceneId): [item...]} — item ที่ bbox ทับจังหวัดและมีวินาที+กลุ่มไทล์เดียวกัน
+    """{(รหัสจังหวัด, sceneId): [item...]} — item ที่ bbox ทับจังหวัด รวมเฟรมของรอบบินเดียวกัน (merge_frames)
 
     bbox ของ item คือกรอบไทล์ Equi7 ทั้งใบ (ใหญ่กว่ารอยเท้าภาพจริง) เซลล์ที่ไม่มีภาพจริง ๆ
     จะกลายเป็น NO_OBSERVATION ตอน warp ไม่ใช่ถูกตัดทิ้งตรงนี้
+
+    รับได้ทั้ง ProvinceGrid (run/backfill) และ ProvinceBox (plan — ยังไม่มี DEM ในเครื่อง)
     """
     grids = list(provinces)
-    out: dict[tuple[str, str], list[pystac.Item]] = {}
+    per_province: dict[str, list[tuple[SceneKey, pystac.Item]]] = {}
     for it in items:
         if it.bbox is None:
             continue
         key = scene_key(it)
         for g in grids:
             if _bbox_intersects(it.bbox, g.bbox):
-                out.setdefault((g.code, key.scene_id), []).append(it)
-    for lst in out.values():
-        lst.sort(key=lambda it: it.id)
+                per_province.setdefault(g.code, []).append((key, it))
+    out: dict[tuple[str, str], list[pystac.Item]] = {}
+    for code, keyed in per_province.items():
+        for scene_id, lst in merge_frames(keyed).items():
+            # เรียงตาม id: item หลังทับ item ก่อนตอน mosaic (warp.py) — เฟรมที่ถ่ายทีหลังชนะในส่วนที่ซ้อน
+            out[(code, scene_id)] = sorted(lst, key=lambda it: it.id)
     return out
 
 
-def union_bbox(provinces: Iterable[ProvinceGrid]) -> tuple[float, float, float, float]:
+def union_bbox(provinces: Iterable[ProvinceGrid | ProvinceBox]) -> tuple[float, float, float, float]:
     bs = [g.bbox for g in provinces]
     if not bs:
         return THAILAND_BBOX

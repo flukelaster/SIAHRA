@@ -1,11 +1,14 @@
 import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { defineConfig, type Plugin } from "vite";
+import { floodHeaders, localFloodSegments, parseFloodPath } from "./worker/floodPath.ts";
 import { localTileSegments, parseTilePath } from "./worker/tilePath.ts";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 const TILES_ROOT = path.resolve(import.meta.dirname, "../etl/data/tiles");
+// ต้นไม้ที่ apps/etl/gfm เขียน (คีย์เดียวกับ R2 ทุกตัวอักษร) — `aoi/{code}/flood/…` อยู่ใต้ aoi/
+const FLOOD_ROOT = path.resolve(import.meta.dirname, "../etl/data/flood/aoi");
 
 /**
  * Per-worktree dev ports written by scripts/setup-worktree.sh — parsed (never
@@ -45,6 +48,13 @@ const PORTS = worktreePorts();
  * object and pin a wrong answer for a year. Dev has one version, no immutable
  * caching (max-age=3600, and nothing is shared with any other client), and the
  * file on disk is by definition the current build.
+ *
+ * The same middleware serves the Copernicus GFM flood scenes (E14.F3) from
+ * `apps/etl/data/flood/aoi/{code}/flood/…` through `worker/floodPath.ts`, the
+ * parser the Worker uses, with the Worker's headers: `index.json` short-lived,
+ * scene files immutable (a `sceneId` is an acquisition that already happened,
+ * so unlike a tile version there is nothing to strip), and `field.bin` sent
+ * with `Content-Encoding: gzip` because the pipeline writes it gzip'd.
  */
 function terrainTiles(): Plugin {
   return {
@@ -52,20 +62,27 @@ function terrainTiles(): Plugin {
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         // req.url is the raw request target (query string included, dot segments
-        // *not* normalised) — parseTilePath cuts the query and rejects anything
-        // that is not a strict tile path, which is what keeps `..` out of the
+        // *not* normalised) — both parsers cut the query and reject anything
+        // that is not a strict path, which is what keeps `..` out of the
         // path.join below.
         const tile = parseTilePath(req.url ?? "");
-        if (!tile) return next();
-        const file = path.join(TILES_ROOT, ...localTileSegments(tile));
+        const flood = tile ? null : parseFloodPath(req.url ?? "");
+        if (!tile && !flood) return next();
+        const file = tile
+          ? path.join(TILES_ROOT, ...localTileSegments(tile))
+          : path.join(FLOOD_ROOT, ...localFloodSegments(flood!));
         if (!existsSync(file)) {
           res.statusCode = 404;
           res.end();
           return;
         }
-        res.setHeader("Content-Type", "application/octet-stream");
+        const headers = tile
+          ? { contentType: "application/octet-stream", cacheControl: "public, max-age=3600", contentEncoding: null }
+          : floodHeaders(flood!);
+        res.setHeader("Content-Type", headers.contentType);
         res.setHeader("Content-Length", String(statSync(file).size));
-        res.setHeader("Cache-Control", "public, max-age=3600");
+        res.setHeader("Cache-Control", headers.cacheControl);
+        if (headers.contentEncoding) res.setHeader("Content-Encoding", headers.contentEncoding);
         createReadStream(file).pipe(res);
       });
     },

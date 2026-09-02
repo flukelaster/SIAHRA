@@ -120,7 +120,31 @@ scripts/upload-gfm-inputs.sh                # ทุกจังหวัดท�
 ไม่แตะรากของ bucket หรือ `aoi/` และรันซ้ำจะข้ามไฟล์ที่ขนาด+hash ตรงอยู่แล้ว วัดจริงที่ p57: DEM 54.79 MB →
 16.15 MB, landcover 25.23 MB → 2.22 MB; ทั้ง 77 จังหวัด ≈ 0.94 GB (กรณีแย่ 1.5 GB) ≈ +$0.014/เดือน
 ตัว pipeline เอง (`npm run gfm:run -w apps/etl`) เขียนลง `apps/etl/data/flood` ในรูปคีย์ R2 และ**ไม่มีโค้ดอัปโหลด**
-— workflow ของ F3 เป็นคนซิงก์ต้นไม้นั้นด้วย `rclone copy` ที่จำกัดอยู่ใต้ `aoi/{code}/flood/` และ `flood/gfm/`
+— `.github/workflows/gfm-ingest.yml` (E14.F3) เป็นคนซิงก์ต้นไม้นั้นด้วย `rclone copy --no-traverse --checksum`
+ที่จำกัดอยู่ใต้ `aoi/{code}/flood/` (เฉพาะจังหวัดใน plan) และ `flood/gfm/` — ไม่ใช่ `sync` ไม่แตะ `aoi/` หรือรากของ bucket
+
+**ตั้ง cron ดึงฉาก GFM (E14.F3, `.github/workflows/gfm-ingest.yml`)** — รันบน GitHub Actions ทุก 6 ชม. (`17 */6 * * *`)
+ไม่เกี่ยวกับ `deploy.yml`: workflow นี้ **ไม่ deploy อะไร** แค่รัน `apps/etl/gfm` บน runner ชั่วคราวแล้ว `rclone` ขึ้น R2
+ต้องมี repo secret สามตัว (ตัวเดียวกับ `scripts/upload-gfm-inputs.sh`; ถ้าขาดตัวไหน job ล้มด้วย `::error::missing secret X`):
+```bash
+gh secret set R2_ACCESS_KEY_ID       # R2 API token ขอบเขต bucket siahra-geodata, Object Read & Write
+gh secret set R2_SECRET_ACCESS_KEY
+# CLOUDFLARE_ACCOUNT_ID มีอยู่แล้ว (deploy.yml ใช้ตัวเดียวกัน)
+```
+อินพุต `etl/{code}/{dem30,landcover30}.tif` ต้องอยู่บน R2 ก่อน (`scripts/upload-gfm-inputs.sh` ข้างบน) — จังหวัดที่ไม่มี
+อินพุตจะล้มใน CLI โผล่ใน `health.lastError` แล้ว run ต่อจังหวัดอื่น ไม่ยึด state ข้ามจังหวัดนั้น ลำดับใน job: ดึง
+`flood/gfm/{state,health}.json` ลงมา → `plan` (ค้น STAC ทั้งประเทศครั้งเดียว → รายชื่อจังหวัดที่มี item) → ดึง
+`aoi/{code}/flood/index.json` + อินพุตเฉพาะจังหวัดเหล่านั้น (ไม่เคยดึงโฟลเดอร์ฉาก) → `run --plan` → อัป — `health.json`
+ถึง R2 ก่อนเสมอ แล้ว job ค่อยแดงถ้า pipeline คืน rc ≠ 0 (แหล่งที่ล้มต้องรายงานตัวเอง ไม่ใช่เงียบหาย)
+```bash
+gh workflow run gfm-ingest.yml -f since=2026-08-30T00:00:00Z      # bootstrap: created ≥ since (ย้อนได้ไม่เกิน 31 วัน) แล้วเดิน state ต่อ
+gh workflow run gfm-ingest.yml -f from=2024-09-01T00:00:00Z -f to=2024-10-01T00:00:00Z -f provinces="57 58"
+                                                                   # backfill ตามเวลาบันทึกภาพ — ไม่แตะ state.json
+gh run watch                                                       # step summary บอก items/scenes/lastError
+```
+bootstrap ควรใช้ `since` สั้น ๆ (ไม่กี่วัน) หรือ backfill ทีละจังหวัด/ทีละปี — 31 วัน × 77 จังหวัดอาจเกิน timeout 45 นาที
+(job ที่ timeout ไม่อัปอะไรและ state ไม่ขยับ จึงปลอดภัยแต่ไม่มีวันเสร็จ) concurrency group `gfm-ingest` กันสอง run
+ชนกัน (รอ ไม่ cancel) และการรันซ้ำปลอดภัย: ฉากที่อยู่ใน `index.json` แล้วถูกข้าม, `--checksum` ไม่ put ของที่ไม่เปลี่ยน
 
 ## 2. Worker route สำหรับ tile (เขียนแล้ว — อยู่ที่ **siahra-web** ไม่ใช่ api)
 prefix `/aoi/` มีทั้ง manifest/overview ที่เป็น static asset (`apps/web/public/aoi/**`) และ tile `.bin`
@@ -247,13 +271,23 @@ Worker มี token-bucket ต่อ IP อยู่แล้ว (`apps/api/src/
 > แทน แล้วเช็ค cert จริงจากเครือข่ายอื่น ; ดูผู้ออกใบด้วย
 > `echo | openssl s_client -connect siahra-radar.co:443 -servername siahra-radar.co | openssl x509 -noout -issuer`
 
-- `curl https://siahra-radar.co/api/v1/health` → ทุก source `ok` ภายใน 5 นาที (alarm ของ DO เริ่มเอง)
+- `curl https://siahra-radar.co/api/v1/health` → ทุก source ที่มี DO เป็น `ok` ภายใน 5 นาที (alarm ของ DO เริ่มเอง) —
+  ยกเว้น `copernicus-gfm` ซึ่งเป็น `unknown` จนกว่า `gfm-ingest.yml` จะรันสำเร็จครั้งแรก (ข้อสุดท้ายของหัวข้อนี้)
   ตอบ 200 = route `/api/*` ชี้ไป siahra-api ถูกแล้ว; ถ้าได้ HTML ของ SPA แทน = route ไม่ทำงาน
 - `curl -I https://siahra-radar.co/` → HTML จาก siahra-web (deploy คนละครั้งกับ api ได้)
 - เปิดเว็บ → tile โหลดจาก `/aoi/...` (Network tab: `cf-cache-status: HIT` ในรอบสอง)
 - `curl -sk -I https://siahra-radar.co/og-image.jpg` → `200 image/jpeg` แล้วลองวางลิงก์ใน LINE/Facebook ให้เห็นการ์ดพรีวิว
   (`apps/web/index.html` ชี้ `og:image` เป็น URL เต็ม; ถ้าเปลี่ยนรูป ให้เปลี่ยนชื่อไฟล์หรือ re-scrape ที่ Facebook Sharing Debugger / LINE Poker เพราะ scraper cache ตาม URL)
 - ดู R2: `archive/snapshots/<day>/<HH>.json.gz` เกิดทุกชั่วโมง, `archive/waterlevel/<day>/<province>.json.gz` เกิดตอนตี 0:20 (เวลาไทย)
+- ฉากน้ำท่วม GFM (E14.F3 — หลัง `gfm-ingest.yml` รันสำเร็จอย่างน้อยหนึ่งรอบ):
+  `curl -sI https://siahra-radar.co/aoi/57/flood/index.json` ต้องได้ **200 และ `content-type: application/json`**
+  (200 อย่างเดียวคือหน้า SPA — path ที่ Worker ไม่รับจะตกไป asset layer เสมอ);
+  `curl -sI https://siahra-radar.co/aoi/57/flood/20240913T112151-AS020M/field.bin` → `application/octet-stream`,
+  `content-encoding: gzip`, `cache-control: … immutable` — **ยิงสองครั้ง**: ครั้งที่สองคือ path ที่ตอบจาก `caches.default`
+  ซึ่งยังไม่เคยถูกทดสอบบน prod ว่าส่ง body gzip กลับมาถูกต้อง; และ
+  `curl -s https://siahra-radar.co/api/v1/health | jq '.sources[]|select(.id=="copernicus-gfm")'` → `fetchedAt` =
+  `lastSuccessAt` ของ run ล่าสุดที่ไม่มี error, `lastAttemptAt` = `lastRunAt`; ก่อน run แรกจะเป็น `unknown` พร้อม
+  `lastError` ที่บอกว่า `flood/gfm/health.json` ยังไม่มี (ถูกต้อง ไม่ใช่บั๊ก)
 
 ## ค่าใช้จ่ายโดยประมาณ
 Workers Paid $5 + R2 (< 10 GB ฟรี; เกินคิด $0.015/GB) + คลังถาวร ~0.5–1 GB/เดือน → รวม ≈ $5–8/เดือนที่ traffic ระดับหลักพัน–หมื่น session
@@ -283,6 +317,13 @@ path ใหม่ ตัวเลขล่วงหน้าที่ต้อ�
 F6 backfill สิบปี ≈ 0.7 / 8.3 / 35 GB (ต่ำ / คาด / สูง) = **+$0.01 / +$0.125 / +$0.52 ต่อเดือนถาวร** (ฉากไม่ถูกลบ)
 จึงต้องผ่าน `devops` ของตัวเองก่อนเริ่ม โดยคิดจาก Σ `fieldBytesGz` ใน `meta.json` หลังทำจริงหนึ่งจังหวัด × หนึ่งปีเต็ม
 ไม่ใช่จากประมาณการนี้
+
+E14.F3 (gfm-ingest, cron 17 */6 = ~120 runs/month): R2 Class A ≈ 1.1k expected / 4.2k high PUT per month, plus ≤ 18k
+ListObjects in the first month only (rclone copyto of an object that does not exist yet = HEAD + LIST; falls to 0 once
+every province has an index.json); Class B ≈ 12k–90k from the runner + ≤ 0.9M from /api/v1/health reading health.json
+under its 15 s edge cache + ≤ 0.7M from flood files served by siahra-web under caches.default — all inside the free tiers
+(1M A / 10M B); storage +≈$0.0125/month per accumulated year of scenes; no DO change, no new log line; devops verify
+2026-09-02: **+$0.01/month expected, +$0.70 worst case**; GitHub Actions minutes free (public repo)
 
 **รายการที่สี่ที่ประมาณการข้างบนไม่ได้นับ และเป็นตัวที่ทำให้บิลบานจริง: Durable Objects SQL rows read**
 — คิดตามแถวที่ถูก *สแกน* ไม่ใช่แถวที่ถูกคืนหรือถูกลบ (Workers Paid รวมมาให้ 25B แถว/รอบบิล)

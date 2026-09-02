@@ -1,6 +1,6 @@
 /**
  * siahra-web's only server-side job: serve the terrain/building/feature/landcover
- * tile pyramid out of R2.
+ * tile pyramid and the Copernicus GFM flood scenes (E14.F3) out of R2.
  *
  * Everything else on this Worker is a static asset from `dist`, including the
  * small tracked files that share the `/aoi/` prefix (manifest.json,
@@ -13,6 +13,7 @@
  * and read back through this handler.
  */
 
+import { floodHeaders, floodKey, parseFloodPath } from "./floodPath.ts";
 import { parseTilePath, tileKey } from "./tilePath.ts";
 
 /**
@@ -70,19 +71,23 @@ export default {
     // shared with the dev middleware in vite.config.ts so the two can never
     // disagree about what a tile path is (worker/tilePath.ts).
     const tile = parseTilePath(url.pathname);
+    // Flood scenes share the `/aoi/{code}/` prefix but live under their own
+    // `flood/` segment, which no tile layer name can match — the two parsers
+    // are disjoint by construction (worker/floodPath.ts).
+    const flood = tile ? null : parseFloodPath(url.pathname);
 
-    // Not a tile: hand it back to the asset layer. There is deliberately no
-    // `run_worker_first` in wrangler.jsonc — the asset layer answers first and
-    // only what it does not have (a `.bin` tile that is not in the bundle)
-    // reaches this Worker, so the tracked manifests and overviews under /aoi/
-    // are usually served without ever getting here. This branch is the
-    // fallthrough for the requests that do.
+    // Not a tile or a flood file: hand it back to the asset layer. There is
+    // deliberately no `run_worker_first` in wrangler.jsonc — the asset layer
+    // answers first and only what it does not have (a `.bin` tile or a flood
+    // scene that is not in the bundle) reaches this Worker, so the tracked
+    // manifests and overviews under /aoi/ are usually served without ever
+    // getting here. This branch is the fallthrough for the requests that do.
     // Handed back untouched on purpose: asset responses already carry the
     // headers from public/_headers, and stamping a second
     // Content-Security-Policy here would make the browser *intersect* the two —
     // a silently narrower policy, plus a second copy of the policy string free
     // to drift from the one Cloudflare actually reads.
-    if (!tile) return env.ASSETS.fetch(request);
+    if (!tile && !flood) return env.ASSETS.fetch(request);
 
     if (request.method !== "GET" && request.method !== "HEAD") {
       return withSecurityHeaders(
@@ -101,22 +106,38 @@ export default {
 
     // A versioned URL resolves to a versioned key — the version is never
     // stripped to fall back on the legacy object, or two dataset versions would
-    // silently share one set of bytes (docs/dataset.md §7).
-    const object = await env.HAZARD_BUCKET.get(tileKey(tile));
+    // silently share one set of bytes (docs/dataset.md §7). A flood key is
+    // assembled from the parsed captures the same way. One R2 `get` per miss,
+    // never a `list()` — `index.json` *is* the listing (docs/dataset.md §8).
+    const object = await env.HAZARD_BUCKET.get(tile ? tileKey(tile) : floodKey(flood!));
 
     // A miss must be a real 404. If this fell through to the asset layer the
     // SPA fallback would answer with index.html, and the tile loader would try
     // to parse an HTML page as binary and fail silently — which is exactly how
-    // the missing-tiles bug presented in production.
-    if (!object) return withSecurityHeaders(new Response("Tile not found", { status: 404 }));
+    // the missing-tiles bug presented in production. For a flood file the same
+    // holds: a province with no scene yet must read as "no index", not as an
+    // HTML page the field loader chokes on.
+    if (!object) {
+      return withSecurityHeaders(new Response(tile ? "Tile not found" : "Flood scene not found", { status: 404 }));
+    }
 
     const headers = new Headers();
     object.writeHttpMetadata(headers);
-    headers.set("content-type", "application/octet-stream");
-    headers.set("cache-control", TILE_CACHE_CONTROL);
+    const meta = tile
+      ? { contentType: "application/octet-stream", cacheControl: TILE_CACHE_CONTROL, contentEncoding: null }
+      : floodHeaders(flood!);
+    headers.set("content-type", meta.contentType);
+    headers.set("cache-control", meta.cacheControl);
     headers.set("etag", object.httpEtag);
+    // `field.bin` is stored gzip'd and served as-is: the header comes from the
+    // path, not from object metadata, and `encodeBody: "manual"` tells the
+    // runtime the body is already encoded so it is not compressed twice.
+    if (meta.contentEncoding) headers.set("content-encoding", meta.contentEncoding);
+    else headers.delete("content-encoding");
 
-    const response = withSecurityHeaders(new Response(object.body, { headers }));
+    const response = withSecurityHeaders(
+      new Response(object.body, { headers, encodeBody: meta.contentEncoding ? "manual" : "automatic" }),
+    );
     if (cacheable) ctx.waitUntil(cache.put(request, response.clone()));
     return response;
   },

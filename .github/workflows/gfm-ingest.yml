@@ -1,0 +1,279 @@
+name: GFM ingest
+
+# Copernicus GFM flood scenes (E14.F3): every six hours, run the Python
+# pipeline in apps/etl/gfm on an ephemeral runner and copy what it wrote into
+# the R2 bucket `siahra-geodata`. The pipeline itself has no R2 code — every
+# byte that crosses the bucket boundary is an `rclone` call in this file, so
+# the whole cost surface can be reviewed here (AGENTS.md "Cost budget",
+# docs/dataset.md §8):
+#
+#   down  flood/gfm/{state,health}.json                (2 objects, may be absent)
+#         aoi/{code}/flood/index.json                  (planned provinces only, may be absent)
+#         etl/{code}/{dem30,landcover30}.tif           (planned provinces only)
+#   up    out/aoi/{code}/flood  → aoi/{code}/flood     (planned provinces only)
+#         out/flood/gfm         → flood/gfm
+#
+# Only `rclone copy`/`copyto` with `--no-traverse` — never the mirroring
+# verb that removes objects, never a destination above `aoi/{code}/flood/` or
+# `flood/gfm/`: mirroring an empty runner into the bucket would wipe every
+# terrain tile. Scene directories are never copied *down*: `index.json` already says which scenes
+# exist, and a scene that is in the index is skipped by the CLI
+# (apps/etl/gfm/gfm/cli.py — this is what makes an ephemeral runner idempotent).
+#
+# Two STAC searches per run, never one per province: `plan` searches the whole
+# country once and names the provinces that have new items, so the inputs are
+# downloaded only for those; `run --plan` searches once more over the same
+# window and processes exactly that list.
+#
+# Secrets (repository): CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID,
+# R2_SECRET_ACCESS_KEY — the same three scripts/upload-gfm-inputs.sh uses.
+# rclone is configured through env vars only; nothing is written to a config
+# file on the runner.
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      since:
+        description: "Bootstrap only: search items *created* since this ISO instant (UTC, at most 31 days back). Empty = continue from flood/gfm/state.json"
+        required: false
+        default: ""
+      from:
+        description: "Backfill: acquisition window start (ISO, UTC). Needs `to`. A backfill never touches state.json"
+        required: false
+        default: ""
+      to:
+        description: "Backfill: acquisition window end (ISO, UTC)"
+        required: false
+        default: ""
+      provinces:
+        description: "Backfill: space-separated province codes, e.g. \"57 58\". Empty = every province the search touches"
+        required: false
+        default: ""
+
+concurrency:
+  group: gfm-ingest
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ingest:
+    name: Ingest GFM scenes
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+        working-directory: apps/etl/gfm
+    env:
+      BUCKET: siahra-geodata
+      # Scratch trees, all relative to apps/etl/gfm: `out` mirrors the R2 keys
+      # exactly (that is what gets copied up), `work/inputs` holds the DEM and
+      # WorldCover rasters the CLI reads, `work/plan.json` the plan.
+      OUT: out
+      INPUTS: work/inputs
+      PLAN: work/plan.json
+      PROVINCES: work/provinces.txt
+      AOI_ROOT: ../../web/public/aoi
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      RCLONE_CONFIG_R2_TYPE: s3
+      RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+      RCLONE_CONFIG_R2_ENDPOINT: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+      RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      RCLONE_CONFIG_R2_REGION: auto
+      # R2 has no multipart ETag like S3 and the token has no ListBuckets right
+      RCLONE_CONFIG_R2_NO_CHECK_BUCKET: "true"
+    steps:
+      - uses: actions/checkout@v7
+
+      # Same trust level as deploy.yml/ci.yml for actions (a release tag —
+      # setup-uv publishes no floating major tag, so the exact release is
+      # named) and, for the two tools, a pinned uv release (the one uv.lock
+      # was produced with) and the distro's rclone package rather than a
+      # curl|bash installer.
+      - uses: astral-sh/setup-uv@v10.0.1
+        with:
+          version: "0.9.30"
+      - name: Install Python dependencies (uv sync --frozen)
+        run: uv sync --frozen
+      - name: Install rclone (apt)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq rclone
+          rclone version | head -1
+
+      - name: Check secrets
+        run: |
+          for v in CLOUDFLARE_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY; do
+            [ -n "${!v}" ] || { echo "::error::missing secret $v"; exit 1; }
+          done
+
+      - name: Validate dispatch inputs
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          SINCE: ${{ inputs.since }}
+          FROM: ${{ inputs.from }}
+          TO: ${{ inputs.to }}
+        run: |
+          set -euo pipefail
+          if [ -n "$FROM" ] || [ -n "$TO" ]; then
+            [ -n "$FROM" ] && [ -n "$TO" ] || { echo "::error::backfill needs both from and to"; exit 1; }
+            [ -z "$SINCE" ] || { echo "::error::since and from/to are exclusive"; exit 1; }
+            date -u -d "$FROM" >/dev/null || { echo "::error::from is not a date: $FROM"; exit 1; }
+            date -u -d "$TO" >/dev/null || { echo "::error::to is not a date: $TO"; exit 1; }
+          elif [ -n "$SINCE" ]; then
+            # `created` filter with a 30-day `datetime` look-back (stac.py CREATED_LOOKBACK): a
+            # bootstrap further back than that would silently miss reprocessed items — use a backfill.
+            since_s=$(date -u -d "$SINCE" +%s) || { echo "::error::since is not a date: $SINCE"; exit 1; }
+            min_s=$(date -u -d '31 days ago' +%s)
+            [ "$since_s" -ge "$min_s" ] || { echo "::error::since is more than 31 days back — run a backfill (from/to) instead"; exit 1; }
+          fi
+
+      # Optional objects: absent on the very first run (state, health) and for
+      # a province with no scene yet (index). rclone reports a missing single
+      # source as "directory not found" (exit 3; 4 = file not found) — those
+      # two mean "absent" and are fine; anything else (auth, endpoint,
+      # network) is a real failure and stops the job before it can touch R2.
+      - name: Download state and health
+        run: |
+          set -uo pipefail
+          fetch_optional() {  # $1 = key, $2 = local path
+            rclone copyto --no-traverse --retries 2 "r2:$BUCKET/$1" "$2"
+            rc=$?
+            case "$rc" in
+              0) echo "fetched $1" ;;
+              3|4) echo "absent  $1 (first run, or no object yet)" ;;
+              *) echo "::error::rclone copyto $1 failed with exit $rc"; exit "$rc" ;;
+            esac
+          }
+          mkdir -p "$OUT/flood/gfm" work
+          fetch_optional flood/gfm/state.json  "$OUT/flood/gfm/state.json"
+          fetch_optional flood/gfm/health.json "$OUT/flood/gfm/health.json"
+          [ -f "$OUT/flood/gfm/state.json" ] && { echo "state:"; cat "$OUT/flood/gfm/state.json"; } || true
+
+      # One STAC search for the whole country. Writes work/provinces.txt (one
+      # code per line) and work/plan.json; when the search fails the plan
+      # carries the error and `run --plan` records it in health.json without
+      # moving state — so this step must not stop the job.
+      - name: Plan (one STAC search)
+        id: plan
+        env:
+          SINCE: ${{ inputs.since }}
+          FROM: ${{ inputs.from }}
+          TO: ${{ inputs.to }}
+          PROVINCE_LIST: ${{ inputs.provinces }}
+        run: |
+          set -uo pipefail
+          args=(--aoi-root "$AOI_ROOT" plan --out "$OUT" --provinces-file "$PROVINCES" --plan-file "$PLAN")
+          if [ -n "${FROM:-}" ]; then
+            args+=(--from "$FROM" --to "$TO")
+            for p in ${PROVINCE_LIST:-}; do args+=(--province "$p"); done
+            echo "mode=backfill" >> "$GITHUB_OUTPUT"
+          else
+            [ -n "${SINCE:-}" ] && args+=(--since "$SINCE")
+            echo "mode=run" >> "$GITHUB_OUTPUT"
+          fi
+          if uv run --frozen python -m gfm "${args[@]}"; then
+            echo "plan ok"
+          else
+            echo "::warning::plan failed — the error will be recorded in health.json by the run step"
+          fi
+          [ -f "$PLAN" ] || { echo "::error::plan wrote no $PLAN"; exit 1; }
+          cat "$PLAN"
+          echo "provinces=$(tr '\n' ' ' < "$PROVINCES")" >> "$GITHUB_OUTPUT"
+
+      # Inputs for the planned provinces only: the province's current
+      # index.json (absent = no scene yet) and its two 30 m rasters
+      # (absent = that province fails inside the CLI, shows up in
+      # health.lastError, and the run continues with the others). Never a
+      # scene directory.
+      - name: Download index and inputs for planned provinces
+        run: |
+          set -uo pipefail
+          fetch_optional() {  # $1 = key, $2 = local path
+            rclone copyto --no-traverse --retries 2 "r2:$BUCKET/$1" "$2"
+            rc=$?
+            case "$rc" in
+              0) echo "fetched $1" ;;
+              3|4) echo "absent  $1" ;;
+              *) echo "::error::rclone copyto $1 failed with exit $rc"; exit "$rc" ;;
+            esac
+          }
+          mkdir -p "$INPUTS"
+          n=0
+          while read -r code; do
+            [ -n "$code" ] || continue
+            n=$((n + 1))
+            fetch_optional "aoi/$code/flood/index.json" "$OUT/aoi/$code/flood/index.json"
+            fetch_optional "etl/$code/dem30.tif"       "$INPUTS/p$code-clipped30.tif"
+            fetch_optional "etl/$code/landcover30.tif" "$INPUTS/p$code-worldcover30.tif"
+          done < "$PROVINCES"
+          echo "planned provinces: $n"
+
+      # Exit code is captured, not propagated: health.json must reach R2 even
+      # when the run failed — a failed run that never reports is exactly the
+      # silent-dead-source case /api/v1/health exists to prevent.
+      - name: Run pipeline
+        id: run
+        env:
+          MODE: ${{ steps.plan.outputs.mode }}
+        run: |
+          set -uo pipefail
+          rc=0
+          uv run --frozen python -m gfm --work-dir "$INPUTS" --aoi-root "$AOI_ROOT" \
+            "$MODE" --plan "$PLAN" --out "$OUT" || rc=$?
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          echo "pipeline exit: $rc"
+
+      # Scoped copies only. `--checksum`: an unchanged index/state/health is
+      # not re-put (the HEAD --no-traverse already does compares the MD5), so
+      # a run with nothing new costs Class B reads and no writes.
+      - name: Upload scenes and index (per planned province) and flood/gfm
+        run: |
+          set -euo pipefail
+          up() {  # $1 = local dir, $2 = key prefix (always under aoi/{code}/flood or flood/gfm)
+            rclone copy --no-traverse --checksum --retries 5 --low-level-retries 20 \
+              --stats-one-line --stats 30s "$1" "r2:$BUCKET/$2"
+          }
+          while read -r code; do
+            [ -n "$code" ] || continue
+            if [ -d "$OUT/aoi/$code/flood" ]; then
+              up "$OUT/aoi/$code/flood" "aoi/$code/flood"
+            else
+              echo "$code: nothing written"
+            fi
+          done < "$PROVINCES"
+          up "$OUT/flood/gfm" "flood/gfm"
+
+      - name: Summary
+        if: always()
+        env:
+          RC: ${{ steps.run.outputs.rc }}
+        run: |
+          {
+            echo "## GFM ingest — ${{ steps.plan.outputs.mode || 'n/a' }}"
+            echo
+            if [ -f "$PLAN" ]; then
+              jq -r '"- plan: \(.itemCount) items, \(.sceneCount) scenes, provinces: \(if (.provinces | length) > 0 then (.provinces | join(" ")) else "-" end)" + (if .error then " — **plan error:** \(.error)" else "" end)' "$PLAN"
+            else
+              echo "- plan: not written"
+            fi
+            if [ -f "$OUT/flood/gfm/health.json" ]; then
+              jq -r '"- run: \(.itemsProcessed) items processed, \(.scenesWritten) scenes written\n- lastRunAt: \(.lastRunAt) · lastSuccessAt: \(.lastSuccessAt // "null") · lastSceneObservedAt: \(.lastSceneObservedAt // "null")" + (if .lastError then "\n- **lastError:** \(.lastError)" else "" end)' "$OUT/flood/gfm/health.json"
+            else
+              echo "- run: health.json not written"
+            fi
+            echo "- pipeline exit code: ${RC:-n/a}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail if the pipeline reported an error
+        env:
+          RC: ${{ steps.run.outputs.rc }}
+        run: |
+          [ "${RC:-1}" = "0" ] || { echo "::error::pipeline exit ${RC:-n/a} — see health.lastError in the summary"; exit 1; }
