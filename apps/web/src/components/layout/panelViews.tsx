@@ -20,7 +20,12 @@ import { RainfallCard } from "../hazard/RainfallCard";
 import { WaterLevelCard } from "../hazard/WaterLevelCard";
 import { ApiStatusFooter } from "./ApiStatusFooter";
 import type { MapInfo, MapLayers } from "./Map3DCanvas";
-import { MapLegend, type ExposureLegendState, type ForecastLegendState } from "./MapLegend";
+import {
+  MapLegend,
+  type ExposureLegendState,
+  type FloodGfmLegendState,
+  type ForecastLegendState,
+} from "./MapLegend";
 
 /**
  * ทุกอย่างที่แผงใดแผงหนึ่งอาจต้องใช้ — App.tsx ประกอบก้อนนี้ก้อนเดียวแล้วส่งให้
@@ -47,6 +52,8 @@ export interface PanelContext {
   mapInfo: MapInfo | null;
   exposureLegend: ExposureLegendState;
   forecastLegend: ForecastLegendState;
+  /** E14.F4 — ฉาก Copernicus GFM ที่กำลังแสดง + เหตุผลเมื่อไม่มี (legend สองแถว) */
+  floodGfmLegend: FloodGfmLegendState;
   observations: ObservationsState;
   floodExtent: FloodExtentState;
   dams: DamsState;
@@ -80,6 +87,7 @@ export function LayersPanel({ ctx }: { ctx: PanelContext }) {
         buildingsError={ctx.mapInfo?.buildingsError ?? null}
         exposure={ctx.exposureLegend}
         forecast={ctx.forecastLegend}
+        floodGfm={ctx.floodGfmLegend}
       />
       <div className="glass-soft mt-auto shrink-0 rounded-2xl px-3.5 py-2.5">
         <ApiStatusFooter

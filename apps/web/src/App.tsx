@@ -11,6 +11,8 @@ import { useEarthquakeFeed } from "./hooks/useEarthquakeFeed";
 import { useDams } from "./hooks/useDams";
 import { useFloodExposure } from "./hooks/useFloodExposure";
 import { useFloodExtent } from "./hooks/useFloodExtent";
+import { useFloodScene } from "./hooks/useFloodScene";
+import { useFloodScenes } from "./hooks/useFloodScenes";
 import { useAffectedAuthorities } from "./hooks/useAffectedAuthorities";
 import { useActiveAlerts } from "./hooks/useActiveAlerts";
 import { useLocalAuthorityImpact } from "./hooks/useLocalAuthorityImpact";
@@ -22,6 +24,8 @@ import { useShellState } from "./hooks/useShellState";
 import { BRAND, DATA_ATTRIBUTION_TH } from "./branding";
 import type { CameraPose } from "./scene/setupScene";
 import type { QualityLevel, QualityMode } from "./scene/quality";
+import { summarizeFloodField } from "./scene/floodField";
+import type { FloodGfmLegendState } from "./components/layout/MapLegend";
 import { formatFullDateTime } from "./lib/time";
 import { exposureInputsAreDegraded } from "./lib/exposureInputHealth";
 import { computeForecastBandStatus } from "./lib/forecastStyle";
@@ -46,6 +50,11 @@ const DEFAULT_LAYERS: MapLayers = {
   roads: true,
   water: true,
   floodExtent: true,
+  // E14.F4 — ฉาก Sentinel-1 (Copernicus GFM) เป็นของที่ดาวเทียมเห็น เปิดได้เหมือน
+  // GISTDA; ความลึก FwDET เปิดตามเพราะเป็น *การแสดงผล* ของฉากนั้น (ป้าย "ภาพประกอบ"
+  // ใน legend บอกชนิด) และมีผลเฉพาะเมื่อ floodGfm เปิดอยู่
+  floodGfm: true,
+  floodDepth: true,
   dams: true,
   radar: true,
   sunlight: true,
@@ -105,6 +114,34 @@ export default function App() {
   const apiHealth = useApiHealth();
   // E14.F1 — ชั้นน้ำท่วมดาวเทียมเดินตามเส้นเวลาเดียวกับ observations (ฉากที่ครอบ atIso)
   const floodExtent = useFloodExtent(provinceCode, atIso);
+  // E14.F4 — ฉาก Copernicus GFM: ดัชนีของจังหวัด (poll 10 นาทีขณะสด, ครั้งเดียวเมื่อ
+  // ย้อนหลัง) แล้วเลือกฉากที่ตรงกับเวลา + ดึง field.bin ครั้งเดียวต่อฉาก
+  const floodScenes = useFloodScenes(provinceCode, atIso);
+  const floodScene = useFloodScene(provinceCode, floodScenes.index, atIso);
+  const floodField = floodScene.field;
+  const floodSummary = useMemo(() => (floodField ? summarizeFloodField(floodField) : null), [floodField]);
+  // หรี่ชั้น GFM เมื่อ job ไม่ปกติ (/health `copernicus-gfm`) หรือดัชนีเก่ากว่า
+  // staleAfterSeconds ที่ job ประกาศเอง — หรี่ ไม่ใช่ซ่อน (legend บอกเหตุผล)
+  const gfmSource = sourceStatus(apiHealth.health, "copernicus-gfm");
+  const floodIndex = floodScenes.index;
+  const floodIndexStale = useMemo(() => {
+    const d = floodIndex?.layers.extent;
+    if (!d?.fetchedAt || !d.staleAfterSeconds) return false;
+    const ms = Date.parse(d.fetchedAt);
+    return Number.isFinite(ms) && Date.now() - ms > d.staleAfterSeconds * 1000;
+  }, [floodIndex]);
+  const floodFieldDim = floodIndexStale || (gfmSource !== null && gfmSource.health !== "ok");
+  const floodGfmLegend: FloodGfmLegendState = {
+    scene: floodScene.scene,
+    latestBefore: floodScene.latestBefore,
+    reason: floodScene.reason,
+    missing: floodScenes.missing,
+    loading: floodScenes.loading || floodScene.loading,
+    indexError: floodScenes.error,
+    fieldError: floodScene.error,
+    summary: floodSummary,
+    dimmed: floodFieldDim,
+  };
   // ชั้นปิดอยู่ = ไม่ยิงคำขอเลยแม้แต่ครั้งเดียว (รูปแบบเดียวกับ useRadar)
   const exposure = useFloodExposure(provinceCode, layers.exposure);
   // E11.6 — แดชบอร์ดผลกระทบ อปท.: รายชื่อจัดอันดับ + แจ้งเตือนทั้งจังหวัด + ราย
@@ -199,6 +236,8 @@ export default function App() {
     floodExtent,
     dams,
     exposure,
+    floodScenes,
+    floodScene,
     health: apiHealth.health,
     // เวลาที่ artefact ของชั้นคงที่ถูก build มาจาก manifest ของจังหวัดที่แสดงอยู่
     // (null ตอนยังไม่โหลด/manifest รุ่นก่อน E9.1 → legend คงข้อความ "ไม่ได้บันทึกเวลา")
@@ -338,6 +377,7 @@ export default function App() {
     mapInfo,
     exposureLegend,
     forecastLegend,
+    floodGfmLegend,
     observations,
     floodExtent,
     dams,
@@ -367,6 +407,9 @@ export default function App() {
         observations={observations.data}
         earthquakes={earthquakes.events}
         floodExtent={floodExtent.data}
+        floodField={floodField}
+        floodSceneId={floodScene.scene?.sceneId ?? null}
+        floodFieldDim={floodFieldDim}
         dams={dams.data?.dams ?? []}
         radar={radar.data}
         exposure={exposure.data}

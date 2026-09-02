@@ -12,6 +12,8 @@ import { STATIC_LAYER_DESCRIPTORS } from "../data/staticLayerDescriptors";
 import type { DamsState } from "./useDams";
 import type { FloodExposureState } from "./useFloodExposure";
 import type { FloodExtentState } from "./useFloodExtent";
+import type { FloodSceneState } from "./useFloodScene";
+import type { FloodScenesState } from "./useFloodScenes";
 import type { ObservationsState } from "./useObservations";
 import type { RadarState } from "./useRadar";
 
@@ -67,6 +69,34 @@ function withProvenance(
   };
 }
 
+/**
+ * ชั้น GFM สองชั้น (E14.F4): descriptor มาจาก `index.json` ที่ job เขียน (server-
+ * authored) แต่เวลาที่มันบรรยายคือ **ฉากใหม่สุดในดัชนี** — ส่วนที่ผู้ใช้เห็นบนแผนที่
+ * อาจเป็นฉากอื่น (เส้นเวลาถูกเลื่อนย้อนหลัง) `observedAt` ที่ legend แสดงจึงต้องเป็น
+ * เวลาบันทึกภาพของฉากที่ *กำลังแสดง* (และ `publishedAt` ของฉากนั้น สำหรับชั้น
+ * extent) ไม่ใช่ของฉากใหม่สุด และไม่ใช่ `fetchedAt` ซึ่งเป็นเวลาที่ job ดึง
+ *
+ * ไม่มีฉากในหน้าต่าง 14 วัน: ตัด `observedAt`/`publishedAt` ออก — ห้ามอวดเวลาของ
+ * ฉากที่ไม่ได้วาด `FloodGfmDetails` ใน MapLegend เป็นคนบอกว่า "ภาพล่าสุดก่อนหน้านั้น"
+ * คือเมื่อไหร่ ส่วน `fetchedAt` (job ดึงดัชนีสำเร็จเมื่อไหร่) คงไว้ตามจริง
+ */
+function withShownScene(
+  descriptor: HazardLayerDescriptor,
+  shown: FloodSceneState["scene"],
+  noSceneInWindow: boolean,
+  isExtent: boolean,
+): HazardLayerDescriptor {
+  if (shown) {
+    return isExtent
+      ? { ...descriptor, observedAt: shown.observedAt, publishedAt: shown.publishedAt }
+      : { ...descriptor, observedAt: shown.observedAt };
+  }
+  if (!noSceneInWindow) return descriptor;
+  const stripped: HazardLayerDescriptor = { ...descriptor, publishedAt: null };
+  delete stripped.observedAt;
+  return stripped;
+}
+
 /** เรียงจากดีสุดไปแย่สุด — ชั้นหนึ่งอาจใช้หลายแหล่ง จึงรายงานอันที่แย่ที่สุด */
 const HEALTH_ORDER: SourceHealth[] = ["ok", "delayed", "stale", "degraded", "down", "unknown"];
 
@@ -108,11 +138,15 @@ export function useLayerDescriptors(input: {
   dams: DamsState;
   /** run ล่าสุดของชั้นการเผชิญน้ำ (E10.4) — descriptor มาจาก `run.layer` ตรง ๆ */
   exposure: FloodExposureState;
+  /** ดัชนีฉาก GFM ของจังหวัด (E14.F4) — descriptor สองชั้นอยู่ใน `index.layers` */
+  floodScenes: FloodScenesState;
+  /** ฉาก GFM ที่กำลังแสดง — ตัวกำหนด `observedAt` ที่ legend เห็น (ดู withShownScene) */
+  floodScene: FloodSceneState;
   health: HealthResponse | null;
   /** `manifest.provenance` ของจังหวัดที่กำลังแสดง — null = manifest ก่อน E9.1 */
   provenance: AoiProvenance | null;
 }): LayerDescriptors {
-  const { observations, radar, floodExtent, dams, exposure, health, provenance } = input;
+  const { observations, radar, floodExtent, dams, exposure, floodScenes, floodScene, health, provenance } = input;
   const obsLayer = observations.data?.layer;
   const radarLayer = radar.data?.layer;
   const floodLayer = floodExtent.data?.layer;
@@ -121,6 +155,11 @@ export function useLayerDescriptors(input: {
   // `methodologyUrl` และ `fetchedAt` ถูกประกาศไว้ใน run ที่ api เผยแพร่ (E10.2/E10.3)
   // การเขียนใหม่ฝั่งเว็บจะทำให้ป้ายกับเวลาบน legend เลิกตรงกับ artefact ที่อ้างอิงได้
   const exposureLayer = exposure.data?.layer;
+  // E14.F4 — สองชั้นจาก index.json (observed extent + illustrative depth) ห้ามประกอบเอง
+  // ฝั่งเว็บเช่นกัน: `methodologyUrl`, `staleAfterSeconds`, `fetchedAt` ถูกประกาศโดย job
+  const floodIndexLayers = floodScenes.index?.layers;
+  const shownScene = floodScene.scene;
+  const noSceneInWindow = floodScene.reason === "no-scene-in-window";
 
   return useMemo(() => {
     const out: LayerDescriptors = {};
@@ -139,6 +178,21 @@ export function useLayerDescriptors(input: {
     put("floodExtent", floodLayer);
     put("dams", damsLayer);
     put("exposure", exposureLayer);
+    if (floodIndexLayers) {
+      put("floodGfm", withShownScene(floodIndexLayers.extent, shownScene, noSceneInWindow, true));
+      put("floodDepth", withShownScene(floodIndexLayers.depth, shownScene, noSceneInWindow, false));
+    }
     return out;
-  }, [obsLayer, radarLayer, floodLayer, damsLayer, exposureLayer, health, provenance]);
+  }, [
+    obsLayer,
+    radarLayer,
+    floodLayer,
+    damsLayer,
+    exposureLayer,
+    floodIndexLayers,
+    shownScene,
+    noSceneInWindow,
+    health,
+    provenance,
+  ]);
 }

@@ -473,6 +473,12 @@ R2 ไม่ต้องถูก) และ**ห่อ Response ใหม่ท
 ตอน dev middleware ใน `vite.config.ts` อ่านจาก `apps/etl/data/flood/aoi/{code}/flood/…`
 บนดิสก์ (ต้นไม้ที่ pipeline เขียน ใช้คีย์เดียวกับ R2 ทุกตัวอักษร) ด้วย header ชุดเดียวกัน
 
+ฝั่ง client (`apps/web/src/scene/floodField.ts`, F4) ไม่เชื่อ header ข้อนี้ทั้งหมด: ก่อนถอดรหัส
+`field.bin` มันดูสองไบต์แรกก่อน — ถ้าเป็น `1f 8b` (gzip) ก็แกะด้วย `DecompressionStream("gzip")` เอง
+ไม่งั้นถอดรหัสตรง ๆ — เพราะเคยมีเส้นทาง cache-hit ที่ส่งไบต์บีบซ้อนสองชั้นออกไป (แก้ฝั่ง Worker ใน
+PR #77) และ magic/รุ่น/ความยาวที่ไม่ตรง `packages/shared-types/src/flood.ts` จะถูกโยนเป็น
+`FloodFieldFormatError` ให้ legend แสดง ไม่ใช่วาดขยะลงแผนที่
+
 ### นโยบายเก็บ: ไม่ลบ
 
 เหมือนหัวข้อ 7 ทุกประการ — ฉากถูกส่งด้วย `immutable` หนึ่งปี การลบทิ้งคือ 404 กลาง

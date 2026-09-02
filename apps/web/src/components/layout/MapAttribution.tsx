@@ -14,6 +14,8 @@ const CREDIT_ORDER: SourceId[] = [
   "thaiwater",
   "tmd-radar",
   "gistda-flood",
+  // E14.F4 วาดพิกเซลแรกของ GFM — เงื่อนไข CEMS บังคับให้เครดิตมองเห็นได้ (docs/roadmap.md E14.F4 ข้อ 4)
+  "copernicus-gfm",
   "earthquakes",
   "copernicus-dem",
   "osm",

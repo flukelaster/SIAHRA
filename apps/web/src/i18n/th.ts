@@ -157,6 +157,37 @@ export const th = {
   "legend.layer.lowland.note": "ประมาณจากความสูงภูมิประเทศ ไม่ใช่การพยากรณ์น้ำท่วม",
 
   /**
+   * E14.F4 — สองชั้นซ้อนกันจาก Copernicus GFM: พื้นที่ท่วม = ตรวจวัดจริง (ภาพเรดาร์
+   * Sentinel-1 หนึ่งรอบบิน มีเวลาบันทึกภาพจริง) ส่วนความลึก = ภาพประกอบที่เราคำนวณ
+   * ต่อด้วย FwDET (docs/methodology/flood-depth.md) — "ไม่ได้ประมาณ" ต้องมีคำของตัวเอง
+   * เพราะมันไม่ใช่ 0 ม. และ `likelihood` ของ GFM ถ้าจะพูดถึงต้องเรียกว่า
+   * "ความเชื่อมั่นของการจำแนกภาพ" เท่านั้น (ยังไม่แสดงใน F4)
+   */
+  "legend.layer.floodGfm": "น้ำท่วมจากภาพดาวเทียม Sentinel-1 (Copernicus GFM)",
+  "legend.layer.floodGfm.note": "จำแนกจากภาพเรดาร์ Sentinel-1 หนึ่งรอบบิน · ตรวจวัดจริง ไม่ใช่การพยากรณ์",
+  "legend.layer.floodDepth": "ความลึกน้ำโดยประมาณ (ภาพประกอบ, FwDET)",
+  "legend.layer.floodDepth.note":
+    "คำนวณเองด้วย FwDET จากขอบน้ำในภาพ + ความสูงภูมิประเทศ ไม่ใช่การตรวจวัด ไม่ใช่การพยากรณ์",
+  "legend.floodGfm.scene": "ฉาก {id} · บันทึกภาพ {time}",
+  "legend.floodGfm.area": "พื้นที่ท่วมในภาพ {km2} ตร.กม. (บนตาราง overview ของจังหวัด)",
+  "legend.floodGfm.dry": "ฉากนี้ไม่พบน้ำท่วม — เป็นภาพที่สังเกตแล้ว ไม่ใช่ไม่มีภาพ",
+  /** {days} = หน้าต่างย้อนหลัง (FLOOD_SCENE_MAX_AGE_MS) — ไม่มีภาพ ≠ ไม่มีน้ำท่วม */
+  "legend.floodGfm.noSceneInWindow": "ไม่มีภาพในช่วง {days} วันก่อนเวลาที่เลือก — ไม่ได้แปลว่าไม่มีน้ำท่วม",
+  "legend.floodGfm.latestBefore": "ภาพล่าสุดก่อนหน้านั้น: {time}",
+  "legend.floodGfm.noScenesForProvince": "ยังไม่มีฉากของจังหวัดนี้ในระบบ — ไม่ได้แปลว่าไม่มีน้ำท่วม",
+  /** "ถามไม่ได้" — ห้ามอ่านเป็น "ไม่มีฉาก" */
+  "legend.floodGfm.indexError": "โหลดรายการฉากไม่ได้: {error}",
+  "legend.floodGfm.fieldError": "โหลดฉากไม่ได้: {error}",
+  "legend.floodGfm.loading": "กำลังโหลดฉาก...",
+  "legend.floodDepth.scale": "ความลึกโดยประมาณ (ม.)",
+  "legend.floodDepth.notEstimated": "ไม่ได้ประมาณ",
+  "legend.floodDepth.notEstimated.why":
+    "สิ่งปลูกสร้าง/ต้นไม้ — DSM วัดถึงยอดสิ่งปกคลุม จึงไม่ให้ตัวเลข (ไม่ใช่ 0 ม.)",
+  "legend.floodDepth.estimated": "มีค่าความลึก {pct}% ของเซลล์ที่ท่วม · ลึกสุด {max} ม.",
+  "legend.floodDepth.noneEstimated": "ฉากนี้ท่วมเฉพาะบริเวณที่ไม่ประมาณความลึก",
+  "legend.floodDepth.needsExtent": "แสดงร่วมกับชั้น Sentinel-1 เท่านั้น — ความลึกไม่ถูกแสดงโดยไม่มีฉากที่มันมาจาก",
+
+  /**
    * E10.4 — ชั้น "ระดับการเผชิญน้ำ (ภาพประกอบ)"
    *
    * ถ้อยคำสองบรรทัดแรกถูกกำหนดไว้ใน docs/roadmap.md §E10.4 ตรงตัวอักษร ห้ามแก้เอง
@@ -563,6 +594,7 @@ export const th = {
   "methodology.back": "กลับไปที่แผนที่ {brand}",
   "methodology.doc.lowland": "พื้นที่ลุ่มต่ำ (ภาพประกอบ)",
   "methodology.doc.floodExposure": "ระดับการเผชิญน้ำ (ภาพประกอบ)",
+  "methodology.doc.floodDepth": "น้ำท่วมจากดาวเทียม Sentinel-1 และความลึกโดยประมาณ (FwDET)",
   "methodology.notFoundTitle": "ไม่พบเอกสารนี้",
   "methodology.notFound": "ไม่พบเอกสาร",
   "methodology.notFoundBody": "ยังไม่มีเอกสารวิธีคำนวณชื่อ",

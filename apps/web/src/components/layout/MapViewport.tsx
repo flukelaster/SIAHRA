@@ -11,6 +11,7 @@ import type {
   RadarFramesResponse,
 } from "@siahra/shared-types";
 import type { CameraPose, MapTool, SafeArea, SceneHandles } from "../../scene/setupScene";
+import type { FloodField } from "../../scene/floodField";
 import { IconButton } from "../ui/Panel";
 import { Map3DCanvas, type MapApi, type MapInfo, type MapLayers } from "./Map3DCanvas";
 import { StatPills } from "./StatPills";
@@ -36,6 +37,9 @@ export function MapViewport({
   observations,
   earthquakes,
   floodExtent,
+  floodField = null,
+  floodSceneId = null,
+  floodFieldDim = false,
   dams,
   radar,
   exposure,
@@ -76,6 +80,10 @@ export function MapViewport({
   observations: ObservationsResponse | null;
   earthquakes: EarthquakeEvent[];
   floodExtent: FloodExtentResponse | null;
+  /** ฉาก Copernicus GFM ที่ถอดแล้ว (E14.F4) — ส่งต่อให้ Map3DCanvas ตรง ๆ */
+  floodField?: FloodField | null;
+  floodSceneId?: string | null;
+  floodFieldDim?: boolean;
   dams: DamObservation[];
   radar: RadarFramesResponse | null;
   /** run ล่าสุดของ "ระดับการเผชิญน้ำ (ภาพประกอบ)" — null = ยังไม่มี/ชั้นถูกปิด */
@@ -166,6 +174,9 @@ export function MapViewport({
         observations={observations}
         earthquakes={earthquakes}
         floodExtent={floodExtent}
+        floodField={floodField}
+        floodSceneId={floodSceneId}
+        floodFieldDim={floodFieldDim}
         dams={dams}
         radar={radar}
         exposure={exposure}
