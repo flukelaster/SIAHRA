@@ -179,20 +179,31 @@ describe("golden fixture (apps/etl/gfm/tests/fixtures/57)", () => {
     const f = decodeFloodField(buf);
     expect(f.width).toBe(686);
     expect(f.height).toBe(802);
+    // นับใน JS ล้วนแล้ว assert ครั้งเดียว — `expect()` 550k ครั้งในลูปกิน ~6 วิบน runner
+    // ของ GitHub (เกิน timeout 5 วิ) ทั้งที่ในเครื่อง dev ใช้ไม่ถึงวิ
     let flooded = 0;
     let notEstimated = 0;
+    let floodedWithoutDepth = 0;
+    let floodedOverCap = 0;
+    let depthOnNonFlooded = 0;
     for (let i = 0; i < f.cls.length; i++) {
       const c = f.cls[i];
+      const d = f.depthCm[i];
       if (c === C.FLOODED) {
         flooded++;
-        expect(f.depthCm[i]).not.toBe(FLOOD_FIELD_NO_DEPTH);
-        expect(f.depthCm[i]).toBeLessThanOrEqual(1000);
+        if (d === FLOOD_FIELD_NO_DEPTH) floodedWithoutDepth++;
+        else if (d > 1000) floodedOverCap++;
       } else {
         if (c === C.FLOODED_DEPTH_NOT_ESTIMATED) notEstimated++;
-        expect(f.depthCm[i]).toBe(FLOOD_FIELD_NO_DEPTH);
+        if (d !== FLOOD_FIELD_NO_DEPTH) depthOnNonFlooded++;
       }
     }
     expect(flooded).toBeGreaterThan(0);
+    expect({ floodedWithoutDepth, floodedOverCap, depthOnNonFlooded }).toEqual({
+      floodedWithoutDepth: 0,
+      floodedOverCap: 0,
+      depthOnNonFlooded: 0,
+    });
     const meta = JSON.parse(readFileSync(resolve(dir, "meta.json"), "utf8")) as {
       sceneId: string;
       floodedCells: number;
