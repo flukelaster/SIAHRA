@@ -68,7 +68,14 @@ export function useFloodScenes(provinceCode: string | null, atIso: string | null
         timer = window.setTimeout(load, RETRY_MS);
       }
     };
-    setState({ index: null, missing: false, loading: true, error: null });
+    // สลับสด ↔ ย้อนหลังของจังหวัดเดิม: เก็บดัชนีเดิมไว้ระหว่างโหลดซ้ำ (ไฟล์เดียวกัน) —
+    // ไม่งั้นรายการรอบบิน/ขีดบนเส้นเวลา/ฉากที่วาดจะหายไป 300 ms ทุกครั้งที่กดเลือกฉาก
+    // จากแผง (E14.F5) เปลี่ยนจังหวัดยังรีเซ็ตเป็น null เหมือนเดิม จำนวนคำขอไม่เปลี่ยน
+    setState((s) =>
+      s.index?.provinceCode === provinceCode
+        ? { ...s, loading: true, error: null }
+        : { index: null, missing: false, loading: true, error: null },
+    );
     if (historical) {
       timer = window.setTimeout(load, HISTORICAL_DEBOUNCE_MS);
     } else {

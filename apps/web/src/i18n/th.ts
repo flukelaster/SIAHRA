@@ -314,6 +314,11 @@ export const th = {
   "timeline.tick.now": "ตอนนี้",
   "timeline.tick.days": "-{n} วัน",
   "timeline.tick.hours": "-{n} ชม.",
+  /** E14.F5 — เวลาที่เลือกเก่ากว่าช่วงของแถบ: หัวเลื่อนที่ชิดซ้ายไม่ใช่ "30 วันที่แล้ว" */
+  "timeline.outOfRange": "นอกช่วงของแถบเลื่อน",
+  "timeline.marks": "รอบบินของ Sentinel-1",
+  "timeline.mark.flooded": "รอบบิน Sentinel-1 {time} · ท่วม {km2} ตร.กม.",
+  "timeline.mark.dry": "รอบบิน Sentinel-1 {time} · ไม่พบน้ำท่วมในภาพ",
 
   // ── แถบตัวเลขสรุป ─────────────────────────────────────────────────────
   "stats.none": "ไม่มีข้อมูลตรวจวัด",
@@ -419,6 +424,42 @@ export const th = {
   "flood.note":
     "ขอบเขตน้ำท่วมแปลจากภาพดาวเทียมโดย GISTDA (ชุดข้อมูล flooding_vis) — เป็นสิ่งที่ตรวจพบแล้ว ไม่ใช่การพยากรณ์ · ภาพชุดนี้ไม่ระบุวันที่ถ่าย ระบบจึงแสดงเวลาที่ดึงข้อมูล",
   "flood.noteEarliest": " และเวลาที่พบพื้นที่แต่ละแห่งครั้งแรก (เก่าสุด {time})",
+
+  // ── การ์ดฉาก Sentinel-1 / Copernicus GFM (E14.F5) ───────────────────
+  "floodScenes.section.shown": "ฉากที่กำลังแสดง · Sentinel-1 (Copernicus GFM)",
+  "floodScenes.section.passes": "รอบบินของ Sentinel-1",
+  "floodScenes.section.events": "เหตุการณ์น้ำท่วมที่เห็นจากดาวเทียม",
+  "floodScenes.section.gistda": "ขอบเขตน้ำท่วมจาก GISTDA",
+  "floodScenes.sceneId": "ฉาก",
+  "floodScenes.observedAt": "บันทึกภาพ",
+  "floodScenes.publishedAt": "GFM เผยแพร่",
+  "floodScenes.publishedAt.unknown": "ต้นทางไม่ระบุ",
+  "floodScenes.area": "พื้นที่ท่วมในภาพ",
+  "floodScenes.area.value": "{km2} ตร.กม. (บนตาราง overview)",
+  "floodScenes.depthShare": "เซลล์ท่วมที่มีค่าความลึก",
+  "floodScenes.maxDepth": "ลึกสุด (ภาพประกอบ)",
+  "floodScenes.medianDepth": "มัธยฐาน (ภาพประกอบ)",
+  /** ระยะจากภาพถึงเวลาที่เลือก — บอกแค่ว่าภาพเก่ากว่าเท่าไร ห้ามอ่านเป็นสภาพ ณ เวลาที่เลือก */
+  "floodScenes.gap": "ภาพล่าสุดก่อนเวลาที่เลือก: {duration}",
+  "floodScenes.gap.why": "ภาพบอกสภาพ ณ เวลาบันทึกภาพเท่านั้น — ไม่ใช่ ณ เวลาที่เลือก",
+  "floodScenes.gap.days": "{d} วัน {h} ชม.",
+  "floodScenes.gap.hours": "{h} ชม. {m} นาที",
+  "floodScenes.gap.minutes": "{m} นาที",
+  "floodScenes.jumpToLatest": "ไปที่ภาพล่าสุดก่อนหน้านั้น",
+  "floodScenes.selectedTime": "เวลาที่เลือก: {time}",
+  "floodScenes.dry": "แห้ง",
+  "floodScenes.km2": "{km2} ตร.กม.",
+  "floodScenes.shownMarker": "ฉากที่กำลังแสดง",
+  "floodScenes.selectScene": "แสดงฉากนี้",
+  "floodScenes.more": "…และอีก {n} รอบบิน",
+  "floodScenes.event.peak": "สูงสุด {km2} ตร.กม. เมื่อ {time}",
+  "floodScenes.event.scenes": "{n} รอบบิน",
+  "floodScenes.event.scenes.one": "1 รอบบิน",
+  "floodScenes.event.select": "แสดงฉากที่ท่วมมากที่สุดของเหตุการณ์นี้",
+  "floodScenes.events.none": "ไม่มีรอบบินในรายการนี้ที่จำแนกว่าท่วม — ตามภาพที่มีเท่านั้น",
+  "floodScenes.events.note":
+    "เหตุการณ์ = รอบบินที่เห็นน้ำท่วมซึ่งห่างกันไม่เกิน 7 วัน · ระหว่างรอบบินไม่มีภาพ จึงไม่รู้สภาพในช่วงนั้น",
+  "floodScenes.passes.note": "หนึ่งรายการ = หนึ่งรอบบิน · ฉากที่แห้งก็เป็นข้อมูล ไม่ใช่ความเงียบ",
 
   // ── การ์ดระดับน้ำ ─────────────────────────────────────────────────────
   "water.title": "ระดับน้ำที่ตรวจวัดได้",
@@ -558,6 +599,19 @@ export const th = {
   "popup.firstSeen": "พบครั้งแรก",
   "popup.lastSeen": "พบล่าสุด",
   "popup.floodNote": "แปลจากภาพดาวเทียม (GISTDA) — สิ่งที่ตรวจพบแล้ว ไม่ใช่การพยากรณ์",
+  /** E14.F5 — เซลล์ของฉาก Copernicus GFM ใต้จุดที่คลิก: หกคลาส หกประโยค ห้ามพับรวม */
+  "popup.gfm.title": "ภาพ Sentinel-1 (Copernicus GFM)",
+  "popup.gfm.flooded": "ท่วม · ความลึกโดยประมาณ {m} ม. (ภาพประกอบ)",
+  "popup.gfm.floodedNoDepth": "ท่วม · เซลล์นี้ไม่มีค่าความลึก",
+  /** ความเชื่อมั่นของ ensemble ของ GFM ว่าจำแนกถูก — ไม่ใช่ความน่าจะเป็นของอะไรที่ยังไม่เกิด */
+  "popup.gfm.confidence": "ความเชื่อมั่นของการจำแนกภาพ {n}/100",
+  "popup.gfm.notEstimated": "ท่วม · ไม่ได้ประมาณความลึก (สิ่งปลูกสร้าง/ต้นไม้)",
+  "popup.gfm.referenceWater": "แหล่งน้ำถาวร",
+  "popup.gfm.excluded": "ไม่มีการจำแนก (SAR มองไม่เห็น)",
+  "popup.gfm.noObservation": "ไม่มีภาพ ณ จุดนี้ในฉากนั้น",
+  "popup.gfm.dry": "ไม่พบน้ำท่วมในภาพ",
+  "popup.gfm.unknownClass": "รหัสคลาสไม่รู้จัก ({cls})",
+  "popup.gfm.acquired": "บันทึกภาพ {time} · ฉาก {id}",
 
   // ── ป้ายกำกับบนฉาก 3 มิติ ─────────────────────────────────────────────
   "scene.loadingTerrain": "กำลังโหลดข้อมูลภูมิประเทศ...",

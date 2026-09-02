@@ -14,7 +14,7 @@ import { PanelBadge } from "./PanelBadge";
 import { PANELS, panelByKey, type PanelContext } from "./panelRegistry";
 import { SourceStatusPopover } from "./SourceStatusPopover";
 import { StatPills } from "./StatPills";
-import { TimelineBar } from "./TimelineBar";
+import { TimelineBar, type TimelineMark } from "./TimelineBar";
 
 /**
  * เปลือกล่างของมือถือ — **ชั้นเดียว** ที่ลอยอยู่เหนือแผนที่ (แบบ Google Maps)
@@ -42,6 +42,7 @@ export function MobileSheet({
   exaggeration,
   onExaggerationChange,
   onAtIsoChange,
+  timelineMarks,
   forecastAtIso,
   onForecastAtIsoChange,
 }: {
@@ -55,6 +56,8 @@ export function MobileSheet({
   exaggeration: number;
   onExaggerationChange: (f: number) => void;
   onAtIsoChange: (atIso: string | null) => void;
+  /** E14.F5 — ขีดรอบบิน Sentinel-1 */
+  timelineMarks?: TimelineMark[];
   forecastAtIso: string | null;
   onForecastAtIsoChange: (forecastAtIso: string | null) => void;
 }) {
@@ -127,7 +130,7 @@ export function MobileSheet({
           </button>
         </div>
 
-        <TimelineBar atIso={ctx.atIso} onChange={onAtIsoChange} variant="dense" />
+        <TimelineBar atIso={ctx.atIso} onChange={onAtIsoChange} variant="dense" marks={timelineMarks} />
 
         <MapAttribution
           info={mapInfo}

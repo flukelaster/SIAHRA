@@ -7,6 +7,8 @@ import type { AffectedAuthoritiesState } from "../../hooks/useAffectedAuthoritie
 import type { DamsState } from "../../hooks/useDams";
 import type { EarthquakeFeedState } from "../../hooks/useEarthquakeFeed";
 import type { FloodExtentState } from "../../hooks/useFloodExtent";
+import type { FloodSceneState } from "../../hooks/useFloodScene";
+import type { FloodScenesState } from "../../hooks/useFloodScenes";
 import type { LayerDescriptors } from "../../hooks/useLayerDescriptors";
 import type { LocalAuthorityImpactState } from "../../hooks/useLocalAuthorityImpact";
 import type { ObservationsState } from "../../hooks/useObservations";
@@ -56,6 +58,9 @@ export interface PanelContext {
   floodGfmLegend: FloodGfmLegendState;
   observations: ObservationsState;
   floodExtent: FloodExtentState;
+  /** E14.F5 — ดัชนีฉาก Copernicus GFM ของจังหวัด + ฉากที่เลือกตาม atIso (แผง flood) */
+  floodScenes: FloodScenesState;
+  floodScene: FloodSceneState;
   dams: DamsState;
   earthquakes: EarthquakeFeedState;
   forecast: ProvinceForecastState;
@@ -69,6 +74,11 @@ export interface PanelContext {
   setSelectedAuthorityId: (id: string | null) => void;
   apiHealth: HealthResponse | null;
   atIso: string | null;
+  /**
+   * E14.F5 — ตัวตั้ง `atIso` **ตัวเดียวกับที่ TimelineBar ใช้** (`handleAtIsoChange` ใน
+   * App.tsx): แผงฉาก GFM เลือกเวลาผ่านทางนี้ ทุกชั้นที่เดินตามเส้นเวลาจึงตามไปด้วยกัน
+   */
+  setAtIso: (atIso: string | null) => void;
 }
 
 /** แผงชั้นข้อมูล: legend เดิมไม่แก้ + สถานะการดึงของ ThaiWater เป็น footer (ย้ายมาจาก Sidebar เดิม) */

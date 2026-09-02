@@ -159,6 +159,7 @@ export function Map3DCanvas({
   floodExtent,
   floodField = null,
   floodSceneId = null,
+  floodSceneObservedAt = null,
   floodFieldDim = false,
   dams,
   radar,
@@ -188,8 +189,10 @@ export function Map3DCanvas({
    * ฉากให้วาด (ยังไม่โหลด / ไม่มีฉากในหน้าต่าง 14 วัน / จังหวัดไม่มีฉาก)
    */
   floodField?: FloodField | null;
-  /** sceneId ของ `floodField` — ไว้ให้ตัวนับดีบักและการ log เท่านั้น */
+  /** sceneId ของ `floodField` — ตัวนับดีบัก, การ log และ popup ของจุดบนแผนที่ (E14.F5) */
   floodSceneId?: string | null;
+  /** เวลาบันทึกภาพของ `floodField` — popup ต้องบอกว่าเซลล์ที่อ่านมาจากภาพเมื่อไหร่ */
+  floodSceneObservedAt?: string | null;
   /** true = แหล่ง GFM ค้าง/ไม่ปกติ → ชั้นหรี่ลง ไม่หายไป */
   floodFieldDim?: boolean;
   dams: DamObservation[];
@@ -281,6 +284,15 @@ export function Map3DCanvas({
   pickRef.current = pick;
   const floodFeaturesRef = useRef(floodExtent?.features ?? []);
   floodFeaturesRef.current = floodExtent?.features ?? [];
+  /**
+   * ฉาก GFM สำหรับ popup (E14.F5) — ฟิลด์ + ฉาก เก็บใน ref แบบเดียวกับ floodFeaturesRef
+   * เพราะตัวจับคลิกถูกผูกครั้งเดียวใน effect ด้านล่าง; กริดมาจาก terrainRef ตอนคลิก
+   */
+  const floodPickRef = useRef<{ field: FloodField; sceneId: string; observedAt: string } | null>(null);
+  floodPickRef.current =
+    floodField && floodSceneId && floodSceneObservedAt
+      ? { field: floodField, sceneId: floodSceneId, observedAt: floodSceneObservedAt }
+      : null;
   const toolRef = useRef(tool);
   toolRef.current = tool;
   const floodLabelsRef = useRef<THREE.Group | null>(null);
@@ -368,11 +380,21 @@ export function Map3DCanvas({
             -((e.clientY - rect.top) / rect.height) * 2 + 1,
           );
           const terrainObjects: THREE.Object3D[] = loaded.tiles ? [loaded.tiles.group] : [loaded.terrain.mesh];
+          const fp = floodPickRef.current;
+          const { width, height, cellSizeM } = loaded.manifest.terrain;
+          const { gridWidthM, gridHeightM } = loaded.terrain.projection;
           const result = pickAt(h, ndc, {
             projection: loaded.terrain.projection,
             terrainObjects,
             quakeGroup: quakesRef.current?.group ?? null,
             floodFeatures: floodFeaturesRef.current,
+            floodField: fp
+              ? {
+                  field: fp.field,
+                  grid: { width, height, cellSizeM, gridWidthM, gridHeightM },
+                  scene: { sceneId: fp.sceneId, observedAt: fp.observedAt },
+                }
+              : null,
           });
           setPick(result);
         };

@@ -26,9 +26,13 @@ import type { CameraPose } from "./scene/setupScene";
 import type { QualityLevel, QualityMode } from "./scene/quality";
 import { summarizeFloodField } from "./scene/floodField";
 import type { FloodGfmLegendState } from "./components/layout/MapLegend";
+import type { TimelineMark } from "./components/layout/TimelineBar";
 import { formatFullDateTime } from "./lib/time";
 import { exposureInputsAreDegraded } from "./lib/exposureInputHealth";
+import { isFloodedScene, sceneAtIso } from "./lib/floodEvents";
+import { indexForProvince } from "./lib/floodScenes";
 import { computeForecastBandStatus } from "./lib/forecastStyle";
+import { formatNumber } from "./lib/number";
 import { buildSearchIndex, type SearchPlace } from "./lib/searchIndex";
 import { useLang } from "./i18n/context";
 
@@ -131,6 +135,25 @@ export default function App() {
     return Number.isFinite(ms) && Date.now() - ms > d.staleAfterSeconds * 1000;
   }, [floodIndex]);
   const floodFieldDim = floodIndexStale || (gfmSource !== null && gfmSource.health !== "ok");
+  // E14.F5 — ขีดรอบบิน Sentinel-1 บน TimelineBar: หนึ่งฉาก = หนึ่งขีด ที่ `sceneAtIso`
+  // (ปัด observedAt ขึ้นเป็นขอบ 10 นาที เพื่อให้กดแล้วได้ฉากนั้นพอดี) ป้าย = วันเวลา + ตร.กม.
+  // ดัชนีของจังหวัดอื่น (หนึ่งเฟรมหลังสลับจังหวัด) ไม่นับ — กฎเดียวกับ useFloodScene
+  const ownFloodIndex = indexForProvince(floodIndex, provinceCode);
+  const timelineMarks = useMemo<TimelineMark[]>(
+    () =>
+      (ownFloodIndex?.scenes ?? []).map((s) => ({
+        atIso: sceneAtIso(s),
+        flooded: isFloodedScene(s),
+        label:
+          isFloodedScene(s)
+            ? t("timeline.mark.flooded", {
+                time: formatFullDateTime(lang, s.observedAt),
+                km2: formatNumber(lang, s.floodedAreaKm2, 1),
+              })
+            : t("timeline.mark.dry", { time: formatFullDateTime(lang, s.observedAt) }),
+      })),
+    [ownFloodIndex, lang, t],
+  );
   const floodGfmLegend: FloodGfmLegendState = {
     scene: floodScene.scene,
     latestBefore: floodScene.latestBefore,
@@ -380,6 +403,8 @@ export default function App() {
     floodGfmLegend,
     observations,
     floodExtent,
+    floodScenes,
+    floodScene,
     dams,
     earthquakes,
     forecast,
@@ -390,6 +415,9 @@ export default function App() {
     setSelectedAuthorityId,
     apiHealth: apiHealth.health,
     atIso,
+    // ตัวตั้งเดียวกับที่ TimelineBar ใช้ (ผ่าน AppShell → onAtIsoChange) — แผงฉาก GFM
+    // เลือกเวลาแล้วมาตรวัดน้ำ/ดวงอาทิตย์/GISTDA ?at=/เรดาร์ จึงเดินตามพร้อมกัน
+    setAtIso: handleAtIsoChange,
   };
 
   return (
@@ -409,6 +437,7 @@ export default function App() {
         floodExtent={floodExtent.data}
         floodField={floodField}
         floodSceneId={floodScene.scene?.sceneId ?? null}
+        floodSceneObservedAt={floodScene.scene?.observedAt ?? null}
         floodFieldDim={floodFieldDim}
         dams={dams.data?.dams ?? []}
         radar={radar.data}
@@ -445,6 +474,7 @@ export default function App() {
         exaggeration={exaggeration}
         onExaggerationChange={setExaggeration}
         onAtIsoChange={handleAtIsoChange}
+        timelineMarks={timelineMarks}
         forecastAtIso={forecastAtIso}
         onForecastAtIsoChange={handleForecastAtIsoChange}
       />

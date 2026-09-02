@@ -1172,28 +1172,78 @@ hydraulics stay excluded and the four scoping decisions in §0 are unchanged.
    regression guard).
 4. `copernicus-gfm` is added to `CREDIT_ORDER` in `components/layout/MapAttribution.tsx` in the same PR that first draws a GFM pixel — the list is hand-curated, so tsc will not catch the omission, and the CEMS terms require the visible credit. *Evidence:* in this diff.
 
-#### E14.F5 — Time UI: scene picker, S1 ticks, event browser, popup
-- Touches: `TimelineBar.tsx`, `FloodExtentCard.tsx` → `FloodScenesCard`, `panelRegistry.ts`,
-  `InfoPopup.tsx`, `picking.ts`
+#### E14.F5 — Time UI: scene picker, S1 ticks, event browser, popup — *done* (2026-09-02)
+- Touches: `TimelineBar.tsx` (+ `TimelineBar.test.ts`), `FloodExtentCard.tsx` → new
+  `components/hazard/FloodScenesCard.tsx` (+ test), `panelRegistry.ts`, `panelViews.tsx`,
+  `InfoPopup.tsx` (+ test), `scene/picking.ts`, `scene/floodField.ts` (`floodCellAt`,
+  `gfmConfidence`), new `lib/floodEvents.ts` and `lib/timelineRange.ts` (+ tests),
+  `hooks/useFloodScenes.ts`, `App.tsx` → `AppShell` → `BottomDock` / `MobileSheet` (`timelineMarks`),
+  i18n th/en (`floodScenes.*`, `popup.gfm.*`, `timeline.outOfRange` / `marks` / `mark.*`)
 - Depends: E14.F4
 - Size: M
 - Risk: the gap label ("latest image before the chosen time: 3 d 4 h") must never imply the state at
   `atIso`; the scene picker's granularity is settled — one `sceneId` per Sentinel-1 pass
   (F3, `FRAME_MERGE_WINDOW`), so a pass is one tick, never 2–5
-- Issue: _(not yet filed)_
+- Issue: shipped on `feat/flood-time-ui`. What landed, beyond the criteria:
+  - `lib/floodEvents.ts`: `sceneAtIso(scene)` = `observedAt` rounded **up** to the next 10-minute
+    boundary — the timeline and `snapAtIso` floor to 10 min, so flooring here would make
+    `pickFloodScene` choose the *previous* pass; `isFloodedScene` (`floodedCells > 0`) is the one
+    predicate shared by timeline marks, pass rows and events; `groupFloodEvents` splits flooded
+    scenes into events wherever the gap exceeds `FLOOD_EVENT_GAP_MS` = 7 days (peak = max km²,
+    sorted by peak desc); `gapParts()` feeds the gap label and is `null` when live or < 10 min
+  - the `flood` panel is now `FloodScenesCard` (GISTDA body extracted to `FloodExtentBody`, shown
+    as its lower section): shown-scene facts (sceneId, acquired, published or "ต้นทางไม่ระบุ", km²
+    on the overview grid, depth-estimated share, max/median depth or "—"), the gap note, passes
+    newest-first (cap 30, dry rows say "แห้ง", bullet on the shown scene) and the event list (range,
+    peak km² + date, pass count); states: index error / index missing ("ยังไม่มีฉากของจังหวัดนี้ใน
+    ระบบ — ไม่ได้แปลว่าไม่มีน้ำท่วม") / no scene in the window (+ jump to `latestBefore`) / loading.
+    Every click goes through `PanelContext.setAtIso` — the same setter the timeline uses
+  - `TimelineBar` `marks` prop: Sentinel-1 pass ticks at their true position within the current
+    range (flood colour from `lib/floodStyle.ts` for flooded passes, neutral for dry; title = date +
+    km²; click selects `sceneAtIso`; marks outside the range are not drawn; `dense` and `full`
+    variants); a "นอกช่วงของแถบเลื่อน" chip when `atIso` is older than the range (in `dense` it
+    replaces the archive chip so it fits the phone sheet)
+  - **behaviour change:** changing the range (72 h / 7 d / 30 d) no longer resets `atIso` to live
+    (`lib/timelineRange.ts` `applyRangeChange` deliberately takes no `onChange`) — the old reset
+    would have dropped a picked 2024 event; the out-of-range chip is what tells the user instead
+  - popup: the ground pick (`scene/picking.ts`) gains `floodCell` from the pure `floodCellAt(field,
+    grid, x, z)` (mesh grid → bottom-up field index); `InfoPopup` `GfmCellBlock` gives one sentence
+    per class — never folded together: ท่วม · ความลึกโดยประมาณ X.X ม. (ภาพประกอบ) / ท่วม · เซลล์นี้ไม่มี
+    ค่าความลึก / ท่วม · ไม่ได้ประมาณความลึก (สิ่งปลูกสร้าง/ต้นไม้) / แหล่งน้ำถาวร / ไม่มีการจำแนก (SAR
+    มองไม่เห็น) / ไม่มีภาพ ณ จุดนี้ในฉากนั้น / ไม่พบน้ำท่วมในภาพ — plus "ความเชื่อมั่นของการจำแนกภาพ
+    N/100" only for FLOODED / FLOODED_DEPTH_NOT_ESTIMATED / DRY (`gfmConfidence`; hidden on
+    EXCLUDED / NO_OBSERVATION / REFERENCE_WATER), acquisition date + time + sceneId, and the
+    `/methodology/flood-depth` link; the block is absent when no scene is in the window
+  - `useFloodScenes` keeps the same province's index across a live ↔ historical switch (a province
+    change still blanks it), so picking a scene from the panel no longer blanks the list for 300 ms
+  - "likelihood" appears nowhere in UI text. Bundle 318.1 kB gz (88.4 % of the 360 kB warning
+    guard, 35 % of the ceiling). Not cost-bearing: no new fetch, format or Worker path
+  - **follow-ups (QA observations, not fixed here):** the water panel at a 2024 instant says "no
+    stations in this province" although the archive simply has no rows for 2024 (pre-existing
+    wording); EN fact rows wrap in the 320 px drawer; the `full` TimelineBar variant is reached only
+    by tests (both mounts use `dense`); the live Chiang Rai field is 88 % EXCLUDED (GFM's own
+    exclusion mask over mountainous terrain) — an ETL / F6 question, the popup now hides confidence
+    on such cells
 
-1. Picking a 2024 event reframes time; layer, gauges and sun agree.
+1. Picking a 2024 event reframes time; layer, gauges and sun agree. *Evidence:* QA at
+   `2024-09-13` — a click in the event list sets `atIso` through `PanelContext.setAtIso`, and the
+   flood field, gauges (`?at=`), GISTDA `?at=`, radar and sun follow.
 2. The gap label is correct; a scene older than 14 days dims the layer with a "no image in this
-   window" chip. *(The 14-day window and the no-scene note already ship in F4 — `lib/floodScenes.ts`;
-   F5 adds the gap label and the picker. The client already decodes `likelihood` into the field
-   texture's B channel, so drawing it needs no new fetch or format.)*
+   window" chip. *Evidence:* "ภาพล่าสุดก่อนเวลาที่เลือก: N วัน M ชม." + "ภาพบอกสภาพ ณ เวลาบันทึกภาพ
+   เท่านั้น — ไม่ใช่ ณ เวลาที่เลือก" shown only when `atIso` is later than `observedAt` by ≥ 10 min
+   (`floodEvents.test.ts`, `FloodScenesCard.test.ts`); the 14-day window and the no-scene note are
+   the F4 behaviour (`lib/floodScenes.ts`), F5 adds the jump button to `latestBefore`. QA verified a
+   popup click reads the file byte-for-byte (depth 65 cm, confidence 79). This closes the M6 clause
+   "the timeline labels the gap between the chosen time and the scene's acquisition".
 
 #### E14.F6 — Backfill 2015 → now (ops, no code)
 - Touches: — (`workflow_dispatch` by year)
 - Depends: E14.F3 (the frame merge is done there — one `sceneId` per pass — so the backfill can
   start with the final keys). Run it as per-year / per-province `workflow_dispatch` backfills
   (`from`/`to`/`provinces`), not one 31-day bootstrap over 77 provinces: the job has a 45-min
-  timeout, and a timed-out run uploads nothing
+  timeout, and a timed-out run uploads nothing. The F5 event browser (`FloodScenesCard` events +
+  pass list, timeline marks) is what makes the backfilled years reachable in the UI — no further
+  web work is needed for them to show up
 - Size: M (wall-clock)
 - Risk: index sizes and R2 storage growth — measured numbers go into `docs/deploy.md`. devops
   (F2 verify) sized ten years at 0.7 / 8.3 / 35 GB low / expected / high = +$0.01 / +$0.125 /
