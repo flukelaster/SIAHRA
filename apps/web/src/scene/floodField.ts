@@ -214,6 +214,68 @@ export function summarizeFloodField(field: FloodField): FloodFieldSummary {
   return { floodedCells, depthEstimatedCells, maxDepthCm };
 }
 
+/** กริดที่ฟิลด์วางอยู่ (จาก `manifest.terrain` + `terrain.projection`) — พอสำหรับแปลงพิกัดฉาก → เซลล์ */
+export interface FloodFieldGrid {
+  width: number;
+  height: number;
+  cellSizeM: number;
+  gridWidthM: number;
+  gridHeightM: number;
+}
+
+/** ค่าของเซลล์เดียวในฟิลด์ — ที่ popup ของจุดบนแผนที่แสดง (E14.F5) */
+export interface FloodCell {
+  cls: number;
+  /** ซม. เฉพาะ class FLOODED ที่มีค่า (0xFFFF → null) — ห้ามอ่าน null เป็น 0 */
+  depthCm: number | null;
+  /** ความเชื่อมั่นของการจำแนกภาพ 0–100 ของ GFM (255 → null) — ไม่ใช่ความน่าจะเป็นของอะไรที่ยังไม่เกิด */
+  likelihood: number | null;
+}
+
+/**
+ * ค่าความเชื่อมั่นที่ UI *แสดงได้* ของเซลล์ — `null` = ไม่มีบรรทัดนั้น
+ *
+ * likelihood มีความหมายเฉพาะเซลล์ที่ GFM *จำแนก* จริง (ท่วม / ท่วมแต่ไม่ได้ประมาณ
+ * ความลึก / แห้ง) — เซลล์ที่ SAR มองไม่เห็น (EXCLUDED) หรือไม่มีภาพ (NO_OBSERVATION)
+ * ไม่มีการจำแนกให้เชื่อมั่น ค่าที่ติดมาในไฟล์เป็นเศษของมาสก์ ต้องไม่โผล่เป็น "11/100"
+ * ใต้ประโยค "ไม่มีการจำแนก" (น้ำอ้างอิงก็ไม่ใช่ผลการจำแนกของฉากนี้ — มาจากมาสก์
+ * น้ำถาวร) — 88% ของฟิลด์เชียงรายจริงเป็น EXCLUDED จึงเป็นคลิกส่วนใหญ่
+ */
+export function gfmConfidence(cell: Pick<FloodCell, "cls" | "likelihood">): number | null {
+  if (cell.likelihood === null) return null;
+  return cell.cls === FloodFieldClass.FLOODED ||
+    cell.cls === FloodFieldClass.FLOODED_DEPTH_NOT_ESTIMATED ||
+    cell.cls === FloodFieldClass.DRY
+    ? cell.likelihood
+    : null;
+}
+
+/**
+ * เซลล์ของฟิลด์ใต้จุด `(localX, localZ)` ในพิกัดฉาก (เมตร, จุดกำเนิดกลางกริด) —
+ * การวางจุดชุดเดียวกับ `buildTerrainMesh` / `createFloodSurface`: คอลัมน์ c อยู่ที่
+ * `x = c·cell − W/2`, แถว r (0 = เหนือ) ที่ `z = r·cell − H/2` จึงกลับทางด้วย
+ * `col = floor((x + W/2)/cell)`, `row = floor((z + H/2)/cell)` แล้วชี้เข้าไฟล์ซึ่งเรียง
+ * แถว **จากล่างขึ้นบน** (`texRow = height − 1 − row`, ดูหัวไฟล์)
+ *
+ * `null` เมื่อจุดอยู่นอกกริด หรือขนาดฟิลด์ไม่ตรงกริด (ฉากจาก manifest คนละรุ่น —
+ * Map3DCanvas ไม่วาดฟิลด์นั้นอยู่แล้ว popup จึงต้องไม่อ่านค่าจากมันเช่นกัน)
+ */
+export function floodCellAt(field: FloodField, grid: FloodFieldGrid, localX: number, localZ: number): FloodCell | null {
+  if (field.width !== grid.width || field.height !== grid.height) return null;
+  const col = Math.floor((localX + grid.gridWidthM / 2) / grid.cellSizeM);
+  const row = Math.floor((localZ + grid.gridHeightM / 2) / grid.cellSizeM);
+  if (col < 0 || col >= grid.width || row < 0 || row >= grid.height) return null;
+  const i = (grid.height - 1 - row) * grid.width + col;
+  const cls = field.cls[i];
+  const d = field.depthCm[i];
+  const l = field.likelihood[i];
+  return {
+    cls,
+    depthCm: cls === FloodFieldClass.FLOODED && d !== FLOOD_FIELD_NO_DEPTH ? d : null,
+    likelihood: l === FLOOD_FIELD_NO_LIKELIHOOD ? null : l,
+  };
+}
+
 /** กรอบ (คอลัมน์/แถวของ texture, ล่างขึ้นบน, ปิดทั้งสองด้าน) ของเซลล์ที่มีค่าความลึก */
 export interface FloodFieldBounds {
   c0: number;

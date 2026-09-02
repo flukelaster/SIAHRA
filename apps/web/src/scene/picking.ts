@@ -6,8 +6,25 @@ import type {
   RainfallObservation,
   WaterLevelObservation,
 } from "@siahra/shared-types";
+import { floodCellAt, type FloodCell, type FloodField, type FloodFieldGrid } from "./floodField";
 import type { LocalProjection } from "./localProjection";
 import type { SceneHandles } from "./setupScene";
+
+/**
+ * เซลล์ของฉาก Copernicus GFM ใต้จุดที่คลิก (E14.F5) + ฉากที่มันมาจาก — popup ต้อง
+ * บอกเวลาบันทึกภาพของฉากนั้นเสมอ ไม่ใช่แค่ "ท่วม/ไม่ท่วม" ลอย ๆ
+ */
+export interface FloodCellPick extends FloodCell {
+  sceneId: string;
+  observedAt: string;
+}
+
+/** ฟิลด์ที่วาดอยู่ + กริดของมัน + ฉาก — `null` เมื่อไม่มีฉากในหน้าต่าง/ยังไม่โหลด */
+export interface FloodFieldPickSource {
+  field: FloodField;
+  grid: FloodFieldGrid;
+  scene: { sceneId: string; observedAt: string };
+}
 
 export type PickResult =
   | { kind: "waterlevel"; obs: WaterLevelObservation; anchor: THREE.Vector3 }
@@ -20,6 +37,8 @@ export type PickResult =
       lat: number;
       elevationM: number;
       flood: FloodExtentFeature | null;
+      /** เซลล์ GFM ใต้จุดนี้ — null = ไม่มีฉากที่วาดอยู่ หรือจุดอยู่นอกกริด (ไม่ใช่ "แห้ง") */
+      floodCell: FloodCellPick | null;
       anchor: THREE.Vector3;
     };
 
@@ -60,6 +79,8 @@ export function pickAt(
     terrainObjects: THREE.Object3D[];
     quakeGroup: THREE.Object3D | null;
     floodFeatures: FloodExtentFeature[];
+    /** ฉาก GFM ที่วาดอยู่ (E14.F5) — ไม่ส่ง/null = ไม่มีฉาก ไม่ใส่ floodCell */
+    floodField?: FloodFieldPickSource | null;
   },
 ): PickResult | null {
   raycaster.setFromCamera(ndc, handles.camera);
@@ -84,5 +105,18 @@ export function pickAt(
   const [lon, lat] = opts.projection.localToLonLat(gh.point.x, gh.point.z);
   const elevationM = gh.point.y / scaleY;
   const flood = opts.floodFeatures.find((f) => featureContains(f, lon, lat)) ?? null;
-  return { kind: "ground", lon, lat, elevationM, flood, anchor: new THREE.Vector3(gh.point.x, gh.point.y / scaleY, gh.point.z) };
+  // เซลล์ GFM: พิกัดฉาก x/z ของจุดที่โดน (ไม่ขึ้นกับมาตราส่วนแนวดิ่ง) → เซลล์บนกริด overview
+  const ff = opts.floodField ?? null;
+  const cell = ff ? floodCellAt(ff.field, ff.grid, gh.point.x, gh.point.z) : null;
+  const floodCell: FloodCellPick | null =
+    ff && cell ? { ...cell, sceneId: ff.scene.sceneId, observedAt: ff.scene.observedAt } : null;
+  return {
+    kind: "ground",
+    lon,
+    lat,
+    elevationM,
+    flood,
+    floodCell,
+    anchor: new THREE.Vector3(gh.point.x, gh.point.y / scaleY, gh.point.z),
+  };
 }

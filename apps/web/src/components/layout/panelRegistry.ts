@@ -5,7 +5,7 @@ import { alertRailBadge, type AlertRailBadge } from "../../lib/alertSummary";
 import { PANEL_KEYS, type PanelKey } from "../../lib/shellPrefs";
 import { DamCard } from "../hazard/DamCard";
 import { EarthquakeLiveCard } from "../hazard/EarthquakeLiveCard";
-import { FloodExtentCard } from "../hazard/FloodExtentCard";
+import { FloodScenesCard } from "../hazard/FloodScenesCard";
 import { ForecastCard } from "../hazard/ForecastCard";
 import { ImpactPanel, LayersPanel, RainPanel, WaterPanel, type PanelContext } from "./panelViews";
 
@@ -31,7 +31,16 @@ export const PANELS: readonly PanelDef[] = [
     key: "flood",
     icon: Satellite,
     labelKey: "panel.flood",
-    render: (ctx) => createElement(FloodExtentCard, { state: ctx.floodExtent, atIso: ctx.atIso }),
+    // E14.F5 — ฉาก Sentinel-1 (รอบบิน/เหตุการณ์/ฉากที่แสดง) + เนื้อการ์ด GISTDA เดิมเป็นส่วนล่าง
+    render: (ctx) =>
+      createElement(FloodScenesCard, {
+        provinceCode: ctx.province.code,
+        scenes: ctx.floodScenes,
+        scene: ctx.floodScene,
+        floodExtent: ctx.floodExtent,
+        atIso: ctx.atIso,
+        onSelectAt: ctx.setAtIso,
+      }),
   },
   {
     key: "impact",

@@ -277,6 +277,10 @@ export const en: Record<keyof typeof th, string> = {
   "timeline.tick.now": "now",
   "timeline.tick.days": "-{n} d",
   "timeline.tick.hours": "-{n} h",
+  "timeline.outOfRange": "outside the slider range",
+  "timeline.marks": "Sentinel-1 passes",
+  "timeline.mark.flooded": "Sentinel-1 pass {time} · flooded {km2} km²",
+  "timeline.mark.dry": "Sentinel-1 pass {time} · no flooding detected in the image",
 
   // ── Stat tiles ────────────────────────────────────────────────────────
   "stats.none": "No measured data",
@@ -379,6 +383,41 @@ export const en: Record<keyof typeof th, string> = {
   "flood.note":
     "Flood outlines are interpreted from satellite imagery by GISTDA (flooding_vis dataset) — they are what has already been detected, not a forecast · the scene carries no acquisition date, so the retrieval time is shown instead",
   "flood.noteEarliest": " and when each area was first seen (earliest {time})",
+
+  // ── Sentinel-1 / Copernicus GFM scenes card (E14.F5) ─────────────────
+  "floodScenes.section.shown": "Shown scene · Sentinel-1 (Copernicus GFM)",
+  "floodScenes.section.passes": "Sentinel-1 passes",
+  "floodScenes.section.events": "Flood events seen by the satellite",
+  "floodScenes.section.gistda": "GISTDA flood extent",
+  "floodScenes.sceneId": "Scene",
+  "floodScenes.observedAt": "Acquired",
+  "floodScenes.publishedAt": "Published by GFM",
+  "floodScenes.publishedAt.unknown": "not stated by the source",
+  "floodScenes.area": "Flooded in this image",
+  "floodScenes.area.value": "{km2} km² (on the overview grid)",
+  "floodScenes.depthShare": "Flooded cells with a depth value",
+  "floodScenes.maxDepth": "Max depth (illustrative)",
+  "floodScenes.medianDepth": "Median depth (illustrative)",
+  "floodScenes.gap": "Latest image before the chosen time: {duration}",
+  "floodScenes.gap.why": "The image shows the state at acquisition only — not at the chosen time",
+  "floodScenes.gap.days": "{d} d {h} h",
+  "floodScenes.gap.hours": "{h} h {m} min",
+  "floodScenes.gap.minutes": "{m} min",
+  "floodScenes.jumpToLatest": "Go to the latest image before that",
+  "floodScenes.selectedTime": "Chosen time: {time}",
+  "floodScenes.dry": "dry",
+  "floodScenes.km2": "{km2} km²",
+  "floodScenes.shownMarker": "shown scene",
+  "floodScenes.selectScene": "Show this scene",
+  "floodScenes.more": "…and {n} more passes",
+  "floodScenes.event.peak": "peak {km2} km² on {time}",
+  "floodScenes.event.scenes": "{n} passes",
+  "floodScenes.event.scenes.one": "1 pass",
+  "floodScenes.event.select": "Show the most flooded scene of this event",
+  "floodScenes.events.none": "No pass in this list was classified as flooded — as far as the available images go",
+  "floodScenes.events.note":
+    "An event = flooded passes no more than 7 days apart · there is no image between passes, so the state in between is unknown",
+  "floodScenes.passes.note": "One row = one pass · a dry scene is data, not silence",
 
   // ── Water level card ──────────────────────────────────────────────────
   "water.title": "Measured water levels",
@@ -517,6 +556,17 @@ export const en: Record<keyof typeof th, string> = {
   "popup.lastSeen": "Last seen",
   "popup.floodNote":
     "Interpreted from satellite imagery (GISTDA) — already detected, not a forecast",
+  "popup.gfm.title": "Sentinel-1 image (Copernicus GFM)",
+  "popup.gfm.flooded": "Flooded · estimated depth {m} m (illustrative)",
+  "popup.gfm.floodedNoDepth": "Flooded · no depth value for this cell",
+  "popup.gfm.confidence": "Classification confidence {n}/100",
+  "popup.gfm.notEstimated": "Flooded · depth not estimated (buildings/trees)",
+  "popup.gfm.referenceWater": "Permanent water body",
+  "popup.gfm.excluded": "Not classified (not visible to SAR)",
+  "popup.gfm.noObservation": "No image at this point in that scene",
+  "popup.gfm.dry": "No flooding detected in the image",
+  "popup.gfm.unknownClass": "Unknown class code ({cls})",
+  "popup.gfm.acquired": "Acquired {time} · scene {id}",
 
   // ── 3D scene labels ───────────────────────────────────────────────────
   "scene.loadingTerrain": "Loading terrain data…",

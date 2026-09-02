@@ -7,7 +7,7 @@ import { ForecastStrip } from "./ForecastStrip";
 import type { MapInfo } from "./Map3DCanvas";
 import { MapAttribution } from "./MapAttribution";
 import { SourceStatusPopover } from "./SourceStatusPopover";
-import { TimelineBar } from "./TimelineBar";
+import { TimelineBar, type TimelineMark } from "./TimelineBar";
 
 /**
  * Dock ล่างเต็มความกว้าง (จอ ≥ tablet): แถวควบคุมเดียว — สถานะแหล่งข้อมูล ·
@@ -25,6 +25,7 @@ export function BottomDock({
   onExaggerationChange,
   atIso,
   onAtIsoChange,
+  timelineMarks,
   forecast,
   forecastAtIso,
   onForecastAtIsoChange,
@@ -36,6 +37,8 @@ export function BottomDock({
   onExaggerationChange: (f: number) => void;
   atIso: string | null;
   onAtIsoChange: (atIso: string | null) => void;
+  /** E14.F5 — ขีดรอบบิน Sentinel-1 */
+  timelineMarks?: TimelineMark[];
   forecast: ProvinceForecastState;
   forecastAtIso: string | null;
   onForecastAtIsoChange: (forecastAtIso: string | null) => void;
@@ -71,7 +74,7 @@ export function BottomDock({
           <SourceStatusPopover state={apiHealth} />
         </div>
         <div className="pointer-events-auto min-w-0" style={{ flex: "1 1 430px" }}>
-          <TimelineBar atIso={atIso} onChange={onAtIsoChange} variant="dense" />
+          <TimelineBar atIso={atIso} onChange={onAtIsoChange} variant="dense" marks={timelineMarks} />
         </div>
         <div className="pointer-events-auto min-w-0" style={{ flex: "1 1 320px" }}>
           <ForecastStrip

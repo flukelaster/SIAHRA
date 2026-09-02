@@ -39,6 +39,7 @@ export function MapViewport({
   floodExtent,
   floodField = null,
   floodSceneId = null,
+  floodSceneObservedAt = null,
   floodFieldDim = false,
   dams,
   radar,
@@ -83,6 +84,8 @@ export function MapViewport({
   /** ฉาก Copernicus GFM ที่ถอดแล้ว (E14.F4) — ส่งต่อให้ Map3DCanvas ตรง ๆ */
   floodField?: FloodField | null;
   floodSceneId?: string | null;
+  /** เวลาบันทึกภาพของฉากที่วาด — popup ของจุดบนแผนที่ (E14.F5) */
+  floodSceneObservedAt?: string | null;
   floodFieldDim?: boolean;
   dams: DamObservation[];
   radar: RadarFramesResponse | null;
@@ -176,6 +179,7 @@ export function MapViewport({
         floodExtent={floodExtent}
         floodField={floodField}
         floodSceneId={floodSceneId}
+        floodSceneObservedAt={floodSceneObservedAt}
         floodFieldDim={floodFieldDim}
         dams={dams}
         radar={radar}

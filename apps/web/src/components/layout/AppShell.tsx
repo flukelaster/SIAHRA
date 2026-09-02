@@ -12,6 +12,7 @@ import { MobileSheet } from "./MobileSheet";
 import type { PanelContext } from "./panelRegistry";
 import { SideDrawer } from "./SideDrawer";
 import { SideRail } from "./SideRail";
+import type { TimelineMark } from "./TimelineBar";
 import { TopBar } from "./TopBar";
 
 export interface AppShellProps {
@@ -28,6 +29,8 @@ export interface AppShellProps {
   exaggeration: number;
   onExaggerationChange: (f: number) => void;
   onAtIsoChange: (atIso: string | null) => void;
+  /** E14.F5 — ขีดรอบบิน Sentinel-1 บน TimelineBar (ทั้ง dock และแผ่นเลื่อน) */
+  timelineMarks?: TimelineMark[];
   forecastAtIso: string | null;
   onForecastAtIsoChange: (forecastAtIso: string | null) => void;
 }
@@ -76,6 +79,7 @@ export function AppShell(props: AppShellProps) {
           exaggeration={props.exaggeration}
           onExaggerationChange={props.onExaggerationChange}
           onAtIsoChange={props.onAtIsoChange}
+          timelineMarks={props.timelineMarks}
           forecastAtIso={props.forecastAtIso}
           onForecastAtIsoChange={props.onForecastAtIsoChange}
         />
@@ -125,6 +129,7 @@ export function AppShell(props: AppShellProps) {
         onExaggerationChange={props.onExaggerationChange}
         atIso={ctx.atIso}
         onAtIsoChange={props.onAtIsoChange}
+        timelineMarks={props.timelineMarks}
         forecast={ctx.forecast}
         forecastAtIso={props.forecastAtIso}
         onForecastAtIsoChange={props.onForecastAtIsoChange}

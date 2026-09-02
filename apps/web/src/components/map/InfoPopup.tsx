@@ -1,10 +1,13 @@
 import { ExternalLink, X } from "lucide-react";
 import { useState } from "react";
-import type { PickResult } from "../../scene/picking";
+import { FloodFieldClass } from "@siahra/shared-types";
+import { gfmConfidence } from "../../scene/floodField";
+import type { FloodCellPick, PickResult } from "../../scene/picking";
 import { useStationHistory } from "../../hooks/useStationHistory";
 import { Sparkline } from "../hazard/Sparkline";
+import { floodDepthMaxLabel } from "../../lib/floodStyle";
 import { formatNumber } from "../../lib/number";
-import { formatDateTime } from "../../lib/time";
+import { formatDateTime, formatFullDateTime } from "../../lib/time";
 import { damDisplayName } from "../../lib/damName";
 import { nearestProvinceLabel } from "../../lib/nearestProvince";
 import { useLang } from "../../i18n/context";
@@ -32,6 +35,66 @@ function Row({ k, v }: { k: string; v: string }) {
     <div className="flex justify-between gap-3 text-[11px]">
       <span className="text-[var(--color-fg-subtle)]">{k}</span>
       <span className="tabular-nums text-[var(--color-fg)]">{v}</span>
+    </div>
+  );
+}
+
+/** หน้าวิธีคำนวณของความลึก FwDET — พาภาษาไปด้วยเหมือน MapLegend (หน้านั้นอ่านภาษาจาก query เท่านั้น) */
+function floodDepthMethodologyHref(lang: Lang): string {
+  return lang === "th" ? "/methodology/flood-depth" : `/methodology/flood-depth?lang=${lang}`;
+}
+
+/**
+ * บรรทัดคลาสของเซลล์ Copernicus GFM (E14.F5) — หกคลาส หกประโยค ห้ามพับรวมกัน:
+ * "ไม่มีภาพ" ≠ "ไม่มีการจำแนก" ≠ "แห้ง" และ "ไม่ได้ประมาณความลึก" ≠ 0 ม.
+ * ความลึกเป็นภาพประกอบ (FwDET) ทศนิยมหนึ่งตำแหน่ง; likelihood คือความเชื่อมั่นของ
+ * การจำแนกภาพ — ไม่ใช่เปอร์เซ็นต์ของอะไรที่ยังไม่เกิด
+ */
+function gfmClassLine(cell: FloodCellPick, lang: Lang, t: TFunction): string {
+  switch (cell.cls) {
+    case FloodFieldClass.FLOODED:
+      return cell.depthCm !== null
+        ? t("popup.gfm.flooded", { m: floodDepthMaxLabel(lang, cell.depthCm) })
+        : t("popup.gfm.floodedNoDepth");
+    case FloodFieldClass.FLOODED_DEPTH_NOT_ESTIMATED:
+      return t("popup.gfm.notEstimated");
+    case FloodFieldClass.REFERENCE_WATER:
+      return t("popup.gfm.referenceWater");
+    case FloodFieldClass.EXCLUDED:
+      return t("popup.gfm.excluded");
+    case FloodFieldClass.NO_OBSERVATION:
+      return t("popup.gfm.noObservation");
+    case FloodFieldClass.DRY:
+      return t("popup.gfm.dry");
+    default:
+      return t("popup.gfm.unknownClass", { cls: cell.cls });
+  }
+}
+
+/** export เพื่อให้เทสเรนเดอร์บล็อกนี้ตรง ๆ ได้ (popup ทั้งก้อนต้องมี PickResult + hooks) */
+export function GfmCellBlock({ cell, lang, t }: { cell: FloodCellPick; lang: Lang; t: TFunction }) {
+  const flooded = cell.cls === FloodFieldClass.FLOODED || cell.cls === FloodFieldClass.FLOODED_DEPTH_NOT_ESTIMATED;
+  // บรรทัดความเชื่อมั่นเฉพาะเซลล์ที่ GFM จำแนกจริง — EXCLUDED/NO_OBSERVATION ไม่มี (scene/floodField.ts)
+  const confidence = gfmConfidence(cell);
+  return (
+    <div className="mt-2 border-t border-white/10 pt-1.5" data-gfm-class={cell.cls}>
+      <p className="text-[11px] text-[var(--color-fg-subtle)]">{t("popup.gfm.title")}</p>
+      <p className={`mt-0.5 text-[11px] ${flooded ? "text-[#7fc4ef]" : "text-[var(--color-fg)]"}`}>{gfmClassLine(cell, lang, t)}</p>
+      {confidence !== null ? (
+        <p className="text-[11px] text-[var(--color-fg-muted)]">{t("popup.gfm.confidence", { n: confidence })}</p>
+      ) : null}
+      <p className="mt-0.5 text-[10px] text-[var(--color-fg-subtle)]">
+        {t("popup.gfm.acquired", { time: formatFullDateTime(lang, cell.observedAt), id: cell.sceneId })}
+      </p>
+      <a
+        href={floodDepthMethodologyHref(lang)}
+        target="_blank"
+        rel="noreferrer"
+        className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-[var(--color-accent)] hover:underline"
+      >
+        <ExternalLink size={10} aria-hidden="true" />
+        {t("freshness.methodology")}
+      </a>
     </div>
   );
 }
@@ -263,6 +326,8 @@ export function InfoPopup({ pick, onClose }: { pick: PickResult; onClose: () => 
           {pick.flood ? (
             <p className="mt-1.5 text-[10px] text-[var(--color-fg-subtle)]">{t("popup.floodNote")}</p>
           ) : null}
+          {/* เซลล์ GFM ใต้จุดนี้ (E14.F5) — null = ไม่มีฉากที่วาดอยู่ จึงไม่พูดถึงเลย ไม่ใช่ "แห้ง" */}
+          {pick.floodCell ? <GfmCellBlock cell={pick.floodCell} lang={lang} t={t} /> : null}
         </>
       ) : null}
     </div>
