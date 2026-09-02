@@ -18,6 +18,10 @@
     "build:local-authority-exposure": "tsx src/buildLocalAuthorityExposure.ts",
     "build:alert-rules": "tsx src/buildAlertRules.ts",
     "refresh:manifests": "tsx src/refreshManifests.ts",
+    "gfm:test": "uv run --frozen --directory gfm pytest",
+    "gfm:run": "uv run --frozen --directory gfm python -m gfm run",
+    "gfm:backfill": "uv run --frozen --directory gfm python -m gfm backfill",
+    "gfm:check-grid": "uv run --frozen --directory gfm python -m gfm check-grid",
     "test": "vitest run"
   },
   "dependencies": {

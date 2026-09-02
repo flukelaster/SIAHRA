@@ -5,6 +5,8 @@ dist/
 .DS_Store
 apps/etl/data/raw
 apps/etl/data/work
+# ฉากน้ำท่วม GFM ที่ pipeline apps/etl/gfm เขียน (สะท้อนคีย์ R2; F3 sync ขึ้นไปด้วย rclone)
+apps/etl/data/flood
 .env
 .env.local
 # local secrets for `wrangler dev` (apps/api/.dev.vars.example is the template)

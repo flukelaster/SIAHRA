@@ -977,19 +977,45 @@ hydraulics stay excluded and the four scoping decisions in §0 are unchanged.
 2. An `at` older than 30 days resolves to one R2 key through `flood_scenes` — no R2 `list()`.
 3. The `retrievedAt` shown is that scene's, not the latest fetch.
 
-#### E14.F2 — Python pipeline, tests, backfill CLI
-- Touches: new `apps/etl/gfm/{stac.py,warp.py,fwdet.py,encode.py,run.py}`, `pyproject.toml` /
-  `requirements.txt`, `apps/etl/gfm/tests/` (synthetic bowl: known depth ±1 cm; masks; boundary
-  median), `scripts/release-dataset.sh` (upload `etl/{code}/dem30.tif`, `landcover30.tif` once),
-  `ci.yml` path-filtered `Test (gfm)` leg behind the always-running `Test` gate
+#### E14.F2 — Python pipeline, tests, backfill CLI — *done* (2026-09-02)
+- Touches: new `apps/etl/gfm/gfm/{contract,grid,stac,warp,fwdet,encode,cli}.py` (Python 3.13 /
+  uv, `pyproject.toml` + `uv.lock`, `uv run --frozen` — no `requirements.txt`), `apps/etl/gfm/tests/`
+  (30 offline pytest tests: synthetic bowl, masks, boundary median, encoder round-trip, CLI
+  idempotency, wording grep) + golden real fixture `tests/fixtures/57/20240913T112241-AS020M/`,
+  `apps/etl/package.json` scripts `gfm:test` / `gfm:run` / `gfm:backfill` / `gfm:check-grid`,
+  `packages/shared-types/src/flood.ts` (`FloodSceneMeta.fieldBytesGz`), new
+  `scripts/upload-gfm-inputs.sh` (the one-off `etl/{code}/{dem30,landcover30}.tif` upload lives
+  there, **not** in `release-dataset.sh`, which only got a header pointer), `.gitignore`
+  (`apps/etl/data/flood`). **Not touched:** `ci.yml` — the path-filtered `Test (gfm)` leg promised
+  above was deliberately left to a separate owner PR; until it lands pytest runs only locally via
+  `npm run gfm:test -w apps/etl`
 - Depends: E14.F0
 - Size: L
 - Risk: COG window reads from Actions runners untested — fall back to whole-COG download (360 KB)
-- Issue: _(not yet filed)_
+- Issue: shipped on `feat/flood-gfm-pipeline`. CLI: `python -m gfm run --province NN [--since ISO |
+  state.json] --out DIR`, `backfill --from --to --province`, `check-grid --province`; the output tree
+  mirrors R2 exactly (`DIR/aoi/{code}/flood/index.json`, `DIR/aoi/{code}/flood/{sceneId}/{field.bin,meta.json}`,
+  `DIR/flood/gfm/{state,health}.json`, default `DIR` = `apps/etl/data/flood`) and **contains no upload
+  code** — F3's workflow syncs it. `index.json` is written once per province per run, `backfill`
+  never touches `state.json`, a per-scene failure lands in `health.json` `lastError` and `lastCreated`
+  never advances past it, a frame group with zero observed cells (the S1 frame never covered the
+  province although its Equi7 tile bbox does) is skipped, dry scenes are written. Deviations from the
+  plan text: `methodologyUrl` = `/methodology/flood-depth` (repo slug convention), depth layer
+  `sourceIds` = `["copernicus-gfm","copernicus-dem"]`, and `load_province_grid` still reads the local
+  `p{code}-clipped30.tif` from `--work-dir` (see the F3 prerequisite). `copernicus-gfm` is emitted in
+  `sourceIds` but becomes a `SourceId` only in F3 (by design, E12.1). devops verify: pass,
+  ≈ +$0.015/month (inputs storage: all 77 provinces ≈ 0.94 GB, high 1.5 GB).
 
 1. One province, one real scene (Chiang Rai 57, 2024-09-12) produces a plausible `field.bin`.
-2. A golden fixture is checked in and the encoder round-trips it byte for byte.
-3. Backfill is idempotent: a scene already in the index is skipped.
+   *Evidence:* real run 2024-09-11..13 — 10 STAC items, 8 frame groups, 2 scenes written (one dry,
+   3,434 B gz; one flooded: 3,197 overview cells ≈ 131.7 km², `maxDepthCm` 850, `medianDepthCm` 13,
+   84 KB gz), ~35 s wall. STAC needed page size 100 + 120 s timeout + retries (10-item pages stalled);
+   `sat:orbit_state` was absent on every item → `orbit: null`; `created` was 2024-11-06, two months
+   after acquisition (reprocessing), which is why `run` filters on `created`, not `datetime`.
+2. A golden fixture is checked in and the encoder round-trips it byte for byte. *Evidence:*
+   `tests/test_golden.py` over the flooded scene above (84 KB gz).
+3. Backfill is idempotent: a scene already in the index is skipped. *Evidence:* `tests/test_cli.py`
+   (existing `field.bin` → skip; second run writes nothing).
 
 #### E14.F3 — Actions cron, R2 serving, health
 - Touches: new `.github/workflows/gfm-ingest.yml` (cron `17 */6 * * *`, `workflow_dispatch`
@@ -1006,12 +1032,26 @@ hydraulics stay excluded and the four scoping decisions in §0 are unchanged.
 - Size: M
 - Risk: cost-bearing (R2 in a request path, new workflow) — `devops` gate before and after
 - Issue: _(not yet filed)_
+- Prerequisites carried forward from F2 (devops constraints):
+  - the workflow uploads with **`rclone copy` scoped to `aoi/{code}/flood/` and `flood/gfm/`** —
+    never `rclone sync`, never at `aoi/` or the bucket root (a root sync from an ephemeral runner
+    would delete every tile); F2's tree already mirrors those keys under `apps/etl/data/flood`
+  - the job must either `rclone copy` `etl/{code}/{dem30,landcover30}.tif` down into `--work-dir`
+    (as `p{code}-clipped30.tif` / `p{code}-worldcover30.tif`) or add `/vsicurl/` support to
+    `grid.py load_province_grid()` — F2 still reads the local files only
+  - **decide the frame merge before F6** (with F5): the 2–5 frames of one Sentinel-1 pass over a
+    province (same Equi7 tile group, ~25 s apart) should become one `sceneId` in
+    `stac.py group_by_province()`. Scenes are immutable, so re-keying after the backfill means
+    rewriting everything; the merge does not change bytes but divides objects / puts / index entries
+    by 1.5–5×, which is what keeps `INDEX_MAX_SCENES = 1500` (~0.6 KB per entry ≈ 0.9 MB) from
+    breaching F6 criterion 1
+  - the pytest suite still has no `ci.yml` leg (separate owner PR, see F2)
 
 1. A scheduled run is green and `/aoi/57/flood/index.json` answers `200 application/json`
    (a 200 alone is the SPA shell).
 2. `SourceId` `copernicus-gfm` + `SOURCES` entry land in this PR; `/api/v1/health` shows it with
    `lastRunAt`; a failed run shows as `stale`; every `LIVE_SOURCE_IDS` entry still appears in `/health`.
-3. No R2 `list()` anywhere — `index.json` is the listing.
+3. No R2 `list()` anywhere — `index.json` is the listing, on any Worker request path too.
 
 #### E14.F4 — Rendering: field texture, depth-graded terrain, FloodSurface
 - Touches: new `apps/web/src/scene/{floodField,FloodSurface}.ts`, `scene/terrainMaterial.ts`,
@@ -1034,7 +1074,9 @@ hydraulics stay excluded and the four scoping decisions in §0 are unchanged.
 - Depends: E14.F4
 - Size: M
 - Risk: the gap label ("latest image before the chosen time: 3 d 4 h") must never imply the state at
-  `atIso`
+  `atIso`; the scene picker's granularity depends on the frame-merge decision listed under F3 (one
+  `sceneId` per Sentinel-1 pass vs. one per frame) — settle it here at the latest, before F6 writes
+  ten years of immutable keys
 - Issue: _(not yet filed)_
 
 1. Picking a 2024 event reframes time; layer, gauges and sun agree.
@@ -1043,9 +1085,14 @@ hydraulics stay excluded and the four scoping decisions in §0 are unchanged.
 
 #### E14.F6 — Backfill 2015 → now (ops, no code)
 - Touches: — (`workflow_dispatch` by year)
-- Depends: E14.F3
+- Depends: E14.F3, and the frame-merge decision (F3/F5) — do not start the backfill with per-frame
+  `sceneId`s
 - Size: M (wall-clock)
-- Risk: index sizes and R2 storage growth — measured numbers go into `docs/deploy.md`
+- Risk: index sizes and R2 storage growth — measured numbers go into `docs/deploy.md`. devops
+  (F2 verify) sized ten years at 0.7 / 8.3 / 35 GB low / expected / high = +$0.01 / +$0.125 /
+  +$0.52 per month **permanently** (scenes are never deleted), so F6 needs its **own `devops`
+  pre-gate**, priced from Σ `fieldBytesGz` (`meta.json`, F2) after one province × one full year —
+  gz bytes track observed cells, not frames, so a dry-heavy year is cheap and a wet one is not
 - Issue: _(not yet filed)_
 
 1. Every province index stays under ~300 KB.
