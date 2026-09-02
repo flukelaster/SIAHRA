@@ -405,9 +405,17 @@ build ใหม่) ส่วนฉากน้ำท่วมถูกกำห
 | `aoi/{code}/flood/index.json` | job GitHub Actions (F3) เขียนทับทุกครั้งที่มีฉากใหม่ | `max-age=300, stale-while-revalidate=600` |
 | `aoi/{code}/flood/{sceneId}/field.bin` | job เดียวกัน เขียน**ครั้งเดียว** | `max-age=31536000, immutable` |
 | `aoi/{code}/flood/{sceneId}/meta.json` | job เดียวกัน เขียน**ครั้งเดียว** | `max-age=31536000, immutable` |
+| `flood/gfm/state.json`, `flood/gfm/health.json` | job เดียวกัน (`state` เฉพาะ `run` ไม่ใช่ `backfill`) — api อ่าน `health.json` ใบเดียว | ไม่เสิร์ฟให้เบราว์เซอร์ |
+| `etl/{code}/dem30.tif`, `etl/{code}/landcover30.tif` | คน อัป**ครั้งเดียว**ด้วย `scripts/upload-gfm-inputs.sh` (tiled DEFLATE COG ของ `p{code}-clipped30.tif` / `p{code}-worldcover30.tif` — ไบต์ชุดเดียวกับที่สร้าง `terrain.bin`) | อินพุตส่วนตัวของ pipeline ไม่มี route ใน Worker |
+
+ทุกคีย์ข้างบน (ยกเว้น `etl/`) ถูกผลิตโดย `apps/etl/gfm` (E14.F2, Python/uv) ลงดิสก์ในรูปเดียวกัน
+ทุกตัวอักษรใต้ `apps/etl/data/flood` (gitignored) — pipeline **ไม่มีโค้ดอัปโหลด** job ของ F3 เป็น
+คน `rclone copy` ต้นไม้นั้นขึ้นไปโดยจำกัดอยู่ใต้ `aoi/{code}/flood/` และ `flood/gfm/` เท่านั้น
 
 สัญญาของชนิดข้อมูลอยู่ที่ `packages/shared-types/src/flood.ts` (`FloodSceneIndex`,
-`FloodSceneIndexEntry`, `FloodSceneMeta` และ layout ของ `field.bin`)
+`FloodSceneIndexEntry`, `FloodSceneMeta` และ layout ของ `field.bin`) — `meta.json` มี
+`fieldBytesGz` (ขนาด `field.bin` หลัง gzip ตามที่เขียนจริง) ไว้ให้ F6 รวมเป็นต้นทุน storage
+จริงแทนการประมาณ
 
 ### ทำไมฉากถึง `immutable` ได้
 
@@ -423,7 +431,9 @@ build ใหม่) ส่วนฉากน้ำท่วมถูกกำห
 ### `index.json` คือตัวลิสต์ — ไม่มี R2 `list()`
 
 รายการฉากทั้งหมดของจังหวัด (ใหม่สุดก่อน รวมฉากที่ **แห้ง** ด้วย เพราะ "ไม่เห็นน้ำท่วม
-วันนั้น" กับ "ไม่มีภาพวันนั้น" เป็นสองข้อความที่ต่างกัน) อยู่ใน `index.json` ใบเดียว
+วันนั้น" กับ "ไม่มีภาพวันนั้น" เป็นสองข้อความที่ต่างกัน — แต่กลุ่ม frame ที่ไม่มีเซลล์
+สังเกตได้เลย เพราะ frame ของ Sentinel-1 ไม่ได้คลุมจังหวัดจริงแม้ bbox ของไทล์ Equi7 จะคลุม
+**ไม่ผลิตฉาก**: นั่นคือ "ไม่มีภาพ" ไม่ใช่ "แห้ง") อยู่ใน `index.json` ใบเดียว
 Worker ฝั่ง web แค่ส่งต่อไฟล์ตามคีย์ที่ path บอก และ api อ่าน `flood/gfm/health.json`
 ใบเดียวเพื่อรายงานสถานะแหล่ง — **ไม่มีที่ไหนเรียก R2 `list()`** (Class A, $4.50/M
 ต่อคำขอ ดู AGENTS.md "Cost budget") การหาฉากด้วยการไล่ดูคีย์ใน bucket จึงเป็น
@@ -441,11 +451,14 @@ Worker ฝั่ง web แค่ส่งต่อไฟล์ตามคี�
 ไม่มีทางผ่าน และ path ที่ไม่ตรงรูปร่างตกไปที่ asset layer เหมือนเดิม (ซึ่งตอบ
 `200 text/html` = หน้า SPA — การตรวจว่าฉากมีอยู่จริงจึงต้องดู `Content-Type` เป็น
 `application/json` / `application/octet-stream` ด้วย ไม่ใช่ดูแค่สถานะ 200; หัวข้อ 7)
-ตอน dev middleware ใน `vite.config.ts` อ่านจาก `apps/etl/data/flood/{code}/…` บนดิสก์
+ตอน dev middleware ใน `vite.config.ts` อ่านจาก `apps/etl/data/flood/aoi/{code}/flood/…` บนดิสก์
+(ต้นไม้ที่ pipeline เขียน ใช้คีย์เดียวกับ R2 ทุกตัวอักษร)
 
 ### นโยบายเก็บ: ไม่ลบ
 
 เหมือนหัวข้อ 7 ทุกประการ — ฉากถูกส่งด้วย `immutable` หนึ่งปี การลบทิ้งคือ 404 กลาง
 ไทม์ไลน์ของ client ที่แคช index เก่าไว้ ต้นทุนคือ storage ล้วน (ประมาณ 0.1–0.3 MB
-ต่อฉากหลัง gzip × ~77 จังหวัด × ~60 รอบบิน/ปี ≈ 0.5–1.4 GB/ปี) ตัวเลขจริงหลังการ
-backfill (F6) จะถูกเขียนไว้ใน `docs/deploy.md`
+ต่อฉากหลัง gzip × ~77 จังหวัด × ~60 รอบบิน/ปี ≈ 0.5–1.4 GB/ปี; วัดจริงที่เชียงราย
+2024-09: ฉากแห้ง 3.4 KB, ฉากท่วม 3,197 เซลล์ 84 KB — ไบต์แปรตามเซลล์ที่สังเกตได้ ไม่ใช่
+จำนวน frame) ตัวเลขจริงหลังการ backfill (F6) รวมจาก `fieldBytesGz` แล้วเขียนไว้ใน
+`docs/deploy.md` (ประมาณการล่วงหน้าของ devops อยู่ที่นั่นแล้ว)

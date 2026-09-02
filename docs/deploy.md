@@ -108,6 +108,20 @@ writes/เดือน แม้ตอนก๊อปทั้งชุด) แ�
 (รวมอยู่ในประมาณการท้ายเอกสารแล้ว) ; เครื่องที่อยู่หลัง FortiGate อาจอัปไม่ผ่าน (ดู §6) — ถ้า `--smoke` ล้ม
 ให้รันจากเครือข่ายอื่น หรือส่ง CA ขององค์กรเข้าไปด้วย `--ca-cert`
 
+**อินพุตของ pipeline น้ำท่วม GFM (E14.F2)** ไม่ได้อยู่ในรุ่น dataset — อัปแยกครั้งเดียวต่อจังหวัดด้วย
+`scripts/upload-gfm-inputs.sh` (env สามตัวเดียวกับข้างบน; ต้องมี `gdal_translate` ด้วย):
+```bash
+scripts/upload-gfm-inputs.sh --dry-run 57   # แปลงเป็น COG ในเครื่องแล้วพิมพ์คำสั่ง rclone โดยไม่อัป
+scripts/upload-gfm-inputs.sh 57 58          # เฉพาะจังหวัดที่ระบุ
+scripts/upload-gfm-inputs.sh                # ทุกจังหวัดที่มี p{code}-clipped30.tif ใน apps/etl/data/work
+```
+สคริปต์แปลง `p{code}-clipped30.tif` / `p{code}-worldcover30.tif` เป็น tiled DEFLATE COG แล้ว `rclone copy`
+**เฉพาะสองอ็อบเจกต์นั้น** ไปที่ `r2:siahra-geodata/etl/{code}/{dem30,landcover30}.tif` — ไม่มี `sync`
+ไม่แตะรากของ bucket หรือ `aoi/` และรันซ้ำจะข้ามไฟล์ที่ขนาด+hash ตรงอยู่แล้ว วัดจริงที่ p57: DEM 54.79 MB →
+16.15 MB, landcover 25.23 MB → 2.22 MB; ทั้ง 77 จังหวัด ≈ 0.94 GB (กรณีแย่ 1.5 GB) ≈ +$0.014/เดือน
+ตัว pipeline เอง (`npm run gfm:run -w apps/etl`) เขียนลง `apps/etl/data/flood` ในรูปคีย์ R2 และ**ไม่มีโค้ดอัปโหลด**
+— workflow ของ F3 เป็นคนซิงก์ต้นไม้นั้นด้วย `rclone copy` ที่จำกัดอยู่ใต้ `aoi/{code}/flood/` และ `flood/gfm/`
+
 ## 2. Worker route สำหรับ tile (เขียนแล้ว — อยู่ที่ **siahra-web** ไม่ใช่ api)
 prefix `/aoi/` มีทั้ง manifest/overview ที่เป็น static asset (`apps/web/public/aoi/**`) และ tile `.bin`
 ก้อนใหญ่ใน R2 และ route ของ Cloudflare **แยกตามนามสกุลไฟล์ไม่ได้** → ทั้ง prefix ต้องอยู่ใน Worker
@@ -261,6 +275,14 @@ E14.F1 (`/api/v1/provinces/{NN}/flood-extent?at=`) เพิ่มเส้น�
 จังหวัด เก่ากว่านั้นอ่าน R2 หนึ่งครั้งต่อฉากต่อชั่วโมง (แคชในหน่วยความจำของ DO สูงสุด 8 ฉาก ไม่มี `list()`) และตอบด้วย
 `public, max-age=3600, s-maxage=86400` เมื่อหาฉากได้ (ฝั่งเว็บปัด `at` เป็นช่วง 10 นาทีและ debounce การลาก จึงหนึ่ง gesture =
 หนึ่งคำขอ) — `devops` ประเมินไว้ราว **+$0.01/เดือน** กรณีปกติ, $0.10 กรณีแย่สุด
+
+E14.F2 (pipeline น้ำท่วม GFM ใน `apps/etl/gfm`) เพิ่มเฉพาะ storage ของอินพุต `etl/{code}/{dem30,landcover30}.tif`
+(COG ทั้ง 77 จังหวัด ≈ 0.94 GB, กรณีแย่ 1.5 GB) — `devops` ตรวจ diff แล้ว: **+$0.015/เดือน** ไม่มี DO, ไม่มี request
+path ใหม่ ตัวเลขล่วงหน้าที่ต้องถือไปงานถัดไป: F3 รันปกติ (cron ทุก 6 ชม.) ≈ **+$0.0125/เดือน ต่อหนึ่งปีของฉาก**
+ที่สะสม (ไบต์ gz แปรตามเซลล์ที่สังเกตได้ ไม่ใช่จำนวน frame — ฉากแห้งของเชียงราย 3.4 KB, ฉากท่วม 84 KB) ส่วน
+F6 backfill สิบปี ≈ 0.7 / 8.3 / 35 GB (ต่ำ / คาด / สูง) = **+$0.01 / +$0.125 / +$0.52 ต่อเดือนถาวร** (ฉากไม่ถูกลบ)
+จึงต้องผ่าน `devops` ของตัวเองก่อนเริ่ม โดยคิดจาก Σ `fieldBytesGz` ใน `meta.json` หลังทำจริงหนึ่งจังหวัด × หนึ่งปีเต็ม
+ไม่ใช่จากประมาณการนี้
 
 **รายการที่สี่ที่ประมาณการข้างบนไม่ได้นับ และเป็นตัวที่ทำให้บิลบานจริง: Durable Objects SQL rows read**
 — คิดตามแถวที่ถูก *สแกน* ไม่ใช่แถวที่ถูกคืนหรือถูกลบ (Workers Paid รวมมาให้ 25B แถว/รอบบิล)

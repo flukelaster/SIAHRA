@@ -1,0 +1,27 @@
+[project]
+name = "siahra-gfm"
+version = "0.1.0"
+description = "SIAHRA E14 — Copernicus GFM flood scenes → FwDET depth → field.bin (apps/etl/gfm)"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = [
+  "pystac-client>=0.8",
+  "rasterio>=1.4",
+  "numpy>=2.0",
+  "scipy>=1.13",
+]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["gfm"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# แพ็กเกจ `gfm` รันจากซอร์สโดยตรง (ไม่ติดตั้งลง venv) — `python -m gfm` ก็อาศัย cwd แบบเดียวกัน
+pythonpath = ["."]

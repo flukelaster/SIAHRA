@@ -35,6 +35,9 @@
 # ก๊อปทุกชั้นเสมอ (ดู check_copy_source() ในไฟล์นั้น) ไม่ใช่เชื่อแค่ว่าธงถูกใช้ถูกคู่
 #
 # เอกสารฉบับเต็ม (ขั้นตอน เงื่อนไขก่อนเริ่ม และการถอย): docs/dataset-release.md
+#
+# อินพุตของ pipeline น้ำท่วม GFM (etl/{code}/dem30.tif, landcover30.tif — E14.F2) ไม่ได้อยู่ในรุ่นนี้:
+# อัปแยกครั้งเดียวด้วย scripts/upload-gfm-inputs.sh (prefix etl/ ไม่ใช่ aoi/)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

@@ -197,6 +197,11 @@ export interface FloodSceneIndex {
 
 /** `aoi/{code}/flood/{sceneId}/meta.json` — รายการเดียวกับใน index + วิธีคำนวณที่ใช้จริง */
 export interface FloodSceneMeta extends FloodSceneIndexEntry {
+  /**
+   * ขนาดไบต์ของ `field.bin` หลัง gzip ตามที่เขียนลง R2 — ตัวเลขจริงสำหรับคิดต้นทุน
+   * storage ของการ backfill (E14.F6) แทนการประมาณ (devops constraint ของ F2)
+   */
+  fieldBytesGz: number;
   methodology: {
     name: "FwDET-2";
     /** median ของความสูงขอบน้ำตามแนวขอบ กว้าง 3 เซลล์ (ลด noise ของ DSM) */
