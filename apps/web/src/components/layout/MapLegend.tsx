@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { ExternalLink, Gauge, Layers } from "lucide-react";
-import type { ProvinceExposureResponse } from "@siahra/shared-types";
+import type { FloodSceneIndexEntry, ProvinceExposureResponse } from "@siahra/shared-types";
 import { DETAIL_TILE_ALTITUDE_GATE_M } from "../../scene/lod";
 import type { QualityLevel, QualityMode } from "../../scene/quality";
 import type { MapLayers } from "./Map3DCanvas";
@@ -23,8 +23,20 @@ import {
   type ExposureRenderClass,
 } from "../../lib/exposureStyle";
 import { forecastCss, type ForecastBandLevel, type ForecastBandStatus } from "../../lib/forecastStyle";
+import {
+  FLOOD_STIPPLE_DOT_FRAC,
+  floodCss,
+  floodDepthLegendRamp,
+  floodDepthMaxLabel,
+  floodDepthStopLabel,
+} from "../../lib/floodStyle";
+import { FLOOD_SCENE_MAX_AGE_MS, type FloodSceneReason } from "../../lib/floodScenes";
+import type { ErrorMessage } from "../../lib/errorMessage";
+import { resolveError } from "../../lib/errorMessage";
+import { formatNumber } from "../../lib/number";
 import { formatAge, formatFullDateTime, formatWeekday } from "../../lib/time";
 import type { ExposureUnavailableReason } from "../../hooks/useFloodExposure";
+import type { FloodFieldSummary } from "../../scene/floodField";
 
 const SITUATION_LEVELS: { key: MessageKey; color: string }[] = [
   { key: "situation.3", color: "#22c55e" },
@@ -121,6 +133,175 @@ function ExposureSwatch() {
       <rect width="20" height="12" fill="url(#siahra-exposure-hatch-base)" />
       <rect width="20" height="12" fill="url(#siahra-exposure-hatch-cross)" />
     </svg>
+  );
+}
+
+/**
+ * สัญลักษณ์ของ "ความลึกน้ำโดยประมาณ (ภาพประกอบ)" (E14.F4) — แถบสีตื้น → ลึกจาก
+ * `floodDepthLegendRamp()` ซึ่งคำนวณด้วย `depthToMix` ตัวเดียวกับที่ shader ใช้
+ * (`lib/floodStyle.ts`) ไม่มีสีที่เลือกแยกไว้ที่นี่
+ */
+function FloodDepthSwatch() {
+  const ramp = floodDepthLegendRamp();
+  const stops = ramp.map((s, i) => `${s.css} ${((i / (ramp.length - 1)) * 100).toFixed(0)}%`).join(", ");
+  return <span className="h-3 w-5 rounded-sm" style={{ background: `linear-gradient(90deg, ${stops})` }} />;
+}
+
+/**
+ * ชิป "ไม่ได้ประมาณ" — จุดสีน้ำลึกบนพื้นสีน้ำตื้น คาบเท่าลายเส้นของชั้นภาพประกอบ
+ * (ค่าเดียวกับ shader: `uHatchPx` × `FLOOD_STIPPLE_DOT_FRAC`) — ต้องอ่านเป็น *ลาย*
+ * ไม่ใช่ปลายตื้นของแถบสีข้างบน เพราะ "ไม่ได้ประมาณ" ≠ 0 ม.
+ */
+function FloodStippleSwatch() {
+  const period = ILLUSTRATIVE_HATCH_PERIOD_PX;
+  const r = period * FLOOD_STIPPLE_DOT_FRAC;
+  return (
+    <svg className="h-3 w-5 rounded-sm" viewBox="0 0 20 12" aria-hidden="true">
+      <defs>
+        <pattern id="siahra-flood-stipple" width={period} height={period} patternUnits="userSpaceOnUse">
+          <rect width={period} height={period} fill={floodCss("shallow")} />
+          <circle cx={period / 2} cy={period / 2} r={r} fill={floodCss("deep")} />
+        </pattern>
+      </defs>
+      <rect width="20" height="12" fill="url(#siahra-flood-stipple)" />
+    </svg>
+  );
+}
+
+/** สิ่งที่ legend ต้องรู้เกี่ยวกับฉาก Copernicus GFM ที่กำลังแสดง (E14.F4) — ประกอบใน App.tsx */
+export interface FloodGfmLegendState {
+  /** ฉากที่วาดอยู่ — null เมื่อไม่มีฉากในหน้าต่าง / ยังไม่มีดัชนี */
+  scene: FloodSceneIndexEntry | null;
+  /** ฉากใหม่สุดก่อนเวลาที่เลือก โดยไม่สนหน้าต่าง 14 วัน */
+  latestBefore: FloodSceneIndexEntry | null;
+  reason: FloodSceneReason | null;
+  /** true = index.json ตอบ 404: จังหวัดนี้ยังไม่มีฉากในระบบ (ข้อเท็จจริง ไม่ใช่ error) */
+  missing: boolean;
+  loading: boolean;
+  /** ดึงดัชนีไม่ได้ ("ถามไม่ได้" — ห้ามอ่านเป็น "ไม่มีฉาก") */
+  indexError: ErrorMessage | null;
+  /** ดึง/ถอด field.bin ของฉากไม่ได้ */
+  fieldError: ErrorMessage | null;
+  /** ตัวเลขจากฟิลด์ที่ถอดแล้ว (`summarizeFloodField`) — null ระหว่างโหลด */
+  summary: FloodFieldSummary | null;
+  /** true = แหล่งค้าง/ไม่ปกติ → แถวหรี่ (แผนที่หรี่ด้วย `uFloodFieldDim` เหมือนกัน) */
+  dimmed: boolean;
+}
+
+const FLOOD_SCENE_WINDOW_DAYS = Math.round(FLOOD_SCENE_MAX_AGE_MS / 86_400_000);
+
+/**
+ * รายละเอียดใต้แถว "น้ำท่วมจากภาพ Sentinel-1" — สี่สถานะที่ต้องเป็นคนละประโยคเสมอ
+ * (AGENTS.md: "ถามไม่ได้" ≠ "ต้นทางบอกว่าไม่มี" ≠ "ไม่มีภาพ" ≠ "ภาพบอกว่าแห้ง"):
+ *   - ดึงดัชนีไม่ได้            → บอกว่าถามไม่ได้ ไม่พูดถึงสถานะของฉาก
+ *   - 404                        → จังหวัดนี้ยังไม่มีฉากในระบบ (ไม่ได้แปลว่าไม่มีน้ำท่วม)
+ *   - ไม่มีฉากในหน้าต่าง 14 วัน → "ไม่มีภาพ" + ภาพล่าสุดก่อนหน้านั้นคือเมื่อไหร่
+ *   - มีฉาก                      → sceneId + เวลาบันทึกภาพ + พื้นที่ท่วม หรือ "ฉากนี้แห้ง"
+ *     (ฉากแห้งคือข้อมูล ไม่ใช่ความเงียบ)
+ */
+function FloodGfmDetails({ state, lang, t }: { state: FloodGfmLegendState; lang: Lang; t: TFunction }) {
+  let body: ReactNode;
+  if (state.indexError) {
+    body = (
+      <span className="text-[10px] text-[var(--color-risk-medium)]">
+        {t("legend.floodGfm.indexError", { error: resolveError(t, state.indexError) ?? "" })}
+      </span>
+    );
+  } else if (state.missing) {
+    body = <span className="text-[10px] text-[var(--color-fg-muted)]">{t("legend.floodGfm.noScenesForProvince")}</span>;
+  } else if (state.reason === "no-scene-in-window") {
+    body = (
+      <>
+        <span className="text-[10px] text-[var(--color-risk-medium)]">
+          {t("legend.floodGfm.noSceneInWindow", { days: FLOOD_SCENE_WINDOW_DAYS })}
+        </span>
+        {state.latestBefore ? (
+          <span className="text-[10px] text-[var(--color-fg-subtle)]">
+            {t("legend.floodGfm.latestBefore", { time: formatFullDateTime(lang, state.latestBefore.observedAt) })}
+          </span>
+        ) : null}
+      </>
+    );
+  } else if (state.scene) {
+    const s = state.scene;
+    body = (
+      <>
+        <span className="text-[10px] text-[var(--color-fg-subtle)]">
+          {t("legend.floodGfm.scene", { id: s.sceneId, time: formatFullDateTime(lang, s.observedAt) })}
+        </span>
+        <span className="text-[10px] text-[var(--color-fg-subtle)]">
+          {s.floodedCells > 0
+            ? t("legend.floodGfm.area", { km2: formatNumber(lang, Math.round(s.floodedAreaKm2)) })
+            : t("legend.floodGfm.dry")}
+        </span>
+        {state.fieldError ? (
+          <span className="text-[10px] text-[var(--color-risk-medium)]">
+            {t("legend.floodGfm.fieldError", { error: resolveError(t, state.fieldError) ?? "" })}
+          </span>
+        ) : state.loading && !state.summary ? (
+          <span className="text-[10px] text-[var(--color-fg-subtle)]">{t("legend.floodGfm.loading")}</span>
+        ) : null}
+      </>
+    );
+  } else if (state.loading) {
+    body = <span className="text-[10px] text-[var(--color-fg-subtle)]">{t("legend.floodGfm.loading")}</span>;
+  } else {
+    return null;
+  }
+  return <div className="mt-1 ml-7 flex flex-col gap-0.5 border-l border-white/8 pl-2">{body}</div>;
+}
+
+/**
+ * รายละเอียดใต้แถว "ความลึกน้ำโดยประมาณ (ภาพประกอบ)" — สเกล 0 · 0.5 · 1 · 2 · ≥3 ม.
+ * จาก ramp เดียวกับ shader + ชิป "ไม่ได้ประมาณ" ที่ต้องอยู่เสมอ (ไม่ใช่ 0 ม.)
+ */
+function FloodDepthDetails({
+  state,
+  gfmEnabled,
+  lang,
+  t,
+}: {
+  state: FloodGfmLegendState | undefined;
+  gfmEnabled: boolean;
+  lang: Lang;
+  t: TFunction;
+}) {
+  const ramp = floodDepthLegendRamp();
+  const summary = state?.summary ?? null;
+  return (
+    <div className="mt-1 ml-7 flex flex-col gap-1 border-l border-white/8 pl-2">
+      {!gfmEnabled ? (
+        <span className="text-[10px] text-[var(--color-fg-subtle)]">{t("legend.floodDepth.needsExtent")}</span>
+      ) : null}
+      <span className="text-[10px] font-medium text-[var(--color-fg-subtle)]">{t("legend.floodDepth.scale")}</span>
+      <div className="flex items-center gap-1">
+        {ramp.map((s) => (
+          <span key={s.depthM} className="flex flex-col items-center gap-0.5">
+            <span className="h-2.5 w-5 rounded-sm border border-white/15" style={{ backgroundColor: s.css }} aria-hidden="true" />
+            <span className="text-[9px] tabular-nums text-[var(--color-fg-muted)]">{floodDepthStopLabel(lang, s)}</span>
+          </span>
+        ))}
+      </div>
+      <div className="flex items-start gap-1.5 text-[10px] text-[var(--color-fg-muted)]">
+        <span className="mt-[2px] flex w-6 shrink-0 items-center" aria-hidden="true">
+          <FloodStippleSwatch />
+        </span>
+        <span className="min-w-0">
+          {t("legend.floodDepth.notEstimated")}
+          <span className="block text-[var(--color-fg-subtle)]">{t("legend.floodDepth.notEstimated.why")}</span>
+        </span>
+      </div>
+      {summary && summary.floodedCells > 0 ? (
+        <span className="text-[10px] text-[var(--color-fg-subtle)]">
+          {summary.maxDepthCm === null
+            ? t("legend.floodDepth.noneEstimated")
+            : t("legend.floodDepth.estimated", {
+                pct: Math.round((summary.depthEstimatedCells / summary.floodedCells) * 100),
+                max: floodDepthMaxLabel(lang, summary.maxDepthCm),
+              })}
+        </span>
+      ) : null}
+    </div>
   );
 }
 
@@ -491,6 +672,19 @@ const LAYER_ROWS: {
     ),
   },
   {
+    // E14.F4 — สีเดียว "พื้นที่ที่ดาวเทียมเห็นน้ำ" (สิ่งที่วาดเมื่อปิดชั้นความลึก)
+    key: "floodGfm",
+    labelKey: "legend.layer.floodGfm",
+    noteKey: "legend.layer.floodGfm.note",
+    swatch: <span className="h-3 w-5 rounded-sm" style={{ background: floodCss("extent") }} />,
+  },
+  {
+    key: "floodDepth",
+    labelKey: "legend.layer.floodDepth",
+    noteKey: "legend.layer.floodDepth.note",
+    swatch: <FloodDepthSwatch />,
+  },
+  {
     key: "lowland",
     labelKey: "legend.layer.lowland",
     noteKey: "legend.layer.lowland.note",
@@ -693,6 +887,7 @@ export function MapLegend({
   buildingsError = null,
   exposure,
   forecast,
+  floodGfm,
 }: {
   layers: MapLayers;
   onToggle: (key: keyof MapLayers, value: boolean) => void;
@@ -702,6 +897,8 @@ export function MapLegend({
   exposure?: ExposureLegendState;
   /** แถบฝนพยากรณ์รายวัน (TMD) ของขั้นที่กำลังเลือกอยู่ (E12.4b) */
   forecast?: ForecastLegendState;
+  /** ฉาก Copernicus GFM ที่กำลังแสดง + เหตุผลเมื่อไม่มี (E14.F4) */
+  floodGfm?: FloodGfmLegendState;
   quality: QualityMode;
   qualityLevel: QualityLevel;
   onQualityChange: (q: QualityMode) => void;
@@ -732,9 +929,20 @@ export function MapLegend({
           // ชั้นอาคารแบบเก่า (E8.3) โหลดพลาด = ไม่มีอาคารบนแผนที่ทั้งที่สวิตช์ยัง
           // เปิดอยู่ — ต้องบอกเหตุผล ไม่ใช่ปล่อยให้ผู้ใช้เดาว่า AOI นี้ไม่มีอาคารเลย
           const showBuildingsError = row.key === "buildings" && buildingsError !== null;
+          // สองแถว GFM หรี่ลง (ไม่หายไป) เมื่อไม่มีฉากในหน้าต่าง / จังหวัดไม่มีฉาก /
+          // แหล่งค้าง — เหตุผลอยู่ใน FloodGfmDetails ข้างล่างเสมอ
+          const isGfmRow = row.key === "floodGfm" || row.key === "floodDepth";
+          const dimmed =
+            isGfmRow &&
+            floodGfm !== undefined &&
+            (floodGfm.dimmed || floodGfm.missing || floodGfm.reason === "no-scene-in-window");
           return (
           <li key={row.key}>
-            <label className="flex cursor-pointer items-start gap-2 rounded-lg px-1.5 py-1 hover:bg-white/5">
+            <label
+              className={`flex cursor-pointer items-start gap-2 rounded-lg px-1.5 py-1 hover:bg-white/5 ${
+                dimmed ? "opacity-60" : ""
+              }`}
+            >
               <input
                 type="checkbox"
                 checked={layers[row.key]}
@@ -779,6 +987,10 @@ export function MapLegend({
                 t={t}
                 terrainIntegrity={terrainIntegrity}
               />
+            ) : null}
+            {row.key === "floodGfm" && floodGfm ? <FloodGfmDetails state={floodGfm} lang={lang} t={t} /> : null}
+            {row.key === "floodDepth" ? (
+              <FloodDepthDetails state={floodGfm} gfmEnabled={layers.floodGfm} lang={lang} t={t} />
             ) : null}
           </li>
           );

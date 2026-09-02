@@ -22,6 +22,13 @@ import { BuildingTileLayer } from "../../scene/BuildingTiles";
 import { FeatureTileLayer } from "../../scene/FeatureTiles";
 import { VegetationTiles } from "../../scene/VegetationTiles";
 import { buildFloodMask, type FloodMask } from "../../scene/floodMask";
+import {
+  buildFloodFieldTexture,
+  summarizeFloodField,
+  type FloodField,
+  type FloodFieldTexture,
+} from "../../scene/floodField";
+import { createFloodSurface, type FloodSurface } from "../../scene/FloodSurface";
 import { RadarOverlay } from "../../scene/RadarOverlay";
 import { pickAt, type PickResult } from "../../scene/picking";
 import { QualityManager, type QualityLevel, type QualityMode } from "../../scene/quality";
@@ -65,6 +72,17 @@ export interface MapLayers {
   roads: boolean;
   water: boolean;
   floodExtent: boolean;
+  /**
+   * น้ำท่วมจากภาพเรดาร์ Sentinel-1 (Copernicus GFM, E14.F4) — ชั้น observed ตัวที่สอง
+   * มีเวลาบันทึกภาพต่อฉากจริง ๆ (ต่างจาก GISTDA) เปิดเป็นค่าเริ่มต้นได้เพราะเป็น
+   * ของที่ดาวเทียมเห็น ไม่ใช่ของที่เราคำนวณ
+   */
+  floodGfm: boolean;
+  /**
+   * ความลึกภาพประกอบ (FwDET) บนฉาก GFM — ไล่ระดับสีบนภูมิประเทศ + แผ่นน้ำ 3 มิติ
+   * มีผลเฉพาะเมื่อ `floodGfm` เปิดอยู่ (ความลึกไม่ถูกแสดงโดยไม่มีฉากที่มันมาจาก)
+   */
+  floodDepth: boolean;
   dams: boolean;
   radar: boolean;
   /** Sun and sky follow real (or timeline) time instead of a fixed studio light. */
@@ -139,6 +157,9 @@ export function Map3DCanvas({
   observations,
   earthquakes,
   floodExtent,
+  floodField = null,
+  floodSceneId = null,
+  floodFieldDim = false,
   dams,
   radar,
   exposure,
@@ -162,6 +183,15 @@ export function Map3DCanvas({
   observations: ObservationsResponse | null;
   earthquakes: EarthquakeEvent[];
   floodExtent: FloodExtentResponse | null;
+  /**
+   * ฉาก Copernicus GFM ที่ถอดแล้ว (E14.F4, `hooks/useFloodScene.ts`) — null = ไม่มี
+   * ฉากให้วาด (ยังไม่โหลด / ไม่มีฉากในหน้าต่าง 14 วัน / จังหวัดไม่มีฉาก)
+   */
+  floodField?: FloodField | null;
+  /** sceneId ของ `floodField` — ไว้ให้ตัวนับดีบักและการ log เท่านั้น */
+  floodSceneId?: string | null;
+  /** true = แหล่ง GFM ค้าง/ไม่ปกติ → ชั้นหรี่ลง ไม่หายไป */
+  floodFieldDim?: boolean;
   dams: DamObservation[];
   radar: RadarFramesResponse | null;
   /** run ล่าสุดของ "ระดับการเผชิญน้ำ (ภาพประกอบ)" — null = ยังไม่มี/ชั้นถูกปิด */
@@ -226,6 +256,17 @@ export function Map3DCanvas({
   const labelsRef = useRef<THREE.Group | null>(null);
   const quakesRef = useRef<EarthquakeMarkerResult | null>(null);
   const floodMaskRef = useRef<FloodMask | null>(null);
+  /**
+   * ฉาก GFM ที่วาดอยู่: texture ที่ terrain sample (`uFloodField`) + แผ่นน้ำ 3 มิติ +
+   * ตัวถอนตัวนับดีบัก — ทั้งสามถูกทิ้งพร้อมกันเสมอ (ฉากเปลี่ยน / สลับจังหวัด / unmount)
+   * ไม่งั้น `renderer.info.memory.textures` จะไม่กลับมาเท่าเดิม
+   */
+  const floodFieldRef = useRef<{
+    sceneId: string | null;
+    texture: FloodFieldTexture;
+    surface: FloodSurface | null;
+    unregister: (() => void) | null;
+  } | null>(null);
   const damsRef = useRef<DamMarkerResult | null>(null);
   const exposureRef = useRef<ExposureMarkerResult | null>(null);
   /** ถอนตัวนับดีบักของชั้นการเผชิญน้ำ (DEV) เมื่อ run เปลี่ยนหรือฉากถูกทิ้ง */
@@ -253,6 +294,19 @@ export function Map3DCanvas({
     if (!infoRef.current) return;
     infoRef.current = { ...infoRef.current, ...patch };
     onInfo?.(infoRef.current);
+  };
+
+  /** ทิ้งฉาก GFM ปัจจุบันทั้งก้อน (geometry, วัสดุ, สอง texture, ตัวนับดีบัก) — idempotent */
+  const disposeFloodField = () => {
+    const cur = floodFieldRef.current;
+    if (!cur) return;
+    floodFieldRef.current = null;
+    cur.unregister?.();
+    if (cur.surface) {
+      cur.surface.mesh.parent?.remove(cur.surface.mesh);
+      cur.surface.dispose();
+    }
+    cur.texture.dispose();
   };
 
   useEffect(() => {
@@ -655,6 +709,7 @@ export function Map3DCanvas({
       quakesRef.current = null;
       floodMaskRef.current?.dispose();
       floodMaskRef.current = null;
+      disposeFloodField();
       if (damsRef.current) disposeLabels(damsRef.current.labels);
       damsRef.current?.dispose();
       damsRef.current = null;
@@ -1042,6 +1097,63 @@ export function Map3DCanvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [floodExtent, state.status, lang, t]);
 
+  // Copernicus GFM scene (E14.F4) -> `uFloodField` on every terrain material +
+  // the 3D water sheet. Rebuilt whenever the decoded field changes (scene
+  // change) and torn down on province change/unmount through the main cleanup
+  // above — every path goes through disposeFloodField(), so the texture, the
+  // height texture, the geometry and the material can never outlive the scene.
+  useEffect(() => {
+    const handles = sceneRef.current;
+    const loaded = terrainRef.current;
+    if (!handles || !loaded) return;
+    const u = loaded.terrain.material.uniforms;
+    disposeFloodField();
+    if (!floodField) {
+      u.uFloodField.value = null;
+      u.uShowFloodField.value = 0;
+      return;
+    }
+    const { manifest, terrain } = loaded;
+    if (floodField.width !== manifest.terrain.width || floodField.height !== manifest.terrain.height) {
+      // กริดไม่ตรง = ฉากนี้ถูกสร้างจาก manifest คนละรุ่นกับที่โหลดอยู่ — ห้ามยืดลง
+      // กริดผิด ๆ (ทุกเซลล์จะเลื่อนที่) วาดไม่ได้ก็ต้องดังพอให้เห็นใน console
+      console.warn(
+        `[siahra] flood field ${floodSceneId ?? "?"} grid ${floodField.width}×${floodField.height} ≠ terrain ${manifest.terrain.width}×${manifest.terrain.height} — ไม่วาด`,
+      );
+      u.uFloodField.value = null;
+      u.uShowFloodField.value = 0;
+      return;
+    }
+    const texture = buildFloodFieldTexture(floodField);
+    const surface = createFloodSurface(terrain, manifest, floodField, texture.texture, u.uTime);
+    if (surface) {
+      // แผ่นน้ำคือการแสดงความลึก — ปิด floodDepth = เหลือแต่สีบนภูมิประเทศ
+      surface.mesh.visible = layers.floodGfm && layers.floodDepth;
+      handles.world.add(surface.mesh);
+    }
+    u.uFloodField.value = texture.texture;
+    u.uShowFloodField.value = layers.floodGfm ? 1 : 0;
+    u.uShowFloodDepth.value = layers.floodDepth ? 1 : 0;
+    let unregister: (() => void) | null = null;
+    // ตัวนับสำหรับ DEV — ให้ QA ยืนยันด้วยตัวเลขว่าฉากไหนอยู่บนจอ มีกี่เซลล์ท่วม/
+    // มีค่าความลึก และแผ่นน้ำมี vertex เท่าไร (คู่กับ renderer.textures/geometries)
+    if (import.meta.env.DEV) {
+      const summary = summarizeFloodField(floodField);
+      unregister = handles.debug.register("floodField", () => ({
+        sceneId: floodSceneId,
+        ...summary,
+        surfaceVertices: surface?.vertexCount ?? 0,
+      }));
+    }
+    floodFieldRef.current = { sceneId: floodSceneId, texture, surface, unregister };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [floodField, floodSceneId, state.status]);
+
+  useEffect(() => {
+    const u = terrainRef.current?.terrain.material.uniforms;
+    if (u) u.uFloodFieldDim.value = floodFieldDim ? 1 : 0;
+  }, [floodFieldDim, state.status]);
+
   useEffect(() => {
     const handles = sceneRef.current;
     if (!handles) return;
@@ -1100,6 +1212,11 @@ export function Map3DCanvas({
       if (loaded.terrain.material.material.map !== desired) loaded.terrain.material.setImagery(desired);
       loaded.tiles?.setImageryEnabled(layers.imagery);
       u.uShowFlood.value = layers.floodExtent && floodMaskRef.current ? 1 : 0;
+      u.uShowFloodField.value = layers.floodGfm && floodFieldRef.current ? 1 : 0;
+      u.uShowFloodDepth.value = layers.floodDepth ? 1 : 0;
+      if (floodFieldRef.current?.surface) {
+        floodFieldRef.current.surface.mesh.visible = layers.floodGfm && layers.floodDepth;
+      }
       if (damsRef.current) {
         damsRef.current.dots.visible = layers.dams;
         damsRef.current.labels.visible = layers.dams;

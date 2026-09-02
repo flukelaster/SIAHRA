@@ -9,6 +9,8 @@ import {
 } from "../lib/illustrativeStyle";
 import { EXPOSURE_RGB } from "../lib/exposureStyle";
 import { FORECAST_RGB } from "../lib/forecastStyle";
+import { FLOOD_RGB, FLOOD_STIPPLE_DOT_FRAC, GISTDA_RGB } from "../lib/floodStyle";
+import { floodFieldGlsl } from "./floodField";
 
 /** ค่าคงที่ TS → literal ของ GLSL (GLSL ต้องมีจุดทศนิยมเสมอ) */
 const glslFloat = (v: number) => v.toFixed(4);
@@ -76,6 +78,20 @@ export interface TerrainSharedUniforms {
   /** Satellite flood-extent mask (R channel, province overlay grid). */
   uFloodMask: { value: THREE.Texture | null };
   uShowFlood: { value: number };
+  /**
+   * ฉาก Copernicus GFM (E14.F4) — RGBA8 บนกริด overview เดียวกัน (layout ใน
+   * `scene/floodField.ts`: R = คลาส, G = ความลึก, B = ความเชื่อมั่นการจำแนก, A =
+   * มีค่าความลึก) null = ไม่มีฉากให้วาด (ยังไม่โหลด / ไม่มีฉากในหน้าต่าง 14 วัน)
+   */
+  uFloodField: { value: THREE.Texture | null };
+  uShowFloodField: { value: number };
+  /**
+   * 1 = ไล่ระดับสีตามความลึกภาพประกอบ (FwDET) · 0 = สีเดียว "พื้นที่ที่ดาวเทียม
+   * เห็นน้ำ" ล้วน ๆ — สวิตช์ `floodDepth` มีผลเฉพาะเมื่อ `floodGfm` เปิดอยู่
+   */
+  uShowFloodDepth: { value: number };
+  /** 1 = แหล่ง GFM ค้าง/ไม่ปกติ (health ไม่ ok หรือดัชนีเก่ากว่า staleAfterSeconds) → หรี่ลง ไม่หายไป */
+  uFloodFieldDim: { value: number };
   /** TMD radar composite frame + geo mapping (see RadarOverlay). */
   uRadar: { value: THREE.Texture | null };
   uShowRadar: { value: number };
@@ -107,6 +123,10 @@ export function createTerrainSharedUniforms(): TerrainSharedUniforms {
     uShowForecast: { value: 0 },
     uFloodMask: { value: null },
     uShowFlood: { value: 0 },
+    uFloodField: { value: null },
+    uShowFloodField: { value: 0 },
+    uShowFloodDepth: { value: 1 },
+    uFloodFieldDim: { value: 0 },
     uRadar: { value: null },
     uShowRadar: { value: 0 },
     uRadarBounds: { value: new THREE.Vector4(95.005, 3.995, 108.005, 22.495) },
@@ -145,6 +165,10 @@ uniform float uForecastBand;
 uniform float uShowForecast;
 uniform sampler2D uFloodMask;
 uniform float uShowFlood;
+uniform sampler2D uFloodField;
+uniform float uShowFloodField;
+uniform float uShowFloodDepth;
+uniform float uFloodFieldDim;
 uniform sampler2D uRadar;
 uniform float uShowRadar;
 uniform vec4 uRadarBounds;
@@ -185,6 +209,9 @@ vec3 siahraForecastRamp(float code) {
   c = mix(c, ${glslVec3(FORECAST_RGB.severe)}, smoothstep(0.75, 1.0, code));
   return c;
 }
+// ตัวถอด layout ของ texture ฉาก GFM + สูตรไล่ระดับความลึก — ฝังจาก scene/floodField.ts
+// (ที่เดียวกับที่เข้ารหัสฝั่ง CPU) และ lib/floodStyle.ts (ที่เดียวกับที่ legend อ่าน)
+${floodFieldGlsl()}
 `;
 
 // Replaces <color_fragment>: vertex colours are the imagery fallback only.
@@ -323,20 +350,74 @@ if (uShowForecast > 0.5 && uForecastBand > 0.001) {
   siahraEmissive += fcCol * fcFill * 0.06 * stripe3;
 }
 
-// Satellite-observed flood extent (GISTDA): murky standing water with a
-// slow drift and a pale rim along the mapped edge. Drawn over the lowland
-// wash so an actual flood always reads stronger than the topographic cue.
-float fm = texture2D(uFloodMask, vTerrainUv).r * uShowFlood;
+// Satellite-observed flood extent (GISTDA): a light translucent wash plus a
+// crisp ~1.5 px outline along the mapped edge, drawn over the lowland wash so
+// an actual flood always reads stronger than the topographic cue.
+//
+// F4 restyle: the *outline* is now this layer's signal, and the fill is kept
+// light on purpose — the second observed source below (Copernicus GFM) is the
+// solid, depth-graded one, so the two never look alike even where they
+// overlap. Colours come from lib/floodStyle.ts (GISTDA_RGB), the same values
+// the legend swatch draws; no hex is picked here.
+//
+// อนุพันธ์ (fwidth) คำนวณนอก if เสมอ — ใน GLSL ES 3.0 อนุพันธ์ภายใน control flow
+// ที่ไม่ uniform เป็นค่าไม่นิยาม (ตัวแปร low ข้างบนก็ทำแบบเดียวกัน)
+float fmRaw = texture2D(uFloodMask, vTerrainUv).r;
+float fmFw = fwidth(fmRaw);
+float fm = fmRaw * uShowFlood;
 if (fm > 0.02) {
   float fl = smoothstep(0.15, 0.7, fm);
   float drift = siahraNoise(flowUv * 1.6 + vec2(uTime * 0.03, uTime * 0.05));
-  vec3 floodDeep = vec3(0.10, 0.34, 0.50);
-  vec3 floodLight = vec3(0.30, 0.58, 0.72);
-  vec3 floodCol = mix(floodDeep, floodLight, drift);
-  float rim = smoothstep(0.12, 0.45, fm) * (1.0 - smoothstep(0.45, 0.85, fm));
-  floodCol = mix(floodCol, vec3(0.85, 0.93, 0.98), rim * 0.55);
-  diffuseColor.rgb = mix(diffuseColor.rgb, floodCol, fl * 0.78);
-  siahraEmissive += floodCol * fl * 0.06;
+  vec3 gistdaCol = mix(${glslVec3(GISTDA_RGB.deep)}, ${glslVec3(GISTDA_RGB.light)}, drift);
+  vec3 gistdaRim = ${glslVec3(GISTDA_RGB.rim)};
+  diffuseColor.rgb = mix(diffuseColor.rgb, gistdaCol, fl * 0.36);
+  // เส้นขอบบน isoline fm = 0.45 ของ mask ที่เบลอ 3×3 ไว้แล้ว — ความหนาคงที่บนจอ
+  // (~1.5 px) ไม่ว่ากล้องจะอยู่ไกลแค่ไหน เพราะวัดจากความชันบนจอของ mask
+  float gistdaLine = 1.0 - smoothstep(0.0, max(fmFw, 1e-4) * 1.5, abs(fm - 0.45));
+  diffuseColor.rgb = mix(diffuseColor.rgb, gistdaRim, gistdaLine * 0.9);
+  siahraEmissive += gistdaRim * gistdaLine * 0.12 + gistdaCol * fl * 0.03;
+}
+
+// Copernicus GFM flood scene (E14.F4) — the second observed source, drawn
+// AFTER the GISTDA block so it wins where both exist:
+//   FLOODED                      → solid water graded by the illustrative FwDET
+//                                  depth, shallow → deep as 1 − exp(−k·depth)
+//                                  (Beer–Lambert look; k from lib/floodStyle.ts),
+//                                  slow drift, faint pale rim on the 0.5 isoline
+//   FLOODED_DEPTH_NOT_ESTIMATED  → the shallow colour + a screen-space stipple
+//                                  (same period as the illustrative hatch) so it
+//                                  can never be read as 0 m
+//   REFERENCE_WATER / EXCLUDED / NO_OBSERVATION / DRY → nothing in F4
+// uShowFloodDepth = 0 drops the ramp and the stipple: one flat observed colour
+// for "the satellite saw water here", nothing about how deep.
+float gfmCov = 0.0;
+float gfmDepth = 0.0;
+float gfmNotEst = 0.0;
+if (uShowFloodField > 0.5) siahraFloodSample(uFloodField, vTerrainUv, gfmCov, gfmDepth, gfmNotEst);
+float gfmFw = fwidth(gfmCov);
+if (gfmCov > 0.02) {
+  float gfmFl = smoothstep(0.2, 0.7, gfmCov);
+  float gfmDrift = siahraNoise(flowUv * 1.3 + vec2(-uTime * 0.025, uTime * 0.04));
+  vec3 gfmShallow = ${glslVec3(FLOOD_RGB.shallow)};
+  vec3 gfmDeep = ${glslVec3(FLOOD_RGB.deep)};
+  vec3 gfmCol = ${glslVec3(FLOOD_RGB.extent)};
+  if (uShowFloodDepth > 0.5) {
+    gfmCol = mix(gfmShallow, gfmDeep, siahraDepthMix(gfmDepth));
+    if (gfmNotEst > 0.5) {
+      // ลายจุดในปริภูมิจอภาพ: จุดสีน้ำลึกบนพื้นสีน้ำตื้น คาบเท่าลายเส้นของชั้น
+      // ภาพประกอบ — "ไม่ได้ประมาณ" ต้องอ่านเป็นลาย ไม่ใช่ปลายตื้นของ ramp
+      vec2 stippleCell = fract(gl_FragCoord.xy / hatchPx) - 0.5;
+      float stippleDot = 1.0 - smoothstep(${glslFloat(FLOOD_STIPPLE_DOT_FRAC)} - hatchAa, ${glslFloat(FLOOD_STIPPLE_DOT_FRAC)} + hatchAa, length(stippleCell));
+      gfmCol = mix(gfmShallow, gfmDeep, stippleDot);
+    }
+  }
+  gfmCol *= 0.92 + 0.12 * gfmDrift;
+  float gfmLine = 1.0 - smoothstep(0.0, max(gfmFw, 1e-4) * 1.5, abs(gfmCov - 0.5));
+  gfmCol = mix(gfmCol, ${glslVec3(FLOOD_RGB.rim)}, gfmLine * 0.45);
+  // แหล่งค้าง/ไม่ปกติ = หรี่ลง ไม่ใช่หายไป (legend บอกเหตุผล) — กฎเดียวกับ uExposureStale
+  float gfmFill = gfmFl * 0.86 * (1.0 - 0.6 * uFloodFieldDim) * mix(0.45, 1.0, inside);
+  diffuseColor.rgb = mix(diffuseColor.rgb, gfmCol, gfmFill);
+  siahraEmissive += gfmCol * gfmFill * 0.05;
 }
 
 // Observed hazard halos: warm, gently pulsing.

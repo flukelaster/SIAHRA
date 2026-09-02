@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { EpistemicClass, HazardLayerDescriptor } from "@siahra/shared-types";
-import { describeLayerFreshness, EPISTEMIC_BADGE, missingFetchedAtKey } from "./layerFreshness";
-import { neverReceived } from "./time";
+import {
+  describeLayerFreshness,
+  EPISTEMIC_BADGE,
+  formatObservedAt,
+  missingFetchedAtKey,
+  OBSERVED_AT_FULL_DATE_AFTER_MS,
+} from "./layerFreshness";
+import { formatFullDateTime, formatTime, neverReceived } from "./time";
 import { LANGS, translate, translator, type Lang } from "../i18n";
 
 const NOW = Date.parse("2026-08-19T10:00:00+07:00");
@@ -86,6 +92,39 @@ describe("describeLayerFreshness", () => {
     const fEn = describe_(descriptor("observed", "2026-08-19T09:55:00+07:00"), "ok", "en");
     expect(fEn.timeText).toContain("observed 09:50");
     expect(fEn.timeText).toContain("retrieved 5 min ago");
+  });
+
+  /**
+   * ฉาก Sentinel-1 (E14.F4) อายุเป็นวันหรือปีได้ — "ตรวจวัด 06:14" ของฉากเมื่อวานซืน
+   * อ่านเหมือนของวันนี้ทุกประการ จึงต้องมีวันกำกับเมื่อเก่ากว่า 24 ชม. ส่วนแหล่ง
+   * ราย 5 นาที (ภายใน 24 ชม.) ยังเป็นเวลานาฬิกาอย่างเดิม
+   */
+  it.each(LANGS)("observedAt เก่ากว่า 24 ชม. แสดงวัน-เดือน-ปี + เวลา ไม่ใช่เวลาอย่างเดียว (%s)", (lang) => {
+    const old = "2026-08-31T23:14:35Z"; // ~37 ชม. ก่อน NOW ของเทสด้านล่าง
+    const now = Date.parse("2026-09-02T12:00:00Z");
+    const d: HazardLayerDescriptor = {
+      ...descriptor("observed", "2026-09-02T11:55:00Z"),
+      id: "flood-gfm-extent",
+      observedAt: old,
+    };
+    const f = describeLayerFreshness(d, "ok", now, lang, translator(lang));
+    expect(f.timeText).toContain(formatFullDateTime(lang, old));
+    expect(f.timeText).toContain(translate(lang, "freshness.observedAt", { time: formatFullDateTime(lang, old) }));
+    // ปีต้องอยู่ในข้อความ (ฉากปี 2024 ต้องไม่อ่านเป็นปีนี้)
+    const scene2024 = "2024-09-13T11:21:00Z";
+    expect(formatObservedAt(lang, scene2024, now)).toBe(formatFullDateTime(lang, scene2024));
+    expect(formatObservedAt(lang, scene2024, now)).toMatch(/2024|2567/);
+  });
+
+  it.each(LANGS)("observedAt ภายใน 24 ชม. ยังเป็นเวลานาฬิกาอย่างเดียว — ชั้นอื่นไม่เปลี่ยน (%s)", (lang) => {
+    const f = describe_(descriptor("observed", "2026-08-19T09:55:00+07:00"), "ok", lang);
+    expect(f.timeText).toContain(translate(lang, "freshness.observedAt", { time: formatTime(lang, "2026-08-19T09:50:00+07:00") }));
+    expect(f.timeText).not.toContain("2026");
+    // ขอบพอดี 24 ชม. ยังเป็นเวลาอย่างเดียว; เกินหนึ่งมิลลิวินาทีจึงเป็นวัน-เวลาเต็ม
+    const iso = "2026-08-18T10:00:00+07:00";
+    const edge = Date.parse(iso) + OBSERVED_AT_FULL_DATE_AFTER_MS;
+    expect(formatObservedAt(lang, iso, edge)).toBe(formatTime(lang, iso));
+    expect(formatObservedAt(lang, iso, edge + 1)).toBe(formatFullDateTime(lang, iso));
   });
 
   it("เกิน staleAfterSeconds = เหลือง; ชั้นคงที่ที่ไม่มีเวลาดึง = ไม่เหลือง", () => {

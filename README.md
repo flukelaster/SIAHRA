@@ -68,6 +68,7 @@ The project follows a clean separation between three data classes: **base geospa
 
 - 🗺️ **Interactive 3D provincial terrain** — Three.js quadtree-tiled terrain with satellite imagery, building extrusions, vegetation and road networks, streamed progressively as you pan and zoom.
 - 🌊 **Real-time flood intelligence** — GISTDA satellite-derived flood extent overlaid on the terrain, plus live water-level readings from ThaiWater (สสน.) gauge stations with 72-hour history.
+- 🛰️ **Sentinel-1 flood scenes with illustrative depth** — Copernicus GFM flood extent per satellite pass (observed, stamped with its acquisition time and picked by the timeline within a 14-day window), draped as depth-graded water with a transparent water surface; the depth is FwDET on the same DEM, labelled *illustrative* with its own [methodology page](docs/methodology/flood-depth.md), and cells whose depth is not estimated are stippled rather than shown as 0 m.
 - 🌧️ **Rainfall & weather radar** — TMD radar composites and rainfall telemetry with a scrubbable timeline.
 - 🏔️ **Dam & reservoir monitoring** — storage levels and capacity for reservoirs reporting in the selected province.
 - 🌏 **Earthquake feed** — near real-time seismic events cross-checked across USGS, EMSC and TMD.
@@ -227,7 +228,7 @@ This is an attribution list, **not** a claim of authorship or endorsement — th
 
 ## Project status
 
-SIAHRA is deployed on `siahra-radar.co` as two independently released Cloudflare Workers — `siahra-web` (the static SPA and tile proxy) and `siahra-api` (bound to `/api/*`). The hazard layers listed in [Features](#features) above are live: 3D terrain for all 77 provinces, GISTDA flood extent, ThaiWater levels and dams, TMD radar, the earthquake feed, the local-authority decision-support panel (impact card, affected-authority list, alert banner) and the source-health footer. The Durable-Object-backed API endpoints require a Workers Paid plan — see [`docs/deploy.md`](docs/deploy.md) for the deployment prerequisites.
+SIAHRA is deployed on `siahra-radar.co` as two independently released Cloudflare Workers — `siahra-web` (the static SPA and tile proxy) and `siahra-api` (bound to `/api/*`). The hazard layers listed in [Features](#features) above are live: 3D terrain for all 77 provinces, GISTDA flood extent, Copernicus GFM flood scenes and illustrative depth (for provinces the `gfm-ingest.yml` cron has covered), ThaiWater levels and dams, TMD radar, the earthquake feed, the local-authority decision-support panel (impact card, affected-authority list, alert banner) and the source-health footer. The Durable-Object-backed API endpoints require a Workers Paid plan — see [`docs/deploy.md`](docs/deploy.md) for the deployment prerequisites.
 
 What comes next — the ordered task list, milestones and the work deliberately deferred — is in [`docs/roadmap.md`](docs/roadmap.md). [`docs/SIAHRA-implement-plan.md`](docs/SIAHRA-implement-plan.md) remains the original research blueprint and data-source inventory; it is not a schedule.
 

@@ -1107,20 +1107,70 @@ hydraulics stay excluded and the four scoping decisions in §0 are unchanged.
    one `HAZARD_BUCKET.get` per flood request and per `/health` compute; the workflow uses only
    `copy`/`copyto --no-traverse`.
 
-#### E14.F4 — Rendering: field texture, depth-graded terrain, FloodSurface
+#### E14.F4 — Rendering: field texture, depth-graded terrain, FloodSurface — *done* (2026-09-02)
 - Touches: new `apps/web/src/scene/{floodField,FloodSurface}.ts`, `scene/terrainMaterial.ts`,
-  `lib/floodStyle.ts`, `components/layout/Map3DCanvas.tsx`, `MapLegend.tsx`,
-  `hooks/useLayerDescriptors.ts`, `pages/MethodologyPage.tsx` (register `flood-depth`), i18n th/en
+  `lib/floodStyle.ts`, `lib/floodScenes.ts`, `hooks/{useFloodScenes,useFloodScene}.ts`,
+  `components/layout/Map3DCanvas.tsx`, `MapViewport.tsx`, `MapLegend.tsx` (+ `MapLegend.test.ts`, the
+  first web test that renders a component, via `react-dom/server`), `MapAttribution.tsx`,
+  `hooks/useLayerDescriptors.ts`, `lib/layerFreshness.ts`, `pages/MethodologyPage.tsx` (register
+  `flood-depth`), `App.tsx` (`MapLayers` keys `floodGfm` / `floodDepth`, default on, in `?layers=`),
+  i18n th/en
 - Depends: E14.F3
 - Size: L
 - Risk: GPU leak on scene switch — textures and the surface mesh must be disposed
-- Issue: _(not yet filed)_
+- Issue: shipped on `feat/flood-render`. What landed, beyond the criteria:
+  - scene pick (`lib/floodScenes.ts`): newest scene with `observedAt ≤ (atIso ?? now)` **within
+    `FLOOD_SCENE_MAX_AGE_MS` = 14 days** (Sentinel-1 revisit 6–12 d), otherwise
+    `no-scene-in-window` — the rows stay in the legend, dimmed, with "no image within 14 days before
+    the selected time — does not mean no flooding · latest image before that: <date>", so the F5
+    "no image in this window" chip is already the F4 behaviour
+  - `scene/floodField.ts` decodes `field.bin` strictly (magic/version/length from shared-types,
+    `FloodFieldFormatError`), sniffs gzip (`1f 8b`) and inflates through `DecompressionStream` before
+    decoding — the client-side defence against the cache-hit double-gzip fixed server-side in PR #77 —
+    and packs the field into one RGBA8 `DataTexture` (R = class, G = depth, B = likelihood, A = flooded
+    with depth); the golden-fixture test reads `apps/etl/gfm/tests/fixtures/57/*/field.bin`
+  - `terrainMaterial.ts`: FLOODED = depth-graded `mix(shallow, deep, 1 − exp(−k·m))` (3 m ≈ 0.9) +
+    0.5-isoline rim; FLOODED_DEPTH_NOT_ESTIMATED = flood colour + screen-space stipple, never 0 m;
+    REFERENCE_WATER / EXCLUDED / NO_OBSERVATION / DRY draw nothing in F4; GISTDA restyled to a 0.36
+    wash + ~1.5 px outline so the two observed sources stay distinct; `uFloodFieldDim` (health
+    `copernicus-gfm` ≠ ok, or index older than its own `staleAfterSeconds`) multiplies the fill by 0.4
+    — dimmed, never hidden. `layers.floodDepth` off = flat observed colour
+  - `scene/FloodSurface.ts`: a transparent water sheet on the overview grid, `y = terrainH + depthM`
+    in real metres under `handles.world` (whose `scale.y` carries the exaggeration), alpha
+    `mix(0.35, 0.9, depthMix)` + Fresnel, discarded outside the province / coverage < 0.5 / not
+    estimated / depth < 2 cm, `depthWrite false`, full `dispose()`
+  - fetch cadence matches the F3 devops model: `index.json` every 10 min live and once per historical
+    `atIso` (300 ms debounce, no retry loop; 404 = `missing`, a province with no scenes yet, not an
+    error), `field.bin` once per `{province}/{sceneId}` (LRU of 4 decoded fields, never polled) — no
+    cost-bearing change
+  - descriptors for both rows come from `index.json.layers` with `observedAt` (and `publishedAt` for
+    the extent) overridden to the **shown** scene and stripped when no scene is in the window;
+    `fetchedAt` stays what the job wrote. Side effect in `lib/layerFreshness.ts`: `formatObservedAt`
+    renders an `observedAt` older than **24 h** as full date + time for *every* layer, so a stale
+    5-min source older than a day now shows its date too — a deliberate honesty change, tests pin
+    the edge
+  - `window.__siahraHandles.debug.snapshot()` (DEV) now includes renderer counts + the flood-field
+    summary
+  - **perf follow-up (QA minor, not a blocker):** the sheet's bbox is the whole overview grid when
+    depth cells sit at opposite raster edges — 550,172 vertices for the 2026-08-31 Chiang Rai scene.
+    Build it per cluster/cell instead
+  - not in F4 (F5): scene picker, S1 ticks, event browser, popup depth; likelihood is decoded into
+    the texture's B channel but not drawn
 
 1. Screenshot in the PR; depth-graded water, "not estimated" cells stippled, GISTDA still
-   distinguishable.
-2. No GPU leak on scene switch; `overlayField.test.ts` untouched.
-3. Legend rows for both layers with epistemic badge and acquisition age, both languages.
-4. `copernicus-gfm` is added to `CREDIT_ORDER` in `components/layout/MapAttribution.tsx` in the same PR that first draws a GFM pixel — the list is hand-curated, so tsc will not catch the omission, and the CEMS terms require the visible credit.
+   distinguishable. *Evidence:* scene `20260831T231435` renders (2,297 flooded cells, 1,938 with
+   depth, max 7.3 m); `t=2024-09-13T12:00:00Z` renders the 2024 scene; `t=2024-10-13` → dimmed rows
+   with the no-scene note; no GLSL or console errors.
+2. No GPU leak on scene switch; `overlayField.test.ts` untouched. *Evidence:* `disposeFloodField()`
+   on scene / province change / unmount — renderer textures and geometries identical after
+   57 → 50 → 57.
+3. Legend rows for both layers with epistemic badge and acquisition age, both languages. *Evidence:*
+   `floodGfm` (observed badge, scene id + acquisition time + flooded km² on the overview grid),
+   `floodDepth` (illustrative badge, ramp 0 · 0.5 · 1 · 2 · ≥ 3 m + stippled "not estimated" chip +
+   methodology link, "depth estimated for N % of flooded cells · max X m"); `MapLegend.test.ts`,
+   i18n keys `legend.floodGfm.*` / `legend.floodDepth.*`. Bundle 312.96 kB gz (86.9 % of the 360 kB
+   regression guard).
+4. `copernicus-gfm` is added to `CREDIT_ORDER` in `components/layout/MapAttribution.tsx` in the same PR that first draws a GFM pixel — the list is hand-curated, so tsc will not catch the omission, and the CEMS terms require the visible credit. *Evidence:* in this diff.
 
 #### E14.F5 — Time UI: scene picker, S1 ticks, event browser, popup
 - Touches: `TimelineBar.tsx`, `FloodExtentCard.tsx` → `FloodScenesCard`, `panelRegistry.ts`,
@@ -1134,7 +1184,9 @@ hydraulics stay excluded and the four scoping decisions in §0 are unchanged.
 
 1. Picking a 2024 event reframes time; layer, gauges and sun agree.
 2. The gap label is correct; a scene older than 14 days dims the layer with a "no image in this
-   window" chip.
+   window" chip. *(The 14-day window and the no-scene note already ship in F4 — `lib/floodScenes.ts`;
+   F5 adds the gap label and the picker. The client already decodes `likelihood` into the field
+   texture's B channel, so drawing it needs no new fetch or format.)*
 
 #### E14.F6 — Backfill 2015 → now (ops, no code)
 - Touches: — (`workflow_dispatch` by year)

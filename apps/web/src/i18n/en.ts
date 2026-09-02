@@ -159,6 +159,29 @@ export const en: Record<keyof typeof th, string> = {
   "legend.layer.lowland": "Low-lying areas",
   "legend.layer.lowland.note": "Estimated from terrain elevation; not a flood forecast",
 
+  "legend.layer.floodGfm": "Satellite flood extent, Sentinel-1 (Copernicus GFM)",
+  "legend.layer.floodGfm.note": "Classified from one Sentinel-1 radar pass · measured, not a forecast",
+  "legend.layer.floodDepth": "Estimated water depth (illustrative, FwDET)",
+  "legend.layer.floodDepth.note":
+    "Computed here with FwDET from the flood edge in the image plus terrain height — not measured, not a forecast",
+  "legend.floodGfm.scene": "Scene {id} · acquired {time}",
+  "legend.floodGfm.area": "Flooded in this image: {km2} km² (on the province overview grid)",
+  "legend.floodGfm.dry": "No flooding detected in this scene — an observed image, not a missing one",
+  "legend.floodGfm.noSceneInWindow":
+    "No image within {days} days before the selected time — this does not mean there was no flooding",
+  "legend.floodGfm.latestBefore": "Latest image before that: {time}",
+  "legend.floodGfm.noScenesForProvince": "No scenes for this province yet — this does not mean there is no flooding",
+  "legend.floodGfm.indexError": "Could not load the scene list: {error}",
+  "legend.floodGfm.fieldError": "Could not load the scene: {error}",
+  "legend.floodGfm.loading": "Loading scene...",
+  "legend.floodDepth.scale": "Estimated depth (m)",
+  "legend.floodDepth.notEstimated": "not estimated",
+  "legend.floodDepth.notEstimated.why":
+    "Buildings / trees — the DSM measures the canopy top, so no figure is given (not 0 m)",
+  "legend.floodDepth.estimated": "Depth estimated for {pct}% of flooded cells · max {max} m",
+  "legend.floodDepth.noneEstimated": "This scene floods only where depth is not estimated",
+  "legend.floodDepth.needsExtent": "Shown only together with the Sentinel-1 layer — depth is never shown without the scene it came from",
+
   "legend.layer.exposure": "Low-lying ground with heavy rain / high water reported nearby right now (illustrative)",
   "legend.layer.exposure.note":
     "Computed here from terrain plus real measurements — not a forecast, not a probability",
@@ -530,6 +553,7 @@ export const en: Record<keyof typeof th, string> = {
   "methodology.back": "Back to the {brand} map",
   "methodology.doc.lowland": "Low-lying areas (illustrative)",
   "methodology.doc.floodExposure": "Flood exposure (illustrative)",
+  "methodology.doc.floodDepth": "Sentinel-1 flood extent and estimated depth (FwDET)",
   "methodology.notFoundTitle": "No such document",
   "methodology.notFound": "Document not found",
   "methodology.notFoundBody": "There is no methodology document called",

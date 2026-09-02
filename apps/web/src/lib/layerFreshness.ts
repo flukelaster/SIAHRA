@@ -2,6 +2,8 @@
  * แปลง `HazardLayerDescriptor` เป็นข้อความที่ legend แสดงจริง — ป้ายชนิดความรู้
  * (epistemic badge) กับบรรทัดเวลา "ตรวจวัด HH:mm · ดึงข้อมูล N นาทีที่แล้ว"
  *
+ * (`observedAt` ที่เก่ากว่า 24 ชม. แสดงเป็นวัน-เวลาเต็ม — ดู `formatObservedAt`)
+ *
  * ความซื่อสัตย์ต่อข้อมูลสองข้อที่ไฟล์นี้เป็นคนบังคับ:
  *
  * 1. อายุข้อมูลถูกคำนวณตอน "เรนเดอร์" เสมอ (`nowMs` ส่งเข้ามาจากนาฬิกาที่เดินอยู่)
@@ -151,6 +153,21 @@ function isStale(d: HazardLayerDescriptor, nowMs: number): boolean {
 }
 
 /**
+ * `observedAt` ที่เก่ากว่านี้เลิกแสดงเป็นเวลานาฬิกาอย่างเดียว — "ตรวจวัด 06:14" เป็น
+ * ธรรมเนียมของแหล่งราย 5 นาที (ThaiWater เรดาร์) ที่ค่าล่าสุดอยู่ในวันเดียวกันเสมอ
+ * แต่ฉาก Sentinel-1 (E14.F4) มีอายุเป็นวันหรือปีได้ และ "06:14" ของเมื่อวานซืนอ่าน
+ * เหมือน "06:14" ของวันนี้ทุกประการ
+ */
+export const OBSERVED_AT_FULL_DATE_AFTER_MS = 24 * 60 * 60 * 1000;
+
+/** เวลาตรวจวัด: นาฬิกาอย่างเดียวภายใน 24 ชม. ล่าสุด, เกินนั้น = วัน-เดือน-ปี + เวลา */
+export function formatObservedAt(lang: Lang, iso: string, nowMs: number): string {
+  const ms = Date.parse(iso);
+  if (Number.isNaN(ms) || nowMs - ms <= OBSERVED_AT_FULL_DATE_AFTER_MS) return formatTime(lang, iso);
+  return formatFullDateTime(lang, iso);
+}
+
+/**
  * `health` คือสถานะของแหล่งข้อมูลที่ชั้นนี้ผูกอยู่ (join ผ่าน `sourceIds`)
  * `delayed` (E3.3) ไม่ใช่ "เราดึงไม่ได้" แต่คือ "ต้นทางยังไม่ปล่อยค่าตรวจวัดรอบใหม่"
  * จึงต้องพูดคนละประโยคกับข้อมูลค้าง แม้จะเน้นสีเหมือนกันว่าอย่าอ่านเป็นค่าปัจจุบัน
@@ -164,7 +181,7 @@ export function describeLayerFreshness(
 ): LayerFreshness {
   const parts: string[] = [];
   if (descriptor.observedAt) {
-    parts.push(t("freshness.observedAt", { time: formatTime(lang, descriptor.observedAt) }));
+    parts.push(t("freshness.observedAt", { time: formatObservedAt(lang, descriptor.observedAt, nowMs) }));
   }
   // `publishedAt` มีเฉพาะต้นทางที่ประกาศเวลาเผยแพร่ไว้เอง (เช่น
   // `osmosis_replication_timestamp` ของ OSM extract, ดัชนีเรดาร์ของ TMD) —
