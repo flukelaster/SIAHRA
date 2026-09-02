@@ -211,4 +211,15 @@ export interface FloodSceneMeta extends FloodSceneIndexEntry {
     /** คลาส WorldCover ที่ไม่ประมาณความลึก: 50 สิ่งปลูกสร้าง, 10 ต้นไม้ */
     maskedClasses: [50, 10];
   };
+  /**
+   * `{ gfmItemId: [assetKey…] }` — item ของ GFM ในฉากนี้ที่ต้นทางไม่ให้ asset ตัวเลือกครบ
+   * (`exclusion_mask` / `ensemble_likelihood`; วัดจริงบน STAC 2026-09-02: ใน 100 item ล่าสุด
+   * เหนือไทย มี 2 ใบขาดอย่างละตัว) เฉพาะ item ที่ขาด — ไม่มีคีย์นี้ = ทุก item มีครบ
+   *
+   * สำหรับผู้อ่าน: item ที่ **ไม่มี `exclusion_mask`** แปลว่าพื้นที่ที่ SAR มองไม่เห็นในเฟรมนั้น
+   * (เงาภูมิประเทศ เมืองหนาแน่น) **ไม่ได้ถูกทำเครื่องหมาย** `EXCLUDED` (ยกเว้นเซลล์ขอบที่ item
+   * ข้างเคียงในฉากเดียวกันให้ค่าไว้) — เซลล์ `DRY` ในรอยเท้าของเฟรมนั้นจึงแน่นอนน้อยกว่าปกติ: อาจเป็น "มองไม่เห็น" ไม่ใช่ "ไม่มีน้ำ" ส่วน item ที่ไม่มี
+   * `ensemble_likelihood` ให้ `likelihood = 255` (ไม่มีค่า) ในเซลล์ของมัน ไม่ใช่ตัวเลขที่แต่งขึ้น
+   */
+  missingAssets?: Record<string, string[]>;
 }

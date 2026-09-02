@@ -28,6 +28,14 @@ from .stac import ASSET_EXCLUSION, ASSET_EXTENT, ASSET_KEYS, ASSET_LIKELIHOOD, A
 # nodata ของทุก asset ตาม `raster:bands` ของ item (uint8, 255)
 GFM_NODATA = 255
 
+# asset ที่ item ต้องมี — ไม่มี = ฉากล้ม (KeyError) เพราะไม่มี extent ก็ไม่มีการจำแนก และไม่มี
+# reference water ก็แยกน้ำถาวรจากน้ำท่วมไม่ได้ ส่วน `exclusion_mask` / `ensemble_likelihood`
+# เป็นตัวเลือก: วัดจริงบน STAC 2026-09-02 — ใน 100 item ล่าสุดเหนือไทย 2 ใบไม่มี exclusion_mask
+# และอีก 2 ใบไม่มี ensemble_likelihood (ทุกใบมี extent + reference_water_mask) item แบบนั้น
+# ยังให้ค่าที่มันมี และ `SceneRasters.missing_assets` บันทึกว่าขาดอะไร (ลง meta.json) —
+# ไม่ใช่ทิ้งทั้งฉากเพราะชั้นประกอบหาย และไม่ใช่แกล้งทำเป็นว่ามีครบ
+REQUIRED_ASSETS = (ASSET_EXTENT, ASSET_REFWATER)
+
 # ตัวเลือก GDAL สำหรับอ่าน COG ระยะไกลแบบประหยัด (ไม่ list directory, รวม range ติดกัน)
 GDAL_REMOTE_ENV = {
     "GDAL_DISABLE_READDIR_ON_OPEN": "EMPTY_DIR",
@@ -61,6 +69,10 @@ class SceneRasters:
     refwater: np.ndarray  # bool
     observed: np.ndarray  # bool — extent มีค่า (ในรอยเท้าภาพ)
     item_ids: list[str]
+    # {itemId: [assetKey…]} เฉพาะ item ที่ขาด asset ตัวเลือก (เรียงตาม itemId; ว่าง = ครบทุกใบ) —
+    # ขาด exclusion_mask: เซลล์ที่ SAR มองไม่เห็นในเฟรมนั้นไม่ถูกทำเครื่องหมาย EXCLUDED
+    # (DRY ตรงนั้นแน่นอนน้อยกว่าปกติ); ขาด ensemble_likelihood: likelihood = GFM_NODATA ในเซลล์ของเฟรมนั้น
+    missing_assets: dict[str, list[str]]
 
 
 def _grid_bounds(grid: ProvinceGrid) -> tuple[float, float, float, float]:
@@ -119,12 +131,17 @@ def item_crs(item: pystac.Item) -> CRS | None:
 
 
 def warp_scene(items: Iterable[pystac.Item], grid: ProvinceGrid, opener: Opener = open_asset) -> SceneRasters:
-    """mosaic ชั้นทั้งสี่ของทุก item ในฉากลงตารางจังหวัด — item หลังทับ item ก่อนเฉพาะที่มีค่า"""
+    """mosaic ชั้นทั้งสี่ของทุก item ในฉากลงตารางจังหวัด — item หลังทับ item ก่อนเฉพาะที่มีค่า
+
+    item ที่ไม่มี asset ตัวเลือก (ตัวที่ไม่อยู่ใน REQUIRED_ASSETS) ไม่เขียนชั้นนั้นเลย: เซลล์ของมันคงค่าที่
+    item ก่อนหน้าให้ไว้ (ถ้ามี) ไม่งั้น GFM_NODATA → excluded=False / likelihood=255 ตรงนั้น
+    """
     items = list(items)
     if not items:
         raise ValueError("ฉากไม่มี item")
     shape = (grid.height, grid.width)
     layers = {k: np.full(shape, GFM_NODATA, dtype=np.uint8) for k in ASSET_KEYS}
+    missing: dict[str, list[str]] = {}
     # Env ครอบทั้ง open และ read: ตัวเลือก range/retry ของ GDAL ถูกอ่านตอนยิงคำขอ ไม่ใช่ตอน open
     with rasterio.Env(**GDAL_REMOTE_ENV):
         for it in items:
@@ -132,7 +149,10 @@ def warp_scene(items: Iterable[pystac.Item], grid: ProvinceGrid, opener: Opener 
             for key in ASSET_KEYS:
                 asset = it.assets.get(key)
                 if asset is None:
-                    raise KeyError(f"item {it.id} ไม่มี asset {key}")
+                    if key in REQUIRED_ASSETS:
+                        raise KeyError(f"item {it.id} ไม่มี asset {key}")
+                    missing.setdefault(it.id, []).append(key)
+                    continue
                 src = opener(asset.href)
                 try:
                     warped = warp_asset(src, grid, crs)
@@ -151,4 +171,5 @@ def warp_scene(items: Iterable[pystac.Item], grid: ProvinceGrid, opener: Opener 
         refwater=(ref != GFM_NODATA) & (ref != 0),
         observed=observed,
         item_ids=sorted(it.id for it in items),
+        missing_assets={k: missing[k] for k in sorted(missing)},
     )

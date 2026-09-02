@@ -107,6 +107,11 @@ def test_scene_entry_and_meta_fields():
     m = scene_meta(e, 1234)
     assert m["methodology"] == {"name": "FwDET-2", "boundarySmoothingCells": 3, "depthCapCm": 1000, "maskedClasses": [50, 10]}
     assert m["fieldBytesGz"] == 1234
+    # missingAssets เฉพาะเมื่อไม่ว่าง — ฉากที่ครบทุก asset (fixture golden) ไม่มีคีย์นี้เลย
+    assert "missingAssets" not in m and "missingAssets" not in scene_meta(e, 1234, {})
+    m2 = scene_meta(e, 1234, {"ENSEMBLE_FLOOD_20260826T230700_VV_AS020M_E048N015T3": ["exclusion_mask"]})
+    assert m2["missingAssets"] == {"ENSEMBLE_FLOOD_20260826T230700_VV_AS020M_E048N015T3": ["exclusion_mask"]}
+    assert "missingAssets" not in e  # ไม่รั่วเข้า index entry
 
 
 def test_merge_index_idempotent_newest_first():

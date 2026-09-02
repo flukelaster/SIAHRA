@@ -23,7 +23,8 @@ run เห็นชุด item เดียวกับ plan ทุกตัว 
 - ฉากถูกข้ามเมื่อ sceneId อยู่ใน index.json เดิม **หรือ** field.bin มีอยู่แล้วในเครื่อง (immutable, idempotent)
 - index.json ถูกเขียน **เฉพาะเมื่อรายการฉากเปลี่ยน** — ไม่เขียน = ไม่อัป = แคชที่ขอบไม่ถูกทำให้เก่า (devops)
 - ฉากที่ล้มเหลวถูกจับ บันทึกใน health.lastError แล้วรันต่อ; state.lastCreated ไม่ข้ามฉากที่ล้ม
-  (รวมจังหวัดที่โหลดอินพุตไม่ได้: item ของมันถูก "ยึด" ไว้ให้รอบหน้า)
+  (รวมจังหวัดที่โหลดอินพุตไม่ได้: item ของมันถูก "ยึด" ไว้ให้รอบหน้า) — lastError รวม **ทุก** ฉาก/จังหวัด
+  ที่ล้มในสตริงเดียว (คั่นด้วย " | ", ตัดที่ ERROR_MAX_CHARS) ไม่ใช่แค่ตัวสุดท้ายที่ทับตัวก่อน
 - health.lastSuccessAt ขยับเฉพาะ run ที่ไม่มี lastError — API ใช้เป็น fetchedAt จึงไม่มีวันรายงาน run ที่ล้ม
   ว่า "ดึงสำเร็จ"
 - log บรรทัดเดียวต่อฉาก ไม่มีต่อเซลล์
@@ -45,10 +46,10 @@ from .grid import (
     ProvinceBox,
     ProvinceGrid,
     check_alignment,
-    list_province_codes,
     load_province_grid,
     province_box,
     read_inputs,
+    scan_aoi_root,
 )
 from .stac import (
     THAILAND_BBOX,
@@ -71,7 +72,21 @@ DEFAULT_WORK = REPO_ROOT / "apps" / "etl" / "data" / "work"
 DEFAULT_AOI = REPO_ROOT / "apps" / "web" / "public" / "aoi"
 
 # คีย์ใน meta.json ที่ไม่อยู่ใน index entry (encode.scene_meta) — ใช้ตอนสร้าง entry คืนจาก meta.json
-_META_ONLY_KEYS = ("methodology", "fieldBytesGz")
+_META_ONLY_KEYS = ("methodology", "fieldBytesGz", "missingAssets")
+
+# ความยาวสูงสุดของ health.lastError — รวมทุกจังหวัด/ฉากที่ล้มในสตริงเดียว แต่ไม่ให้ health.json
+# (ซึ่ง /api/v1/health อ่านทุกครั้ง) บวมตาม traceback ของ 77 จังหวัด
+ERROR_MAX_CHARS = 500
+
+
+def _join_errors(errors: list[str]) -> str | None:
+    """รวมข้อความล้มเหลวทุกตัวเป็นสตริงเดียว (ลำดับตามที่เกิด) ตัดที่ ERROR_MAX_CHARS — ว่าง = None"""
+    if not errors:
+        return None
+    text = " | ".join(errors)
+    if len(text) > ERROR_MAX_CHARS:
+        text = text[: ERROR_MAX_CHARS - 1].rstrip() + "…"
+    return text
 
 
 def _parse_when(value: str) -> datetime:
@@ -153,7 +168,7 @@ def process_scene(
     gz = gzip_bytes(encode_field(cls_ov, depth_ov, lik_ov))
     d = scene_dir(out, grid.code, scene_id)
     d.mkdir(parents=True, exist_ok=True)
-    _write_json(d / "meta.json", scene_meta(entry, len(gz)))
+    _write_json(d / "meta.json", scene_meta(entry, len(gz), rasters.missing_assets))
     tmp = d / "field.bin.tmp"
     tmp.write_bytes(gz)
     tmp.replace(d / "field.bin")  # field.bin ปรากฏครบไบต์เท่านั้น — "มีอยู่" คือสัญญาณข้าม
@@ -175,7 +190,7 @@ def run_pipeline(
     items_ok: set[str] = set()
     failed_created: list[datetime] = []
     hold_all = False
-    last_error: str | None = None
+    errors: list[str] = []  # ทุกฉาก/จังหวัดที่ล้ม — รวมเป็น lastError เดียวตอนจบ
     newest_observed: str | None = None
     generated_at = iso_now(now)
 
@@ -210,7 +225,7 @@ def run_pipeline(
                     dem, landcover, _ = read_inputs(g)
                 entry, nbytes = process_scene(g, scene_items, dem, landcover, out, scene_id, opener)
             except Exception as e:  # ฉากเดียวล้ม ไม่ล้มทั้ง run — แต่ต้องมองเห็นใน health
-                last_error = f"{code}/{scene_id}: {type(e).__name__}: {e}"
+                errors.append(f"{code}/{scene_id}: {type(e).__name__}: {e}")
                 log.error("%s/%s: ล้มเหลว — %s", code, scene_id, e)
                 failed_created.extend(p for p in (published_at(it) for it in scene_items) if p)
                 continue
@@ -237,7 +252,7 @@ def run_pipeline(
 
     # จังหวัดที่โหลดอินพุตไม่ได้: item ของมันยังไม่ถูกประมวลผล → ยึด lastCreated ไว้ไม่ให้ข้าม
     for u in unloaded or []:
-        last_error = u.error
+        errors.append(u.error)
         log.error("จังหวัด %s: โหลดอินพุตไม่ได้ — %s", u.code, u.error)
         if u.bbox is None:
             hold_all = True
@@ -257,7 +272,7 @@ def run_pipeline(
         "generatedAt": generated_at,
         "itemsProcessed": len(items_ok),
         "scenesWritten": scenes_written,
-        "lastError": last_error,
+        "lastError": _join_errors(errors),
         "lastSceneObservedAt": newest_observed,
         "lastCreated": iso_z(last_created) if last_created else None,
     }
@@ -320,8 +335,8 @@ def _read_plan(path: Path, mode: str) -> dict:
 
 def _finish(out: Path, summary: dict, verb: str) -> int:
     write_health(out, summary)
-    log.info("%s เสร็จ: items=%d scenes=%d error=%s", verb, summary["itemsProcessed"], summary["scenesWritten"],
-             summary["lastError"])
+    log.info("%s เสร็จ: itemsProcessed=%d scenesWritten=%d lastError=%s", verb, summary["itemsProcessed"],
+             summary["scenesWritten"], summary["lastError"])
     return 1 if summary["lastError"] else 0
 
 
@@ -356,7 +371,13 @@ def cmd_plan(args: argparse.Namespace) -> int:
     """
     out: Path = args.out
     now = datetime.now(timezone.utc)
-    codes = args.province or list_province_codes(args.aoi_root)
+    if args.province:
+        codes = list(args.province)
+    else:
+        codes, skipped = scan_aoi_root(args.aoi_root)
+        if skipped:  # บรรทัดเดียว ไม่ว่าจะข้ามกี่รายการ — สิ่งที่ไม่ใช่จังหวัดต้องเห็นว่าถูกข้าม ไม่ใช่หายเงียบ
+            log.info("plan: ข้าม %d รายการใต้ %s ที่ไม่ใช่จังหวัด (ต้องเป็นโฟลเดอร์ชื่อ 2 หลักที่มี manifest.json): %s",
+                     len(skipped), args.aoi_root, ", ".join(skipped))
     boxes = [province_box(c, args.aoi_root) for c in codes]
     backfill = bool(getattr(args, "from") or args.to)
     plan: dict = {"mode": "backfill" if backfill else "run", "plannedAt": iso_now(now), "provinces": [],
@@ -432,7 +453,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             summary["lastError"] = f"search: {type(e).__name__}: {e}"
             log.error("ค้น STAC ไม่สำเร็จ — %s", e)
     if unloaded and summary["lastError"] is None:
-        summary["lastError"] = unloaded[-1].error
+        summary["lastError"] = _join_errors([u.error for u in unloaded])
     # ไม่มี item ใหม่ หรือถาม STAC ไม่สำเร็จ → ไม่ขยับ (คงค่า since เดิม) ไม่ใช่ "ตอนนี้"
     last_created = summary["lastCreated"] or iso_z(since)
     _write_json(state_path, {"lastCreated": last_created})
@@ -468,7 +489,7 @@ def cmd_backfill(args: argparse.Namespace) -> int:
             summary["lastError"] = f"search: {type(e).__name__}: {e}"
             log.error("ค้น STAC ไม่สำเร็จ — %s", e)
     if unloaded and summary["lastError"] is None:
-        summary["lastError"] = unloaded[-1].error
+        summary["lastError"] = _join_errors([u.error for u in unloaded])
     # backfill ไม่แตะ state.json: lastCreated เป็นของ run ปกติ (ถอยไปอดีตแล้วขยับ = ข้ามของใหม่)
     return _finish(out, summary, "backfill")
 

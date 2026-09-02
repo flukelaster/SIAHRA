@@ -143,7 +143,11 @@ gh workflow run gfm-ingest.yml -f from=2024-09-01T00:00:00Z -f to=2024-10-01T00:
 gh run watch                                                       # step summary บอก items/scenes/lastError
 ```
 bootstrap ควรใช้ `since` สั้น ๆ (ไม่กี่วัน) หรือ backfill ทีละจังหวัด/ทีละปี — 31 วัน × 77 จังหวัดอาจเกิน timeout 45 นาที
-(job ที่ timeout ไม่อัปอะไรและ state ไม่ขยับ จึงปลอดภัยแต่ไม่มีวันเสร็จ) concurrency group `gfm-ingest` กันสอง run
+(job ที่ timeout ไม่อัปอะไรและ state ไม่ขยับ จึงปลอดภัยแต่ไม่มีวันเสร็จ) วัดจริง bootstrap แรก (run 33617388500,
+2026-09-02): 85 item / 72 จังหวัด ใช้ ~35 นาที = plan 5 + ดาวน์โหลด 4 + pipeline 24 + อัป 1.5 — ชิดเพดาน 45 นาที
+run นั้นเขียนไป 42 ฉากแต่ job แดงและ `/api/v1/health` โชว์ `copernicus-gfm` เป็น `down` (`fetchedAt: null`) เพราะ `plan`
+วาง AOI สาธิต `chiangmai-old-city` เป็นจังหวัด → `FileNotFoundError` → `lastError`; แก้แล้ว: `plan` นับเฉพาะโฟลเดอร์ชื่อ
+2 หลักที่มี `manifest.json` (`docs/dataset.md` §8) concurrency group `gfm-ingest` กันสอง run
 ชนกัน (รอ ไม่ cancel) และการรันซ้ำปลอดภัย: ฉากที่อยู่ใน `index.json` แล้วถูกข้าม, `--checksum` ไม่ put ของที่ไม่เปลี่ยน
 
 ## 2. Worker route สำหรับ tile (เขียนแล้ว — อยู่ที่ **siahra-web** ไม่ใช่ api)
@@ -283,8 +287,11 @@ Worker มี token-bucket ต่อ IP อยู่แล้ว (`apps/api/src/
   `curl -sI https://siahra-radar.co/aoi/57/flood/index.json` ต้องได้ **200 และ `content-type: application/json`**
   (200 อย่างเดียวคือหน้า SPA — path ที่ Worker ไม่รับจะตกไป asset layer เสมอ);
   `curl -sI https://siahra-radar.co/aoi/57/flood/20240913T112151-AS020M/field.bin` → `application/octet-stream`,
-  `content-encoding: gzip`, `cache-control: … immutable` — **ยิงสองครั้ง**: ครั้งที่สองคือ path ที่ตอบจาก `caches.default`
-  ซึ่งยังไม่เคยถูกทดสอบบน prod ว่าส่ง body gzip กลับมาถูกต้อง; และ
+  `content-encoding: gzip`, `cache-control: … immutable` — **ยิงสองครั้งและดู body ไม่ใช่แค่ header**:
+  `curl -s -H 'Accept-Encoding: gzip' https://siahra-radar.co/aoi/57/flood/<sceneId>/field.bin | gunzip | head -c 4`
+  ต้องพิมพ์ `SFLD` ตั้งแต่ gunzip **ครั้งแรก** ทั้งรอบ MISS และรอบ HIT (`cf-cache-status`) — บน prod 2026-09-02 รอบ HIT
+  จาก `caches.default` เคยกลับมา gzip ซ้อนสองชั้น (gunzip ครั้งแรกได้ `1f8b` ครั้งที่สองถึงได้ `SFLD`) เพราะ Cache API
+  ไม่เก็บธง `encodeBody: "manual"`; Worker ห่อ HIT ใหม่แล้ว (`docs/dataset.md` §8) แต่นี่คือสิ่งที่ smoke รอบสองมีไว้จับ; และ
   `curl -s https://siahra-radar.co/api/v1/health | jq '.sources[]|select(.id=="copernicus-gfm")'` → `fetchedAt` =
   `lastSuccessAt` ของ run ล่าสุดที่ไม่มี error, `lastAttemptAt` = `lastRunAt`; ก่อน run แรกจะเป็น `unknown` พร้อม
   `lastError` ที่บอกว่า `flood/gfm/health.json` ยังไม่มี (ถูกต้อง ไม่ใช่บั๊ก)

@@ -4,11 +4,12 @@ from datetime import datetime, timezone
 
 import numpy as np
 import pystac
+import pytest
 import rasterio
 from rasterio.transform import Affine
 from rasterio.warp import transform as warp_transform
 
-from gfm.stac import ASSET_KEYS
+from gfm.stac import ASSET_EXCLUSION, ASSET_EXTENT, ASSET_KEYS, ASSET_LIKELIHOOD, ASSET_REFWATER
 from gfm.warp import GFM_NODATA, warp_scene
 
 from conftest import make_grid, write_tif
@@ -70,6 +71,7 @@ def test_warp_places_flood_block_and_masks(tmp_path):
     assert len(opened) == 4
     assert sr.observed.all()  # ต้นทางครอบทั้งจังหวัด
     assert sr.item_ids == ["ENSEMBLE_FLOOD_20240912T112331_VV_AS020M_E048N018T3"]
+    assert sr.missing_assets == {}  # ครบทุก asset → ไม่มีอะไรให้บันทึก
     # จุดศูนย์กลางของบล็อกท่วม (พิกัดต้นทาง) → เซลล์ตารางจังหวัด ต้องเป็น 1
     cx, cy = t * (37.5, 35.0)
     ex, ny = warp_transform(EQUI7_AS_WKT, g.crs, [cx], [cy])
@@ -100,3 +102,61 @@ def test_warp_without_wkt_uses_dataset_crs(tmp_path):
     hrefs, _ = _source_tifs(tmp_path, g, (10, 20, 10, 20))
     sr = warp_scene([_item(hrefs, wkt=None)], g)
     assert sr.observed.all() and (sr.extent == 1).any()
+
+
+def _without(hrefs: dict, *keys: str) -> dict:
+    return {k: v for k, v in hrefs.items() if k not in keys}
+
+
+def test_warp_item_without_exclusion_mask_still_yields_scene(tmp_path):
+    """วัดจริงบน STAC 2026-09-02: 2 ใน 100 item ล่าสุดเหนือไทยไม่มี exclusion_mask — ก่อนแก้ทั้งฉากล้ม
+    (KeyError) ตอนนี้ item นั้นแค่ไม่ทำเครื่องหมาย EXCLUDED และ meta บันทึกว่าขาด"""
+    g = make_grid(width=40, height=40)
+    hrefs, _ = _source_tifs(tmp_path, g, (30, 40, 30, 45))
+    opened = []
+
+    def opener(url):
+        opened.append(url)
+        return rasterio.open(url)
+
+    item_id = "ENSEMBLE_FLOOD_20240912T112331_VV_AS020M_E048N018T3"
+    sr = warp_scene([_item(_without(hrefs, ASSET_EXCLUSION), item_id)], g, opener=opener)
+    assert len(opened) == 3  # ไม่มีอะไรให้เปิดสำหรับชั้นที่ขาด
+    assert sr.observed.all() and (sr.extent == 1).any() and sr.refwater.any()
+    assert not sr.excluded.any()  # ไม่มี mask = ไม่มีเซลล์ใดถูกตัดออกโดย item นี้
+    assert (sr.likelihood[sr.observed] == 80).all()
+    assert sr.missing_assets == {item_id: [ASSET_EXCLUSION]}
+
+
+def test_warp_item_without_likelihood_yields_nodata_likelihood(tmp_path):
+    g = make_grid(width=40, height=40)
+    hrefs, _ = _source_tifs(tmp_path, g, (30, 40, 30, 45))
+    item_id = "ENSEMBLE_FLOOD_20240912T112331_VV_AS020M_E048N018T3"
+    sr = warp_scene([_item(_without(hrefs, ASSET_LIKELIHOOD), item_id)], g)
+    assert sr.observed.all() and (sr.extent == 1).any()
+    assert (sr.likelihood == GFM_NODATA).all()  # ไม่มีค่า ไม่ใช่ตัวเลขที่แต่งขึ้น
+    assert sr.excluded.any() and sr.refwater.any()
+    assert sr.missing_assets == {item_id: [ASSET_LIKELIHOOD]}
+
+
+def test_warp_mosaic_records_missing_assets_per_item_only(tmp_path):
+    """item ที่ขาดทั้งสองชั้น + item ครบ (ไทล์ข้างเคียง) → เซลล์ที่ item ครบให้ค่าไว้ยังมี EXCLUDED/likelihood
+    และ missing_assets ระบุเฉพาะ item ที่ขาด (เรียงตาม id, ลำดับ asset ตาม ASSET_KEYS)"""
+    g = make_grid(width=40, height=40)
+    hrefs_a, _ = _source_tifs(tmp_path / "a", g, (30, 40, 30, 45))
+    hrefs_b, _ = _source_tifs(tmp_path / "b", g, (5, 10, 5, 10))
+    bare = "ENSEMBLE_FLOOD_20240912T112331_VV_AS020M_E048N018T3"
+    full = "ENSEMBLE_FLOOD_20240912T112331_VV_AS020M_E048N015T3"
+    sr = warp_scene([_item(hrefs_b, full), _item(_without(hrefs_a, ASSET_LIKELIHOOD, ASSET_EXCLUSION), bare)], g)
+    assert sr.observed.all()
+    assert sr.excluded.any() and (sr.likelihood == 80).any()  # จาก item ครบ — item ที่ขาดไม่ลบทิ้ง
+    assert sr.missing_assets == {bare: [ASSET_LIKELIHOOD, ASSET_EXCLUSION]}
+    assert sr.item_ids == sorted([bare, full])
+
+
+@pytest.mark.parametrize("key", [ASSET_EXTENT, ASSET_REFWATER])
+def test_warp_item_without_required_asset_fails_scene(tmp_path, key):
+    g = make_grid(width=20, height=20)
+    hrefs, _ = _source_tifs(tmp_path, g, (10, 20, 10, 20))
+    with pytest.raises(KeyError, match=key):
+        warp_scene([_item(_without(hrefs, key))], g)

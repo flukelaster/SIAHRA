@@ -1,6 +1,7 @@
 """run_pipeline / plan / run แบบออฟไลน์ — จังหวัดปลอมบนดิสก์ + item ที่ชี้ GeoTIFF ในเครื่อง"""
 
 import json
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -41,7 +42,8 @@ def _province(tmp_path: Path, code: str = "57", bbox=(99.0, 19.0, 100.0, 20.0), 
     return work, aoi
 
 
-def _assets(tmp_path: Path, name: str, flooded: bool, broken: bool = False, no_footprint: bool = False) -> dict[str, str]:
+def _assets(tmp_path: Path, name: str, flooded: bool, broken: bool = False, no_footprint: bool = False,
+            omit: tuple[str, ...] = ()) -> dict[str, str]:
     t = Affine(20, 0, UL_E - 100, 0, -20, UL_N + 100)  # 20 ม. ทับตาราง + ขอบ, CRS เดียวกัน (พอสำหรับ cli)
     n = 60
     extent = np.zeros((n, n), np.uint8)
@@ -57,6 +59,8 @@ def _assets(tmp_path: Path, name: str, flooded: bool, broken: bool = False, no_f
         hrefs[key] = str(write_tif(tmp_path / name / f"{key}.tif", arr, t, UTM_CRS, nodata=255))
     if broken:
         hrefs[ASSET_KEYS[0]] = str(tmp_path / name / "missing.tif")
+    for k in omit:  # item ที่ต้นทางไม่ให้ asset นั้นเลย (ต่างจาก broken = มี href แต่เปิดไม่ได้)
+        del hrefs[k]
     return hrefs
 
 
@@ -332,6 +336,77 @@ def test_run_province_without_inputs_fails_visibly_and_holds_last_created(tmp_pa
     assert h["lastSuccessAt"] is None
     # item ของ 58 (created 16:00) ยังไม่ถูกประมวลผล → รอบหน้าค้นตั้งแต่ตรงนั้น ไม่ใช่ข้ามไป
     assert json.loads((out / "flood/gfm/state.json").read_text()) == {"lastCreated": "2024-09-12T16:00:00Z"}
+
+
+def test_run_last_error_lists_every_failed_scene_and_province(tmp_path, monkeypatch):
+    """run 33617388500: ฉากล้มหนึ่ง + จังหวัดโหลดไม่ได้สอง → lastError เดิมเก็บแค่ตัวสุดท้ายที่ทับตัวก่อน
+    ตอนนี้รวมทุกตัวในสตริงเดียว; lastSuccessAt ยังไม่ขยับ (run ที่มี error ตัวเดียวก็ไม่ใช่สำเร็จ)"""
+    work, aoi = _province(tmp_path, "57")
+    _province(tmp_path, "58", bbox=(100.5, 19.0, 101.5, 20.0), inputs=False)
+    _province(tmp_path, "59", bbox=(99.0, 18.0, 100.0, 19.0), inputs=False)
+    out = tmp_path / "out"
+    wet = _item("ENSEMBLE_FLOOD_20240912T112331_VV_AS020M_E048N018T3", _assets(tmp_path, "wet", True), "2024-09-12T15:00:00Z")
+    bad = _item("ENSEMBLE_FLOOD_20240918T112331_VV_AS020M_E048N020T3", _assets(tmp_path, "bad", True, broken=True), "2024-09-18T15:00:00Z")
+    monkeypatch.setattr(cli, "search_items", _FakeSearch([wet, bad]))
+    rc = cli.main([*_base(work, aoi), "run", "--province", "57", "--province", "58", "--province", "59",
+                   "--since", "2024-09-12T00:00:00Z", "--out", str(out)])
+    assert rc == 1
+    h = json.loads((out / "flood/gfm/health.json").read_text())
+    parts = h["lastError"].split(" | ")
+    assert len(parts) == 3
+    assert parts[0].startswith("57/20240918T112331-AS020M: RasterioIOError")
+    assert parts[1].startswith("58: FileNotFoundError") and parts[2].startswith("59: FileNotFoundError")
+    assert h["scenesWritten"] == 1 and h["lastSuccessAt"] is None
+    assert (out / "aoi/57/flood/20240912T112331-AS020M/field.bin").exists()
+
+
+def test_join_errors_caps_length():
+    assert cli._join_errors([]) is None
+    assert cli._join_errors(["a: X", "b: Y"]) == "a: X | b: Y"
+    long = cli._join_errors([f"{i:02d}: FileNotFoundError: ไม่พบ DEM 30 ม. ของจังหวัด {i:02d}" for i in range(77)])
+    assert len(long) <= cli.ERROR_MAX_CHARS and long.endswith("…") and long.startswith("00: FileNotFoundError")
+
+
+def test_plan_skips_non_province_dirs_and_logs_once(tmp_path, monkeypatch, caplog):
+    """apps/web/public/aoi มี `chiangmai-old-city` (AOI สาธิต มี manifest แต่ไม่มี DEM 30 ม.) และไฟล์อื่น —
+    plan ต้องไม่วางแผนมัน และต้องบอกในบรรทัดเดียวว่าข้ามอะไร"""
+    work, aoi = _province(tmp_path, "57")
+    _province(tmp_path, "chiangmai-old-city", inputs=False)  # bbox เดียวกับ 57 → ถ้าไม่กรองจะโดนวางแผน
+    (aoi / "README.md").write_text("# aoi\n")
+    out, wd = tmp_path / "out", tmp_path / "wd"
+    wet = _item("ENSEMBLE_FLOOD_20240912T112331_VV_AS020M_E048N018T3", _assets(tmp_path, "wet", True), "2024-09-12T15:00:00Z")
+    monkeypatch.setattr(cli, "search_items", _FakeSearch([wet]))
+    caplog.set_level(logging.INFO, logger="gfm")
+    rc = cli.main([*_base(work, aoi), "plan", "--since", "2024-09-12T00:00:00Z", "--out", str(out),
+                   "--provinces-file", str(wd / "provinces.txt")])
+    assert rc == 0
+    assert (wd / "provinces.txt").read_text() == "57\n"
+    assert json.loads((wd / "plan.json").read_text())["provinces"] == ["57"]
+    skip_lines = [r.getMessage() for r in caplog.records if "ข้าม" in r.getMessage() and "chiangmai-old-city" in r.getMessage()]
+    assert len(skip_lines) == 1 and "README.md" in skip_lines[0]
+
+
+def test_scene_with_item_missing_optional_asset_records_missing_assets_in_meta_only(tmp_path):
+    """item ที่ไม่มี exclusion_mask (มีจริงบน STAC) → ฉากยังถูกเขียน, meta.json มี missingAssets,
+    index entry ไม่มี และการคืน entry จาก meta.json (index หาย) ก็ไม่รั่วคีย์นี้เข้า index"""
+    work, aoi = _province(tmp_path)
+    grid = load_province_grid("57", work, aoi)
+    out = tmp_path / "out"
+    item_id = "ENSEMBLE_FLOOD_20240912T112331_VV_AS020M_E048N018T3"
+    wet = _item(item_id, _assets(tmp_path, "wet", True, omit=("exclusion_mask",)), "2024-09-12T15:00:00Z")
+    s = cli.run_pipeline([wet], [grid], out, now=datetime(2026, 1, 1, tzinfo=timezone.utc))
+    assert s["scenesWritten"] == 1 and s["lastError"] is None
+    sdir = out / "aoi/57/flood/20240912T112331-AS020M"
+    meta = json.loads((sdir / "meta.json").read_text())
+    assert meta["missingAssets"] == {item_id: ["exclusion_mask"]}
+    assert meta["excludedCells"] == 0
+    ipath = out / "aoi/57/flood/index.json"
+    entry = json.loads(ipath.read_text())["scenes"][0]
+    assert "missingAssets" not in entry
+    assert {k: v for k, v in meta.items() if k not in ("methodology", "fieldBytesGz", "missingAssets")} == entry
+    ipath.unlink()
+    cli.run_pipeline([wet], [grid], out, now=datetime(2026, 1, 2, tzinfo=timezone.utc))
+    assert json.loads(ipath.read_text())["scenes"] == [entry]
 
 
 def test_backfill_with_plan_and_backfill_never_touches_state(tmp_path, monkeypatch):
