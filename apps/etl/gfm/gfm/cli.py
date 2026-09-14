@@ -1,4 +1,5 @@
-"""CLI: `python -m gfm plan|run|backfill|check-grid` — เขียนต้นไม้ไฟล์ที่สะท้อนคีย์บน R2 ตัวต่อตัว
+"""CLI: `python -m gfm plan|run|backfill|backfill-plan|backfill-advance|check-grid` — เขียนต้นไม้ไฟล์
+ที่สะท้อนคีย์บน R2 ตัวต่อตัว
 
     DIR/aoi/{code}/flood/index.json
     DIR/aoi/{code}/flood/{sceneId}/field.bin      (gzip แล้ว — Worker ส่งด้วย Content-Encoding: gzip)
@@ -28,6 +29,35 @@ run เห็นชุด item เดียวกับ plan ทุกตัว 
 - health.lastSuccessAt ขยับเฉพาะ run ที่ไม่มี lastError — API ใช้เป็น fetchedAt จึงไม่มีวันรายงาน run ที่ล้ม
   ว่า "ดึงสำเร็จ"
 - log บรรทัดเดียวต่อฉาก ไม่มีต่อเซลล์
+
+E14.F6 — backfill 2015 → ตอนนี้ (`.github/workflows/gfm-ingest.yml` ลูป "backfill until deadline"):
+
+    backfill-plan     อ่าน/สร้าง state (`flood/gfm/backfill-state.json`) → พิมพ์ JSON {code, from, to}
+                       ของจังหวัดที่จะทำรอบนี้ (ลำดับจาก scan_aoi_root, resume `current` ก่อน) หรือ
+                       {done: true} เมื่อครบทุกจังหวัด หรือ {done: true, reason: "deadline"} เมื่อเหลือ
+                       เวลาน้อยกว่า 20 นาที — สร้าง state ใหม่ (ยังไม่มีไฟล์) แล้วเขียนลง --state ทันที
+    backfill --deadline --cursor-out   หนึ่ง "visit" ของจังหวัดเดียว: ค้น STAC ครั้งเดียวในหน้าต่าง
+                       --from..--to ทั้งก้อน ประมวลผลฉาก**ใหม่สุดก่อน** หยุดก่อนเริ่มฉากถัดไปเมื่อ
+                       now + 3×p95(เวลาต่อฉากที่วัดมาแล้ว, ปริยาย 60 วิ) > deadline — เขียน cursor.json
+                       แล้วคืนรหัส 0 (จบหน้าต่าง) / 3 (หยุดที่ deadline, อัปโหลดได้) / 1 (ล้ม, ไม่มีอะไรให้อัป)
+                       ไม่แตะ state.json (เหมือน backfill ปกติ) และไม่เขียน health.json (ไม่มีใครอัปมันใน
+                       backfill loop — เขียนไปก็จะรายงานสถานะแหล่ง live ผิด) — ไม่มี entry ไหนสำเร็จเลยแต่มี
+                       error เกิดขึ้น (เช่น read_inputs/process_scene ล้มทุกฉาก) คืนรหัส 1 เสมอ ไม่ใช่ 0/done:
+                       true ทั้งที่ไม่มีอะไรให้อัป; --require-index ปฏิเสธเขียน index.json ถ้าไม่พบไฟล์เดิม
+                       ในเครื่อง (ใช้เมื่อ workflow ดาวน์โหลด index.json เดิมสำเร็จ — กันชั้นสองไม่ให้ทับ
+                       index จริงบน R2 ด้วย index ที่มีแค่ฉากของ visit นี้)
+    backfill-advance   อ่าน cursor.json + rc แล้วปรับ state: rc 0 → done, failures/lastError ล้างเป็น
+                       0/None; rc 3 → to = cursor.nextTo (nextTo เป็น null แปลว่ายังไม่ได้แตะฉากไหนเลยใน
+                       รอบนี้ — to เดิมคงไว้ ไม่เขียน null ทับ ไม่งั้นรอบหน้า backfill จะได้ --to None แล้ว
+                       พัง), failures/lastError ล้างเช่นกัน; rc 1 → failures += 1, lastError = cursor.lastError
+                       — ล้มติดกันครบ BACKFILL_MAX_CONSECUTIVE_FAILURES ครั้งเท่านั้นจึง failed = lastError
+                       (ข้ามในแผนถัดไปจนกว่าคนจะล้าง — ล้มชั่วคราวครั้งเดียวไม่ทิ้งทั้งหน้าต่างที่เหลือ);
+                       rc 0 ที่ cursor มี lastError (ไม่ควรเกิดขึ้นจริงหลัง cli.py กันไว้แล้ว) ถูกปฏิบัติ
+                       เหมือน rc 1 กันไว้สองชั้น — ไม่ปิดจังหวัดว่า "เสร็จ" ทั้งที่ visit ล้ม
+
+`from` ของทุกจังหวัดคือ floor คงที่ (ปริยาย 2015-01-01) — `to` เท่านั้นที่ถอยลงทีละ visit (nextTo =
+observedAt ของฉากสุดท้ายที่ทำในรอบนี้ ลบ 1 วิ) การค้นครั้งถัดไปจึงเห็นเฉพาะฉากที่ยังไม่เคยประมวลผล
+โดยธรรมชาติ (อยู่นอกหน้าต่างใหม่ที่แคบลง) ไม่ต้องเทียบกับ index เพื่อกรองซ้ำอีกชั้น
 """
 
 from __future__ import annotations
@@ -35,12 +65,13 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import math
 import sys
-from dataclasses import dataclass
-from datetime import datetime, timezone
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from .encode import aggregate, encode_field, gzip_bytes, iso_now, merge_index, scene_entry, scene_meta
+from .encode import IndexOverflowError, aggregate, encode_field, gzip_bytes, iso_now, merge_index, scene_entry, scene_meta
 from .fwdet import estimate_depth
 from .grid import (
     ProvinceBox,
@@ -203,6 +234,7 @@ def run_pipeline(
         existing = _read_json(ipath)
         known = {s["sceneId"] for s in (existing or {}).get("scenes", [])}
         entries: list[dict] = []
+        entry_items: list[list] = []  # ขนานกับ entries — item ต้นทางของแต่ละ entry เผื่อ index เขียนไม่สำเร็จ
         for code, scene_id in keys:
             scene_items = groups[(code, scene_id)]
             if scene_id in known:
@@ -219,6 +251,7 @@ def run_pipeline(
                 meta = _read_json(fdir / "meta.json")
                 if meta and meta.get("sceneId") == scene_id:
                     entries.append({k: v for k, v in meta.items() if k not in _META_ONLY_KEYS})
+                    entry_items.append(scene_items)
                 continue
             try:
                 if dem is None:
@@ -234,6 +267,7 @@ def run_pipeline(
                 items_ok.update(it.id for it in scene_items)
                 continue
             entries.append(entry)
+            entry_items.append(scene_items)
             scenes_written += 1
             items_ok.update(it.id for it in scene_items)
             if newest_observed is None or entry["observedAt"] > newest_observed:
@@ -246,7 +280,18 @@ def run_pipeline(
         # เขียน index ครั้งเดียวต่อจังหวัด และ **เฉพาะเมื่อรายการฉากเปลี่ยน** (devops constraint b):
         # ไม่มี entry ใหม่ = ไบต์เดิมบน R2 ยังถูก ไม่อัปทับ ไม่ทำให้แคช 5 นาทีที่ขอบเก่าโดยเปล่าประโยชน์
         if entries:
-            _write_json(ipath, merge_index(existing, g, entries, generated_at))
+            try:
+                _write_json(ipath, merge_index(existing, g, entries, generated_at))
+            except IndexOverflowError as e:
+                # เกิน INDEX_MAX_SCENES: ฉากที่ประมวลผลแล้วยังอยู่บนดิสก์ (field.bin/meta.json) แต่ไม่มี
+                # index ชี้ — เขียนไม่ได้จริง ๆ; จังหวัดนี้ล้มแต่จังหวัดอื่นเดินต่อ เหมือน error อื่น ๆ
+                # ยึด lastCreated ของจังหวัดนี้ไว้ไม่ให้ข้ามฉากที่เขียน index ไม่สำเร็จ — เหมือนทุก error
+                # path อื่น (ฉากเดียวล้ม/โหลดอินพุตไม่ได้) items_ok ถูกอัปเดตไปแล้วสำหรับฉากพวกนี้ แต่
+                # entries ที่ยังไม่ถูกเขียนลง index.json ต้องถูกค้นหาใหม่รอบหน้า
+                errors.append(str(e))
+                log.error("จังหวัด %s: %s", g.code, e)
+                for scene_items in entry_items:
+                    failed_created.extend(p for p in (published_at(it) for it in scene_items) if p)
         else:
             log.info("จังหวัด %s: ไม่มีฉากใหม่ — ไม่เขียน index.json", g.code)
 
@@ -461,9 +506,123 @@ def cmd_run(args: argparse.Namespace) -> int:
     return _finish(out, summary, "run")
 
 
+# E14.F6: floor คงที่ของ backfill ทุกจังหวัด (Sentinel-1 ไม่มีข้อมูลใช้งานได้ก่อนหน้านี้อย่างมีนัยสำคัญ
+# สำหรับ GFM) — ผู้ใช้ปรับได้ด้วย backfill-plan --floor แต่ต้องระบุ explicit ไม่มีการเดา
+BACKFILL_FLOOR = "2015-01-01T00:00:00Z"
+BACKFILL_STATE_VERSION = 1
+# เหลือเวลาน้อยกว่านี้ก่อน deadline: ไม่เริ่ม visit ใหม่ — หนึ่ง visit ต้องมีเวลาพอดาวน์โหลดอินพุต
+# (DEM/WorldCover เต็มจังหวัด) บวกอย่างน้อยสองสามฉาก
+BACKFILL_DEADLINE_MARGIN_MINUTES = 20
+# p95 เวลาต่อฉากเมื่อยังไม่เคยวัด (visit แรกของ job) — ปริยายอนุรักษ์นิยมกว่าตัวเลขจริงที่วัดได้ (~35 วิ/ฉาก)
+BACKFILL_DEFAULT_SCENE_SECONDS = 60.0
+# จำนวน visit ที่ล้มติดกัน (rc 1) ก่อนจังหวัดถูกทำเครื่องหมาย failed ถาวร (ข้ามในแผนถัดไป) — ล้มชั่วคราว
+# ครั้งเดียว (STAC/เน็ตล่ม) ต้องไม่ทิ้งหน้าต่างที่เหลือทั้งหมดของจังหวัดนั้น
+BACKFILL_MAX_CONSECUTIVE_FAILURES = 3
+
+
+def _p95(durations: list[float], default: float = BACKFILL_DEFAULT_SCENE_SECONDS) -> float:
+    """p95 แบบ nearest-rank — ไม่พึ่ง numpy ใน cli.py; ว่าง = default (ยังไม่เคยวัดฉากไหนในรอบนี้)"""
+    if not durations:
+        return default
+    s = sorted(durations)
+    idx = min(len(s) - 1, math.ceil(0.95 * len(s)) - 1)
+    return s[idx]
+
+
+@dataclass
+class BackfillVisitResult:
+    """ผลของหนึ่ง visit (จังหวัดเดียว, หน้าต่าง from..to เดียว) — cmd_backfill ใช้สร้าง cursor.json"""
+
+    entries: list[dict] = field(default_factory=list)
+    scenes_processed: int = 0  # ฉากที่เรียก process_scene จริง (นับ error ด้วย — เวลาถูกใช้ไปแล้ว)
+    scenes_skipped: int = 0  # ฉากที่ข้ามเพราะอยู่ใน index/field.bin แล้ว (เหมือน run_pipeline)
+    stopped_at_deadline: bool = False
+    last_visited: tuple[str, str] | None = None  # (sceneId, observedAt) ของฉากสุดท้ายที่แตะในรอบนี้
+    errors: list[str] = field(default_factory=list)
+
+
+def run_backfill_visit(
+    grid: ProvinceGrid,
+    items: list,
+    out: Path,
+    *,
+    now: datetime,
+    deadline: datetime,
+    opener=None,
+    clock=None,
+) -> BackfillVisitResult:
+    """ประมวลผลฉากของจังหวัดเดียว **ใหม่สุดก่อน** หยุดก่อนเริ่มฉากถัดไปเมื่อเวลาไม่พอ (E14.F6)
+
+    `clock` (ปริยาย datetime.now) เรียกก่อนเช็ค deadline ของแต่ละฉาก และอีกครั้งหลังประมวลผลเสร็จ
+    เพื่อวัดเวลาจริงต่อฉาก — แยกจาก `now` (เวลาเริ่ม visit, ใช้เป็น generatedAt ของ index)
+    """
+    clock = clock or (lambda: datetime.now(timezone.utc))
+    groups = group_by_province(items, [grid])
+    keys = sorted((k for k in groups if k[0] == grid.code), key=lambda k: k[1], reverse=True)  # ใหม่สุดก่อน
+    ipath = index_path(out, grid.code)
+    existing = _read_json(ipath)
+    known = {s["sceneId"] for s in (existing or {}).get("scenes", [])}
+    result = BackfillVisitResult()
+    durations: list[float] = []
+    dem = landcover = None
+
+    for code, scene_id in keys:
+        t_check = clock()
+        if t_check + timedelta(seconds=3 * _p95(durations)) > deadline:
+            result.stopped_at_deadline = True
+            break
+        scene_items = groups[(code, scene_id)]
+        observed_fallback = iso_z(min(scene_key(it).acquisition_utc for it in scene_items))
+        if scene_id in known:
+            log.info("%s/%s: อยู่ใน index แล้ว — ข้าม", code, scene_id)
+            result.scenes_skipped += 1
+            result.last_visited = (scene_id, observed_fallback)
+            continue
+        fdir = scene_dir(out, code, scene_id)
+        if (fdir / "field.bin").exists():
+            log.info("%s/%s: มี field.bin แล้ว — ข้าม", code, scene_id)
+            result.scenes_skipped += 1
+            meta = _read_json(fdir / "meta.json")
+            observed = meta["observedAt"] if meta else observed_fallback
+            if meta and meta.get("sceneId") == scene_id:
+                result.entries.append({k: v for k, v in meta.items() if k not in _META_ONLY_KEYS})
+            result.last_visited = (scene_id, observed)
+            continue
+        t0 = clock()
+        try:
+            if dem is None:
+                dem, landcover, _ = read_inputs(grid)
+            entry, nbytes = process_scene(grid, scene_items, dem, landcover, out, scene_id, opener)
+        except Exception as e:  # ฉากเดียวล้ม ไม่ล้มทั้ง visit — เหมือน run_pipeline
+            result.errors.append(f"{code}/{scene_id}: {type(e).__name__}: {e}")
+            log.error("%s/%s: ล้มเหลว — %s", code, scene_id, e)
+            durations.append((clock() - t0).total_seconds())
+            result.scenes_processed += 1
+            result.last_visited = (scene_id, observed_fallback)
+            continue
+        durations.append((clock() - t0).total_seconds())
+        result.scenes_processed += 1
+        if entry is None:
+            log.info("%s/%s: items=%d รอยเท้าภาพไม่ครอบจังหวัด — ไม่มีฉาก (ไม่เขียน)", code, scene_id, len(scene_items))
+            result.last_visited = (scene_id, observed_fallback)
+            continue
+        result.entries.append(entry)
+        result.last_visited = (scene_id, entry["observedAt"])
+        log.info(
+            "%s/%s: items=%d flooded=%d observed=%d gz=%dB",
+            code, scene_id, len(scene_items), entry["floodedCells"], entry["observedCells"], nbytes,
+        )
+    return result
+
+
 def cmd_backfill(args: argparse.Namespace) -> int:
     out: Path = args.out
     now = datetime.now(timezone.utc)
+    if args.deadline:
+        if not args.cursor_out:
+            print("โหมด --deadline (E14.F6) ต้องระบุ --cursor-out ด้วย", file=sys.stderr)
+            return 2
+        return _cmd_backfill_visit(args, out, now)
     plan = _read_plan(args.plan, "backfill") if args.plan else None
     if plan is not None:
         codes = list(plan["provinces"])
@@ -492,6 +651,210 @@ def cmd_backfill(args: argparse.Namespace) -> int:
         summary["lastError"] = _join_errors([u.error for u in unloaded])
     # backfill ไม่แตะ state.json: lastCreated เป็นของ run ปกติ (ถอยไปอดีตแล้วขยับ = ข้ามของใหม่)
     return _finish(out, summary, "backfill")
+
+
+def _cursor_error(
+    cursor_path: Path, code: str | None, error: str, *, search_count: int = 0,
+    scenes_processed: int = 0, scenes_skipped: int = 0,
+) -> int:
+    """เขียน cursor.json สำหรับ visit ที่ล้ม — คืน 1 เสมอ (E14.F6: "ล้ม" = ไม่มีอะไรให้อัป)
+
+    scenes_processed/scenes_skipped ปริยาย 0 (ล้มก่อนแตะฉากไหนเลย — grid โหลดไม่ได้/ค้นไม่สำเร็จ) แต่รับ
+    ค่าจริงได้เมื่อ visit ประมวลผลไปแล้วบางส่วนก่อนจะพัง (เช่น index overflow) ไม่ให้ตัวเลขหายไปเงียบ ๆ
+    """
+    _write_json(cursor_path, {
+        "code": code, "nextTo": None, "done": False, "scenesProcessed": scenes_processed,
+        "scenesSkipped": scenes_skipped, "searchCount": search_count, "lastError": error,
+    })
+    log.error(error)
+    return 1
+
+
+def _cmd_backfill_visit(args: argparse.Namespace, out: Path, now: datetime) -> int:
+    """หนึ่ง visit ของจังหวัดเดียว (E14.F6, `backfill --deadline`) — เขียน cursor.json เสมอไม่ว่าจะจบยังไง
+
+    ครอบด้วย try/except กว้างสุดท้าย: ความล้มเหลวที่ไม่ได้คาดไว้ก็ต้องมี cursor.json ที่มี lastError
+    ไม่งั้น backfill-advance (ซึ่งอ่านแค่ cursor.json) จะไม่เห็นเลยว่า visit นี้พัง
+    """
+    cursor_path: Path = args.cursor_out
+    codes = list(args.province or [])
+    code = codes[0] if codes else None
+    try:
+        if len(codes) != 1 or not getattr(args, "from") or not args.to:
+            return _cursor_error(cursor_path, code, "backfill --deadline ต้องการ --province ตัวเดียว, --from และ --to")
+        if getattr(args, "require_index", False) and not index_path(out, code).exists():
+            # workflow บอกว่ามี index.json เดิมบน R2 (fetch_optional ดึงสำเร็จ) แต่ในเครื่องไม่มี — เชื่อ
+            # ไม่ได้ว่ารายการฉากเดิมครบ ปฏิเสธเขียนทับ index จริงด้วย index ที่มีแค่ฉากของ visit นี้
+            return _cursor_error(cursor_path, code,
+                                  f"{code}: --require-index แต่ไม่พบ index.json ในเครื่อง — ปฏิเสธเขียนทับ")
+        deadline = _parse_when(args.deadline)
+        t0, t1 = _parse_when(getattr(args, "from")), _parse_when(args.to)
+        try:
+            grid = load_province_grid(code, args.work_dir, args.aoi_root)
+        except Exception as e:
+            return _cursor_error(cursor_path, code, f"{code}: {type(e).__name__}: {e}")
+        try:
+            # bbox ของการค้น = bbox ของจังหวัดนี้เท่านั้น (ต่างจาก `backfill --plan` ที่ค้นรวมหลายจังหวัด)
+            items = search_items(None, None, grid.bbox, acquired_from=t0, acquired_to=t1)
+        except Exception as e:
+            return _cursor_error(cursor_path, code, f"search: {type(e).__name__}: {e}", search_count=1)
+        log.info("STAC: %d item บันทึกภาพระหว่าง %s..%s (จังหวัด %s)", len(items), iso_z(t0), iso_z(t1), code)
+        result = run_backfill_visit(grid, items, out, now=now, deadline=deadline)
+        last_error = _join_errors(result.errors)
+        if result.entries:
+            try:
+                existing = _read_json(index_path(out, code))
+                _write_json(index_path(out, code), merge_index(existing, grid, result.entries, iso_now(now)))
+            except IndexOverflowError as e:
+                # ฉากที่ประมวลผลแล้วยังอยู่บนดิสก์แต่ไม่มี index ชี้ — runner ทิ้ง (ephemeral) ไม่อัป แต่
+                # scenesProcessed/scenesSkipped ยังต้องเป็นตัวเลขจริง ไม่ใช่ 0 ทั้งที่ประมวลผลไปแล้ว
+                return _cursor_error(cursor_path, code, str(e), search_count=1,
+                                      scenes_processed=result.scenes_processed, scenes_skipped=result.scenes_skipped)
+        if result.stopped_at_deadline:
+            # nextTo=None (ยังไม่แตะฉากไหนเลยก่อนหมดเวลา — เช่น deadline หมดระหว่างโหลดอินพุต) ต้องไม่
+            # ทำให้รอบหน้าได้ --to null แล้วพัง: คงหน้าต่างเดิม (t1) ไว้แทน (กันไว้สองชั้นกับ backfill-advance)
+            next_to = iso_z(t1)
+            if result.last_visited:
+                last_observed = _parse_when(result.last_visited[1])
+                next_to = iso_z(last_observed - timedelta(seconds=1))
+            _write_json(cursor_path, {
+                "code": code, "nextTo": next_to, "done": False,
+                "scenesProcessed": result.scenes_processed, "scenesSkipped": result.scenes_skipped,
+                "searchCount": 1, "lastError": last_error,
+            })
+            log.info("%s: หยุดที่ deadline — nextTo=%s scenesProcessed=%d scenesSkipped=%d",
+                     code, next_to, result.scenes_processed, result.scenes_skipped)
+            return 3
+        if not result.entries and result.errors:
+            # จบหน้าต่างทั้งก้อนโดยไม่มีฉากไหนสำเร็จเลย (เช่น read_inputs/process_scene ล้มทุกฉาก) — ไม่มี
+            # อะไรให้อัปขึ้น R2 จริง ๆ visit นี้ต้องนับเป็น "ล้ม" (rc 1, ไม่ใช่ done: true ที่ควรแปลว่า
+            # "ถามแล้วไม่มีของใหม่") ไม่งั้นจังหวัดที่อ่านไม่ได้เลยจะถูกปิดว่าเสร็จด้วยศูนย์ฉาก
+            return _cursor_error(cursor_path, code, last_error, search_count=1,
+                                  scenes_processed=result.scenes_processed, scenes_skipped=result.scenes_skipped)
+        _write_json(cursor_path, {
+            "code": code, "nextTo": None, "done": True,
+            "scenesProcessed": result.scenes_processed, "scenesSkipped": result.scenes_skipped,
+            "searchCount": 1, "lastError": last_error,
+        })
+        log.info("%s: จบหน้าต่าง — scenesProcessed=%d scenesSkipped=%d lastError=%s",
+                 code, result.scenes_processed, result.scenes_skipped, last_error)
+        return 0
+    except Exception as e:  # ไม่คาดไว้ — ยังต้องเขียน cursor.json ไม่งั้น advance มองไม่เห็นว่า visit นี้พัง
+        return _cursor_error(cursor_path, code, f"{type(e).__name__}: {e}")
+
+
+def _fresh_backfill_state(aoi_root: Path, floor: str, live_start: str, now: datetime) -> dict:
+    """state ใหม่: ลำดับจาก scan_aoi_root (ตัวเลข), from=floor คงที่ทุกจังหวัด, to=live_start ขอบบน"""
+    codes, skipped = scan_aoi_root(aoi_root)
+    if skipped:
+        log.info("backfill-plan: ข้าม %d รายการใต้ %s ที่ไม่ใช่จังหวัด: %s", len(skipped), aoi_root, ", ".join(skipped))
+    started = iso_now(now)
+    return {
+        "version": BACKFILL_STATE_VERSION,
+        "floor": floor,
+        "provinces": {
+            c: {"to": live_start, "done": False, "failed": None, "failures": 0, "lastError": None, "scenes": 0}
+            for c in codes
+        },
+        "order": codes,
+        "current": None,
+        "startedAt": started,
+        "updatedAt": started,
+    }
+
+
+def cmd_backfill_plan(args: argparse.Namespace) -> int:
+    """E14.F6: อ่าน/สร้าง state แล้วพิมพ์ JSON ของ visit ถัดไปลง stdout — คืน 0 เสมอ (ทั้งสามรูปแบบผลลัพธ์
+    เป็นผลลัพธ์ปกติของ plan ไม่ใช่ความล้มเหลว — ห้ามให้ `plan_json=$(...)` ใน shell เห็นเป็นพัง)
+    """
+    now = datetime.now(timezone.utc)
+    state_path: Path = args.state
+    deadline = _parse_when(args.deadline)
+    state = _read_json(state_path)
+    if state is None:
+        state = _fresh_backfill_state(args.aoi_root, args.floor, args.live_start, now)
+        _write_json(state_path, state)
+        log.info("backfill-plan: สร้าง state ใหม่ %d จังหวัด floor=%s liveStart=%s",
+                  len(state["order"]), args.floor, args.live_start)
+    if deadline - now < timedelta(minutes=BACKFILL_DEADLINE_MARGIN_MINUTES):
+        print(json.dumps({"done": True, "reason": "deadline"}))
+        return 0
+    provinces: dict = state["provinces"]
+    current = state.get("current")
+    code = current if current and current in provinces and not provinces[current]["done"] and not provinces[current]["failed"] else None
+    if code is None:
+        for c in state["order"]:
+            p = provinces.get(c)
+            if p and not p["done"] and not p["failed"]:
+                code = c
+                break
+    if code is None:
+        print(json.dumps({"done": True}))
+        return 0
+    print(json.dumps({"code": code, "from": state["floor"], "to": provinces[code]["to"]}))
+    return 0
+
+
+def cmd_backfill_advance(args: argparse.Namespace) -> int:
+    """E14.F6: ปรับ state ตาม cursor.json + --rc ของ visit ที่เพิ่งรัน — เขียนทับ --state"""
+    now = datetime.now(timezone.utc)
+    state_path: Path = args.state
+    state = _read_json(state_path)
+    if state is None:
+        print(f"ไม่พบ state {state_path} — ต้องรัน backfill-plan ก่อนเสมอ", file=sys.stderr)
+        return 2
+    cursor = _read_json(args.cursor)
+    if cursor is None:
+        print(f"ไม่พบ cursor {args.cursor}", file=sys.stderr)
+        return 2
+    code = cursor.get("code")
+    if not code or code not in state["provinces"]:
+        print(f"cursor ไม่มีรหัสจังหวัดที่รู้จักใน state: {cursor.get('code')!r}", file=sys.stderr)
+        return 2
+    p = state["provinces"][code]
+    p["scenes"] = p.get("scenes", 0) + int(cursor.get("scenesProcessed", 0))
+    p.setdefault("failures", 0)
+    p.setdefault("lastError", None)
+    rc = args.rc
+    if rc == 0 and cursor.get("lastError"):
+        # ไม่ควรเกิดขึ้นจริง — cli.py คืน rc 1 เสมอเมื่อ visit ไม่มีฉากสำเร็จเลยแต่มี error (กันไว้ที่
+        # cli.py แล้ว) แต่ถ้า cursor.json ผิดปกติหลุดมาถึงนี่ (บั๊กที่ไม่คาดคิด) ต้องไม่ปิดจังหวัดว่า
+        # "เสร็จ": ปฏิบัติเหมือน rc==1 กันไว้สองชั้น
+        log.error("backfill-advance: %s cursor มี lastError ทั้งที่ rc=0 — ปฏิบัติเหมือนล้ม: %s",
+                   code, cursor["lastError"])
+        rc = 1
+    if rc == 0:
+        p["done"] = True
+        p["failures"] = 0
+        p["lastError"] = None
+        state["current"] = None
+    elif rc == 3:
+        next_to = cursor.get("nextTo")
+        if next_to:  # null = ยังไม่แตะฉากไหนในรอบนี้ — คง to เดิมไว้ ไม่งั้นรอบหน้าได้ --to None แล้วพัง
+            p["to"] = next_to
+        if cursor.get("lastError"):
+            # หยุดที่ deadline แต่มีฉากที่ล้มปนอยู่ในหน้าต่างนี้ (ไม่ใช่ visit สะอาด) — ห้ามล้าง
+            # failures/lastError ทิ้งเหมือนไม่มีอะไรเกิดขึ้น ไม่งั้นจังหวัดที่ล้มช้า ๆ ทุก visit (พอดีชน
+            # deadline ก่อนเสมอ) จะไม่มีวันสะสมครบเกณฑ์ failed เลย — คงค่าเดิมไว้ (ไม่เพิ่มด้วย เพราะ
+            # visit นี้เดินหน้าต่อได้จริง มี nextTo ขยับ ต่างจาก rc 1 ที่ไม่มีอะไรขยับเลย)
+            pass
+        else:
+            p["failures"] = 0
+            p["lastError"] = None
+        state["current"] = code
+    else:  # rc == 1 (หรือ rc==0 ที่ cursor มี lastError ผิดปกติ — ถูกแปลงเป็น 1 ข้างบน)
+        p["failures"] = p.get("failures", 0) + 1
+        p["lastError"] = cursor.get("lastError") or f"{code}: backfill exit 1 ไม่มี lastError"
+        # ล้มติดกันครบเกณฑ์เท่านั้นถึงข้ามถาวร — ล้มชั่วคราวครั้งเดียว (เช่น STAC/เน็ตล่ม) ไม่ควรทิ้ง
+        # หน้าต่างที่เหลือทั้งหมดของจังหวัดนั้น
+        if p["failures"] >= BACKFILL_MAX_CONSECUTIVE_FAILURES:
+            p["failed"] = p["lastError"]
+        state["current"] = None
+    state["updatedAt"] = iso_now(now)
+    _write_json(state_path, state)
+    log.info("backfill-advance: %s rc=%d done=%s failed=%s failures=%d to=%s scenes=%d",
+              code, rc, p["done"], p["failed"], p["failures"], p.get("to"), p["scenes"])
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -528,7 +891,24 @@ def build_parser() -> argparse.ArgumentParser:
     common(b, plan_help="plan.json จาก `plan --from --to` — ให้ provinces/from/to")
     b.add_argument("--from", help="ISO")
     b.add_argument("--to", help="ISO")
+    b.add_argument("--deadline", help="ISO — E14.F6: หนึ่ง visit ของจังหวัดเดียว หยุดก่อนหมดเวลา (ต้องคู่กับ --cursor-out)")
+    b.add_argument("--cursor-out", type=Path, help="E14.F6: เขียน cursor.json ที่นี่ (ต้องคู่กับ --deadline)")
+    b.add_argument("--require-index", action="store_true",
+                    help="E14.F6 --deadline: ปฏิเสธเขียน index.json ถ้าไม่พบไฟล์เดิมในเครื่อง (ใช้เมื่อรู้ว่ามีอยู่บน R2)")
     b.set_defaults(fn=cmd_backfill)
+
+    bp = sub.add_parser("backfill-plan", help="E14.F6: อ่าน/สร้าง state ของ backfill → visit ถัดไป (JSON ลง stdout)")
+    bp.add_argument("--state", type=Path, required=True, help="flood/gfm/backfill-state.json ที่ดาวน์โหลดมา (สร้างใหม่ถ้าไม่มี)")
+    bp.add_argument("--deadline", required=True, help="ISO — เวลาสิ้นสุด job (job start + 285 นาที)")
+    bp.add_argument("--floor", default=BACKFILL_FLOOR, help=f"ISO — ขอบล่างของ backfill ทุกจังหวัด ปริยาย {BACKFILL_FLOOR}")
+    bp.add_argument("--live-start", required=True, help="ISO — since แรกสุดของ live ingest (ขอบบนของ backfill เมื่อสร้าง state ใหม่)")
+    bp.set_defaults(fn=cmd_backfill_plan)
+
+    ba = sub.add_parser("backfill-advance", help="E14.F6: ปรับ state ตามผลของ visit ที่เพิ่งรัน (rc ของ `backfill --deadline`)")
+    ba.add_argument("--state", type=Path, required=True)
+    ba.add_argument("--cursor", type=Path, required=True, help="cursor.json จาก `backfill --cursor-out`")
+    ba.add_argument("--rc", type=int, required=True, choices=(0, 1, 3), help="exit code ของ `backfill --deadline`")
+    ba.set_defaults(fn=cmd_backfill_advance)
 
     c = sub.add_parser("check-grid", help="รายงานการจัดแนว 30 ม. กับ overview")
     c.add_argument("--province", action="append", required=True)

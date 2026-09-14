@@ -220,10 +220,20 @@ def layer_descriptors(newest: dict | None, generated_at: str) -> dict:
     return {"extent": extent, "depth": depth}
 
 
+class IndexOverflowError(Exception):
+    """merge_index: จำนวนฉากรวมแล้วเกิน INDEX_MAX_SCENES
+
+    ห้ามตัดทิ้งเงียบ ๆ — ฉากที่ถูกตัดคือฉากที่หายไปจาก UI โดยไม่มีใครสังเกตเห็น (E14.F6): ผู้เรียก
+    (cli.run_pipeline / cli.backfill) ต้องจับ exception นี้แล้วรายงานเป็น lastError ไม่ใช่ปล่อยให้
+    merge_index เงียบ ๆ ทิ้งฉากเก่าสุดออกจากไฟล์ที่กำลังจะเขียนทับของเดิม
+    """
+
+
 def merge_index(existing: dict | None, grid: ProvinceGrid, entries: Iterable[dict] | dict, generated_at: str) -> dict:
-    """FloodSceneIndex (flood.ts) — ใหม่สุดก่อน, sceneId ซ้ำไม่ทับของเดิม (ฉาก immutable), จำกัด 1,500
+    """FloodSceneIndex (flood.ts) — ใหม่สุดก่อน, sceneId ซ้ำไม่ทับของเดิม (ฉาก immutable)
 
     รับ entry หลายรายการต่อครั้ง: index ถูกเขียนครั้งเดียวต่อจังหวัดต่อ run ไม่ใช่ต่อฉาก
+    เกิน INDEX_MAX_SCENES → raise IndexOverflowError (ไม่ตัดทิ้ง — ดู docstring ของคลาส)
     """
     new_entries = [entries] if isinstance(entries, dict) else list(entries)
     scenes: list[dict] = list(existing.get("scenes", [])) if existing else []
@@ -234,7 +244,11 @@ def merge_index(existing: dict | None, grid: ProvinceGrid, entries: Iterable[dic
         scenes.append(e)
         known.add(e["sceneId"])
     scenes.sort(key=lambda s: (s["observedAt"], s["sceneId"]), reverse=True)
-    scenes = scenes[: C.INDEX_MAX_SCENES]
+    if len(scenes) > C.INDEX_MAX_SCENES:
+        raise IndexOverflowError(
+            f"{grid.code}: ฉากรวมแล้ว {len(scenes)} เกินเพดาน {C.INDEX_MAX_SCENES} scenes "
+            "— ต้องเพิ่ม INDEX_MAX_SCENES หรือแยก index ไม่ใช่ตัดฉากเก่าทิ้งเงียบ ๆ"
+        )
     newest = scenes[0] if scenes else None
     return {
         "provinceCode": grid.code,
