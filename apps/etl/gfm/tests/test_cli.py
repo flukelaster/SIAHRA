@@ -200,6 +200,47 @@ def test_scene_listed_in_index_is_skipped_without_local_field(tmp_path, monkeypa
     assert ipath.read_bytes() == before and writes == []
 
 
+def test_index_overflow_holds_back_only_that_province(tmp_path, monkeypatch):
+    """IndexOverflowError ของจังหวัดหนึ่งต้องยึด lastCreated ไม่ให้ข้ามฉากของมัน — จังหวัดอื่นเขียน index ตามปกติ"""
+    work, aoi = _province(tmp_path, "57", bbox=(99.0, 19.0, 100.0, 20.0))
+    _province(tmp_path, "58", bbox=(101.0, 19.0, 102.0, 20.0))
+    grid57 = load_province_grid("57", work, aoi)
+    grid58 = load_province_grid("58", work, aoi)
+    out = tmp_path / "out"
+
+    overflow_item = _item(
+        "ENSEMBLE_FLOOD_20240912T112331_VV_AS020M_E048N018T3",
+        _assets(tmp_path, "overflow", True), "2024-09-12T15:00:00Z", bbox=(99, 19, 100, 20),
+    )
+    ok_item = _item(
+        "ENSEMBLE_FLOOD_20240920T112331_VV_AS020M_E048N018T3",
+        _assets(tmp_path, "ok", True), "2024-09-20T15:00:00Z", bbox=(101, 19, 102, 20),
+    )
+
+    real_merge_index = cli.merge_index
+
+    def fake_merge_index(existing, grid, entries, generated_at):
+        if grid.code == "57":
+            raise cli.IndexOverflowError(f"{grid.code}: fake overflow")
+        return real_merge_index(existing, grid, entries, generated_at)
+
+    monkeypatch.setattr(cli, "merge_index", fake_merge_index)
+
+    now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    s = cli.run_pipeline([overflow_item, ok_item], [grid57, grid58], out, now=now)
+
+    assert "57: fake overflow" in s["lastError"]
+    # จังหวัด 58 ไม่ถูกยึด — เขียน index ได้ตามปกติแม้ item ของมัน created ใหม่กว่าของ 57
+    idx58 = json.loads((out / "aoi/58/flood/index.json").read_text())
+    assert [e["sceneId"] for e in idx58["scenes"]] == ["20240920T112331-AS020M"]
+    # จังหวัด 57: field.bin ถูกเขียนไปแล้ว (ประมวลผลสำเร็จ) แต่ index เขียนไม่สำเร็จ — ไม่มีไฟล์ index
+    assert not (out / "aoi/57/flood/index.json").exists()
+    assert (out / "aoi/57/flood/20240912T112331-AS020M/field.bin").exists()
+    # lastCreated (cursor เดียวของ run ทั้งชุด) ต้องไม่ข้ามฉากที่ 57 เขียน index ไม่สำเร็จ
+    # แม้ 58 จะมี item ใหม่กว่าที่ผ่านสำเร็จและเดินหน้าไปแล้ว
+    assert s["lastCreated"] == "2024-09-12T15:00:00Z"
+
+
 def test_local_field_missing_from_index_is_restored_into_index(tmp_path):
     """field.bin+meta.json อยู่บนดิสก์แต่ index ไม่รู้จัก (ตายระหว่างสองการเขียน) → ข้ามการคำนวณ แต่เติม entry"""
     work, aoi = _province(tmp_path)

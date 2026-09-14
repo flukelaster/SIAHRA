@@ -3,8 +3,10 @@ import struct
 
 import numpy as np
 
+import pytest
+
 from gfm import contract as C
-from gfm.encode import aggregate, decode_field, encode_field, gzip_bytes, merge_index, scene_entry, scene_meta
+from gfm.encode import IndexOverflowError, aggregate, decode_field, encode_field, gzip_bytes, merge_index, scene_entry, scene_meta
 
 from conftest import make_grid
 
@@ -141,8 +143,12 @@ def test_merge_index_idempotent_newest_first():
     assert empty["layers"]["extent"]["publishedAt"] is None
 
 
-def test_merge_index_cap():
+def test_merge_index_overflow_raises_instead_of_truncating():
+    """เกินเพดาน INDEX_MAX_SCENES ต้อง raise — ห้ามตัดฉากเก่าทิ้งเงียบ ๆ (E14.F6)"""
     g = make_grid()
-    entries = [_entry(f"2024{i:04d}T000000-AS020M", f"2024-01-01T00:{i % 60:02d}:{i // 60:02d}Z") for i in range(1600)]
-    idx = merge_index(None, g, entries, "2026-01-01T00:00:00Z")
-    assert len(idx["scenes"]) == C.INDEX_MAX_SCENES
+    entries = [_entry(f"2024{i:04d}T000000-AS020M", f"2024-01-01T00:{i % 60:02d}:{i // 60:02d}Z") for i in range(C.INDEX_MAX_SCENES + 1)]
+    with pytest.raises(IndexOverflowError, match=r"99.*1501.*1500"):
+        merge_index(None, g, entries, "2026-01-01T00:00:00Z")
+    # ต่ำกว่าเพดานพอดียังผ่านปกติ (happy path ไม่เปลี่ยนพฤติกรรม)
+    ok = merge_index(None, g, entries[:-1], "2026-01-01T00:00:00Z")
+    assert len(ok["scenes"]) == C.INDEX_MAX_SCENES

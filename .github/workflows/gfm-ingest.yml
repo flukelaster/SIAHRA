@@ -7,11 +7,20 @@ name: GFM ingest
 # the whole cost surface can be reviewed here (AGENTS.md "Cost budget",
 # docs/dataset.md §8):
 #
+#   Phase 1 — live ingest (every run, unchanged by E14.F6):
 #   down  flood/gfm/{state,health}.json                (2 objects, may be absent)
 #         aoi/{code}/flood/index.json                  (planned provinces only, may be absent)
 #         etl/{code}/{dem30,landcover30}.tif           (planned provinces only)
 #   up    out/aoi/{code}/flood  → aoi/{code}/flood     (planned provinces only)
 #         out/flood/gfm         → flood/gfm
+#
+#   Phase 2 — backfill until deadline (E14.F6, `schedule`/plain `workflow_dispatch` only,
+#   and only when Phase 1 succeeded — see "Fail if the pipeline reported an error" below):
+#   down  flood/gfm/backfill-state.json                 (1 object, absent = fresh state)
+#         (per visit) aoi/{code}/flood/index.json, etl/{code}/{dem30,landcover30}.tif
+#   up    (per visit, only when the visit's exit code is 0 or 3)
+#         out/aoi/{code}/flood → aoi/{code}/flood
+#         flood/gfm/backfill-state.json                 (1 object, every visit)
 #
 # Only `rclone copy`/`copyto` with `--no-traverse` — never the mirroring
 # verb that removes objects, never a destination above `aoi/{code}/flood/` or
@@ -20,10 +29,12 @@ name: GFM ingest
 # exist, and a scene that is in the index is skipped by the CLI
 # (apps/etl/gfm/gfm/cli.py — this is what makes an ephemeral runner idempotent).
 #
-# Two STAC searches per run, never one per province: `plan` searches the whole
+# Two STAC searches per Phase-1 run, never one per province: `plan` searches the whole
 # country once and names the provinces that have new items, so the inputs are
 # downloaded only for those; `run --plan` searches once more over the same
-# window and processes exactly that list.
+# window and processes exactly that list. Phase 2 adds exactly one more search per
+# backfill visit (`backfill --deadline`, one province, one from..to window — never one
+# search per month, see apps/etl/gfm/gfm/cli.py module docstring).
 #
 # Secrets (repository): CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID,
 # R2_SECRET_ACCESS_KEY — the same three scripts/upload-gfm-inputs.sh uses.
@@ -63,7 +74,9 @@ jobs:
   ingest:
     name: Ingest GFM scenes
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # E14.F6: Phase 1 (live) + Phase 2 (backfill until job-start + 285 min) share one job —
+    # 300 min gives Phase 2 its 285 min budget plus headroom for Phase 1 and the fixed steps.
+    timeout-minutes: 300
     defaults:
       run:
         shell: bash
@@ -78,6 +91,16 @@ jobs:
       PLAN: work/plan.json
       PROVINCES: work/provinces.txt
       AOI_ROOT: ../../web/public/aoi
+      # E14.F6 backfill phase — its own scratch paths under `work/`, `out` is shared with
+      # Phase 1 (each visit only ever touches its own `out/aoi/{code}/flood`).
+      BF_STATE_KEY: flood/gfm/backfill-state.json
+      BF_STATE_FILE: work/backfill-state.json
+      BF_INPUTS: work/backfill-inputs
+      BF_CURSOR: work/backfill-cursor.json
+      BF_SUMMARY: work/backfill-summary.md
+      # 2026-08-30T00:00:00Z: the `since` of the very first live-ingest run — the upper edge a
+      # freshly-created backfill state starts from (docs/dataset.md §8 / apps/etl/gfm/gfm/cli.py).
+      BF_LIVE_START: "2026-08-30T00:00:00Z"
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -91,6 +114,18 @@ jobs:
       RCLONE_CONFIG_R2_NO_CHECK_BUCKET: "true"
     steps:
       - uses: actions/checkout@v7
+
+      # E14.F6: job-start epoch, recorded before anything else runs, so Phase 2's deadline
+      # (job start + 285 min) reflects wall clock actually spent on this job, not just the loop.
+      - name: Record job start (E14.F6 deadline anchor)
+        id: jobstart
+        run: |
+          set -uo pipefail
+          start_epoch=$(date -u +%s)
+          deadline=$(date -u -d "@$((start_epoch + 285 * 60))" +%Y-%m-%dT%H:%M:%SZ)
+          echo "startEpoch=$start_epoch" >> "$GITHUB_OUTPUT"
+          echo "deadline=$deadline" >> "$GITHUB_OUTPUT"
+          echo "job start: $(date -u -d "@$start_epoch" +%Y-%m-%dT%H:%M:%SZ) · backfill deadline: $deadline"
 
       # Same trust level as deploy.yml/ci.yml for actions (a release tag —
       # setup-uv publishes no floating major tag, so the exact release is
@@ -272,8 +307,207 @@ jobs:
             echo "- pipeline exit code: ${RC:-n/a}"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # A failed live pipeline stops the job here (default `if:` on every step below implicitly
+      # ANDs with success(), so nothing past this point — including the whole of Phase 2 — runs
+      # when this step fails; E14.F6 relies on exactly that, see the "Backfill until deadline" step).
       - name: Fail if the pipeline reported an error
         env:
           RC: ${{ steps.run.outputs.rc }}
         run: |
           [ "${RC:-1}" = "0" ] || { echo "::error::pipeline exit ${RC:-n/a} — see health.lastError in the summary"; exit 1; }
+
+      # E14.F6 — Phase 2: keep visiting provinces (province-code order from backfill-plan's state,
+      # newest-scene-first inside each province) until the job-start + 285 min deadline, one
+      # province-window "visit" at a time. Only on a schedule tick or a plain dispatch (no
+      # since/from/to) — a from/to dispatch
+      # keeps today's one-shot manual backfill behaviour (the `backfill --plan` invocation inside
+      # "Run pipeline" above, already covered by Phase 1). Skipped entirely when Phase 1 failed
+      # (implicit success() on this `if:`, see the comment on the previous step).
+      - name: Backfill until deadline (E14.F6)
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.since == '' && inputs.from == '' && inputs.to == '')
+        env:
+          DEADLINE: ${{ steps.jobstart.outputs.deadline }}
+        run: |
+          set -uo pipefail
+          mkdir -p "$BF_INPUTS" "$(dirname "$BF_STATE_FILE")"
+
+          fetch_optional() {  # $1 = key, $2 = local path — same absent-is-fine contract as Phase 1
+            # fetch_rc (global, deliberately not `local rc` — the caller reads it right after the
+            # call to tell "fetched" (0) apart from "absent" (3/4); the function's own return code
+            # collapses both into 0 and only surfaces non-zero on a genuine rclone failure)
+            rclone copyto --no-traverse --retries 2 "r2:$BUCKET/$1" "$2"
+            fetch_rc=$?
+            case "$fetch_rc" in
+              0) echo "fetched $1" ;;
+              3|4) echo "absent  $1" ;;
+              *) echo "::error::rclone copyto $1 failed with exit $fetch_rc"; return "$fetch_rc" ;;
+            esac
+            return 0
+          }
+
+          search_count=0 raster_bytes=0 scenes_processed=0 scenes_skipped=0 bytes_up=0 visits=0
+
+          write_summary() {
+            local cursor_line="-" done_n=0 failed_list="-"
+            if [ -f "$BF_STATE_FILE" ]; then
+              cursor_line=$(jq -r 'if .current then "\(.current) → to \(.provinces[.current].to)" else "-" end' "$BF_STATE_FILE")
+              done_n=$(jq -r '[.provinces[] | select(.done)] | length' "$BF_STATE_FILE")
+              failed_list=$(jq -r '[.provinces | to_entries[] | select(.value.failed != null) | .key] | if length > 0 then join(" ") else "-" end' "$BF_STATE_FILE")
+            fi
+            {
+              echo "## GFM backfill (E14.F6)"
+              echo
+              echo "- visits this run: $visits"
+              echo "- STAC searches: $search_count"
+              echo "- raster bytes downloaded: $raster_bytes"
+              echo "- scenes processed: $scenes_processed · scenes skipped: $scenes_skipped"
+              echo "- bytes uploaded (new local bytes per visit, summed): $bytes_up"
+              echo "- cursor: $cursor_line"
+              echo "- provinces done: $done_n · failed: $failed_list"
+            } > "$BF_SUMMARY"
+          }
+
+          # Absent = fresh state — `backfill-plan` itself creates and persists it on first use.
+          fetch_optional "$BF_STATE_KEY" "$BF_STATE_FILE" || {
+            echo "::error::cannot download backfill state"
+            # write_summary() needs $BF_STATE_FILE to exist — it doesn't here, so the always()
+            # "Backfill summary" step would otherwise print "not run" and hide the real reason
+            { echo "## GFM backfill (E14.F6)"; echo; echo "- state download failed"; } > "$BF_SUMMARY"
+            exit 1
+          }
+
+          while :; do
+            now_epoch=$(date -u +%s)
+            deadline_epoch=$(date -u -d "$DEADLINE" +%s)
+            if [ "$now_epoch" -ge "$deadline_epoch" ]; then
+              echo "backfill: job clock past deadline — stopping"
+              break
+            fi
+
+            plan_json=$(uv run --frozen python -m gfm --aoi-root "$AOI_ROOT" backfill-plan \
+              --state "$BF_STATE_FILE" --deadline "$DEADLINE" --live-start "$BF_LIVE_START")
+            echo "backfill-plan: $plan_json"
+            done_flag=$(echo "$plan_json" | jq -r '.done // false')
+            if [ "$done_flag" = "true" ]; then
+              echo "backfill: $(echo "$plan_json" | jq -r '.reason // "all provinces done"')"
+              break
+            fi
+
+            code=$(echo "$plan_json" | jq -r '.code')
+            bf_from=$(echo "$plan_json" | jq -r '.from')
+            bf_to=$(echo "$plan_json" | jq -r '.to')
+            visits=$((visits + 1))
+
+            # A non-absent failure here must not fall through to a normal visit: the CLI would then
+            # see no local index, merge_index() would write one that lists only this visit's
+            # scenes, and the scoped copy below would PUT it over the province's real index.json —
+            # every previously backfilled scene for that province vanishes from the timeline with
+            # its objects orphaned, and it does not self-heal. Same guard as copy/advance/copyto below.
+            if ! fetch_optional "aoi/$code/flood/index.json" "$OUT/aoi/$code/flood/index.json"; then
+              echo "::error::$code: could not fetch index.json — refusing to backfill without a reliable index"
+              backfill_failed=1
+              break
+            fi
+            # --require-index only when the index was actually fetched (fetch_rc 0) — absent (3/4)
+            # is a genuinely new province and the CLI's fresh-index path stays untouched.
+            require_index_flag=""
+            [ "$fetch_rc" = "0" ] && require_index_flag="--require-index"
+            for key_path in "etl/$code/dem30.tif:$BF_INPUTS/p$code-clipped30.tif" \
+                             "etl/$code/landcover30.tif:$BF_INPUTS/p$code-worldcover30.tif"; do
+              key="${key_path%%:*}"; dest="${key_path##*:}"
+              if fetch_optional "$key" "$dest"; then
+                [ -f "$dest" ] && raster_bytes=$((raster_bytes + $(stat -c%s "$dest" 2>/dev/null || echo 0)))
+              else
+                echo "::warning::$code: could not fetch $key — this visit will likely fail and mark the province failed"
+              fi
+            done
+
+            before_bytes=$(du -sb "$OUT/aoi/$code/flood" 2>/dev/null | cut -f1 || echo 0)
+            [ -n "$before_bytes" ] || before_bytes=0
+
+            # The cursor must be THIS visit's: a CLI that dies before writing one (import error,
+            # interpreter failure — plain exit 1, indistinguishable from a visit failure) would
+            # otherwise let backfill-advance read the previous province's cursor and charge the
+            # strike to the wrong province. Remove it first and refuse a cursor for another code.
+            rm -f "$BF_CURSOR"
+            rc=0
+            uv run --frozen python -m gfm --work-dir "$BF_INPUTS" --aoi-root "$AOI_ROOT" backfill \
+              --province "$code" --from "$bf_from" --to "$bf_to" --deadline "$DEADLINE" \
+              --cursor-out "$BF_CURSOR" --out "$OUT" $require_index_flag || rc=$?
+            echo "backfill $code ($bf_from..$bf_to): exit $rc"
+            [ -f "$BF_CURSOR" ] && cat "$BF_CURSOR"
+            cursor_code=$(jq -r '.code // empty' "$BF_CURSOR" 2>/dev/null || true)
+            if [ "$cursor_code" != "$code" ]; then
+              echo "::error::visit $code left no cursor of its own (found '${cursor_code:-none}', exit $rc) — leaving backfill state untouched"
+              backfill_failed=1
+              break
+            fi
+
+            if [ -f "$BF_CURSOR" ]; then
+              search_count=$((search_count + $(jq -r '.searchCount // 0' "$BF_CURSOR")))
+              scenes_processed=$((scenes_processed + $(jq -r '.scenesProcessed // 0' "$BF_CURSOR")))
+              scenes_skipped=$((scenes_skipped + $(jq -r '.scenesSkipped // 0' "$BF_CURSOR")))
+            fi
+
+            # From here on, a failed upload/advance/state-push must NOT let the province's
+            # cursor advance: a green job with scenes that never reached R2, or a state file
+            # that was pushed while the scenes weren't, is permanent silent loss (nothing will
+            # ever retry that window again). On any failure, stop before touching state/R2 and
+            # fail the step so the window is retried on the next run.
+            if [ "$rc" = "0" ] || [ "$rc" = "3" ]; then
+              after_bytes=$(du -sb "$OUT/aoi/$code/flood" 2>/dev/null | cut -f1 || echo 0)
+              [ -n "$after_bytes" ] || after_bytes=0
+              copy_rc=0
+              rclone copy --no-traverse --checksum --retries 5 --low-level-retries 20 --max-duration 10m \
+                --stats-one-line --stats 30s "$OUT/aoi/$code/flood" "r2:$BUCKET/aoi/$code/flood" || copy_rc=$?
+              if [ "$copy_rc" != "0" ]; then
+                echo "::error::rclone copy $code/flood to r2 failed with exit $copy_rc — leaving backfill state untouched so this window is retried"
+                backfill_failed=1
+                break
+              fi
+              # counted only after the copy succeeded — bytes that never reached R2 are not "uploaded"
+              [ "$after_bytes" -gt "$before_bytes" ] && bytes_up=$((bytes_up + after_bytes - before_bytes))
+            fi
+
+            adv_rc=0
+            uv run --frozen python -m gfm backfill-advance --state "$BF_STATE_FILE" --cursor "$BF_CURSOR" --rc "$rc" || adv_rc=$?
+            if [ "$adv_rc" != "0" ]; then
+              echo "::error::backfill-advance for $code failed with exit $adv_rc"
+              backfill_failed=1
+              break
+            fi
+
+            copyto_rc=0
+            rclone copyto --no-traverse --retries 2 "$BF_STATE_FILE" "r2:$BUCKET/$BF_STATE_KEY" || copyto_rc=$?
+            if [ "$copyto_rc" != "0" ]; then
+              echo "::error::rclone copyto backfill state to r2 failed with exit $copyto_rc"
+              backfill_failed=1
+              break
+            fi
+            # One failed visit ends Phase 2 for this run: the plan would re-offer the same
+            # province immediately, and a transient STAC/network outage lasting a minute would
+            # burn all three strikes inside one job. Spacing the retries across scheduled runs
+            # (6 h apart) is what makes the 3-strike rule mean "persistently failing".
+            if [ "$rc" = "1" ]; then
+              echo "::warning::visit $code failed (strike recorded) — ending the backfill phase for this run; the next scheduled run retries"
+              break
+            fi
+
+            write_summary  # ทุก iteration — job อาจถูก timeout ฆ่ากลางลูปเมื่อไหร่ก็ได้
+          done
+
+          write_summary
+          echo "backfill: $visits visit(s) this run"
+          if [ -n "${backfill_failed:-}" ]; then
+            exit 1
+          fi
+
+      - name: Backfill summary (E14.F6)
+        if: always()
+        run: |
+          if [ -f "$BF_SUMMARY" ]; then
+            cat "$BF_SUMMARY" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## GFM backfill (E14.F6)" >> "$GITHUB_STEP_SUMMARY"
+            echo "- not run this job (manual from/to dispatch, or Phase 1 failed)" >> "$GITHUB_STEP_SUMMARY"
+          fi

@@ -1236,20 +1236,32 @@ hydraulics stay excluded and the four scoping decisions in §0 are unchanged.
    popup click reads the file byte-for-byte (depth 65 cm, confidence 79). This closes the M6 clause
    "the timeline labels the gap between the chosen time and the scene's acquisition".
 
-#### E14.F6 — Backfill 2015 → now (ops, no code)
-- Touches: — (`workflow_dispatch` by year)
-- Depends: E14.F3 (the frame merge is done there — one `sceneId` per pass — so the backfill can
-  start with the final keys). Run it as per-year / per-province `workflow_dispatch` backfills
-  (`from`/`to`/`provinces`), not one 31-day bootstrap over 77 provinces: the job has a 45-min
-  timeout, and a timed-out run uploads nothing. The F5 event browser (`FloodScenesCard` events +
-  pass list, timeline marks) is what makes the backfilled years reachable in the UI — no further
-  web work is needed for them to show up
-- Size: M (wall-clock)
-- Risk: index sizes and R2 storage growth — measured numbers go into `docs/deploy.md`. devops
-  (F2 verify) sized ten years at 0.7 / 8.3 / 35 GB low / expected / high = +$0.01 / +$0.125 /
-  +$0.52 per month **permanently** (scenes are never deleted), so F6 needs its **own `devops`
-  pre-gate**, priced from Σ `fieldBytesGz` (`meta.json`, F2) after one province × one full year —
-  gz bytes track observed cells, not frames, so a dry-heavy year is cheap and a wet one is not
+#### E14.F6 — Backfill 2015 → now — *mechanism done* (2026-09-14), data run in progress
+- Touches (what actually shipped — "ops, no code" did not survive the numbers): `.github/workflows/gfm-ingest.yml`
+  (Phase 2 "backfill until deadline" inside the same 6-hourly job, `timeout-minutes` 45 → 300),
+  `apps/etl/gfm/gfm/cli.py` (`backfill --deadline --cursor-out` exit 0/3/1, `backfill-plan`,
+  `backfill-advance`), `encode.py` (`merge_index` raises `IndexOverflowError` above
+  `INDEX_MAX_SCENES` instead of truncating), `tests/test_backfill.py` (17) + overflow tests
+- Depends: E14.F3 (one `sceneId` per pass), E14.F5 (the event browser is what makes backfilled
+  years reachable — no further web work)
+- Why a mechanism: measured ~35 s per scene on the runner and ~64 scenes per province-year →
+  ≈ 49,000 scenes ≈ 400–480 runner-hours, far beyond manual per-year dispatches. Phase 1 (live
+  ingest, uploads first) then Phase 2 walks a `flood/gfm/backfill-state.json` cursor
+  province-major (index + the two rasters downloaded once per visit, months newest → oldest,
+  one STAC search per visit, one scoped `rclone copy` per visit only when the CLI exits 0/3) until
+  job start + 285 min; a failed copy / advance / state push leaves the cursor untouched and turns
+  the job red (a green job with unuploaded scenes would be permanent silent loss). ≈ 16
+  runner-hours/day → ≈ 25–30 days unattended
+- devops pre-gate (2026-09-14): go-with-constraints, +$0.038 / 0.066 / 0.115 per month
+  (2.5 / 4.25 / 7.5 GB, from 47 measured scenes = 7.1 MB, avg 151 KB in wet season, ~85 KB
+  year-round assumed); Class A ≈ 140k in the worst month, Class B ≪ 10M; **Actions minutes are
+  free only while the repo is public** — going private costs $173–230 for the backfill, so the
+  schedule must be disabled in the same change. Supersedes the F2-era 0.7 / 8.3 / 35 GB estimate
+- Follow-ups: write the **measured** post-backfill total (bytes, provinces done/failed) into
+  `docs/deploy.md` when the run finishes; a 10-year province index ≈ 640 entries ≈ 380 KB
+  uncompressed — measure the worst province and split recent/archive if it exceeds ~256 KB gz;
+  if the backfill-state download itself fails the summary prints "not run" (the `::error::`
+  names the cause)
 - Issue: _(not yet filed)_
 
 1. Every province index stays under ~300 KB.
