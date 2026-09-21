@@ -1236,7 +1236,15 @@ hydraulics stay excluded and the four scoping decisions in §0 are unchanged.
    popup click reads the file byte-for-byte (depth 65 cm, confidence 79). This closes the M6 clause
    "the timeline labels the gap between the chosen time and the scene's acquisition".
 
-#### E14.F6 — Backfill 2015 → now — *mechanism done* (2026-09-14), data run in progress
+#### E14.F6 — Backfill 2015 → now — *reverted* (2026-09-21, owner's call), was *mechanism done* (2026-09-14)
+- **Removed again on 2026-09-21**: the unattended Phase 2 is gone from `gfm-ingest.yml` (back to
+  `timeout-minutes: 45`, live ingest only) and `backfill --deadline --cursor-out --require-index`,
+  `backfill-plan`, `backfill-advance` and `tests/test_backfill.py` are gone from the CLI. What
+  stayed: the pre-F6 one-shot `backfill --from --to` (manual `workflow_dispatch`, `npm run
+  gfm:backfill`) and `merge_index`'s `IndexOverflowError` — that one is a data-honesty fix, not
+  backfill machinery. Scenes already backfilled stay on R2 under `aoi/{code}/flood/`; the orphaned
+  `flood/gfm/backfill-state.json` is not read or written by anything any more. Everything below is
+  the record of what F6 was, kept for whoever picks the problem up again
 - Touches (what actually shipped — "ops, no code" did not survive the numbers): `.github/workflows/gfm-ingest.yml`
   (Phase 2 "backfill until deadline" inside the same 6-hourly job, `timeout-minutes` 45 → 300),
   `apps/etl/gfm/gfm/cli.py` (`backfill --deadline --cursor-out` exit 0/3/1, `backfill-plan`,
@@ -1264,8 +1272,9 @@ hydraulics stay excluded and the four scoping decisions in §0 are unchanged.
   names the cause)
 - Issue: _(not yet filed)_
 
-1. Every province index stays under ~300 KB.
-2. Storage measured and written into the `docs/deploy.md` cost table.
+1. Every province index stays under ~300 KB. *(open — no longer gated by a backfill)*
+2. Storage measured and written into the `docs/deploy.md` cost table. *(moot: the ten-year run
+   never completed, so there is no post-backfill total to measure)*
 
 #### E14.F7 — Later: 30 m leaf flood tiles, wet band on buildings, FABDEM decision
 - Touches: — (not planned in detail; reuses the terrain pyramid `present` bitset)
