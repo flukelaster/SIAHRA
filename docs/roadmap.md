@@ -1243,8 +1243,15 @@ hydraulics stay excluded and the four scoping decisions in §0 are unchanged.
   stayed: the pre-F6 one-shot `backfill --from --to` (manual `workflow_dispatch`, `npm run
   gfm:backfill`) and `merge_index`'s `IndexOverflowError` — that one is a data-honesty fix, not
   backfill machinery. Scenes already backfilled stay on R2 under `aoi/{code}/flood/`; the orphaned
-  `flood/gfm/backfill-state.json` is not read or written by anything any more. Everything below is
-  the record of what F6 was, kept for whoever picks the problem up again
+  `flood/gfm/backfill-state.json` was deleted from R2 the same day, its contents recorded in
+  `docs/deploy.md` §1 first. Everything below is the record of what F6 was, kept for whoever picks
+  the problem up again
+- **What the run actually achieved before it was pulled** (2026-09-14T21:48Z → 2026-09-20T01:30Z):
+  12 of 77 provinces touched (codes 10–21), **10,415 scenes stored**, 8 marked done, 3 (16, 19, 20)
+  failed on `IndexOverflowError` at the 1,500-scene cap, 1 (21) mid-flight. Per-province scene
+  counts, index sizes and oldest scene are in `docs/deploy.md` §1. The `provinces[].scenes` counter
+  in the state file summed to 33,075 — that counts processing attempts across visits, not scenes
+  stored, and must not be quoted as a data volume
 - Touches (what actually shipped — "ops, no code" did not survive the numbers): `.github/workflows/gfm-ingest.yml`
   (Phase 2 "backfill until deadline" inside the same 6-hourly job, `timeout-minutes` 45 → 300),
   `apps/etl/gfm/gfm/cli.py` (`backfill --deadline --cursor-out` exit 0/3/1, `backfill-plan`,
@@ -1272,9 +1279,13 @@ hydraulics stay excluded and the four scoping decisions in §0 are unchanged.
   names the cause)
 - Issue: _(not yet filed)_
 
-1. Every province index stays under ~300 KB. *(open — no longer gated by a backfill)*
-2. Storage measured and written into the `docs/deploy.md` cost table. *(moot: the ten-year run
-   never completed, so there is no post-backfill total to measure)*
+1. Every province index stays under ~300 KB. **FAILED, and the failure is live**: the 12
+   backfilled provinces serve a 373–717 KB `index.json` (vs ~7 KB for an untouched province such
+   as 57), fetched on every province view under `max-age=300`. Removing Phase 2 stopped the growth,
+   it did not undo it. Open options: leave it, split recent/archive per the F6 follow-up, or drop
+   the backfilled scenes for those 12 provinces. Measured 2026-09-21, `docs/deploy.md` §1
+2. Storage measured and written into the `docs/deploy.md` cost table. *(done for what ran — there
+   is no ten-year total because the run covered 12 provinces of 77)*
 
 #### E14.F7 — Later: 30 m leaf flood tiles, wet band on buildings, FABDEM decision
 - Touches: — (not planned in detail; reuses the terrain pyramid `present` bitset)
