@@ -142,43 +142,23 @@ gh workflow run gfm-ingest.yml -f from=2024-09-01T00:00:00Z -f to=2024-10-01T00:
                                                                    # backfill ตามเวลาบันทึกภาพ — ไม่แตะ state.json
 gh run watch                                                       # step summary บอก items/scenes/lastError
 ```
-bootstrap ควรใช้ `since` สั้น ๆ (ไม่กี่วัน) หรือ backfill ทีละจังหวัด/ทีละปี — job นี้ใช้ `timeout-minutes: 300`
-มาตั้งแต่ E14.F6 (เดิม 45 นาที; เพดานขยับขึ้นเพื่อให้ Phase 2 ข้างล่างมีงบ 285 นาทีของตัวเอง ไม่ใช่เพราะ
-bootstrap/backfill one-shot ต้องการเวลามากขึ้น — ยังไม่มีการวัดใหม่ว่าความเสี่ยงชิดเพดานของ 31 วัน × 77 จังหวัด
-เปลี่ยนไปแค่ไหนที่เพดาน 300 นาที) (job ที่ timeout ไม่อัปอะไรและ state ไม่ขยับ จึงปลอดภัยแต่ไม่มีวันเสร็จ) วัดจริง
-bootstrap แรก (run 33617388500, 2026-09-02, ตอนเพดานยังเป็น 45 นาที): 85 item / 72 จังหวัด ใช้ ~35 นาที =
-plan 5 + ดาวน์โหลด 4 + pipeline 24 + อัป 1.5 — ชิดเพดานเดิม
+bootstrap ควรใช้ `since` สั้น ๆ (ไม่กี่วัน) หรือ backfill ทีละจังหวัด/ทีละปี — 31 วัน × 77 จังหวัดอาจเกิน timeout 45 นาที
+(job ที่ timeout ไม่อัปอะไรและ state ไม่ขยับ จึงปลอดภัยแต่ไม่มีวันเสร็จ) วัดจริง bootstrap แรก (run 33617388500,
+2026-09-02): 85 item / 72 จังหวัด ใช้ ~35 นาที = plan 5 + ดาวน์โหลด 4 + pipeline 24 + อัป 1.5 — ชิดเพดาน 45 นาที
 run นั้นเขียนไป 42 ฉากแต่ job แดงและ `/api/v1/health` โชว์ `copernicus-gfm` เป็น `down` (`fetchedAt: null`) เพราะ `plan`
 วาง AOI สาธิต `chiangmai-old-city` เป็นจังหวัด → `FileNotFoundError` → `lastError`; แก้แล้ว: `plan` นับเฉพาะโฟลเดอร์ชื่อ
 2 หลักที่มี `manifest.json` (`docs/dataset.md` §8) concurrency group `gfm-ingest` กันสอง run
 ชนกัน (รอ ไม่ cancel) และการรันซ้ำปลอดภัย: ฉากที่อยู่ใน `index.json` แล้วถูกข้าม, `--checksum` ไม่ put ของที่ไม่เปลี่ยน
 
-**Phase 2 — backfill 2015 → ปัจจุบัน (E14.F6)** ต่อท้าย Phase 1 ในงานเดียวกันเสมอ เมื่อ trigger เป็น `schedule`
-หรือ `workflow_dispatch` เปล่า (ไม่ใส่ `since`/`from`/`to` — ดิสแพตช์แบบมี `from`/`to` ยังเป็น backfill
-one-shot ตามเดิมและไม่เข้า Phase 2) **และ** Phase 1 ผ่านเท่านั้น วนเยี่ยมจังหวัดทีละหนึ่ง "visit" (จังหวัดเดียว
-หน้าต่าง `from..to` เดียว ค้น STAC ครั้งเดียว ประมวลผลฉาก**ใหม่สุดก่อน**) จนถึง deadline = job start + 285 นาที
-หยุดก่อนเริ่มฉากถัดไปเมื่อ now + 3×p95(เวลาต่อฉากที่วัดมาในรอบนี้ ปริยาย 60 วิ) > deadline (วัดจริงบน runner
-~35 วิ/ฉาก) ความคืบหน้าอยู่ใน `flood/gfm/backfill-state.json` (`docs/dataset.md` §8) — ไม่มีไฟล์ = สร้าง state
-ใหม่ (`to` ของทุกจังหวัดเริ่มที่ 2026-08-30T00:00:00Z ขอบบนของ live ingest รอบแรก, `from` คงที่ 2015-01-01)
-อ่านความคืบหน้าจาก step summary หัวข้อ "GFM backfill (E14.F6)": visits, STAC searches, raster bytes
-downloaded, scenes processed/skipped, bytes uploaded, cursor (จังหวัด + `to`), provinces done/failed —
-ถ้า state โหลดไม่สำเร็จ summary จะบอกว่า "state download failed" และ job แดง
+**ไม่มี backfill อัตโนมัติแล้ว (E14.F6 ถูกถอดออก 2026-09-21)** — job นี้ทำเฉพาะ live ingest (Phase 1)
+การเติมฉากย้อนหลังต้องสั่งเองทีละหน้าต่างด้วย `-f from -f to [-f provinces]` ข้างบน (ครั้งละไม่เกิน timeout
+45 นาที) หรือรัน `npm run gfm:backfill -w apps/etl` ในเครื่องแล้วอัปด้วย `rclone` เอง คีย์ `flood/gfm/backfill-state.json`
+บน R2 ไม่มีใครอ่านหรือเขียนอีกแล้ว (ปล่อยไว้ได้ ไม่กระทบอะไร — ลบเมื่อไรก็ได้ด้วย
+`rclone delete r2:siahra-geodata/flood/gfm/backfill-state.json`) ฉากที่ backfill ไปแล้วก่อนหน้านี้ยังอยู่ครบ
+เพราะอยู่ใน `aoi/{code}/flood/` ตามปกติ
 
-การเยี่ยมที่ล้ม (exit 1: โหลด raster/ค้น STAC ไม่ได้, ทุกฉากล้ม, index ล้น 1,500) นับใน
-`provinces[code].failures` พร้อม `lastError`; `failed` (ข้ามถาวร) ถูกตั้งเมื่อล้ม **3 ครั้งติด** เท่านั้น
-การเยี่ยมที่สำเร็จรีเซ็ตตัวนับ — STAC ล่มชั่วคราวจึงไม่ทิ้งจังหวัดนั้นทั้ง 11 ปี
-ล้าง `failed` ของจังหวัดหนึ่ง (เช่น `57`) เพื่อให้ plan รอบถัดไปลองใหม่:
-```bash
-rclone copyto r2:siahra-geodata/flood/gfm/backfill-state.json /tmp/bf.json
-jq '.provinces["57"].failed = null | .provinces["57"].failures = 0' /tmp/bf.json > /tmp/bf2.json
-rclone copyto /tmp/bf2.json r2:siahra-geodata/flood/gfm/backfill-state.json
-```
-รีเซ็ต backfill ทั้งหมด (ฉากเดิมไม่หาย — แต่ละจังหวัดข้ามฉากที่อยู่ใน `index.json` อยู่แล้วเมื่อ state วิ่งใหม่):
-```bash
-rclone delete r2:siahra-geodata/flood/gfm/backfill-state.json
-```
-**ห้ามเปลี่ยน repo เป็น private ระหว่าง schedule นี้ยังทำงานอยู่** — Actions minutes ฟรีเฉพาะ repo public
-(ดู "ค่าใช้จ่ายโดยประมาณ" ด้านล่าง) ถ้าจำเป็นต้องเปลี่ยนจริง ต้องปิด schedule ของ `gfm-ingest.yml` ในคอมมิตเดียวกัน
+Actions minutes ของ live ingest เหลือระดับไม่กี่นาทีต่อรัน (~120 รัน/เดือน) — ยังฟรีเฉพาะ repo **public**
+แต่ไม่ใช่ข้อบังคับระดับเดียวกับตอนมี backfill อีกต่อไป
 
 ## 2. Worker route สำหรับ tile (เขียนแล้ว — อยู่ที่ **siahra-web** ไม่ใช่ api)
 prefix `/aoi/` มีทั้ง manifest/overview ที่เป็น static asset (`apps/web/public/aoi/**`) และ tile `.bin`
@@ -351,14 +331,10 @@ E14.F2 (pipeline น้ำท่วม GFM ใน `apps/etl/gfm`) เพิ่�
 (COG ทั้ง 77 จังหวัด ≈ 0.94 GB, กรณีแย่ 1.5 GB) — `devops` ตรวจ diff แล้ว: **+$0.015/เดือน** ไม่มี DO, ไม่มี request
 path ใหม่ ตัวเลขล่วงหน้าที่ต้องถือไปงานถัดไป: F3 รันปกติ (cron ทุก 6 ชม.) ≈ **+$0.0125/เดือน ต่อหนึ่งปีของฉาก**
 ที่สะสม (ไบต์ gz แปรตามเซลล์ที่สังเกตได้ ไม่ใช่จำนวน frame — ฉากแห้งของเชียงราย 3.4 KB, ฉากท่วม 84 KB) ส่วน
-F6 backfill สิบปี ผ่าน `devops` แล้ว (E14.F6) โดยวัดจาก R2 จริง 2026-09-02: 47 ฉาก = 7.1 MB (เฉลี่ย 151 KB/ฉาก
-ในฤดูฝน — ฉากท่วม 172 KB, ฉากแห้ง 8.7 KB, สูงสุด 376 KB) → โมเดล ≈ 0.42 GB/ปี รวม backfill ทั้งก้อน
-≈ 2.5 / 4.25 / 7.5 GB (ต่ำ / คาด / สูง) = **+$0.038 / +$0.066 / +$0.115 ต่อเดือนถาวร** (ฉากไม่ถูกลบ);
-Class A ≈ 140k เดือนที่แย่สุด (ยังอยู่ในฟรี 1M), Class B ≪ 10M ฟรี; Actions minutes ฟรีเฉพาะตอน repo
-เป็น **public** (private จะอยู่ที่ประมาณ $173–230 สำหรับ backfill ทั้งก้อน — เงื่อนไขบังคับ: ถ้า repo
-เปลี่ยนเป็น private ต้องปิด schedule ของ `gfm-ingest.yml` ในคอมมิตเดียวกัน, `docs/deploy.md` §1)
-**ตัวเลขจริงหลัง backfill รันจบ (ไม่มีคนเฝ้า ~4 สัปดาห์): ยังไม่มีการวัด ณ ตอนที่เขียนนี้ — ต้องเขียนทับ
-บรรทัดนี้ด้วยตัวเลขจาก step summary ของรันจริงเมื่อ backfill เสร็จ**
+backfill อัตโนมัติสิบปี (E14.F6) **ถูกถอดออกแล้ว 2026-09-21** ประมาณการ +$0.038 / +$0.066 / +$0.115 ต่อเดือน
+ที่เคยผ่าน `devops` ไว้จึงไม่มีผล — ค่าที่เกิดจริงคือฉากที่ backfill ไปแล้วก่อนถอด (อยู่บน R2 ต่อไป ไม่ถูกลบ)
+บวกฉาก live ที่สะสมต่อไปเดือนละ ≈ +$0.0125 ต่อหนึ่งปีของฉาก ตัวเลขต่อฉากที่วัดจาก R2 จริง 2026-09-02 ยังใช้อ้างอิงได้:
+47 ฉาก = 7.1 MB (เฉลี่ย 151 KB/ฉากในฤดูฝน — ฉากท่วม 172 KB, ฉากแห้ง 8.7 KB, สูงสุด 376 KB) ≈ 0.42 GB/ปี
 
 E14.F3 (gfm-ingest, cron 17 */6 = ~120 runs/month): R2 Class A ≈ 1.1k expected / 4.2k high PUT per month, plus ≤ 18k
 ListObjects in the first month only (rclone copyto of an object that does not exist yet = HEAD + LIST; falls to 0 once
