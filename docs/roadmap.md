@@ -1279,11 +1279,15 @@ hydraulics stay excluded and the four scoping decisions in §0 are unchanged.
   names the cause)
 - Issue: _(not yet filed)_
 
-1. Every province index stays under ~300 KB. **FAILED, and the failure is live**: the 12
-   backfilled provinces serve a 373–717 KB `index.json` (vs ~7 KB for an untouched province such
-   as 57), fetched on every province view under `max-age=300`. Removing Phase 2 stopped the growth,
-   it did not undo it. Open options: leave it, split recent/archive per the F6 follow-up, or drop
-   the backfilled scenes for those 12 provinces. Measured 2026-09-21, `docs/deploy.md` §1
+1. Every province index stays under ~300 KB. **Holds in the unit that matters; the criterion was
+   written without one.** Measured 2026-09-21: the 12 backfilled provinces are 373–717 KB as raw
+   JSON but **31.6–55.7 KB gzipped** on the wire, against this task's own split trigger of
+   "~256 KB gz" — the worst province (21) is at 22% of it, so splitting recent/archive is not
+   warranted. An earlier version of this line called the criterion FAILED by comparing the
+   uncompressed size to a threshold stated in gz; that was a units error. What is real and
+   unmeasured is the client cost of `JSON.parse` on 373–717 KB and a 735–1,340 entry array per
+   province view (7.5 KB / 26 scenes for an untouched province). Per-province numbers in
+   `docs/deploy.md` §1
 2. Storage measured and written into the `docs/deploy.md` cost table. *(done for what ran — there
    is no ten-year total because the run covered 12 provinces of 77)*
 
