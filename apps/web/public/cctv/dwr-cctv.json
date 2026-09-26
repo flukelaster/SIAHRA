@@ -1,0 +1,4293 @@
+{
+  "sourceId": "dwr-cctv",
+  "builtAt": "2026-09-26T13:30:24.656Z",
+  "sourceUrl": "https://telemetry.dwr.go.th/api/public/reportCctv/listPaginate",
+  "probedAt": "2026-09-26T13:40:52.998Z",
+  "probeVantage": "fortinet-lan",
+  "cameras": [
+    {
+      "id": "000f7bfe-bbeb-4131-9ea3-6fd90f3e03c9",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานปากน้ำสิชล",
+      "nameEn": "Paknam Sichon Bridge",
+      "lat": 9.008779,
+      "lon": 99.890034,
+      "coordSource": "upstream",
+      "provinceCode": "80",
+      "owner": null,
+      "code": "TC191705",
+      "placeTh": "สิชล",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC191705",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "00552bc5-46d4-45a4-9e95-e9d32dfca007",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานบางสะพาน",
+      "nameEn": "Bang Saphan Bridge",
+      "lat": 11.240794,
+      "lon": 99.436204,
+      "coordSource": "upstream",
+      "provinceCode": "77",
+      "owner": null,
+      "code": "TA180807",
+      "placeTh": "บางสะพาน",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA180807",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "01463c94-68bb-4a25-866b-38e85ebe606f",
+      "sourceId": "dwr-cctv",
+      "nameTh": "เชิงสะพานสิงห์บุรี",
+      "nameEn": "ChoengSaphan Sing Buri",
+      "lat": 14.898926,
+      "lon": 100.40103,
+      "coordSource": "upstream",
+      "provinceCode": "17",
+      "owner": null,
+      "code": "TC100223",
+      "placeTh": "เมืองสิงห์บุรี",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC100223",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "02cff3f4-4bec-4bcf-b9fe-8680c8a67887",
+      "sourceId": "dwr-cctv",
+      "nameTh": "คลองท่าข้ามที่บ้านท่าข้าม",
+      "nameEn": "Tha Kham Canal at Ban Tha Kham",
+      "lat": 15.670621,
+      "lon": 99.663104,
+      "coordSource": "upstream",
+      "provinceCode": "60",
+      "owner": null,
+      "code": "TA110307",
+      "placeTh": "ลาดยาว",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA110307",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "02d84f27-be73-4ccf-b0a3-974c2800b065",
+      "sourceId": "dwr-cctv",
+      "nameTh": "แม่น้ำท่าจีนที่สะพานข้ามแม่น้ำท่าจีน (ทางหลวง 3365)",
+      "nameEn": "Tha Chin River at the Tha Chin River Bridge (Highway 3365)",
+      "lat": 14.751478,
+      "lon": 100.09594,
+      "coordSource": "upstream",
+      "provinceCode": "72",
+      "owner": null,
+      "code": "TA130208",
+      "placeTh": "สามชุก",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA130208",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "07d01627-8cf9-4357-b2ee-20d5588690b1",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานอาเส็น",
+      "nameEn": "Asen Bridge",
+      "lat": 6.4758727,
+      "lon": 101.12802,
+      "coordSource": "upstream",
+      "provinceCode": "95",
+      "owner": null,
+      "code": "TA210311",
+      "placeTh": "ยะหา",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA210311",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "09103034-c53b-43e8-ba9d-1d35c4f08e42",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานข้ามคลองห้วยแร้ง",
+      "nameEn": "Bridge over Khlong Huai Raeng",
+      "lat": 12.38189,
+      "lon": 102.54693,
+      "coordSource": "upstream",
+      "provinceCode": "23",
+      "owner": null,
+      "code": "TA170905",
+      "placeTh": "เมืองตราด",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA170905",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "0a863e60-15e3-4847-b260-91365d7ec644",
+      "sourceId": "dwr-cctv",
+      "nameTh": "ลำสนธิที่บ้านท่ายาง",
+      "nameEn": "Lam Sonthi at Ban Tha Yang",
+      "lat": 15.235926,
+      "lon": 101.238485,
+      "coordSource": "upstream",
+      "provinceCode": "16",
+      "owner": null,
+      "code": "TA120802",
+      "placeTh": "ชัยบาดาล",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA120802",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "0bf9f5a1-adc2-439a-bfd4-ea7684bb4736",
+      "sourceId": "dwr-cctv",
+      "nameTh": "โรงเรียนเทศบาล 4",
+      "nameEn": "Thetsaban 4 School",
+      "lat": 14.984564,
+      "lon": 102.09292,
+      "coordSource": "upstream",
+      "provinceCode": "30",
+      "owner": null,
+      "code": "TC050607",
+      "placeTh": "เมืองนครราชสีมา",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC050607",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "0e976e02-8381-4f6e-988a-81ecbed96fb9",
+      "sourceId": "dwr-cctv",
+      "nameTh": "คลองอู่ตะเภาตอนบนทุ่งลาน",
+      "nameEn": "Upper U-Tapao Canal, Thung Lan",
+      "lat": 6.856463,
+      "lon": 100.46416,
+      "coordSource": "upstream",
+      "provinceCode": "90",
+      "owner": null,
+      "code": "TA200303",
+      "placeTh": "คลองหอยโข่ง",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA200303",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "0f6bfb73-a0ef-45f4-bc7e-8925b77ea26c",
+      "sourceId": "dwr-cctv",
+      "nameTh": "วัดป่าประชาราษฎร์",
+      "nameEn": "Wat Pa Pracharat",
+      "lat": 16.09691,
+      "lon": 102.57006,
+      "coordSource": "upstream",
+      "provinceCode": "40",
+      "owner": null,
+      "code": "TA040905",
+      "placeTh": "มัญจาคีรี",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA040905",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "11ab94b3-acd2-41c1-8969-9de1ad240dac",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานปทุมธานี 2",
+      "nameEn": "Pathum Thani Bridge 2",
+      "lat": 13.965762,
+      "lon": 100.53591,
+      "coordSource": "upstream",
+      "provinceCode": "13",
+      "owner": null,
+      "code": "TC100224",
+      "placeTh": "เมืองปทุมธานี",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC100224",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "11ed9564-3968-40dd-a888-4b7a8fe4cc02",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานข้ามแม่น้ำจันทบุรี",
+      "nameEn": "Bridge over the Chanthaburi River",
+      "lat": 12.63654,
+      "lon": 102.13756,
+      "coordSource": "upstream",
+      "provinceCode": "22",
+      "owner": null,
+      "code": "TA170707",
+      "placeTh": "เมืองจันทบุรี",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA170707",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "14b258f3-bea6-4b84-8612-3ab91a032797",
+      "sourceId": "dwr-cctv",
+      "nameTh": "ตรงข้ามวัดจันทนาราม",
+      "nameEn": "Trongkham Wat Chanthana Ram",
+      "lat": 12.61389,
+      "lon": 102.1138,
+      "coordSource": "upstream",
+      "provinceCode": "22",
+      "owner": null,
+      "code": "TC170709",
+      "placeTh": "เมืองจันทบุรี",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC170709",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "18009fba-5819-4b20-a1f1-138913da1799",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานข้ามคลองกุย",
+      "nameEn": "Kui Canal Bridge",
+      "lat": 12.058692,
+      "lon": 99.857367,
+      "coordSource": "upstream",
+      "provinceCode": "77",
+      "owner": null,
+      "code": "TA180601",
+      "placeTh": "กุยบุรี",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA180601",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "18ab2cbb-523c-4eee-9310-8e08188ce95a",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานวัดนิโครธาราม",
+      "nameEn": "Wat Ni Khro Tha Ram Bridge",
+      "lat": 8.517804,
+      "lon": 98.633731,
+      "coordSource": "upstream",
+      "provinceCode": "82",
+      "owner": null,
+      "code": "TC220509",
+      "placeTh": "ทับปุด",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC220509",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "1b52ba58-7829-41ac-b0e6-ad99d74ae374",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานบ้านโรงเหล็ก",
+      "nameEn": "Ban Rong Lek Bridge",
+      "lat": 8.730994,
+      "lon": 99.746121,
+      "coordSource": "upstream",
+      "provinceCode": "80",
+      "owner": null,
+      "code": "TC191802",
+      "placeTh": "นบพิตำ",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC191802",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "210933ae-3844-4bcb-9aff-469974659fb9",
+      "sourceId": "dwr-cctv",
+      "nameTh": "แม่น้ำท่าจีนที่สะพานบุญรัตน์ประชานุวัฒน์",
+      "nameEn": "Tha Chin River at Boonrat Prachanuwat Bridge",
+      "lat": 13.723497,
+      "lon": 100.216,
+      "coordSource": "upstream",
+      "provinceCode": "73",
+      "owner": null,
+      "code": "TA130204",
+      "placeTh": "สามพราน",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA130204",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "2b0a946b-4381-4f96-bbc6-35ff21294288",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานพระพุทธยอดฟ้า",
+      "nameEn": "Phra Phuttha Yot Fa Bridge",
+      "lat": 13.738694,
+      "lon": 100.49633,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TA100220",
+      "placeTh": "ธนบุรี",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA100220",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "2b2b2f52-cb56-40d1-951c-f5cf8c4aa21e",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานพ่อขุนเม็งรายมหาราช",
+      "nameEn": "Pho Khun Mengrai Maharat Bridge",
+      "lat": 19.931188,
+      "lon": 99.772517,
+      "coordSource": "upstream",
+      "provinceCode": "57",
+      "owner": null,
+      "code": "TA020511",
+      "placeTh": "เมืองเชียงราย",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA020511",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "2fa4e4cb-170c-4884-b355-56f6846f5182",
+      "sourceId": "dwr-cctv",
+      "nameTh": "คลองนาท่อม",
+      "nameEn": "Khlong Na Thom",
+      "lat": 7.559121,
+      "lon": 99.987394,
+      "coordSource": "upstream",
+      "provinceCode": "93",
+      "owner": null,
+      "code": "TA200207",
+      "placeTh": "เมืองพัทลุง",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA200207",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "3454bf35-42b5-43c0-92e2-486ffedcbac1",
+      "sourceId": "dwr-cctv",
+      "nameTh": "บ้านท่าสะอาด",
+      "nameEn": "Ban Tha Sa-at",
+      "lat": 17.9556795,
+      "lon": 103.76599,
+      "coordSource": "upstream",
+      "provinceCode": "38",
+      "owner": null,
+      "code": "TC032103",
+      "placeTh": "เซกา",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC032103",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "35023031-938b-4c5a-9e35-9e943d6559e6",
+      "sourceId": "dwr-cctv",
+      "nameTh": "วัดน้ำอัตโนมัตินครพนม",
+      "nameEn": "Wat Nam Attanomat Nakhon Phanom",
+      "lat": 17.4251559,
+      "lon": 104.7737,
+      "coordSource": "upstream",
+      "provinceCode": "48",
+      "owner": null,
+      "code": "TC032905",
+      "placeTh": "เมืองนครพนม",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC032905",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "37a58044-e922-4774-80c4-858af3612432",
+      "sourceId": "dwr-cctv",
+      "nameTh": "วัดโคกจันทน์",
+      "nameEn": "Khok Chan Temple",
+      "lat": 15.108478,
+      "lon": 100.26741,
+      "coordSource": "upstream",
+      "provinceCode": "18",
+      "owner": null,
+      "code": "TA100214",
+      "placeTh": "สรรพยา",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA100214",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "39ee72cb-bf1f-4f96-9fc1-263d3b8f6c0a",
+      "sourceId": "dwr-cctv",
+      "nameTh": "ร.ร.อนุบาลบางสะพาน",
+      "nameEn": "Anuban BangSaphan School",
+      "lat": 11.205368,
+      "lon": 99.508264,
+      "coordSource": "upstream",
+      "provinceCode": "77",
+      "owner": null,
+      "code": "TC180805",
+      "placeTh": "บางสะพาน",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC180805",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "3be8da6c-c8c1-49c1-bcb2-7258d0170499",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานหลวงพ่อบุญเย็น",
+      "nameEn": "Luang Phor Bunyen Bridge",
+      "lat": 18.538138,
+      "lon": 98.926194,
+      "coordSource": "upstream",
+      "provinceCode": "51",
+      "owner": null,
+      "code": "TC060901",
+      "placeTh": "ป่าซาง",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC060901",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "3c42a6eb-ca39-41b4-b4d6-cea30ef92fc2",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานบ้านแจนแลน",
+      "nameEn": "Ban Jan Lan Bridge",
+      "lat": 15.432223,
+      "lon": 104.3239,
+      "coordSource": "upstream",
+      "provinceCode": "35",
+      "owner": null,
+      "code": "TA042706",
+      "placeTh": "ค้อวัง",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA042706",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "3c6fc0d8-5552-4a98-b860-d90ec0fc63f4",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานแม่น้ำสายบุรี",
+      "nameEn": "Sai Buri River Bridge",
+      "lat": 6.228078,
+      "lon": 101.49738,
+      "coordSource": "upstream",
+      "provinceCode": "96",
+      "owner": null,
+      "code": "TA210506",
+      "placeTh": "ศรีสาคร",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA210506",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "3d2c973f-3a37-4791-9f84-8c297e1ca424",
+      "sourceId": "dwr-cctv",
+      "nameTh": "วัดน้ำแม่น้ำโขง (MRC) โขงเจียม",
+      "nameEn": "Mekong River Temple (MRC) Khong Chiam",
+      "lat": 15.321902,
+      "lon": 105.4932,
+      "coordSource": "upstream",
+      "provinceCode": "34",
+      "owner": null,
+      "code": "TC033612",
+      "placeTh": "โขงเจียม",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC033612",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "3dd43c55-ea2b-4ad2-8b30-1989183c7129",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานฝ่ายท่าสามัคคี",
+      "nameEn": "Fai Tha Samakkhi Bridge",
+      "lat": 8.4680228,
+      "lon": 98.535218,
+      "coordSource": "upstream",
+      "provinceCode": "82",
+      "owner": null,
+      "code": "TC220510",
+      "placeTh": "เมืองพังงา",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC220510",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "3e55f300-3d80-4520-acfa-7a12c2a6bef9",
+      "sourceId": "dwr-cctv",
+      "nameTh": "คลองอู่ตะเภาตอนล่าง",
+      "nameEn": "Lower U-Tapao Canal",
+      "lat": 7.00208,
+      "lon": 100.45587,
+      "coordSource": "upstream",
+      "provinceCode": "90",
+      "owner": null,
+      "code": "TA200304",
+      "placeTh": "หาดใหญ่",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA200304",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "41f2d868-918d-47ce-9964-eaded6eb266a",
+      "sourceId": "dwr-cctv",
+      "nameTh": "ศาลากลางอ่างทอง",
+      "nameEn": "Ang Thong City Hall",
+      "lat": 14.59002,
+      "lon": 100.45375,
+      "coordSource": "upstream",
+      "provinceCode": "15",
+      "owner": null,
+      "code": "TA100217",
+      "placeTh": "เมืองอ่างทอง",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA100217",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "44fc6d19-d8ce-44ae-93bf-2adfd29239ea",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานบ้านหนองหญ้าปล้อง",
+      "nameEn": "Saphan Ban NongYaPlong",
+      "lat": 11.404099,
+      "lon": 99.519217,
+      "coordSource": "upstream",
+      "provinceCode": "77",
+      "owner": null,
+      "code": "TC180701",
+      "placeTh": "บางสะพาน",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC180701",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "4a255e61-eb8a-48e5-a17f-19887a19f015",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานธรรมรัชต์",
+      "nameEn": "Thammarat Bridge",
+      "lat": 12.408164,
+      "lon": 99.883292,
+      "coordSource": "upstream",
+      "provinceCode": "77",
+      "owner": null,
+      "code": "TA180404",
+      "placeTh": "ปราณบุรี",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA180404",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "4b3e1cdf-2d32-4f26-b2ff-1915bd92c42b",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานพระแม่ย่า",
+      "nameEn": "Phra Mae Ya Bridge",
+      "lat": 17.002894,
+      "lon": 99.831277,
+      "coordSource": "upstream",
+      "provinceCode": "64",
+      "owner": null,
+      "code": "TA081701",
+      "placeTh": "เมืองสุโขทัย",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA081701",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "4c64bb64-32db-4ab3-bb3a-8f2843307374",
+      "sourceId": "dwr-cctv",
+      "nameTh": "บ้านบางปี",
+      "nameEn": "Bang Pi House",
+      "lat": 14.794419,
+      "lon": 100.60588,
+      "coordSource": "upstream",
+      "provinceCode": "16",
+      "owner": null,
+      "code": "TA100216",
+      "placeTh": "เมืองลพบุรี",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA100216",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "4dc3cbc9-7e45-4f2f-a1c3-4b332fe11ddb",
+      "sourceId": "dwr-cctv",
+      "nameTh": "เชิงสะพานฉะเชิงเทรา",
+      "nameEn": "ChoengSaphan Chachoengsao",
+      "lat": 13.68868,
+      "lon": 101.0768,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": null,
+      "code": "TC151007",
+      "placeTh": "เมืองฉะเชิงเทรา",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC151007",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "4efde31f-21f6-4487-ba21-63abae0229d5",
+      "sourceId": "dwr-cctv",
+      "nameTh": "คลองท่าแนะ",
+      "nameEn": "Tha Nae Canal",
+      "lat": 7.743516,
+      "lon": 99.894059,
+      "coordSource": "upstream",
+      "provinceCode": "93",
+      "owner": null,
+      "code": "TA200208",
+      "placeTh": "ศรีบรรพต",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA200208",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "5037139b-443d-4fa7-8bb9-3d2c42697890",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานประชานิมิต",
+      "nameEn": "Prachanimit Bridge",
+      "lat": 18.945625,
+      "lon": 98.97523,
+      "coordSource": "upstream",
+      "provinceCode": "50",
+      "owner": null,
+      "code": "TA060503",
+      "placeTh": "แม่ริม",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA060503",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "54c76533-fbfe-4471-8cf1-3a48998ac7c5",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานข้ามแม่น้ำตราด",
+      "nameEn": "Bridge over the Trat River",
+      "lat": 12.26258,
+      "lon": 102.52712,
+      "coordSource": "upstream",
+      "provinceCode": "23",
+      "owner": null,
+      "code": "TA170907",
+      "placeTh": "เมืองตราด",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA170907",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "5502e892-d397-41c6-9504-fa43a09748f0",
+      "sourceId": "dwr-cctv",
+      "nameTh": "คลองตะโหมด (ท่าเชียด)",
+      "nameEn": "Khlong Tamode (Tha Chiat)",
+      "lat": 7.338375,
+      "lon": 100.10986,
+      "coordSource": "upstream",
+      "provinceCode": "93",
+      "owner": null,
+      "code": "TA200206",
+      "placeTh": "ตะโหมด",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA200206",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "582bfe8a-8597-4f45-82a4-5295e510ff11",
+      "sourceId": "dwr-cctv",
+      "nameTh": "เสลภูมิ",
+      "nameEn": "Selaphum",
+      "lat": 16.034122,
+      "lon": 103.90714,
+      "coordSource": "upstream",
+      "provinceCode": "45",
+      "owner": null,
+      "code": "TA042504",
+      "placeTh": "เสลภูมิ",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA042504",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "59d38cac-6614-4094-8dba-e4d72a137f49",
+      "sourceId": "dwr-cctv",
+      "nameTh": "อุทัยใหม่",
+      "nameEn": "Uthai Mai",
+      "lat": 15.411319,
+      "lon": 100.05767,
+      "coordSource": "upstream",
+      "provinceCode": "61",
+      "owner": null,
+      "code": "TA110604",
+      "placeTh": "เมืองอุทัยธานี",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA110604",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "5dcb0e71-a41e-4ef9-8e11-652b649c7566",
+      "sourceId": "dwr-cctv",
+      "nameTh": "แม่น้ำป่าสักที่ อ.เสาไห้",
+      "nameEn": "Pa Sak River at Sao Hai District",
+      "lat": 14.556145,
+      "lon": 100.856508,
+      "coordSource": "upstream",
+      "provinceCode": "19",
+      "owner": null,
+      "code": "TA121103",
+      "placeTh": "เสาไห้",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA121103",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "5fcaaacb-69c3-4c30-be55-b27bf24d7334",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานอนุสาวรีย์พระยารัษฏานุประดิษฐ์มหิศรภักดี",
+      "nameEn": "Phraya Ratsadanupradit Mahisornpakdee Monument Bridge",
+      "lat": 7.5645912,
+      "lon": 99.624306,
+      "coordSource": "upstream",
+      "provinceCode": "92",
+      "owner": null,
+      "code": "TC220904",
+      "placeTh": "เมืองตรัง",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC220904",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "6066b9d9-8673-4854-92d2-4beac78ec8bc",
+      "sourceId": "dwr-cctv",
+      "nameTh": "ลำชีบ้านละลูน",
+      "nameEn": "Lamchi Ban La Lun",
+      "lat": 14.875545,
+      "lon": 103.37886,
+      "coordSource": "upstream",
+      "provinceCode": "31",
+      "owner": null,
+      "code": "TA052303",
+      "placeTh": "กระสัง",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA052303",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "64c81d1c-2ed1-4bcf-b8e8-382f22397560",
+      "sourceId": "dwr-cctv",
+      "nameTh": "เสนา",
+      "nameEn": "Sena",
+      "lat": 14.327567,
+      "lon": 100.40481,
+      "coordSource": "upstream",
+      "provinceCode": "14",
+      "owner": null,
+      "code": "TC100222",
+      "placeTh": "เสนา",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC100222",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "6598fd87-90d3-4e12-948e-4762b4ea2581",
+      "sourceId": "dwr-cctv",
+      "nameTh": "เทศบาลเมืองเพชรบุรี",
+      "nameEn": "Phetchaburi Municipality",
+      "lat": 13.111411,
+      "lon": 99.948301,
+      "coordSource": "upstream",
+      "provinceCode": "76",
+      "owner": null,
+      "code": "TC180301",
+      "placeTh": "เมืองเพชรบุรี",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC180301",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "67113bac-7195-4acb-8476-a5c746995e26",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานปทุมธานี 1",
+      "nameEn": "Pathum Thani Bridge 1",
+      "lat": 14.025061,
+      "lon": 100.53942,
+      "coordSource": "upstream",
+      "provinceCode": "13",
+      "owner": null,
+      "code": "TA100219",
+      "placeTh": "เมืองปทุมธานี",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA100219",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "6cb2f48f-610d-47d8-993b-d89e7b18fab0",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานบ้านท่าคลอง",
+      "nameEn": "Ban Tha Khlong Bridge",
+      "lat": 8.112268,
+      "lon": 98.904501,
+      "coordSource": "upstream",
+      "provinceCode": "81",
+      "owner": null,
+      "code": "TC220512",
+      "placeTh": "เมืองกระบี่",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC220512",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "6f8c1db3-cd00-42c6-b044-50e07138d349",
+      "sourceId": "dwr-cctv",
+      "nameTh": "แม่น้ำวังที่บ้านแป้นโป่งชัย",
+      "nameEn": "Wang River at Ban Paen Pong Chai",
+      "lat": 18.669611,
+      "lon": 99.553917,
+      "coordSource": "upstream",
+      "provinceCode": "52",
+      "owner": null,
+      "code": "TA070301",
+      "placeTh": "แจ้ห่ม",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA070301",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "7322f040-c02e-4cc2-8fc4-feeb6843b6c4",
+      "sourceId": "dwr-cctv",
+      "nameTh": "ห้วยน้ำพุงที่ อ.หล่มเก่า",
+      "nameEn": "Huai Nam Phung at Lom Kao District",
+      "lat": 16.892359,
+      "lon": 101.21864,
+      "coordSource": "upstream",
+      "provinceCode": "67",
+      "owner": null,
+      "code": "TA120204",
+      "placeTh": "หล่มเก่า",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA120204",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "732f0bc7-7d51-4da8-ad3f-ff9b96b614dd",
+      "sourceId": "dwr-cctv",
+      "nameTh": "บ้านหาดเสลา",
+      "nameEn": "Ban Hat Salao",
+      "lat": 15.850749,
+      "lon": 100.05339,
+      "coordSource": "upstream",
+      "provinceCode": "60",
+      "owner": null,
+      "code": "TA063006",
+      "placeTh": "เก้าเลี้ยว",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA063006",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "737fcc91-97fd-4ae0-9733-57c4b195059f",
+      "sourceId": "dwr-cctv",
+      "nameTh": "อุทกวิทยาเชียงแสน",
+      "nameEn": "Chiang Saen hydrology",
+      "lat": 20.274181,
+      "lon": 100.08839,
+      "coordSource": "upstream",
+      "provinceCode": "57",
+      "owner": null,
+      "code": "TC020107",
+      "placeTh": "เชียงแสน",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC020107",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "7410ea3c-ed75-4836-baf0-6d343666fba5",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานศรีสัชนาลัย",
+      "nameEn": "Si Satchanalai Bridge",
+      "lat": 17.517405,
+      "lon": 99.758811,
+      "coordSource": "upstream",
+      "provinceCode": "64",
+      "owner": null,
+      "code": "TA081301",
+      "placeTh": "ศรีสัชนาลัย",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA081301",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "791b194f-c7a5-4df2-b1d4-a5d10d8801a3",
+      "sourceId": "dwr-cctv",
+      "nameTh": "บ้านป้อม",
+      "nameEn": "Ban Pom",
+      "lat": 14.368386,
+      "lon": 100.52908,
+      "coordSource": "upstream",
+      "provinceCode": "14",
+      "owner": null,
+      "code": "TA100218",
+      "placeTh": "พระนครศรีอยุธยา",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA100218",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "7cfc58ee-364f-4dd1-89fb-87f88cc5bde7",
+      "sourceId": "dwr-cctv",
+      "nameTh": "ศาลากลางสมุทรปราการ",
+      "nameEn": "Samut Prakan City Hall",
+      "lat": 13.59801,
+      "lon": 100.59622,
+      "coordSource": "upstream",
+      "provinceCode": "11",
+      "owner": null,
+      "code": "TA100221",
+      "placeTh": "เมืองสมุทรปราการ",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA100221",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "7e8bde64-c482-4703-aa7b-948f1d86dfc9",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานท่าแลงพัฒนา",
+      "nameEn": "Tha Lang Phatthana Bridge",
+      "lat": 12.948888,
+      "lon": 99.854665,
+      "coordSource": "upstream",
+      "provinceCode": "76",
+      "owner": null,
+      "code": "TA180304",
+      "placeTh": "ท่ายาง",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA180304",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "8162765d-970d-4ffa-bd55-43afd2b4bd09",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานเฉลิมพระเกียรติ ร.9 72 พรรษา",
+      "nameEn": "Chaloemphrakiat ro 9 72 Phansa Bridge",
+      "lat": 16.009518,
+      "lon": 100.368865,
+      "coordSource": "upstream",
+      "provinceCode": "66",
+      "owner": null,
+      "code": "TA092306",
+      "placeTh": "บางมูลนาก",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA092306",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "82406bf4-b432-4db5-8423-4bbb40360fd5",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานข้ามคลองประแสร์ที่คลองสะพานดำ",
+      "nameEn": "Bridge over Khlong Prasae at Khlong Saphan Dam",
+      "lat": 12.78338,
+      "lon": 101.65397,
+      "coordSource": "upstream",
+      "provinceCode": "21",
+      "owner": null,
+      "code": "TA170406",
+      "placeTh": "แกลง",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA170406",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "829096bd-d87b-49fe-b4b1-a6223a2053ba",
+      "sourceId": "dwr-cctv",
+      "nameTh": "บ้านท่าตูม",
+      "nameEn": "Ban Tha Tum",
+      "lat": 17.4822198,
+      "lon": 102.79682,
+      "coordSource": "upstream",
+      "provinceCode": "41",
+      "owner": null,
+      "code": "TC031506",
+      "placeTh": "เมืองอุดรธานี",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC031506",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "83125732-4f75-4856-8a4a-db150588409c",
+      "sourceId": "dwr-cctv",
+      "nameTh": "บันนังสตา",
+      "nameEn": "Bannang Sata",
+      "lat": 6.262527,
+      "lon": 101.26845,
+      "coordSource": "upstream",
+      "provinceCode": "95",
+      "owner": null,
+      "code": "TA210310",
+      "placeTh": "บันนังสตา",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA210310",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "867e042c-df18-48b2-bd3b-5f54db680f8c",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานดำรง",
+      "nameEn": "Damrong Bridge",
+      "lat": 7.891025,
+      "lon": 98.391663,
+      "coordSource": "upstream",
+      "provinceCode": "83",
+      "owner": null,
+      "code": "TC220605",
+      "placeTh": "เมืองภูเก็ต",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC220605",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "88f3e599-43f7-4f14-8b8f-e8926407fd49",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานเฉลิมพระเกียรติ",
+      "nameEn": "Chaloem Phra Kiat Bridge",
+      "lat": 18.280862,
+      "lon": 99.462715,
+      "coordSource": "upstream",
+      "provinceCode": "52",
+      "owner": null,
+      "code": "TA070502",
+      "placeTh": "เมืองลำปาง",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA070502",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "8a240ff8-4140-47a3-a8a3-381f5033bbf4",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานห้วยหลวงอนุสรณ์",
+      "nameEn": "Huai Luang Memorial Bridge",
+      "lat": 18.018211,
+      "lon": 103.07455,
+      "coordSource": "upstream",
+      "provinceCode": "43",
+      "owner": null,
+      "code": "TC031703",
+      "placeTh": "โพนพิสัย",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC031703",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "8d12a92a-6732-45b4-a9f8-e26ee6b716a0",
+      "sourceId": "dwr-cctv",
+      "nameTh": "วัดศรีชมภูองค์ตื้อ",
+      "nameEn": "Wat Sri Chomphu Ong Tue",
+      "lat": 17.8761898,
+      "lon": 102.57563,
+      "coordSource": "upstream",
+      "provinceCode": "43",
+      "owner": null,
+      "code": "TC031106",
+      "placeTh": "ท่าบ่อ",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC031106",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "8f06b12a-8136-4126-98eb-d4161fc0257b",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานบ้านบางระกำ",
+      "nameEn": "Ban Bang Rakam Bridge",
+      "lat": 16.761434,
+      "lon": 100.12078,
+      "coordSource": "upstream",
+      "provinceCode": "65",
+      "owner": null,
+      "code": "TA081902",
+      "placeTh": "บางระกำ",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA081902",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "9077cdf4-ab65-4c0f-a626-ac04a0ae1ebc",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานข้ามแม่น้ำเพชรบุรีที่ อบต.บางครก",
+      "nameEn": "The bridge over the Phetchaburi River at Bang Krok Subdistrict Administrative Organization",
+      "lat": 13.183788,
+      "lon": 99.949989,
+      "coordSource": "upstream",
+      "provinceCode": "76",
+      "owner": null,
+      "code": "TA180308",
+      "placeTh": "บ้านแหลม",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA180308",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "91264cb6-fc0b-4032-b5b5-cd1e4dd0bec2",
+      "sourceId": "dwr-cctv",
+      "nameTh": "ลำปลายมาศ",
+      "nameEn": "Lam Plai Mat",
+      "lat": 14.999306,
+      "lon": 102.81715,
+      "coordSource": "upstream",
+      "provinceCode": "31",
+      "owner": null,
+      "code": "TA051303",
+      "placeTh": "ลำปลายมาศ",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA051303",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "9183e404-9c24-44b6-9635-6457a82db2b4",
+      "sourceId": "dwr-cctv",
+      "nameTh": "แม่น้ำท่าจีนที่ท่าฉลอม",
+      "nameEn": "Tha Chin River at Tha Chalom",
+      "lat": 13.530655,
+      "lon": 100.26536,
+      "coordSource": "upstream",
+      "provinceCode": "74",
+      "owner": null,
+      "code": "TA130202",
+      "placeTh": "เมืองสมุทรสาคร",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA130202",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "91d6d36a-1b85-4957-89e0-acd868da1554",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สำนักงานส่วนอุทกหนองคาย",
+      "nameEn": "Nong Khai Hydrology Section",
+      "lat": 17.8775367,
+      "lon": 102.71678,
+      "coordSource": "upstream",
+      "provinceCode": "43",
+      "owner": null,
+      "code": "TC031203",
+      "placeTh": "เมืองหนองคาย",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC031203",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "939175cd-5039-4433-8687-179c108a1f65",
+      "sourceId": "dwr-cctv",
+      "nameTh": "แม่น้ำท่าจีนที่สะพานข้ามแม่น้ำท่าจีน 3",
+      "nameEn": "Tha Chin River at the Tha Chin River Bridge 3",
+      "lat": 13.5859,
+      "lon": 100.23125,
+      "coordSource": "upstream",
+      "provinceCode": "74",
+      "owner": null,
+      "code": "TA130203",
+      "placeTh": "เมืองสมุทรสาคร",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA130203",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "9442e1ab-2c74-44e6-ab91-668cb5f4eb93",
+      "sourceId": "dwr-cctv",
+      "nameTh": "บ้านเนินไผ่",
+      "nameEn": "Ban Nen Phai",
+      "lat": 15.327417,
+      "lon": 100.10897,
+      "coordSource": "upstream",
+      "provinceCode": "18",
+      "owner": null,
+      "code": "TA100213",
+      "placeTh": "มโนรมย์",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA100213",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "945d746f-bd07-4a38-9581-1f0e0ea8c945",
+      "sourceId": "dwr-cctv",
+      "nameTh": "บ้านโนนเชือก",
+      "nameEn": "Ban Non Chueak",
+      "lat": 15.732664,
+      "lon": 101.83,
+      "coordSource": "upstream",
+      "provinceCode": "36",
+      "owner": null,
+      "code": "TA040502",
+      "placeTh": "จัตุรัส",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA040502",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "94ed2b77-c965-44f4-bf94-d3f0d7bd691a",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สภ.เมืองสุราษฎร์ธานี",
+      "nameEn": "Muang Surat Thani Police Station",
+      "lat": 9.139033,
+      "lon": 99.320554,
+      "coordSource": "upstream",
+      "provinceCode": "84",
+      "owner": null,
+      "code": "TC191601",
+      "placeTh": "เมืองสุราษฎร์ธานี",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC191601",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "968ab0a0-fb1b-4825-ad3e-e2c7fdc2f153",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานท่าเสา",
+      "nameEn": "Tha Sao Bridge",
+      "lat": 17.643914,
+      "lon": 100.11663,
+      "coordSource": "upstream",
+      "provinceCode": "53",
+      "owner": null,
+      "code": "TA091501",
+      "placeTh": "เมืองอุตรดิตถ์",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA091501",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "98285606-3bcb-4187-bc3b-fa108a99bfaa",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานนครน่านพัฒนา",
+      "nameEn": "Nakhon Nan Phatthana Bridge",
+      "lat": 18.794827,
+      "lon": 100.79194,
+      "coordSource": "upstream",
+      "provinceCode": "55",
+      "owner": null,
+      "code": "TA090502",
+      "placeTh": "ภูเพียง",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA090502",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "98e9fef4-8968-485a-ad69-b7e02fb349b1",
+      "sourceId": "dwr-cctv",
+      "nameTh": "แม่น้ำเลย",
+      "nameEn": "Loei River",
+      "lat": 17.494783,
+      "lon": 101.73438,
+      "coordSource": "upstream",
+      "provinceCode": "42",
+      "owner": null,
+      "code": "TA030704",
+      "placeTh": "เมืองเลย",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA030704",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "9902f895-df9d-4032-abfd-ce591e780fb0",
+      "sourceId": "dwr-cctv",
+      "nameTh": "น้ำแม่ลี้ที่ อ.ลี้",
+      "nameEn": "Mae Lee River in Li District",
+      "lat": 17.805222,
+      "lon": 98.953139,
+      "coordSource": "upstream",
+      "provinceCode": "51",
+      "owner": null,
+      "code": "TA061206",
+      "placeTh": "ลี้",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA061206",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "9bbab163-969f-43a6-b5f0-b947dd2284ee",
+      "sourceId": "dwr-cctv",
+      "nameTh": "แม่น้ำป่าสักที่ อ.แก่งคอย",
+      "nameEn": "Pa Sak River at Kaeng Khoi District",
+      "lat": 14.592348,
+      "lon": 101.003913,
+      "coordSource": "upstream",
+      "provinceCode": "19",
+      "owner": null,
+      "code": "TA121102",
+      "placeTh": "แก่งคอย",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA121102",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "a1b4e2af-377c-4833-9c17-ec99d32ca89f",
+      "sourceId": "dwr-cctv",
+      "nameTh": "แม่น้ำท่าจีนที่สะพานหลวงพ่อเปิ่น",
+      "nameEn": "Tha Chin River at Luang Phor Pen Bridge",
+      "lat": 13.898843,
+      "lon": 100.21246,
+      "coordSource": "upstream",
+      "provinceCode": "73",
+      "owner": null,
+      "code": "TA130205",
+      "placeTh": "นครชัยศรี",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA130205",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "a6440c82-2c86-412b-8a45-bdfccfb4b62b",
+      "sourceId": "dwr-cctv",
+      "nameTh": "โรงสูบน้ำแรงต่ำแม่ข่าย หัวฝาย",
+      "nameEn": "Rong Sup Nam Raeng Tam Mae Khai Hua Fai",
+      "lat": 20.444646,
+      "lon": 99.871731,
+      "coordSource": "upstream",
+      "provinceCode": "57",
+      "owner": null,
+      "code": "TC020106",
+      "placeTh": "แม่สาย",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC020106",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "aad37442-4185-459f-8609-369435a02785",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานตลาดเชียรใหญ่",
+      "nameEn": "Chiang Yai Market Bridge",
+      "lat": 8.173895,
+      "lon": 100.14914,
+      "coordSource": "upstream",
+      "provinceCode": "80",
+      "owner": null,
+      "code": "TC191918",
+      "placeTh": "เชียรใหญ่",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC191918",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "acc67a4e-a1b1-44bf-b2be-70803dd4a040",
+      "sourceId": "dwr-cctv",
+      "nameTh": "น้ำแม่หาดที่บ้านโป่ง",
+      "nameEn": "Mae Hat River at Ban Pong",
+      "lat": 17.851028,
+      "lon": 98.746611,
+      "coordSource": "upstream",
+      "provinceCode": "50",
+      "owner": null,
+      "code": "TA061802",
+      "placeTh": "ดอยเต่า",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA061802",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "adda0c9e-6704-4272-ab53-48d6d790362d",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานข้ามแม่น้ำปัตตานี ที่ยะรัง",
+      "nameEn": "Bridge over the Pattani River at Yarang",
+      "lat": 6.776172,
+      "lon": 101.26653,
+      "coordSource": "upstream",
+      "provinceCode": "94",
+      "owner": null,
+      "code": "TA210313",
+      "placeTh": "ยะรัง",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA210313",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "aefd389b-9d8e-4137-9526-4bd23e3ce072",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานวัดท่าแพ",
+      "nameEn": "Tha Phae Temple Bridge",
+      "lat": 8.514587,
+      "lon": 99.952741,
+      "coordSource": "upstream",
+      "provinceCode": "80",
+      "owner": null,
+      "code": "TC191911",
+      "placeTh": "เมืองนครศรีธรรมราช",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC191911",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "b0f778e3-029f-418d-8024-e22e3004a3c9",
+      "sourceId": "dwr-cctv",
+      "nameTh": "4066-แม่น้ำสายบุรี",
+      "nameEn": "4066-Sai Buri River",
+      "lat": 6.479854,
+      "lon": 101.44526,
+      "coordSource": "upstream",
+      "provinceCode": "95",
+      "owner": null,
+      "code": "TA210507",
+      "placeTh": "รามัน",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA210507",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "b1635275-d7a1-42fa-b694-810bd5269b4a",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานมิตรภาพแม่นาวาง-ท่าตอน",
+      "nameEn": "Mae Na Wang-Tha ton Friendship Bridge",
+      "lat": 20.0504272,
+      "lon": 99.4070404,
+      "coordSource": "upstream",
+      "provinceCode": "50",
+      "owner": null,
+      "code": "TA020510",
+      "placeTh": "แม่อาย",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA020510",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "b351cab6-9beb-4408-8f20-1bd07c6b5b0b",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานข้ามคลองจันทบุรีที่วัดกระทิง",
+      "nameEn": "Bridge over Khlong Chanthaburi at Wat Krathing",
+      "lat": 12.79391,
+      "lon": 102.11273,
+      "coordSource": "upstream",
+      "provinceCode": "22",
+      "owner": null,
+      "code": "TA170706",
+      "placeTh": "เขาคิชฌกูฏ",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA170706",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "b805003a-b83a-4eca-a78a-0fd4321e4374",
+      "sourceId": "dwr-cctv",
+      "nameTh": "แม่น้ำป่าสักที่บ้านหนองแหวน",
+      "nameEn": "Pa Sak River at Ban Nong Waen",
+      "lat": 16.20944,
+      "lon": 101.138147,
+      "coordSource": "upstream",
+      "provinceCode": "67",
+      "owner": null,
+      "code": "TA120501",
+      "placeTh": "เมืองเพชรบูรณ์",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA120501",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ba6fda1b-3d2e-4577-b8f0-dfce9a0cd200",
+      "sourceId": "dwr-cctv",
+      "nameTh": "บ้านตาลปากน้ำ",
+      "nameEn": "Ban Tan Paknam",
+      "lat": 17.6435575,
+      "lon": 104.46243,
+      "coordSource": "upstream",
+      "provinceCode": "48",
+      "owner": null,
+      "code": "TC032703",
+      "placeTh": "ท่าอุเทน",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC032703",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "c0ead4ff-3b03-4bcd-8ab9-0d07b065bfdf",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานคีรีวง",
+      "nameEn": "Khiriwong Bridge",
+      "lat": 8.432485,
+      "lon": 99.782593,
+      "coordSource": "upstream",
+      "provinceCode": "80",
+      "owner": null,
+      "code": "TC191913",
+      "placeTh": "ลานสกา",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC191913",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "c14fae72-5023-4f62-8744-dca2d845bdf0",
+      "sourceId": "dwr-cctv",
+      "nameTh": "น้ำแม่ขานที่บ้านท่าเดื่อ",
+      "nameEn": "Mae Khan River at Ban Tha Duea",
+      "lat": 18.611986,
+      "lon": 98.851049,
+      "coordSource": "upstream",
+      "provinceCode": "50",
+      "owner": null,
+      "code": "TA061016",
+      "placeTh": "สันป่าตอง",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA061016",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "c3d98be6-dcc0-4858-a310-e92b9a44f730",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานคลองท่าวัง",
+      "nameEn": "Klong Tha Wang Bridge",
+      "lat": 8.4440952,
+      "lon": 99.959594,
+      "coordSource": "upstream",
+      "provinceCode": "80",
+      "owner": null,
+      "code": "TC191912",
+      "placeTh": "เมืองนครศรีธรรมราช",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC191912",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "c5b7ef87-fca4-4732-9efc-e33146032971",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานเฉลิมพระเกียรติ 48 พรรษา",
+      "nameEn": "Chaloemphrakiat 48 Phansa Bridge",
+      "lat": 16.515844,
+      "lon": 100.30841,
+      "coordSource": "upstream",
+      "provinceCode": "66",
+      "owner": null,
+      "code": "TA092102",
+      "placeTh": "เมืองพิจิตร",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA092102",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "c6955814-1852-4e87-ad72-28ce622bbbbf",
+      "sourceId": "dwr-cctv",
+      "nameTh": "วัดน้ำแม่น้ำโขง (MRC) เชียงคาน",
+      "nameEn": "Nam Khong Temple (MRC) Chiang Khan",
+      "lat": 17.8999116,
+      "lon": 101.67006,
+      "coordSource": "upstream",
+      "provinceCode": "42",
+      "owner": null,
+      "code": "TC030807",
+      "placeTh": "เชียงคาน",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC030807",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "c735c9c1-cec7-4f02-9450-4a2513ee3f22",
+      "sourceId": "dwr-cctv",
+      "nameTh": "แม่น้ำปิงที่บ้านบางแก้ว",
+      "nameEn": "Ping River at Ban Bang Kaeo",
+      "lat": 16.00075,
+      "lon": 99.865917,
+      "coordSource": "upstream",
+      "provinceCode": "60",
+      "owner": null,
+      "code": "TA063008",
+      "placeTh": "บรรพตพิสัย",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA063008",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "c7f0dd3d-9f02-4d37-ba58-f546bdbaa134",
+      "sourceId": "dwr-cctv",
+      "nameTh": "ห้วยทับเสลาที่บ้านนาไร่เดียว",
+      "nameEn": "Huai Thap Salao at Ban Na Rai Diao",
+      "lat": 15.450066,
+      "lon": 99.558096,
+      "coordSource": "upstream",
+      "provinceCode": "61",
+      "owner": null,
+      "code": "TA110403",
+      "placeTh": "ลานสัก",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA110403",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "d0a1bf63-f4cf-44a0-91cc-4aed634c410b",
+      "sourceId": "dwr-cctv",
+      "nameTh": "กมลาไสย",
+      "nameEn": "Kamalasai",
+      "lat": 16.340751,
+      "lon": 103.57659,
+      "coordSource": "upstream",
+      "provinceCode": "46",
+      "owner": null,
+      "code": "TA042403",
+      "placeTh": "กมลาไสย",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA042403",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "d29613c6-f066-43f7-9e60-24f305073532",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานเพชบุระ3",
+      "nameEn": "Phetchaburi Bridge 3",
+      "lat": 16.4302,
+      "lon": 101.163458,
+      "coordSource": "upstream",
+      "provinceCode": "67",
+      "owner": null,
+      "code": "TA120304",
+      "placeTh": "เมืองเพชรบูรณ์",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA120304",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "d47ce4f5-d0a8-4cd0-a314-04f0e68f4ea0",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สตึก",
+      "nameEn": "Satuek",
+      "lat": 15.299781,
+      "lon": 103.29208,
+      "coordSource": "upstream",
+      "provinceCode": "31",
+      "owner": null,
+      "code": "TA052203",
+      "placeTh": "สตึก",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA052203",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "d5956d03-0250-4394-a8ac-506de5ea86a8",
+      "sourceId": "dwr-cctv",
+      "nameTh": "แม่น้ำท่าจีนที่สะพานวัดพระรูป",
+      "nameEn": "Tha Chin River at Wat Phra Rup Bridge",
+      "lat": 14.47044,
+      "lon": 100.11515,
+      "coordSource": "upstream",
+      "provinceCode": "72",
+      "owner": null,
+      "code": "TA130207",
+      "placeTh": "เมืองสุพรรณบุรี",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA130207",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "d6ce0ed7-535c-4f9e-8ed5-796c5b096783",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานปรีดี-ธำรง",
+      "nameEn": "Pridi-Thamrong Bridge",
+      "lat": 14.35169,
+      "lon": 100.58076,
+      "coordSource": "upstream",
+      "provinceCode": "14",
+      "owner": null,
+      "code": "TA100222",
+      "placeTh": "พระนครศรีอยุธยา",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA100222",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "d8bf483e-38b8-43bd-9c93-5fb726732a7d",
+      "sourceId": "dwr-cctv",
+      "nameTh": "บ้านเหล่านกชุม",
+      "nameEn": "Lao Nok Chum House",
+      "lat": 16.36951,
+      "lon": 102.8816,
+      "coordSource": "upstream",
+      "provinceCode": "40",
+      "owner": null,
+      "code": "TA040906",
+      "placeTh": "เมืองขอนแก่น",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA040906",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "da00ab29-6829-41ff-8381-5188065c8e64",
+      "sourceId": "dwr-cctv",
+      "nameTh": "แม่น้ำป่าสักที่บ้านจางวาง",
+      "nameEn": "Pa Sak River at Ban Changwang",
+      "lat": 16.65049,
+      "lon": 101.213539,
+      "coordSource": "upstream",
+      "provinceCode": "67",
+      "owner": null,
+      "code": "TA120302",
+      "placeTh": "หล่มสัก",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA120302",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "db2aa2a0-638a-4f6a-8392-579288ee8650",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานสาธุกิจ",
+      "nameEn": "Sathukit Bridge",
+      "lat": 15.160753,
+      "lon": 100.05471,
+      "coordSource": "upstream",
+      "provinceCode": "18",
+      "owner": null,
+      "code": "TA130201",
+      "placeTh": "วัดสิงห์",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA130201",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "dc81159d-59f1-48f3-bd15-450e8028e14f",
+      "sourceId": "dwr-cctv",
+      "nameTh": "แม่น้ำตากแดดที่บ้านบุญลือ",
+      "nameEn": "Tak Daed River at Ban Bun Lue",
+      "lat": 15.452769,
+      "lon": 100.031898,
+      "coordSource": "upstream",
+      "provinceCode": "61",
+      "owner": null,
+      "code": "TA110609",
+      "placeTh": "เมืองอุทัยธานี",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA110609",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "dd9f962b-b274-4241-93b8-22460ea94487",
+      "sourceId": "dwr-cctv",
+      "nameTh": "น้ำแม่กวงที่ลำพูน",
+      "nameEn": "Mae Kuang River at Lamphun",
+      "lat": 18.582861,
+      "lon": 99.017,
+      "coordSource": "upstream",
+      "provinceCode": "51",
+      "owner": null,
+      "code": "TA060810",
+      "placeTh": "เมืองลำพูน",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA060810",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "dfbd3d3e-54b8-4da1-94e0-db85279bf382",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานท่านเจ้าฟ้า",
+      "nameEn": "Than Chao Fah Bridge",
+      "lat": 8.842965,
+      "lon": 98.363294,
+      "coordSource": "upstream",
+      "provinceCode": "82",
+      "owner": null,
+      "code": "TC220402",
+      "placeTh": "ตะกั่วป่า",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC220402",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "e05c7de2-a7e7-4645-b84c-70584435d306",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานบ้านสบแฝก",
+      "nameEn": "Ban Sop Faek Bridge",
+      "lat": 18.989416,
+      "lon": 98.961805,
+      "coordSource": "upstream",
+      "provinceCode": "50",
+      "owner": null,
+      "code": "TC060502",
+      "placeTh": "แม่ริม",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC060502",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "e7d5ccd7-a86e-4d4a-b225-9a1f857fddcf",
+      "sourceId": "dwr-cctv",
+      "nameTh": "แม่น้ำท่าจีนที่สะพานข้ามแม่น้ำท่าจีน (ทางหลวง 346)",
+      "nameEn": "Tha Chin River at the Tha Chin River Bridge (Highway 346)",
+      "lat": 14.015993,
+      "lon": 100.18,
+      "coordSource": "upstream",
+      "provinceCode": "73",
+      "owner": null,
+      "code": "TA130206",
+      "placeTh": "บางเลน",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA130206",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "e85d0be3-329d-4569-9192-6914e7825a7a",
+      "sourceId": "dwr-cctv",
+      "nameTh": "แม่น้ำวังที่บ้านแม่สลิด",
+      "nameEn": "Wang River at Ban Mae Salid",
+      "lat": 17.139417,
+      "lon": 99.101722,
+      "coordSource": "upstream",
+      "provinceCode": "63",
+      "owner": null,
+      "code": "TA071102",
+      "placeTh": "บ้านตาก",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA071102",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "e8916e69-dfff-432c-a4c7-b20d57e56ba0",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานบ้านนาลาน",
+      "nameEn": "Ban Na Lan Bridge",
+      "lat": 6.6252248,
+      "lon": 100.06116,
+      "coordSource": "upstream",
+      "provinceCode": "91",
+      "owner": null,
+      "code": "TC221203",
+      "placeTh": "เมืองสตูล",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC221203",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "e955b555-bde5-4ed7-80fe-11f17d6abfd3",
+      "sourceId": "dwr-cctv",
+      "nameTh": "4157-แม่น้ำสายบุรี",
+      "nameEn": "4157-Sai Buri River",
+      "lat": 6.7072,
+      "lon": 101.62211,
+      "coordSource": "upstream",
+      "provinceCode": "94",
+      "owner": null,
+      "code": "TA210508",
+      "placeTh": "สายบุรี",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA210508",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "eaf127f6-77a4-4415-af5a-c15eb280e1bb",
+      "sourceId": "dwr-cctv",
+      "nameTh": "อุบลราชธานี",
+      "nameEn": "Ubon Ratchathani",
+      "lat": 15.222944,
+      "lon": 104.85743,
+      "coordSource": "upstream",
+      "provinceCode": "34",
+      "owner": null,
+      "code": "TA054502",
+      "placeTh": "เมืองอุบลราชธานี",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA054502",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ec06a49c-a335-4e8d-a6cf-39a8aa0d1687",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานข้ามคลองใหญ่ที่ระยอง",
+      "nameEn": "Bridge over Khlong Yai in Rayong",
+      "lat": 12.68,
+      "lon": 101.29278,
+      "coordSource": "upstream",
+      "provinceCode": "21",
+      "owner": null,
+      "code": "TA170203",
+      "placeTh": "เมืองระยอง",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA170203",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "f0d7ef3f-40c8-444a-a2fc-829513ffe371",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานข้ามคลองนาเกลือ",
+      "nameEn": "Bridge over Na Kluea Canal",
+      "lat": 12.97109,
+      "lon": 100.9112,
+      "coordSource": "upstream",
+      "provinceCode": "20",
+      "owner": null,
+      "code": "TA170102",
+      "placeTh": "บางละมุง",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA170102",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "f215c0f2-8a6b-4d3b-b84a-69ad3f431fdc",
+      "sourceId": "dwr-cctv",
+      "nameTh": "วัดเกาะวาลุการาม",
+      "nameEn": "Ko Walukaram Temple",
+      "lat": 18.2920239,
+      "lon": 99.497634,
+      "coordSource": "upstream",
+      "provinceCode": "52",
+      "owner": null,
+      "code": "TC070301",
+      "placeTh": "เมืองลำปาง",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC070301",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "f22e5a78-0cfa-4e79-83d5-71cf62709004",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานบ่อน้ำร้อน",
+      "nameEn": "Bonamron Bridge",
+      "lat": 9.9583622,
+      "lon": 98.648577,
+      "coordSource": "upstream",
+      "provinceCode": "85",
+      "owner": null,
+      "code": "TC220303",
+      "placeTh": "เมืองระนอง",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TC220303",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "f37d5a51-b91f-491f-86ea-72820fe202af",
+      "sourceId": "dwr-cctv",
+      "nameTh": "ลำน้ำก่ำ",
+      "nameEn": "Lam Nam Kam",
+      "lat": 16.957476,
+      "lon": 104.50442,
+      "coordSource": "upstream",
+      "provinceCode": "48",
+      "owner": null,
+      "code": "TA033103",
+      "placeTh": "นาแก",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA033103",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "f7e509d8-7d7c-4504-8960-181ec1821031",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานบ้านโพทะเล",
+      "nameEn": "Ban Pho Thale Bridge",
+      "lat": 16.094695,
+      "lon": 100.260153,
+      "coordSource": "upstream",
+      "provinceCode": "66",
+      "owner": null,
+      "code": "TA081903",
+      "placeTh": "โพทะเล",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA081903",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "f873ada7-e296-4448-918c-035b7fcef734",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานสุพรรณกัลยา",
+      "nameEn": "Suphankalaya Bridge",
+      "lat": 16.806748,
+      "lon": 100.24548,
+      "coordSource": "upstream",
+      "provinceCode": "65",
+      "owner": null,
+      "code": "TA092101",
+      "placeTh": "เมืองพิษณุโลก",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA092101",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "f8d51f79-1369-4f84-8ef0-bd6b162189b8",
+      "sourceId": "dwr-cctv",
+      "nameTh": "บ้านยางมณี",
+      "nameEn": "Ban Yangmanee",
+      "lat": 14.73518,
+      "lon": 100.4151,
+      "coordSource": "upstream",
+      "provinceCode": "15",
+      "owner": null,
+      "code": "TA100215",
+      "placeTh": "โพธิ์ทอง",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA100215",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "fb9cffa1-a926-4ea0-b809-22b92ed97531",
+      "sourceId": "dwr-cctv",
+      "nameTh": "ห้วยน้ำสวย",
+      "nameEn": "Huai Nam Suay",
+      "lat": 17.682652,
+      "lon": 102.78463,
+      "coordSource": "upstream",
+      "provinceCode": "43",
+      "owner": null,
+      "code": "TA031322",
+      "placeTh": "สระใคร",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA031322",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "empty",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "fcc3d567-f267-4125-8e29-09519ce1d560",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานอุดมศักดิ์",
+      "nameEn": "Udomsak Bridge",
+      "lat": 11.500956,
+      "lon": 99.609156,
+      "coordSource": "upstream",
+      "provinceCode": "77",
+      "owner": null,
+      "code": "TA180704",
+      "placeTh": "ทับสะแก",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA180704",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "fd0cb1b8-0286-4cb4-bd66-7d23cff101d8",
+      "sourceId": "dwr-cctv",
+      "nameTh": "สะพานท่าสรง",
+      "nameEn": "Tha Song Bridge",
+      "lat": 13.099392,
+      "lon": 99.948934,
+      "coordSource": "upstream",
+      "provinceCode": "76",
+      "owner": null,
+      "code": "TA180307",
+      "placeTh": "เมืองเพชรบุรี",
+      "streams": [
+        {
+          "kind": "dwr-snapshot",
+          "label": null,
+          "captureTime": "path",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "dwr-mjpeg",
+          "stationCode": "TA180307",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    }
+  ]
+}

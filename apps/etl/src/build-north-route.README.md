@@ -64,7 +64,7 @@ Rebuild both together; never hand-edit either.
    The Chao Phraya diversion dam is **not** in ThaiWater's `analyst/dam`, so it is not listed; C.13
    (directly below it) carries its outflow.
 6. **Provinces**: `upstreamProvinceCodes` = the provinces the reach's line passes through, in order,
-   by point-in-polygon against `apps/web/public/aoi/{code}/boundary.geojson` (the `build-cctv.ts`
+   by point-in-polygon against `apps/web/public/aoi/{code}/boundary.geojson` (the `provincePolygons.ts`
    loader); each station's `provinceCode` likewise (null if it falls in none — never guessed).
 
 ## What this layer is

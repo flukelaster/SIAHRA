@@ -16,7 +16,7 @@ import {
   type LonLat,
   type RouteSource,
 } from "./build-north-route.js";
-import type { ProvincePolygon } from "./build-cctv.js";
+import type { ProvincePolygon } from "./provincePolygons.js";
 
 /**
  * เรขาคณิตสังเคราะห์ทั้งหมด (ไม่ใช่ลำน้ำจริง): "แม่น้ำ" สองสายวิ่งตามเส้นลองจิจูด/ละติจูด

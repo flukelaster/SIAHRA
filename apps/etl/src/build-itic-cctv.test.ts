@@ -1,14 +1,8 @@
 import { describe, expect, it } from "vitest";
-import {
-  buildCatalogue,
-  classifyHlsUrl,
-  classifyJpegUrl,
-  FEED_URL,
-  parseFeed,
-  parseFeedItem,
-  serializeCatalogue,
-} from "./build-itic-cctv.js";
-import { CREDENTIAL_PATTERN, type ProvincePolygon } from "./provincePolygons.js";
+import { buildCameras, classifyHlsUrl, classifyJpegUrl, FEED_URL, parseFeed, parseFeedItem, SOURCE_ID } from "./build-itic-cctv.js";
+import { assembleCatalogue, NOT_PROBED, serializeCatalogue } from "./cameraCatalogue.js";
+import { PROVINCES } from "./cameraCatalogue.testUtils.js";
+import { CREDENTIAL_PATTERN } from "./provincePolygons.js";
 
 /**
  * fixture แต่งขึ้นทั้งหมด — รูปเดียวกับ feed จริงของ Longdo (ตรวจ 2026-09-26) รวมฟิลด์ที่
@@ -37,23 +31,7 @@ const entry = (over: Record<string, unknown>) => ({
   ...over,
 });
 
-const PROVINCES: ProvincePolygon[] = [
-  {
-    code: "99",
-    geometry: {
-      type: "Polygon",
-      coordinates: [
-        [
-          [100, 13],
-          [101, 13],
-          [101, 14],
-          [100, 14],
-          [100, 13],
-        ],
-      ],
-    },
-  },
-];
+const META = { builtAt: "2026-09-26T00:00:00.000Z", sourceUrl: FEED_URL, probedAt: null, probeVantage: null };
 
 describe("classifyHlsUrl", () => {
   it("keeps only camerai1 playlists that are not the suspended placeholder", () => {
@@ -114,8 +92,8 @@ describe("build-itic-cctv projection", () => {
     expect(parseFeedItem({ title: "no camid" })).toBeNull();
   });
 
-  it("projects the allowlist only and counts every drop reason", () => {
-    const { catalogue, stats } = buildCatalogue(
+  it("projects the allowlist only, starts every stream not-probed, and counts every drop reason", () => {
+    const { cameras, stats } = buildCameras(
       [
         entry({ camid: "B", latitude: "13.5", longitude: "100.5" }),
         entry({ camid: "A", latitude: 15, longitude: 102, organization: "iTIC Motion", hls_url: "https://camerai1.iticfoundation.org/hls/kk08.m3u8" }),
@@ -133,7 +111,6 @@ describe("build-itic-cctv projection", () => {
         { title: "malformed" },
       ],
       PROVINCES,
-      "2026-09-26T00:00:00.000Z",
     );
     expect(stats).toEqual({
       total: 13,
@@ -153,36 +130,46 @@ describe("build-itic-cctv projection", () => {
       noCoords: 2,
       noProvince: 1,
     });
-    expect(catalogue.sourceUrl).toBe(FEED_URL);
-    expect(catalogue.cameras).toEqual([
+    const base = {
+      sourceId: SOURCE_ID,
+      nameTh: "(จ.ทดสอบ) 4 - อ.เมือง มุ่งหน้า จ.ทดสอบ",
+      nameEn: null,
+      coordSource: "upstream",
+      code: null,
+      placeTh: null,
+    };
+    // ลำดับตามที่ feed ให้มา — `writeCatalogue` เป็นคนเรียงตาม id
+    expect(cameras).toEqual([
       {
+        ...base,
+        id: "B",
+        lat: 13.5,
+        lon: 100.5,
+        owner: "กรมทางหลวง",
+        provinceCode: "99",
+        streams: [{ kind: "hls", url: DOH_HLS, label: null, captureTime: "none", probe: NOT_PROBED }],
+      },
+      {
+        ...base,
         id: "A",
-        name: "(จ.ทดสอบ) 4 - อ.เมือง มุ่งหน้า จ.ทดสอบ",
         lat: 15,
         lon: 102,
-        organization: "iTIC Motion",
-        stream: { kind: "hls", url: "https://camerai1.iticfoundation.org/hls/kk08.m3u8" },
+        owner: "iTIC Motion",
         provinceCode: null,
+        streams: [{ kind: "hls", url: "https://camerai1.iticfoundation.org/hls/kk08.m3u8", label: null, captureTime: "none", probe: NOT_PROBED }],
       },
       {
-        id: "B",
-        name: "(จ.ทดสอบ) 4 - อ.เมือง มุ่งหน้า จ.ทดสอบ",
-        lat: 13.5,
-        lon: 100.5,
-        organization: "กรมทางหลวง",
-        stream: { kind: "hls", url: DOH_HLS },
-        provinceCode: "99",
-      },
-      {
+        ...base,
         id: "J",
-        name: "(จ.ทดสอบ) 4 - อ.เมือง มุ่งหน้า จ.ทดสอบ",
         lat: 13.5,
         lon: 100.5,
-        organization: "กรมทางหลวง",
-        stream: { kind: "jpeg", url: BKK_JPEG },
+        owner: "กรมทางหลวง",
         provinceCode: "99",
+        streams: [{ kind: "jpeg", url: BKK_JPEG, label: null, captureTime: "burned-in", probe: NOT_PROBED }],
       },
     ]);
+    const { catalogue } = assembleCatalogue(SOURCE_ID, cameras, META);
+    expect(catalogue.cameras.map((c) => c.id)).toEqual(["A", "B", "J"]);
     const json = serializeCatalogue(catalogue);
     for (const needle of ["mjpeg", "jpeg.cgi", "/hls/10.8.0", "X.X.X.X", "CAMPK", "sponsertext", "lastupdate", "banner"]) {
       expect(json).not.toContain(needle);
@@ -196,23 +183,28 @@ describe("build-itic-cctv projection", () => {
     expect(CREDENTIAL_PATTERN.test(DOH_HLS)).toBe(false);
   });
 
-  it("refuses to serialize anything matching the credential pattern", () => {
-    const leaked = {
-      builtAt: "x",
-      sourceUrl: "x",
-      cameras: [
+  it("the shared writer refuses a userinfo url without quoting it", () => {
+    const { catalogue } = assembleCatalogue(
+      SOURCE_ID,
+      [
         {
           id: "x",
-          name: "a",
+          sourceId: SOURCE_ID,
+          nameTh: "a",
+          nameEn: null,
           lat: 0,
           lon: 0,
-          organization: null,
-          stream: { kind: "hls" as const, url: "https://user:pass@camerai1.iticfoundation.org/x.m3u8" },
+          coordSource: "upstream",
           provinceCode: null,
+          owner: null,
+          code: null,
+          placeTh: null,
+          streams: [{ kind: "hls", url: "https://user:pass@camerai1.iticfoundation.org/x.m3u8", label: null, captureTime: "none", probe: NOT_PROBED }],
         },
       ],
-    };
-    expect(() => serializeCatalogue(leaked)).toThrow(/credential pattern/);
-    expect(() => serializeCatalogue(leaked)).not.toThrow(/user|pass@/);
+      META,
+    );
+    expect(() => serializeCatalogue(catalogue)).toThrow(/userinfo/);
+    expect(() => serializeCatalogue(catalogue)).not.toThrow(/user:pass|pass@/);
   });
 });

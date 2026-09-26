@@ -37,7 +37,7 @@ import type {
   NorthRouteStation,
   NorthRouteTopology,
 } from "@siahra/shared-types";
-import { loadProvincePolygons, type ProvincePolygon } from "./build-cctv.js";
+import { loadProvincePolygons, type ProvincePolygon } from "./provincePolygons.js";
 import { fetchThailandOsm } from "./fetchOsm.js";
 
 const THAIWATER = "https://api-v3.thaiwater.net/api/v1/thaiwater30";

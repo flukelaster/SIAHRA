@@ -1,0 +1,4309 @@
+{
+  "sourceId": "itic-cctv",
+  "builtAt": "2026-09-26T13:25:19.805Z",
+  "sourceUrl": "https://camera.longdo.com/feed/?command=json",
+  "probedAt": "2026-09-26T13:25:43.786Z",
+  "probeVantage": "fortinet-lan",
+  "cameras": [
+    {
+      "id": "DOH-PER-10-002",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.หนองคาย) 211 - อ.ท่าบ่อ จ.หนองคาย ทิศทางมุ่งหน้าเข้า จ.หนองคาย",
+      "nameEn": null,
+      "lat": 17.878553,
+      "lon": 102.583576,
+      "coordSource": "upstream",
+      "provinceCode": "43",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_002.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-10-004",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.นครพนม) 223 - อ.นาแก จ.นครพนม ทิศทางมุ่งหน้าเข้า จ.สกลนคร",
+      "nameEn": null,
+      "lat": 16.95636,
+      "lon": 104.458738,
+      "coordSource": "upstream",
+      "provinceCode": "48",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_004.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-10-006",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.หนองบัวลำภู) 210 - อ.เมืองหนองบัวลำภู จ.หนองบัวลำภู ทิศทางมุ่งหน้าเข้า จ.หนองบัวลำภู",
+      "nameEn": null,
+      "lat": 17.266887,
+      "lon": 102.333378,
+      "coordSource": "upstream",
+      "provinceCode": "39",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_006.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-10-007",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.กาฬสินธุ์) 214 - อ.เมืองกาฬสินธุ์ จ.กาฬสินธุ์ ทิศทางมุ่งหน้าเข้า จ.กาฬสินธุ์",
+      "nameEn": null,
+      "lat": 16.37846,
+      "lon": 103.549727,
+      "coordSource": "upstream",
+      "provinceCode": "46",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_007.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-10-010",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.สระแก้ว) 33- อ.เมือง จ.สระแก้ว ทิศทางมุ่งหน้าเข้า จ.ปราจีนบุรี",
+      "nameEn": null,
+      "lat": 13.903087,
+      "lon": 101.976211,
+      "coordSource": "upstream",
+      "provinceCode": "27",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_010.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-10-011",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.สระบุรี) 1 - อ.พระพุทธบาท จ.สระบุรี ทิศทางมุ่งหน้าเข้า จ.สระบุรี",
+      "nameEn": null,
+      "lat": 14.751395,
+      "lon": 100.743662,
+      "coordSource": "upstream",
+      "provinceCode": "19",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_011.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-10-012",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ลพบุรี) 205 - อ.ชัยบาดาล จ.ลพบุรี ทิศทางมุ่งหน้าเข้า จ.ลพบุรี",
+      "nameEn": null,
+      "lat": 15.226901,
+      "lon": 101.152119,
+      "coordSource": "upstream",
+      "provinceCode": "16",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_012.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-10-013",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.นครสวรรค์) 1 - อ.บรรพตพิสัย จ.นครสวรรค์ ทิศทางมุ่งหน้าเข้า จ.นครสวรรค์",
+      "nameEn": null,
+      "lat": 15.955757,
+      "lon": 99.846883,
+      "coordSource": "upstream",
+      "provinceCode": "60",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_013.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-10-031",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.เพชรบุรี) 37 - อ.ชะอำ จ.เพชรบุรี ทิศทางมุ่งหน้าเข้า อ.ชะอำ (จ.เพชรบุรี)",
+      "nameEn": null,
+      "lat": 12.743208,
+      "lon": 99.929972,
+      "coordSource": "upstream",
+      "provinceCode": "76",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_031.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-10-032",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ราชบุรี) 4 - อ.โพธาราม จ.ราชบุรี ทิศทางมุ่งหน้าเข้า จ.นครปฐม",
+      "nameEn": null,
+      "lat": 13.75699,
+      "lon": 99.925495,
+      "coordSource": "upstream",
+      "provinceCode": "70",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_032.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-10-033",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ราชบุรี) 4 - อ.ปากท่อ จ.ราชบุรี ทิศทางมุ่งหน้าเข้า จ.ราชบุรี",
+      "nameEn": null,
+      "lat": 13.415702,
+      "lon": 99.810252,
+      "coordSource": "upstream",
+      "provinceCode": "70",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_033.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-11-001",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.มุกดาหาร) 212 - อ.เมืองมุกดาหาร จ.มุกดาหาร",
+      "nameEn": null,
+      "lat": 16.685221,
+      "lon": 104.660819,
+      "coordSource": "upstream",
+      "provinceCode": "49",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_001.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-11-002",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ชัยภูมิ) 201 - อ.ชุมแพ จ.ขอนแก่น",
+      "nameEn": null,
+      "lat": 16.442999,
+      "lon": 102.125361,
+      "coordSource": "upstream",
+      "provinceCode": "36",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_002.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-11-003",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ขอนแก่น) 229 - อ.บ้านไผ่ จ.ขอนแก่น",
+      "nameEn": null,
+      "lat": 16.068029,
+      "lon": 102.679967,
+      "coordSource": "upstream",
+      "provinceCode": "40",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_003.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-11-004",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.มหาสารคาม) 23 - อ.บรบือ จ.มหาสารคาม ทิศทางมุ่งหน้าเข้า อ.บ้านไผ่ จ.ขอนแก่น",
+      "nameEn": null,
+      "lat": 16.0551402,
+      "lon": 103.019189,
+      "coordSource": "upstream",
+      "provinceCode": "44",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_004.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-11-006",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.มหาสารคาม) 213 - อ.เมืองมหาสารคาม จ.มหาสารคาม",
+      "nameEn": null,
+      "lat": 16.340556,
+      "lon": 103.314581,
+      "coordSource": "upstream",
+      "provinceCode": "44",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_006.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-11-007",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.นครราชสีมา) 2 - อ.เมืองนครราชสีมา จ.นครราชสีมา ทิศทางมุ่งหน้าเข้า จ.สระบุรี",
+      "nameEn": null,
+      "lat": 14.893386,
+      "lon": 101.88634,
+      "coordSource": "upstream",
+      "provinceCode": "30",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_007_IN.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-11-007-out",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.นครราชสีมา) 2 - อ.เมืองนครราชสีมา จ.นครราชสีมา ทิศทางมุ่งหน้าเข้า จ.ขอนแก่น",
+      "nameEn": null,
+      "lat": 14.893585999999999,
+      "lon": 101.88634,
+      "coordSource": "upstream",
+      "provinceCode": "30",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_007_OUT.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-11-008",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.บุรีรัมย์) 24 - อ.เมืองนครราชสีมา จ.นครราชสีมา ทิศทางมุ่งหน้าเข้า จ.นครราชสีมา",
+      "nameEn": null,
+      "lat": 14.6074,
+      "lon": 102.990236,
+      "coordSource": "upstream",
+      "provinceCode": "31",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_008.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-11-009",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.บุรีรัมย์) 226 - อ.บุรีรัมย์ จ.บุรีรัมย์",
+      "nameEn": null,
+      "lat": 15.007949,
+      "lon": 102.990236,
+      "coordSource": "upstream",
+      "provinceCode": "31",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_009.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-11-018-out",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.สิงห์บุรี) 32 - อ.พรหมบุรี จ.สิงห์บุรี ทิศทางมุ่งหน้าเข้า จ.สิงห์บุรี",
+      "nameEn": null,
+      "lat": 14.847595,
+      "lon": 100.445785,
+      "coordSource": "upstream",
+      "provinceCode": "17",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_018_OUT.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-11-020",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.สุพรรณบุรี) 33 - อ.เมืองสุพรรณบุรี จ.สุพรรณบุรี",
+      "nameEn": null,
+      "lat": 14.4627,
+      "lon": 100.1994,
+      "coordSource": "upstream",
+      "provinceCode": "72",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_020.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-11-022",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.กาญจนบุรี) 324 - อ.พนมทวน จ.กาญจนบุรี",
+      "nameEn": null,
+      "lat": 14.1194,
+      "lon": 99.68241,
+      "coordSource": "upstream",
+      "provinceCode": "71",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_022.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-11-026",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ชลบุรี) 315 - อ.พานทอง จ.ชลบุรี ทิศทางมุ่งหน้าเข้า อ.พนัสนิคม จ.ชลบุรี",
+      "nameEn": null,
+      "lat": 13.4276063,
+      "lon": 101.1183259,
+      "coordSource": "upstream",
+      "provinceCode": "20",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_026_IN.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-11-026-out",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ชลบุรี) 315 - อ.พานทอง จ.ชลบุรี ทิศทางมุ่งหน้าเข้า จ.ชลบุรี",
+      "nameEn": null,
+      "lat": 13.4278063,
+      "lon": 101.1183259,
+      "coordSource": "upstream",
+      "provinceCode": "20",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_026_OUT.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-11-027-out",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ชลบุรี) 361 - อ.เมืองชลบุรี จ.ชลบุรี ทิศทางมุ่งหน้าเข้า ถ.สุขุมวิท",
+      "nameEn": null,
+      "lat": 13.3756247,
+      "lon": 101.0198804,
+      "coordSource": "upstream",
+      "provinceCode": "20",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_027_OUT.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-11-028",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ชลบุรี) 3 - อ.เมืองชลบุรี จ.ชลบุรี ทิศทางมุ่งหน้าเข้า อ.เมือง จ.ชลบุรี",
+      "nameEn": null,
+      "lat": 13.2963883,
+      "lon": 100.945525,
+      "coordSource": "upstream",
+      "provinceCode": "20",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_028_IN.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-11-030",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ชลบุรี) 331 - อ.บางละมุง จ.ชลบุรี",
+      "nameEn": null,
+      "lat": 12.841583,
+      "lon": 101.011513,
+      "coordSource": "upstream",
+      "provinceCode": "20",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_030.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-11-033",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.นครนายก) 3312 - อ.องครักษ์ จ.นครนายก",
+      "nameEn": null,
+      "lat": 13.965813,
+      "lon": 100.92626,
+      "coordSource": "upstream",
+      "provinceCode": "26",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_033.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-12-002",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ลำพูน) 1147 - สันป่าฝ้าย - ห้วยไซ",
+      "nameEn": null,
+      "lat": 18.5863,
+      "lon": 99.08,
+      "coordSource": "upstream",
+      "provinceCode": "51",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_002.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-12-003",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ศรีสะเกษ) 226 - ศรีสะเกษ - ห้วยขะยุง",
+      "nameEn": null,
+      "lat": 15.1032,
+      "lon": 104.4136,
+      "coordSource": "upstream",
+      "provinceCode": "33",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_003.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-12-006",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.นครราชสีมา) 224 - พะโค - หนองสนวน",
+      "nameEn": null,
+      "lat": 14.5252,
+      "lon": 102.2572,
+      "coordSource": "upstream",
+      "provinceCode": "30",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_006.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-12-007",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.นครราชสีมา) 304 - วังน้ําเขียว - ดอนขวาง",
+      "nameEn": null,
+      "lat": 14.4038,
+      "lon": 101.8625,
+      "coordSource": "upstream",
+      "provinceCode": "30",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_007.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-12-008",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.บุรีรัมย์) 219 - สตึก - หัวถนน",
+      "nameEn": null,
+      "lat": 15.0812,
+      "lon": 103.167,
+      "coordSource": "upstream",
+      "provinceCode": "31",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_008.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-12-009",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.สระแก้ว) 3395 - วัฒนานคร - โคคคลาน",
+      "nameEn": null,
+      "lat": 13.7678,
+      "lon": 102.3293,
+      "coordSource": "upstream",
+      "provinceCode": "27",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_009.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-12-010-out",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.สระบุรี) 2 - ตาลเดี่ยว - ซับบอน ทิศทางมุ่งหน้าเข้า อ.ปากช่อง",
+      "nameEn": null,
+      "lat": 14.6047,
+      "lon": 101.0596,
+      "coordSource": "upstream",
+      "provinceCode": "19",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_010_OUT.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-12-011",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ชัยนาท) 32 - โพนางดำออก - ท่าฉนวน ทิศทางมุ่งหน้าเข้า ต.ตลุก",
+      "nameEn": null,
+      "lat": 15.2836,
+      "lon": 100.1957,
+      "coordSource": "upstream",
+      "provinceCode": "18",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_011_IN.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-12-011-out",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ชัยนาท) 32 - โพนางดำออก - ท่าฉนวน ทิศทางมุ่งหน้าเข้า ต.อู่ตะเภา",
+      "nameEn": null,
+      "lat": 15.2838,
+      "lon": 100.1957,
+      "coordSource": "upstream",
+      "provinceCode": "18",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_011_OUT.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-12-015",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.สมุทรปราการ) 303 - ราษฎร์บูรณะ - พระสมุทรเจดีย์ ทิศทางมุ่งหน้าเข้า พระประแดง",
+      "nameEn": null,
+      "lat": 13.6006,
+      "lon": 100.5592,
+      "coordSource": "upstream",
+      "provinceCode": "11",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_015_IN.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-12-016-out",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.นครปฐม) 3310 - กระทุ่มล้ม - พุทธมณฑล ทิศทางมุ่งหน้าเข้า อ.พุทธมณฑล",
+      "nameEn": null,
+      "lat": 13.7646,
+      "lon": 100.3288,
+      "coordSource": "upstream",
+      "provinceCode": "73",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_016_OUT.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-12-017",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.นครปฐม) 3414 - อ้อมน้อย - ศาลายา",
+      "nameEn": null,
+      "lat": 13.7579,
+      "lon": 100.3012,
+      "coordSource": "upstream",
+      "provinceCode": "73",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_017.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-12-019",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.พระนครศรีอยุธยา) 3111 - ท้ายเกาะ - เสนา",
+      "nameEn": null,
+      "lat": 14.1389,
+      "lon": 100.4938,
+      "coordSource": "upstream",
+      "provinceCode": "14",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_019.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-12-022",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ชลบุรี) 36 - บ้านโป่ง - มะขามคู่",
+      "nameEn": null,
+      "lat": 12.9202,
+      "lon": 101.01893,
+      "coordSource": "upstream",
+      "provinceCode": "20",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_022.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-12-024",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.จันทบุรี) 317 - ปากแซง - หน้าค่าย ตชด",
+      "nameEn": null,
+      "lat": 12.6565,
+      "lon": 102.1832,
+      "coordSource": "upstream",
+      "provinceCode": "22",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_024.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-12-025",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.จันทบุรี) 3249 - เขาไร่ยา - แพร่งขาหยั่ง",
+      "nameEn": null,
+      "lat": 12.7664,
+      "lon": 102.0904,
+      "coordSource": "upstream",
+      "provinceCode": "22",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_025.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-12-026-out",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) 34 - บางวัว - บางปะกง ทิศทางมุ่งหน้าเข้า ต.ท่าขาม อ.บางปะกง",
+      "nameEn": null,
+      "lat": 13.4809,
+      "lon": 101.0015,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_026_OUT.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-12-029",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ระยอง) 3574 - บ้านค่าย - ระยอง ทิศทางมุ่งหน้าเข้า อ.บ้านค่าย จ.ระยอง",
+      "nameEn": null,
+      "lat": 12.7637,
+      "lon": 101.2893,
+      "coordSource": "upstream",
+      "provinceCode": "21",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_029_IN.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-12-029-out",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ระยอง) 3574 - บ้านค่าย - ระยอง ทิศทางมุ่งหน้าเข้า อ.ท่าปะดู่ จ.ระยอง",
+      "nameEn": null,
+      "lat": 12.7639,
+      "lon": 101.2893,
+      "coordSource": "upstream",
+      "provinceCode": "21",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_029_OUT.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-3-003-out",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.สระบุรี) 1 - อ.หนองแค จ.สระบุรี ทิศทางออกจากกรุงเทพ",
+      "nameEn": null,
+      "lat": 14.3916,
+      "lon": 100.888,
+      "coordSource": "upstream",
+      "provinceCode": "19",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase3/PER_3_003_OUT.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-3-006",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.นนทบุรี) ถ.กาญจนาภิเษก บางใหญ่ ทิศทางมุ่งหน้าบางแค",
+      "nameEn": null,
+      "lat": 13.83,
+      "lon": 100.4132,
+      "coordSource": "upstream",
+      "provinceCode": "12",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase3/PER_3_006_IN.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-3-006-out",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.นนทบุรี) ถ.กาญจนาภิเษก บางใหญ่ ทิศทางมุ่งหน้าบางบัวทอง",
+      "nameEn": null,
+      "lat": 13.8302,
+      "lon": 100.4132,
+      "coordSource": "upstream",
+      "provinceCode": "12",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase3/PER_3_006_OUT.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-3-008",
+      "sourceId": "itic-cctv",
+      "nameTh": "(กรุงเทพมหานคร) ถ.วิภาดีรังสิต ดอนเมือง มุ่งหน้าแยกหลักสี่",
+      "nameEn": null,
+      "lat": 13.9277,
+      "lon": 100.6058,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase3/PER_3_008_IN.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-3-009",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.สมุทรปราการ) ถ.บางนา-บางปะกง กม.6 ทิศทางมุ่งหน้าบางนา",
+      "nameEn": null,
+      "lat": 13.6612,
+      "lon": 100.6617,
+      "coordSource": "upstream",
+      "provinceCode": "11",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase3/PER_3_009_IN.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-3-009-out",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.สมุทรปราการ) ถ.บางนา-บางปะกง กม.6 ทิศทางมุ่งหน้าบางปะกง",
+      "nameEn": null,
+      "lat": 13.661399999999999,
+      "lon": 100.6617,
+      "coordSource": "upstream",
+      "provinceCode": "11",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase3/PER_3_009_OUT.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-3-017",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ปทุมธานี) ถ.ลำลูกกา กม.9 ทิศทางมุ่งหน้า ถ.พหลโยธิน",
+      "nameEn": null,
+      "lat": 13.9329,
+      "lon": 100.6882,
+      "coordSource": "upstream",
+      "provinceCode": "13",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase3/PER_3_017.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-4-003",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.นครราชสีมา) 2 - อ.สีคิ้ว จ.นครราชสีมา ทิศทางมุ่งหน้า จ.สระบุรี",
+      "nameEn": null,
+      "lat": 14.8564,
+      "lon": 101.6727,
+      "coordSource": "upstream",
+      "provinceCode": "30",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase4/PER_4_003.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-4-003-out",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.นครราชสีมา) 2 - อ.สีคิ้ว จ.นครราชสีมา ทิศทางมุ่งหน้าตัวเมืองนครราชสีมา",
+      "nameEn": null,
+      "lat": 14.8566,
+      "lon": 101.6727,
+      "coordSource": "upstream",
+      "provinceCode": "30",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase4/PER_4_003_OUT.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-4-004",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.นครราชสีมา) 2 - อ.โนนสูง จ.นครราชสีมา ทิศทางมุ่งหน้าตัวเมืองนครราชสีมา",
+      "nameEn": null,
+      "lat": 15.2537,
+      "lon": 102.4092,
+      "coordSource": "upstream",
+      "provinceCode": "30",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase4/PER_4_004.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-4-011",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.พระนครศรีอยุธยา) 32 - อ.บางปะหัน จ.อยุธยา ทิศทางมุ่งหน้ากรุงเทพ",
+      "nameEn": null,
+      "lat": 14.523,
+      "lon": 100.508,
+      "coordSource": "upstream",
+      "provinceCode": "14",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase4/PER_4_011_IN.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-4-011-out",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.พระนครศรีอยุธยา) 32 - อ.บางปะหัน จ.อยุธยา ทิศทางมุ่งหน้า จ.อ่างทอง",
+      "nameEn": null,
+      "lat": 14.5232,
+      "lon": 100.508,
+      "coordSource": "upstream",
+      "provinceCode": "14",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase4/PER_4_011_OUT.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-4-023",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.พระนครศรีอยุธยา) 347 - อ.บางปะอิน จ.อยุธยา ทิศทางมุ่งหน้ากรุงเทพ",
+      "nameEn": null,
+      "lat": 14.1844,
+      "lon": 100.5567,
+      "coordSource": "upstream",
+      "provinceCode": "14",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase4/PER_4_023.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-5-001",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.พระนครศรีอยุธยา) 1 - อ.วังน้อย จ.พระนครศรีอยุธยา ทิศทางมุ่งหน้ากรุงเทพ",
+      "nameEn": null,
+      "lat": 14.2125,
+      "lon": 100.68,
+      "coordSource": "upstream",
+      "provinceCode": "14",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase5/PER_5_001_IN.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-5-001-out",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.พระนครศรีอยุธยา) 1 - อ.วังน้อย จ.พระนครศรีอยุธยา ทิศทางมุ่งหน้าสระบุรี",
+      "nameEn": null,
+      "lat": 14.2127,
+      "lon": 100.68,
+      "coordSource": "upstream",
+      "provinceCode": "14",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase5/PER_5_001_OUT.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-5-006",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.เพชรบุรี) 4 - อ.ชะอำ จ.เพชรบุรี ทิศทางมุ่งหน้ากรุงเทพ",
+      "nameEn": null,
+      "lat": 12.8293,
+      "lon": 99.9352,
+      "coordSource": "upstream",
+      "provinceCode": "76",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase5/PER_5_006_IN.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-5-007",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.เพชรบุรี) 4 - อ.ชะอำ จ.เพชรบุรี ทิศทางมุ่งหน้ากรุงเทพ",
+      "nameEn": null,
+      "lat": 12.6745,
+      "lon": 99.9524,
+      "coordSource": "upstream",
+      "provinceCode": "76",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase5/PER_5_007_IN.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-5-007-out",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.เพชรบุรี) 4 - อ.ชะอำ จ.เพชรบุรี ทิศทางมุ่งหน้าหัวหิน",
+      "nameEn": null,
+      "lat": 12.6747,
+      "lon": 99.9524,
+      "coordSource": "upstream",
+      "provinceCode": "76",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase5/PER_5_007_OUT.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-5-014",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.สมุทรสงคราม) 35 - อ.เมือง จ.สมุทรสงคราม ทิศทางมุ่งหน้ากรุงเทพ",
+      "nameEn": null,
+      "lat": 13.3575,
+      "lon": 99.9363,
+      "coordSource": "upstream",
+      "provinceCode": "75",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase5/PER_5_014_IN.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-5-014-out",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.สมุทรสงคราม) 35 - อ.เมือง จ.สมุทรสงคราม ทิศทางมุ่งหน้า จ.เพชรบุรี",
+      "nameEn": null,
+      "lat": 13.3577,
+      "lon": 99.9363,
+      "coordSource": "upstream",
+      "provinceCode": "75",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase5/PER_5_014_OUT.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-6-002",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.นครสวรรค์) 1 - อ.พยุหะคีรี จ.นครสวรรค์ มุ่งหน้า จ.สิงห์บุรี",
+      "nameEn": null,
+      "lat": 15.4122,
+      "lon": 100.1473,
+      "coordSource": "upstream",
+      "provinceCode": "60",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase6/PER_6_002_IN.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-6-002-out",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.นครสวรรค์) 1 - อ.พยุหะคีรี จ.นครสวรรค์ มุ่งหน้า จ.นครสวรรค์",
+      "nameEn": null,
+      "lat": 15.4124,
+      "lon": 100.1473,
+      "coordSource": "upstream",
+      "provinceCode": "60",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase6/PER_6_002_OUT.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-6-004",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ตาก) 1 - อ.เมืองตาก จังหวัดตาก มุ่งหน้า จ.กำแพงเพชร",
+      "nameEn": null,
+      "lat": 16.7981,
+      "lon": 99.1534,
+      "coordSource": "upstream",
+      "provinceCode": "63",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase6/PER_6_004.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-6-007",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.อุตรดิตถ์) 11 - อ.เมืองอุตรดิตถ์ จ.อุตรดิตถ์ มุ่งหน้า จ.อุตรดิตถ์",
+      "nameEn": null,
+      "lat": 17.690851,
+      "lon": 100.142021,
+      "coordSource": "upstream",
+      "provinceCode": "53",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase6/PER_6_007.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-6-013",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.พระนครศรีอยุธยา) 32 - อ.บางปะอิน จ.พระนครศรีอยุธยา มุ่งหน้า กทม.",
+      "nameEn": null,
+      "lat": 14.221084,
+      "lon": 100.610092,
+      "coordSource": "upstream",
+      "provinceCode": "14",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase6/PER_6_013_IN.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-7-013",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.อำนาจเจริญ) 212 - อ.เมืองอำนาจเจริญ จ.อำนาจเจริญ ทิศทางมุ่งหน้าเข้า จังหวัดมุกดาหาร",
+      "nameEn": null,
+      "lat": 15.938901,
+      "lon": 104.628319,
+      "coordSource": "upstream",
+      "provinceCode": "37",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase7/PER_7_013.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-7-022",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.นครราชสีมา) 226 - อ.เมืองนครราชสีมา จ.นครราชสีมา ทิศทางมุ่งหน้าเข้า จังหวัดนครราชสีมา",
+      "nameEn": null,
+      "lat": 14.98138,
+      "lon": 102.167587,
+      "coordSource": "upstream",
+      "provinceCode": "30",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase7/PER_7_022.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-7-024",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.สุพรรณบุรี) 340 - อ.สามชุก จ.สุพรรณบุรี ทิศทางมุ่งหน้าเข้า จังหวัดสุพรรณบุรี",
+      "nameEn": null,
+      "lat": 14.736886,
+      "lon": 100.102638,
+      "coordSource": "upstream",
+      "provinceCode": "72",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase7/PER_7_024.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-7-029",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ตาก) 12 - อ.แม่สอด จ.ตาก ทิศทางมุ่งหน้าเข้า จังหวัดตาก",
+      "nameEn": null,
+      "lat": 16.7227,
+      "lon": 98.575,
+      "coordSource": "upstream",
+      "provinceCode": "63",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase7/PER_7_029.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-7-035",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.นครปฐม) 4 - อ.นครชัยศรี จ.นครปฐม ทิศทางมุ่งหน้าเข้า จังหวัดกรุงเทพฯ",
+      "nameEn": null,
+      "lat": 13.805537,
+      "lon": 100.15847,
+      "coordSource": "upstream",
+      "provinceCode": "73",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase7/PER_7_035_IN.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-7-035-out",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.นครปฐม) 4 - อ.นครชัยศรี จ.นครปฐม ทิศทางมุ่งหน้าเข้า จังหวัดนครปฐม",
+      "nameEn": null,
+      "lat": 13.805736999999999,
+      "lon": 100.15847,
+      "coordSource": "upstream",
+      "provinceCode": "73",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase7/PER_7_035_OUT.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-8-001",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.กาฬสินธุ์) 12 - อ.เมืองกาฬสินธุ์ จ.กาฬสินธุ์ มุ่งหน้า อ.สมเด็จ กาฬสินธุ์",
+      "nameEn": null,
+      "lat": 16.509216,
+      "lon": 103.581797,
+      "coordSource": "upstream",
+      "provinceCode": "46",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_001.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-8-005",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ศรีสะเกษ) 24 - อ.ไพรบึง จ.ศรีสะเกษ มุ่งหน้า จ.สุรินทร์",
+      "nameEn": null,
+      "lat": 14.686469,
+      "lon": 104.374769,
+      "coordSource": "upstream",
+      "provinceCode": "33",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_005.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-8-008",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ชัยภูมิ) 225 - อ.เมืองชัยภูมิ จ.ชัยภูมิ มุ่งหน้า อ.หนองบ้วระเหว",
+      "nameEn": null,
+      "lat": 15.793365,
+      "lon": 102.004128,
+      "coordSource": "upstream",
+      "provinceCode": "36",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_008.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-8-012",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ราชบุรี) 4 - อ.เมืองนครปฐม จ.นครปฐม มุ่งหน้า จ.นครปฐม",
+      "nameEn": null,
+      "lat": 13.7966,
+      "lon": 99.9616,
+      "coordSource": "upstream",
+      "provinceCode": "73",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_012.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-8-013",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.นครสวรรค์) 1 - อ.ตากฟ้า จ.นครสวรรค์ มุ่งหน้า จ.ลพบุรี",
+      "nameEn": null,
+      "lat": 15.34198,
+      "lon": 100.532905,
+      "coordSource": "upstream",
+      "provinceCode": "60",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_013.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-8-014",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ลำปาง) 1 - อ.สบปราบ จ.ลำปาง มุ่งหน้า จ.ตาก",
+      "nameEn": null,
+      "lat": 17.861987,
+      "lon": 99.319199,
+      "coordSource": "upstream",
+      "provinceCode": "52",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_014.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-8-022",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.นครสวรรค์) 225 - อ.ชุมแสง จ.นครสวรรค์ มุ่งหน้า อ.ชุมแสง จ.นครสวรรค์",
+      "nameEn": null,
+      "lat": 15.878686,
+      "lon": 100.414189,
+      "coordSource": "upstream",
+      "provinceCode": "60",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_022.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-8-023",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ชุมพร) 4 - อ.กระบุรี จ.ระนอง มุ่งหน้า จ.ชุมพร",
+      "nameEn": null,
+      "lat": 10.5091,
+      "lon": 99.0146,
+      "coordSource": "upstream",
+      "provinceCode": "86",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_023.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-8-027",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ตรัง) 4 - อ.นาโยง จ.ตรัง มุ่งหน้า จ.ตรัง",
+      "nameEn": null,
+      "lat": 7.558622,
+      "lon": 99.719197,
+      "coordSource": "upstream",
+      "provinceCode": "92",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_027.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-8-029-out",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.สุราษฎร์ธานี) 44 - อ.เคียนซา จ.สุราษฎร์ธานี มุ่งหน้า จ.สุราษฎร์ธานี",
+      "nameEn": null,
+      "lat": 8.691251,
+      "lon": 99.135928,
+      "coordSource": "upstream",
+      "provinceCode": "84",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_029_OUT.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-8-032",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ภูเก็ต) 402 - อ.ถลาง จ.ภูเก็ต มุ่งหน้า จ.ภูเก็ต",
+      "nameEn": null,
+      "lat": 8.066068,
+      "lon": 98.342281,
+      "coordSource": "upstream",
+      "provinceCode": "83",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_032_IN.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-8-032-out",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ภูเก็ต) 402 - อ.ถลาง จ.ภูเก็ต มุ่งหน้า จ.พังงา",
+      "nameEn": null,
+      "lat": 8.066267999999999,
+      "lon": 98.342281,
+      "coordSource": "upstream",
+      "provinceCode": "83",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_032_OUT.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-8-036",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.สงขลา) 414 - อ.หาดใหญ่ จ.สงขลา มุ่งหน้า ข.สงขลา",
+      "nameEn": null,
+      "lat": 7.071654,
+      "lon": 100.492735,
+      "coordSource": "upstream",
+      "provinceCode": "90",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_036.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-8-038",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ภูเก็ต) 4024 - อ.เมืองภูเก็ต จ.ภูเก็ต มุ่งหน้า อ. ถลาง",
+      "nameEn": null,
+      "lat": 7.921877,
+      "lon": 98.370946,
+      "coordSource": "upstream",
+      "provinceCode": "83",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_038.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-9-004",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ตาก) 105 - อ.แม่สอด จ.ตาก ทิศทางมุ่งหน้าเข้า อ.แม่สอด จ.ตาก",
+      "nameEn": null,
+      "lat": 16.761762,
+      "lon": 98.584959,
+      "coordSource": "upstream",
+      "provinceCode": "63",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER_9_004.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-9-009",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.อุดรธานี) 227 - อ.วังสามหมอ จ.อุดรธานี ทิศทางมุ่งหน้าเข้า อ.วังสามหมอ จ.อุดรธานี",
+      "nameEn": null,
+      "lat": 16.962216,
+      "lon": 103.435409,
+      "coordSource": "upstream",
+      "provinceCode": "41",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER_9_009.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-9-015",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.บุรีรัมย์) 218 - อ.เมืองบุรีรัมย์ จ.บุรีรัมย์ ทิศทางมุ่งหน้าเข้า จ.บุรีรัมย์",
+      "nameEn": null,
+      "lat": 14.929965,
+      "lon": 103.028132,
+      "coordSource": "upstream",
+      "provinceCode": "31",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER-9-015.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-9-017",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ปราจีนบุรี) 359 - อ.กบินทร์บุรี จ.ปราจีนบุรี ทิศทางมุ่งหน้าเข้า จ.สระแก้ว",
+      "nameEn": null,
+      "lat": 13.77301,
+      "lon": 101.82733,
+      "coordSource": "upstream",
+      "provinceCode": "25",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER-9-017.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-9-026",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.นนทบุรี) 302 - อ.เมืองนนทบุรี จ.นนทบุรี ทิศทางมุ่งหน้าเข้า กทม.",
+      "nameEn": null,
+      "lat": 13.87167,
+      "lon": 100.462385,
+      "coordSource": "upstream",
+      "provinceCode": "12",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER_9_026_IN.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-9-026-out",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.นนทบุรี) 302 - อ.เมืองนนทบุรี จ.นนทบุรี ทิศทางมุ่งหน้าออก บางใหญ่",
+      "nameEn": null,
+      "lat": 13.87187,
+      "lon": 100.462385,
+      "coordSource": "upstream",
+      "provinceCode": "12",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER_9_026_OUT.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-9-027",
+      "sourceId": "itic-cctv",
+      "nameTh": "(กรุงเทพมหานคร) 304-เขตมีนบุรี จ.กรุงเทพมหานคร ทิศทางมุ่งหน้าเข้า มีนบุรี",
+      "nameEn": null,
+      "lat": 13.811674,
+      "lon": 100.787157,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER_9_027_IN.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-9-027-out",
+      "sourceId": "itic-cctv",
+      "nameTh": "(กรุงเทพมหานคร) 304-เขตมีนบุรี จ.กรุงเทพมหานคร ทิศทางมุ่งหน้าเข้า จ.ฉะเชิงเทรา",
+      "nameEn": null,
+      "lat": 13.811874,
+      "lon": 100.787157,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER_9_027_OUT.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-9-031",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ตราด) 3 - อ.คลองใหญ่ จ.ตราด ทิศทางมุ่งหน้าเข้า จ.ตราด",
+      "nameEn": null,
+      "lat": 12.2515,
+      "lon": 102.5704,
+      "coordSource": "upstream",
+      "provinceCode": "23",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER_9_031.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-9-034",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.นครปฐม) 375 - อ.สามพราน จ.นครปฐม ทิศทางมุ่งหน้าเข้า จ.สมุทรสาคร",
+      "nameEn": null,
+      "lat": 13.658957,
+      "lon": 100.089816,
+      "coordSource": "upstream",
+      "provinceCode": "73",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER_9_034.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "DOH-PER-9-035",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ราชบุรี) 3208 - อ.เมืองราชบุรี จ.ราชบุรี ทิศทางมุ่งหน้าเข้า จ.ราชบุรี",
+      "nameEn": null,
+      "lat": 13.514666,
+      "lon": 99.74425,
+      "coordSource": "upstream",
+      "provinceCode": "70",
+      "owner": "กรมทางหลวง",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER_9_035.stream/playlist.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0071",
+      "sourceId": "itic-cctv",
+      "nameTh": "(กรุงเทพมหานคร) ถ.พระราม4 แยกทางด่วนพระราม4",
+      "nameEn": null,
+      "lat": 13.7230899699148,
+      "lon": 100.552203208208,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "jpeg",
+          "url": "https://camera1.iticfoundation.org/jpeg2.php?camid=10.8.0.14:8002",
+          "label": null,
+          "captureTime": "burned-in",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0072",
+      "sourceId": "itic-cctv",
+      "nameTh": "(กรุงเทพมหานคร) ทางด่วน แยกทางด่วนพระราม4",
+      "nameEn": null,
+      "lat": 13.72257,
+      "lon": 100.553284,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "jpeg",
+          "url": "https://camera1.iticfoundation.org/jpeg2.php?camid=10.8.0.14:8003",
+          "label": null,
+          "captureTime": "burned-in",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0074",
+      "sourceId": "itic-cctv",
+      "nameTh": "(กรุงเทพมหานคร) ถ.พระราม4 แยกทางด่วนพระราม4",
+      "nameEn": null,
+      "lat": 13.7233557452068,
+      "lon": 100.551693588495,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "jpeg",
+          "url": "https://camera1.iticfoundation.org/jpeg2.php?camid=10.8.0.14:8001",
+          "label": null,
+          "captureTime": "burned-in",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0076",
+      "sourceId": "itic-cctv",
+      "nameTh": "(กรุงเทพมหานคร) ถนนสาทรหน้าสถานเอกอัครราชทูตเยอรมนี",
+      "nameEn": null,
+      "lat": 13.725388,
+      "lon": 100.542599,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "jpeg",
+          "url": "https://camera1.iticfoundation.org/jpeg2.php?camid=10.8.0.15:8002",
+          "label": null,
+          "captureTime": "burned-in",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0080",
+      "sourceId": "itic-cctv",
+      "nameTh": "(กรุงเทพมหานคร) เชิงสะพานตากสิน ฝั่งสาทร บริเวณจุดกลับใต้สะพาน",
+      "nameEn": null,
+      "lat": 13.718527,
+      "lon": 100.515279,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "jpeg",
+          "url": "https://camera1.iticfoundation.org/jpeg2.php?camid=10.8.0.18:8002",
+          "label": null,
+          "captureTime": "burned-in",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0081",
+      "sourceId": "itic-cctv",
+      "nameTh": "(กรุงเทพมหานคร) เชิงสะพานตากสิน ฝั่งสาทร มุ่งหน้าถนนสาทร",
+      "nameEn": null,
+      "lat": 13.718309,
+      "lon": 100.516079,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "jpeg",
+          "url": "https://camera1.iticfoundation.org/jpeg2.php?camid=10.8.0.18:8001",
+          "label": null,
+          "captureTime": "burned-in",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0102",
+      "sourceId": "itic-cctv",
+      "nameTh": "(กรุงเทพมหานคร) ทางด่วน แยกทางด่วนพระราม4",
+      "nameEn": null,
+      "lat": 13.722297,
+      "lon": 100.552604,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "jpeg",
+          "url": "https://camera1.iticfoundation.org/jpeg2.php?camid=10.8.0.14:8004",
+          "label": null,
+          "captureTime": "burned-in",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0124",
+      "sourceId": "itic-cctv",
+      "nameTh": "(กรุงเทพมหานคร) ทางพิเศษศรีรัชด้านใต้ถนนกำแพงเพชร",
+      "nameEn": null,
+      "lat": 13.794136,
+      "lon": 100.539016,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "jpeg",
+          "url": "https://camera1.iticfoundation.org/jpeg2.php?camid=10.8.0.19:8801",
+          "label": null,
+          "captureTime": "burned-in",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0125",
+      "sourceId": "itic-cctv",
+      "nameTh": "(กรุงเทพมหานคร) ทางพิเศษศรีรัช ด้านเหนือถนนกำแพงเพชร",
+      "nameEn": null,
+      "lat": 13.795449,
+      "lon": 100.539338,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "jpeg",
+          "url": "https://camera1.iticfoundation.org/jpeg2.php?camid=10.8.0.19:8802",
+          "label": null,
+          "captureTime": "burned-in",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0129",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) สามแยกถนนเทพคุณากร มุ่งหน้าวงเวียน",
+      "nameEn": null,
+      "lat": 13.66886779,
+      "lon": 101.0551117,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs00.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0130",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) สามแยกถนนเทพคุณากร มุ่งหน้าถนนสิริโสธร",
+      "nameEn": null,
+      "lat": 13.66879785,
+      "lon": 101.0549851,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs01.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0131",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) สามแยกถนนเทพคุณากร มุ่งหน้าวัดบางพระ",
+      "nameEn": null,
+      "lat": 13.66877179,
+      "lon": 101.0550884,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs02.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0132",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) สามแยกถนนเทพคุณากร-ถนนสิริโสธร มุ่งหน้าจ.ชลบุรี",
+      "nameEn": null,
+      "lat": 13.66608199,
+      "lon": 101.0498334,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs03.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0133",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) สามแยกถนนเทพคุณากร-ถนนสิริโสธร มุ่งหน้าเข้าจ.ฉะเชิงเทรา",
+      "nameEn": null,
+      "lat": 13.66652089,
+      "lon": 101.049914,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs05.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0134",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) สามแยกถนนเทพคุณากร-ถนนสิริโสธร มุ่งหน้าถนนเทพคุณากร",
+      "nameEn": null,
+      "lat": 13.6662412,
+      "lon": 101.0501302,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs06.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0135",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) วงเวียนหน้าอนุสาวรีย์พระยาศรีสุนทรโวหาร มุ่งหน้าถนนเทพคุณากร",
+      "nameEn": null,
+      "lat": 13.67577018,
+      "lon": 101.0692228,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs07.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0136",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) วงเวียนหน้าอนุสาวรีย์พระยาศรีสุนทรโวหาร",
+      "nameEn": null,
+      "lat": 13.6758227,
+      "lon": 101.069337,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs08.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0137",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) วงเวียนหน้าอนุสาวรีย์พระยาศรีสุนทรโวหาร มุ่งหน้าถนนศรีโสธร",
+      "nameEn": null,
+      "lat": 13.67577128,
+      "lon": 101.0695253,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs09.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0138",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) วงเวียนหน้าอนุสาวรีย์พระยาศรีสุนทรโวหาร มุ่งหน้าถนนศรีโสธรตัดใหม่",
+      "nameEn": null,
+      "lat": 13.67597091,
+      "lon": 101.0693323,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs12.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0139",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) ทางออกบิ๊กซี ฉะเชิงเทรา 2 มุ่งหน้าวงเวียน",
+      "nameEn": null,
+      "lat": 13.68204802,
+      "lon": 101.0669795,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs13.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0140",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) ทางออกบิ๊กซี ฉะเชิงเทรา 2 มุ่งหน้าถนนมหาจักรพรรดิ์",
+      "nameEn": null,
+      "lat": 13.68238514,
+      "lon": 101.0668339,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs14.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0141",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) สามแยกถนนพระยาศรีสุนทร-ถนนศรีโสธรตัดใหม่ มุ่งหน้าถนนมหาจักรพรรดิ์",
+      "nameEn": null,
+      "lat": 13.6829742,
+      "lon": 101.0665681,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs15.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0142",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) สามแยกถนนพระยาศรีสุนทร-ถนนศรีโสธรตัดใหม่ มุ่งหน้าวงเวียน",
+      "nameEn": null,
+      "lat": 13.68282618,
+      "lon": 101.0666266,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs16.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0143",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) ถนนเอมอรอุทิศ 2 มุ่งหน้าถนนศรีโสธรตัดใหม่-ถนนมหาจักรพรรดิ์",
+      "nameEn": null,
+      "lat": 13.68780981,
+      "lon": 101.0645602,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs17.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0144",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) ถนนเอมอรอุทิศ 2 มุ่งหน้าถนนศรีโสธรตัดใหม่-วงเวียน",
+      "nameEn": null,
+      "lat": 13.68753273,
+      "lon": 101.0646656,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs18.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0145",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) ถนนเอมอรอุทิศ 1",
+      "nameEn": null,
+      "lat": 13.68862984,
+      "lon": 101.0642248,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs19.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0146",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) สามแยกถนนศรีโสธรตัดใหม่-ถนนมหาจักรพรรดิ์ มุ่งหน้ากรุงเทพฯ",
+      "nameEn": null,
+      "lat": 13.69427242,
+      "lon": 101.0633406,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs20.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0147",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) สามแยกถนนศรีโสธรตัดใหม่-ถนนมหาจักรพรรดิ์ มุ่งหน้าเข้าจ.ฉะเชิงเทรา",
+      "nameEn": null,
+      "lat": 13.69423354,
+      "lon": 101.0635909,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs21.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0164",
+      "sourceId": "itic-cctv",
+      "nameTh": "(กรุงเทพมหานคร) รัชดาภิเษก-วงศ์สว่าง",
+      "nameEn": null,
+      "lat": 13.828648681903177,
+      "lon": 100.52881854153176,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/charlie-new-tran-8.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0165",
+      "sourceId": "itic-cctv",
+      "nameTh": "(กรุงเทพมหานคร) Big C วงศ์สว่าง",
+      "nameEn": null,
+      "lat": 13.827772016676931,
+      "lon": 100.52787985034071,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/charlie-new-tran-10.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0166",
+      "sourceId": "itic-cctv",
+      "nameTh": "(กรุงเทพมหานคร) MRT วงศ์สว่าง",
+      "nameEn": null,
+      "lat": 13.828683279709187,
+      "lon": 100.52784892246397,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/charlie-new-tran-9.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0167",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) โค้งวัดโสธรวรารามวรวิหาร",
+      "nameEn": null,
+      "lat": 13.674739,
+      "lon": 101.0682996,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs22.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0168",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) วัดโสธรวรารามวรวิหาร",
+      "nameEn": null,
+      "lat": 13.67467906,
+      "lon": 101.0681132,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs23.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0169",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) หน้าโรงเรียนวัดโสธรวรารามวรวิหาร",
+      "nameEn": null,
+      "lat": 13.674152,
+      "lon": 101.065047,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs24.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0170",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) ซอยเทพคุณากร 5",
+      "nameEn": null,
+      "lat": 13.671455,
+      "lon": 101.060082,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs25.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0171",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) ศรีโสธรตัดใหม่ 18",
+      "nameEn": null,
+      "lat": 13.67782059,
+      "lon": 101.0687662,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs26.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0172",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) ศรีโสธรตัดใหม่ 18",
+      "nameEn": null,
+      "lat": 13.677849,
+      "lon": 101.06855,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs27.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0173",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) ถนนประชาสรรค์",
+      "nameEn": null,
+      "lat": 13.680634,
+      "lon": 101.067516,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs28.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0174",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) ศรีโสธรตัดใหม่ 15",
+      "nameEn": null,
+      "lat": 13.681103,
+      "lon": 101.067445,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs29.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0175",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) ถนนหน้าเมือง",
+      "nameEn": null,
+      "lat": 13.684452,
+      "lon": 101.066003,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs30.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0176",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) ถนนเอมอรอุทิศ 1",
+      "nameEn": null,
+      "lat": 13.688769,
+      "lon": 101.064194,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs31.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0177",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) ศรีโสธรตัดใหม่ 5",
+      "nameEn": null,
+      "lat": 13.69028691,
+      "lon": 101.0638486,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs32.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0178",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) ศรีโสธรตัดใหม่ 5",
+      "nameEn": null,
+      "lat": 13.69004651,
+      "lon": 101.0638808,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs33.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0179",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) ศรีโสธรตัดใหม่ 4/1",
+      "nameEn": null,
+      "lat": 13.691199,
+      "lon": 101.063778,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs34.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0180",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) ศรีโสธรตัดใหม่ 4/1",
+      "nameEn": null,
+      "lat": 13.69115,
+      "lon": 101.063695,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs35.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0181",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) สามแยกศรีโสธรตัดใหม่ - ถนนมหาจักพรรดิ์",
+      "nameEn": null,
+      "lat": 13.694297,
+      "lon": 101.063514,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs36.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0182",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) สามแยกศรีโสธรตัดใหม่ – ถนนมหาจักพรรดิ์",
+      "nameEn": null,
+      "lat": 13.69434607,
+      "lon": 101.0633151,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs37.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0183",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) สามแยกเทศบาล – ถนนมหาจักพรรดิ์",
+      "nameEn": null,
+      "lat": 13.692547,
+      "lon": 101.070987,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs38.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0184",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) สามแยกเทศบาล – ถนนมหาจักพรรดิ์",
+      "nameEn": null,
+      "lat": 13.692571,
+      "lon": 101.070902,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs39.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0185",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) หน้าโรงเรียนเทพประสิทธิ์วิทยา",
+      "nameEn": null,
+      "lat": 13.691591,
+      "lon": 101.070533,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs40.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0186",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ฉะเชิงเทรา) หน้าโรงเรียนเทพประสิทธิ์วิทยา",
+      "nameEn": null,
+      "lat": 13.691665,
+      "lon": 101.070586,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/ccs41.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0188",
+      "sourceId": "itic-cctv",
+      "nameTh": "(กรุงเทพมหานคร) แยกประชานิเวศน์",
+      "nameEn": null,
+      "lat": 13.8398548,
+      "lon": 100.5412483,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/charlie-new5.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0210",
+      "sourceId": "itic-cctv",
+      "nameTh": "(กรุงเทพมหานคร) ประชานุกูลไปแยกประชาชื่น",
+      "nameEn": null,
+      "lat": 13.829910786201587,
+      "lon": 100.53886719979914,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/cl209-d.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0211",
+      "sourceId": "itic-cctv",
+      "nameTh": "(กรุงเทพมหานคร) ประชานุกูลไปต่างระดับรัชวิภา",
+      "nameEn": null,
+      "lat": 13.830396351707916,
+      "lon": 100.53924892093693,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/cl210-d.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0212",
+      "sourceId": "itic-cctv",
+      "nameTh": "(กรุงเทพมหานคร) ประชานุกูลไปแยกประชานิเวศน์",
+      "nameEn": null,
+      "lat": 13.831026338568995,
+      "lon": 100.53918006269038,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/cl211-d.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0213",
+      "sourceId": "itic-cctv",
+      "nameTh": "(กรุงเทพมหานคร) ประชานุกูลไปวงศ์สว่าง",
+      "nameEn": null,
+      "lat": 13.830535355916915,
+      "lon": 100.53804904821575,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/cl212-d.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0214",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ขอนแก่น) แยก Central ทิศเหนือ",
+      "nameEn": null,
+      "lat": 16.432483497356,
+      "lon": 102.823759317398,
+      "coordSource": "upstream",
+      "provinceCode": "40",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/kk01.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0215",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ขอนแก่น) แยก Central ทิศเหนือ1",
+      "nameEn": null,
+      "lat": 16.433080351432,
+      "lon": 102.824649810791,
+      "coordSource": "upstream",
+      "provinceCode": "40",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/kk02.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0217",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ขอนแก่น) แยก Central ทิศตะวันออก",
+      "nameEn": null,
+      "lat": 16.431912368032,
+      "lon": 102.824065089226,
+      "coordSource": "upstream",
+      "provinceCode": "40",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/kk04.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0219",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ขอนแก่น) แยกมอดินแดง ทิศเหนือ",
+      "nameEn": null,
+      "lat": 16.476563435954,
+      "lon": 102.83273935318,
+      "coordSource": "upstream",
+      "provinceCode": "40",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/kk06.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0220",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ขอนแก่น) แยกมอดินแดง ทิศใต้",
+      "nameEn": null,
+      "lat": 16.475452300114,
+      "lon": 102.832524776459,
+      "coordSource": "upstream",
+      "provinceCode": "40",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/kk07.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0221",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ขอนแก่น) แยกเจริญศรี ทิศเหนือ",
+      "nameEn": null,
+      "lat": 16.415997251557,
+      "lon": 102.819049358368,
+      "coordSource": "upstream",
+      "provinceCode": "40",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/kk08.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0225",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ขอนแก่น) ป้อมยามสามเหลี่ยม1",
+      "nameEn": null,
+      "lat": 16.439817986397,
+      "lon": 102.828978896141,
+      "coordSource": "upstream",
+      "provinceCode": "40",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/kk12.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0226",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ขอนแก่น) ป้อมยามสามเหลี่ยม2",
+      "nameEn": null,
+      "lat": 16.439944041487,
+      "lon": 102.829102277756,
+      "coordSource": "upstream",
+      "provinceCode": "40",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/kk13.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0227",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ขอนแก่น) ป้อมยามสามเหลี่ยม3",
+      "nameEn": null,
+      "lat": 16.439944041487,
+      "lon": 102.828978896141,
+      "coordSource": "upstream",
+      "provinceCode": "40",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/kk14.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0238",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ขอนแก่น) NEU West",
+      "nameEn": null,
+      "lat": 16.421461948628,
+      "lon": 102.819467782974,
+      "coordSource": "upstream",
+      "provinceCode": "40",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/kk25.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0239",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ขอนแก่น) NEU North",
+      "nameEn": null,
+      "lat": 16.421997089614,
+      "lon": 102.820765972137,
+      "coordSource": "upstream",
+      "provinceCode": "40",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/kk26.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ITICM_BMAMI0240",
+      "sourceId": "itic-cctv",
+      "nameTh": "(จ.ขอนแก่น) NEU South",
+      "nameEn": null,
+      "lat": 16.420916514954,
+      "lon": 102.820465564728,
+      "coordSource": "upstream",
+      "provinceCode": "40",
+      "owner": "iTIC Motion",
+      "code": null,
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://camerai1.iticfoundation.org/hls/kk27.m3u8",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    }
+  ]
+}
