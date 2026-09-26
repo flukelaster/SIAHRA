@@ -20,5 +20,8 @@
   },
   "devDependencies": {
     "concurrently": "^10.0.5"
+  },
+  "overrides": {
+    "sharp": "0.35.4"
   }
 }
