@@ -278,9 +278,9 @@ export const SOURCES: Record<SourceId, SourceDescriptor> = {
     agency: "กรมทรัพยากรน้ำ (Department of Water Resources — DWR)",
     homepageUrl: "https://telemetry.dwr.go.th",
     // DWR ไม่ได้เผยแพร่เงื่อนไขการใช้ข้อมูลของ API นี้ (ตรวจ 2026-09-26) — ห้ามตั้งชื่อ
-    // สัญญาอนุญาตขึ้นเอง บอกตามจริงว่าไม่มี และใช้อยู่ระหว่างรอการอนุญาต (E15 อยู่หลัง
-    // แฟล็ก VITE_FEATURE_CCTV จนกว่า DWR จะตอบ)
-    licenseName: "ไม่ได้เผยแพร่เงื่อนไขการใช้ — ใช้ระหว่างรอการอนุญาตจากกรมทรัพยากรน้ำ",
+    // สัญญาอนุญาตขึ้นเอง บอกตามจริงว่าไม่มี — แสดงภาพโดยให้เครดิตแหล่งที่มา (ถอดได้ด้วย
+    // แฟล็ก VITE_FEATURE_CCTV=0 ถ้า DWR ขอ)
+    licenseName: "ไม่ได้เผยแพร่เงื่อนไขการใช้ — แสดงโดยให้เครดิตกรมทรัพยากรน้ำ",
     licenseUrl: "https://telemetry.dwr.go.th",
     attributionText:
       "ภาพจากกล้อง CCTV สถานีโทรมาตร กรมทรัพยากรน้ำ (telemetry.dwr.go.th) — กรมทรัพยากรน้ำไม่ได้รับรองหรือมีส่วนเกี่ยวข้องกับโครงการนี้",

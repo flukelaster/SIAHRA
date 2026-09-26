@@ -561,7 +561,7 @@ export const en: Record<keyof typeof th, string> = {
   "popup.cctv.noImage": "DWR answered but has no image from this camera — this says nothing about conditions here",
   "popup.cctv.refresh": "New image",
   "popup.cctv.credit": "Image: Department of Water Resources (DWR)",
-  "popup.cctv.pending": "Used pending DWR permission",
+  "popup.cctv.rights": "© Department of Water Resources — not affiliated with or endorsing this project",
   "popup.cctv.nearest": "Nearby camera ({km} km)",
   "popup.cctv.open": "View image",
   "popup.cctv.back": "Back to station",

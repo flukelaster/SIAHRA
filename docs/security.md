@@ -75,8 +75,8 @@ manifest-src 'self'; media-src 'none'
   telemetry API: the browser asks it directly for one CCTV snapshot per click (`GET
   /api/public/reportCctv/snapshot/{id}`, then `POST /api/file/image/cctv` for the JPEG — DWR reflects
   our origin in CORS, checked 2026-09-26). The JPEG is shown from a `blob:` URL, which `img-src`
-  already allows, so only `connect-src` grows. It is inert while the `VITE_FEATURE_CCTV` build flag is
-  off, which it is in production until DWR grants permission.
+  already allows, so only `connect-src` grows. The layer is on in production; building with
+  `VITE_FEATURE_CCTV=0` removes it, and this entry is then inert.
 - `worker-src 'self'` — `src/workers/*.worker.ts` are bundled to same-origin URLs, not blobs.
 - `font-src 'self'` — this is only possible because E4.1 moved Sarabun and IBM Plex Mono into
   `public/fonts/`. Re-adding a Google Fonts `<link>` would force `font-src`/`style-src` back open.

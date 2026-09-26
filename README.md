@@ -223,7 +223,7 @@ Two conventions a branch ruleset can't express — a PR that touches UI files mu
 | Local-authority (อปท.) registry | Department of Local Administration (DLA) | Open Data Common |
 | Local-authority (อปท.) boundaries | OpenStreetMap (`admin_level=7` relations) | ODbL |
 | Local-authority baseline exposure (population) | WorldPop 2020, UN-adjusted, 100 m (University of Southampton) | CC BY 4.0 |
-| Telemetry-station CCTV snapshots — **dev builds only** (`VITE_FEATURE_CCTV`), off in production | Department of Water Resources (DWR, กรมทรัพยากรน้ำ) telemetry API | No published terms — used pending DWR's permission |
+| Telemetry-station CCTV snapshots (shown on click, credited in the popup and the attribution line) | Department of Water Resources (DWR, กรมทรัพยากรน้ำ) telemetry API | No published terms — displayed with attribution to DWR |
 
 This is an attribution list, **not** a claim of authorship or endorsement — these agencies supply the data; they did not build or endorse this application. Several upstream layers referenced in [`docs/SIAHRA-implement-plan.md`](docs/SIAHRA-implement-plan.md) (e.g. some LDD soil datasets) carry non-commercial or share-alike terms and are deliberately **not** wired into the live product; verify licensing before adding any new source.
 

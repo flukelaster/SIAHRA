@@ -45,8 +45,8 @@
   #                              https://telemetry.dwr.go.th (E15): the browser fetches a DWR
   #                              CCTV snapshot itself, one camera per click (GET the path, then
   #                              POST for the JPEG); it renders from a blob: URL, which img-src
-  #                              already allows, so img-src does not change. Inert while the
-  #                              VITE_FEATURE_CCTV build flag is off (production today).
+  #                              already allows, so img-src does not change. Inert only when
+  #                              built with VITE_FEATURE_CCTV=0 (the kill switch).
   #   worker-src 'self'        — src/workers/* are bundled as real same-origin URLs.
   Content-Security-Policy: default-src 'self'; base-uri 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; form-action 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://server.arcgisonline.com https://tiles.maps.eox.at; font-src 'self'; connect-src 'self' wss://siahra-radar.co https://telemetry.dwr.go.th; worker-src 'self'; manifest-src 'self'; media-src 'none'
 

@@ -605,7 +605,7 @@ export const th = {
   "popup.cctv.noImage": "DWR ตอบแล้วแต่ไม่มีภาพจากกล้องนี้ให้ — ไม่ได้บอกอะไรเกี่ยวกับสภาพพื้นที่",
   "popup.cctv.refresh": "ขอภาพใหม่",
   "popup.cctv.credit": "ภาพ: กรมทรัพยากรน้ำ (DWR)",
-  "popup.cctv.pending": "ใช้ระหว่างรอการอนุญาตจาก DWR",
+  "popup.cctv.rights": "© กรมทรัพยากรน้ำ — ไม่ได้รับรองหรือเกี่ยวข้องกับโครงการนี้",
   "popup.cctv.nearest": "กล้องใกล้เคียง ({km} กม.)",
   "popup.cctv.open": "ดูภาพ",
   "popup.cctv.back": "กลับไปที่สถานี",

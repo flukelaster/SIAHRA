@@ -3,10 +3,9 @@
 **Source:** Department of Water Resources (กรมทรัพยากรน้ำ, DWR), public telemetry API
 `https://telemetry.dwr.go.th/api`. DWR supplies the data; it neither built nor endorses this project.
 
-**Licence:** DWR publishes no terms of use for this API (checked 2026-09-26). The catalogue and the
-snapshots it points to are **used pending DWR's permission**: the whole CCTV layer sits behind the
-build flag `VITE_FEATURE_CCTV=1`, which is on in `.env.development` only, and stays off in production
-builds until DWR answers.
+**Licence:** DWR publishes no terms of use for this API (checked 2026-09-26). The layer is shown in
+production **with attribution to DWR** (camera popup + the always-mounted credit line). Building the
+web app with `VITE_FEATURE_CCTV=0` removes the whole layer, should DWR ask.
 
 ## How it is built
 

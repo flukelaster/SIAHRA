@@ -223,7 +223,7 @@ export function CctvBody({
           href={DWR_HOME}
           target="_blank"
           rel="noreferrer noopener"
-          title={t("popup.cctv.pending")}
+          title={t("popup.cctv.rights")}
           className="inline-flex items-center gap-1 text-[10px] text-[var(--color-accent)] hover:underline"
         >
           <ExternalLink size={10} aria-hidden="true" />
@@ -239,7 +239,7 @@ export function CctvBody({
           {t("popup.cctv.refresh")}
         </button>
       </div>
-      <p className="mt-0.5 text-[10px] text-[var(--color-fg-subtle)]">{t("popup.cctv.pending")}</p>
+      <p className="mt-0.5 text-[10px] text-[var(--color-fg-subtle)]">{t("popup.cctv.rights")}</p>
     </div>
   );
 }
