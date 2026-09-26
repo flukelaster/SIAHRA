@@ -10,5 +10,7 @@ export default defineConfig({
     // worker/ อยู่นอก src เพราะเป็นโค้ดฝั่ง Worker (ถูก bundle ด้วย wrangler) —
     // เทสของมัน (worker/tilePath.test.ts) เป็น pure module เหมือนกัน จึงรันที่นี่
     include: ["src/**/*.test.ts", "worker/**/*.test.ts"],
+    // แคตตาล็อกอังกฤษเป็น chunk แยก (i18n/index.ts `loadCatalog`) — โหลดก่อนทุกไฟล์เทส
+    setupFiles: ["src/i18n/vitestSetup.ts"],
   },
 });

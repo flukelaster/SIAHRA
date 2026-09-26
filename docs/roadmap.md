@@ -1442,7 +1442,10 @@ nothing in E16 turns rain into a water level or computes when water will arrive.
   Ayutthaya, 3/48 Bangkok
 - Bundle: after rebasing onto main, entry + vendor 1367.11 kB raw, 367.84 kB gzipped — 7.84 kB
   over the 360 kB warning-only guard in `scripts/check-bundle-budget.mjs` (E8.2), so the build
-  log now prints that warning; the build-breaking 900 kB ceiling is unaffected
+  log now prints that warning; the build-breaking 900 kB ceiling is unaffected. Since the
+  lazy-load change, the entry path (entry + vendor + `entry:shared`, the chunks the entry imports
+  statically, which `scripts/check-bundle-budget.mjs` now follows) is 326.55 kB gz, under the
+  360 kB guard, so the warning no longer prints
 - Follow-up: the `station-level-sheet-illustrative` descriptor has no `methodologyUrl`; a
   `docs/methodology/` page (like `flood-depth.md` / `lowland.md`) is not written yet
 - Issue: _(not yet filed)_

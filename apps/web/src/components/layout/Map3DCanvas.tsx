@@ -39,8 +39,7 @@ import { createFloodSurface, type FloodSurface } from "../../scene/FloodSurface"
 import { RadarOverlay } from "../../scene/RadarOverlay";
 import { pickAt, type PickResult } from "../../scene/picking";
 import { QualityManager, type QualityLevel, type QualityMode } from "../../scene/quality";
-import { InfoPopup } from "../map/InfoPopup";
-import { CameraSheet } from "../map/CameraSheet";
+import { LazyCameraSheet as CameraSheet, LazyInfoPopup as InfoPopup } from "../map/lazyMapViews";
 import { isClickRelease, type CameraSelection } from "../../lib/cameraSheet";
 import { buildEarthquakeMarkers, type EarthquakeMarkerResult } from "../../scene/EarthquakeMarkers";
 import { buildExposureMarkers, type ExposureMarkerResult } from "../../scene/ExposureMarkers";
@@ -56,15 +55,15 @@ import {
   type SceneHandles,
 } from "../../scene/setupScene";
 import { buildStationMarkers, type StationMarkerResult } from "../../scene/StationMarkers";
-import { StationSheetLayer, type StationSheetInfo } from "../../scene/StationSheet";
-import { buildNorthRouteRivers, type NorthRouteRiversResult } from "../../scene/NorthRouteRivers";
-import { routeReadings, routeView } from "../../lib/northRoute";
+import type { StationSheetInfo, StationSheetLayer } from "../../scene/StationSheet";
+import type { NorthRouteRiversResult } from "../../scene/NorthRouteRivers";
+import { lazyModule } from "../../lib/lazyModule";
 import { buildTerrainMesh, type TerrainField } from "../../scene/TerrainMesh";
 import { createTerrainSharedUniforms } from "../../scene/terrainMaterial";
 import { disposedTreeCounters, TerrainTileTree, type TerrainTileStats } from "../../scene/TerrainTiles";
 import { formatNumber } from "../../lib/number";
 import { CCTV_ENABLED, ITIC_ENABLED } from "../../lib/featureFlags";
-import { SnapshotCache } from "../../lib/cctv";
+import { SnapshotCache } from "../../lib/snapshotCache";
 import { useLang } from "../../i18n/context";
 import type { MessageKey } from "../../i18n";
 import { errorMessage, resolveError, type ErrorMessage } from "../../lib/errorMessage";
@@ -167,6 +166,11 @@ export interface MapInfo {
    * เพราะอะไร (ข้อจำกัด C3: การลดความละเอียดต้องมองเห็น) — ไม่มี/null = ชั้นยังไม่ทำงาน
    */
   stationSheet?: StationSheetInfo | null;
+  /**
+   * โหลดโค้ดของชั้นฉากแบบ lazy ไม่สำเร็จ (ชั้นจึงไม่ถูกวาด) — legend บอกใต้แถวของชั้นนั้น
+   * ไม่มีกุญแจ = ไม่ได้ล้ม (ยังไม่เคยโหลด หรือโหลดสำเร็จแล้ว)
+   */
+  layerLoadErrors?: Partial<Record<LazySceneLayer, ErrorMessage>>;
 }
 
 /** Imperative map controls exposed to the shell (search fly-to, permalink, capture). */
@@ -193,6 +197,28 @@ type LoadState =
   | { status: "error"; message: ErrorMessage };
 
 const MAX_STATION_LABELS = 10;
+
+/**
+ * ชั้นฉากที่แยกเป็น chunk ของตัวเอง (ลดโค้ดบนเส้นทาง entry ก่อนแผนที่วาดได้) — ทั้งสองชั้นต้องรอ
+ * ข้อมูลจากเครือข่ายอยู่แล้ว (ค่าตรวจวัด / ผังเส้นทางน้ำเหนือ) จึงเริ่มโหลดโค้ดเมื่อชั้นเปิดและฉาก
+ * พร้อม ขนานไปกับการรอข้อมูล ไม่ใช่ตอนเปิดหน้า
+ *
+ * โหลดโค้ดไม่สำเร็จ = ชั้นไม่ถูกวาด แต่ **ไม่หายเงียบ**: ข้อความไปอยู่ใต้แถวของชั้นใน legend
+ * (`MapInfo.layerLoadErrors`) — `lazyModule` ลืม promise ที่ล้ม เอฟเฟกต์รอบถัดไป (poll ค่า
+ * ตรวจวัด / เลื่อนเวลา / ปิด-เปิดชั้น) จึงขอ chunk ใหม่เอง แต่ Chromium จำ import ที่ล้มไว้ใน
+ * module map (ดู `chunkErrorActions`) ข้อความจึงบอกให้โหลดหน้าใหม่ ไม่สัญญาว่าจะหายเอง
+ */
+const stationSheetModule = lazyModule(() => import("../../scene/StationSheet"));
+const northRiversModule = lazyModule(() =>
+  Promise.all([import("../../scene/NorthRouteRivers"), import("../../lib/northRoute")]).then(([rivers, route]) => ({
+    buildNorthRouteRivers: rivers.buildNorthRouteRivers,
+    routeReadings: route.routeReadings,
+    routeView: route.routeView,
+  })),
+);
+
+/** ชั้นที่โค้ดโหลดแบบ lazy — กุญแจของ `MapInfo.layerLoadErrors` */
+export type LazySceneLayer = "stationSheet" | "northRoute";
 
 /** ค่าเริ่มต้นที่ identity คงที่ — `[]` ใน default parameter จะสร้างใหม่ทุกเรนเดอร์แล้วสร้างหมุดใหม่ทุกครั้ง */
 const NO_CAMERAS: readonly CctvCamera[] = [];
@@ -346,6 +372,9 @@ export function Map3DCanvas({
    * และเมื่อแผนที่ถูกถอด (สลับจังหวัด = remount ด้วย key={aoiId})
    */
   const [snapshotCache] = useState(() => new SnapshotCache());
+  /** โค้ดของชั้นแบบ lazy พร้อมแล้ว — เปลี่ยนเป็น true ครั้งเดียว ให้เอฟเฟกต์ของชั้นนั้นรันใหม่ */
+  const [sheetModReady, setSheetModReady] = useState(() => stationSheetModule.peek() !== undefined);
+  const [riversModReady, setRiversModReady] = useState(() => northRiversModule.peek() !== undefined);
   const cctvOn = CCTV_ENABLED && layers.cctv;
   const cctvOnRef = useRef(cctvOn);
   cctvOnRef.current = cctvOn;
@@ -391,6 +420,37 @@ export function Map3DCanvas({
     if (!infoRef.current) return;
     infoRef.current = { ...infoRef.current, ...patch };
     onInfo?.(infoRef.current);
+  };
+
+  /** บันทึก/ล้างความล้มเหลวของการโหลดโค้ดชั้นแบบ lazy — ไม่ publish ซ้ำเมื่อไม่มีอะไรเปลี่ยน */
+  const setLayerLoadError = (key: LazySceneLayer, err: ErrorMessage | null) => {
+    const prev = infoRef.current?.layerLoadErrors ?? {};
+    if (err === null && !(key in prev)) return;
+    const next = { ...prev };
+    if (err) next[key] = err;
+    else delete next[key];
+    publishInfo({ layerLoadErrors: next });
+  };
+
+  /**
+   * เริ่ม/รอโหลดโค้ดของชั้นแบบ lazy จากในเอฟเฟกต์ — คืนฟังก์ชัน cleanup ของเอฟเฟกต์ (กันการ
+   * setState หลังเอฟเฟกต์รอบนั้นถูกยกเลิก หรือหลังแผนที่ถูกถอดตอนสลับจังหวัด)
+   */
+  const awaitLayerModule = (key: LazySceneLayer, mod: { load(): Promise<unknown> }, onReady: () => void) => {
+    let alive = true;
+    mod.load().then(
+      () => {
+        if (!alive) return;
+        setLayerLoadError(key, null);
+        onReady();
+      },
+      (err: unknown) => {
+        if (alive) setLayerLoadError(key, errorMessage(err, "common.chunkFailed"));
+      },
+    );
+    return () => {
+      alive = false;
+    };
   };
 
   /** ทิ้งฉาก GFM ปัจจุบันทั้งก้อน (geometry, วัสดุ, สอง texture, ตัวนับดีบัก) — idempotent */
@@ -1027,9 +1087,11 @@ export function Map3DCanvas({
     const handles = sceneRef.current;
     const loaded = terrainRef.current;
     if (!handles || !loaded || !layers.stationSheet) return;
+    const mod = stationSheetModule.peek();
+    if (!mod) return awaitLayerModule("stationSheet", stationSheetModule, () => setSheetModReady(true));
     let cur = sheetRef.current;
     if (!cur) {
-      const layer = new StationSheetLayer(
+      const layer = new mod.StationSheetLayer(
         handles.world,
         loaded.terrain,
         loaded.manifest,
@@ -1046,7 +1108,7 @@ export function Map3DCanvas({
     }
     cur.layer.update(observations?.waterlevel ?? null, atIso ? Date.parse(atIso) : Date.now());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [observations, atIso, layers.stationSheet, state.status]);
+  }, [observations, atIso, layers.stationSheet, state.status, sheetModReady]);
 
   // ฉาก GFM ที่ *แสดงอยู่* (ในหน้าต่าง 14 วัน + ชั้นเปิด) มาก่อนแผ่นจำลอง: เซลล์ที่ดาวเทียมสังเกตแล้ว
   // (ท่วม/แห้ง) ไม่ถูกแผ่นจำลองวาดทับ — worker ส่งผลเดิมกลับมาใหม่ ไม่วางแผน/ไม่ขอไทล์
@@ -1060,7 +1122,9 @@ export function Map3DCanvas({
     const loaded = terrainRef.current;
     disposeRivers();
     if (!handles || !loaded || !northRouteTopology) return;
-    const result = buildNorthRouteRivers(
+    const mod = northRiversModule.peek();
+    if (!mod) return awaitLayerModule("northRoute", northRiversModule, () => setRiversModReady(true));
+    const result = mod.buildNorthRouteRivers(
       loaded.manifest,
       northRouteTopology,
       loaded.terrain.insideMask,
@@ -1084,15 +1148,18 @@ export function Map3DCanvas({
     }
     riversRef.current = { result, unregister };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [northRouteTopology, state.status]);
+  }, [northRouteTopology, state.status, riversModReady]);
 
   useEffect(() => {
     const rivers = riversRef.current?.result;
-    if (!rivers) return;
+    const mod = northRiversModule.peek();
+    if (!rivers || !mod) return;
     // คิดครั้งเดียวต่อการเปลี่ยนของข้อมูล/เวลา (ไม่ใช่ต่อเฟรม) — สถานะ "ค้าง" จึงขยับตามรอบ poll
     const nowMs = Date.now();
-    rivers.setReadings(routeReadings(northRouteTopology, northRouteStations, routeView(atIso, nowMs), nowMs));
-  }, [northRouteTopology, northRouteStations, atIso, state.status]);
+    rivers.setReadings(
+      mod.routeReadings(northRouteTopology, northRouteStations, mod.routeView(atIso, nowMs), nowMs),
+    );
+  }, [northRouteTopology, northRouteStations, atIso, state.status, riversModReady]);
 
   // Earthquake epicentres inside the province.
   useEffect(() => {

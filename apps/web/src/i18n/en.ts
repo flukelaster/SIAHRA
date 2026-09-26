@@ -35,12 +35,17 @@ export const en: Record<keyof typeof th, string> = {
   "lang.option.en": "EN",
   "lang.name.th": "ภาษาไทย",
   "lang.name.en": "English",
+  "lang.loadFailed": "Could not load English — reload the page and try again",
 
   // ── Brand ──────────────────────────────────────────────────────────────
   "brand.tagline": "Spatial data atlas for hazard monitoring in Thailand",
 
   // ── Common ─────────────────────────────────────────────────────────────
   "common.loading": "Loading…",
+  "common.chunkFailed": "Could not load this part —",
+  "common.renderFailed": "This section failed to render —",
+  "common.retry": "Retry",
+  "common.reloadPage": "Reload page",
   "common.close": "Close",
   "common.reconnecting": "Reconnecting automatically…",
   "common.province": "Province",
@@ -242,6 +247,8 @@ export const en: Record<keyof typeof th, string> = {
   "legend.layer.cctv": "CCTV cameras (Department of Water Resources · iTIC)",
   "legend.layer.cctv.note":
     "Round markers: DWR telemetry-station river cameras — a still about every 15 min (the time shown is when it was taken) or press \"Live\" · requested from DWR only when you click a marker",
+  "legend.layer.loadFailed":
+    "Could not load this layer's code ({error}) — so it is not drawn on the map — reload the page to try again",
   "legend.layer.cctv.error":
     "Could not load the DWR camera list ({error}) — so no DWR camera markers are drawn",
   "legend.layer.cctv.errorItic":

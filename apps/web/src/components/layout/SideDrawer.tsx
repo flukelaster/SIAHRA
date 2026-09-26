@@ -2,12 +2,13 @@ import { X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useT } from "../../i18n/context";
 import { panelByKey, type PanelContext } from "./panelRegistry";
+import { PanelSlot } from "./PanelSlot";
 import { DRAWER_ID } from "./SideRail";
 import type { PanelKey } from "../../lib/shellPrefs";
 
 /**
  * drawer เดียวข้าง rail — mount เฉพาะตอนเปิด และเรนเดอร์เฉพาะแผงที่เลือก
- * (`panelByKey(panel).render(ctx)`) ไม่ใช่ทั้งเก้าการ์ดพร้อมกันแบบ RightPanel เดิม
+ * (`<PanelSlot def={panelByKey(panel)}>` — เนื้อแผงเป็น chunk แยก) ไม่ใช่ทั้งเก้าการ์ดพร้อมกันแบบ RightPanel เดิม
  *
  * โฟกัส: เปิด → ไปที่หัวข้อ (`<h2 tabIndex={-1}>`); ปิด (unmount) → กลับไปที่
  * ปุ่มของแผงนั้นบน rail ผ่าน `onClosed` ที่ AppShell จัดให้
@@ -71,7 +72,9 @@ export function SideDrawer({
           <X size={15} />
         </button>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">{def.render(ctx)}</div>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
+        <PanelSlot def={def} ctx={ctx} />
+      </div>
     </section>
   );
 }

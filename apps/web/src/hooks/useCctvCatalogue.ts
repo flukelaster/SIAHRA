@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import type { CctvCatalogue, ItiCCatalogue } from "@siahra/shared-types";
-import { CCTV_CATALOGUE_URL } from "../lib/cctv";
-import { ITIC_CATALOGUE_URL } from "../lib/itic";
+import { CCTV_CATALOGUE_URL, ITIC_CATALOGUE_URL } from "../lib/cameraCatalogues";
 import { errorMessage, type ErrorMessage } from "../lib/errorMessage";
 
 export interface CatalogueState<T> {

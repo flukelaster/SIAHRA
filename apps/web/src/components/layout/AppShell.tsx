@@ -19,7 +19,7 @@ import { AlertToast } from "./AlertToast";
 import { BottomDock } from "./BottomDock";
 import type { MapInfo } from "./Map3DCanvas";
 import { MobileSheet } from "./MobileSheet";
-import { NotificationCenter } from "./NotificationCenter";
+import { LazyNotificationCenter as NotificationCenter } from "./LazyNotificationCenter";
 import type { PanelContext } from "./panelRegistry";
 import { SideDrawer } from "./SideDrawer";
 import { SideRail } from "./SideRail";

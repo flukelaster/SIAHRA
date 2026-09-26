@@ -12,6 +12,7 @@ import type { MapInfo } from "./Map3DCanvas";
 import { MapAttribution } from "./MapAttribution";
 import { PanelBadge } from "./PanelBadge";
 import { PANELS, panelByKey, type PanelContext } from "./panelRegistry";
+import { PanelSlot } from "./PanelSlot";
 import { SourceStatusPopover } from "./SourceStatusPopover";
 import { StatPills } from "./StatPills";
 import { FloodSourceAgeChip } from "./FloodSourceAgeChip";
@@ -208,7 +209,9 @@ export function MobileSheet({
           {/* `shrink-0` ไม่ใช่ `min-h-0`: ในคอลัมน์ flex ที่เลื่อนได้ กล่องที่ยอมหด
               จะถูกบีบให้พอดีที่ว่างแล้วเนื้อหาข้างในล้นออกมาโดยไม่มีอะไรคลิป —
               ของที่อยู่ถัดไปจึงถูกวาดทับรายการในแผง (เห็นบน iPhone จริง) */}
-          <div className="shrink-0">{current.render(ctx)}</div>
+          <div className="shrink-0">
+            <PanelSlot def={current} ctx={ctx} />
+          </div>
         </div>
       ) : null}
     </div>
