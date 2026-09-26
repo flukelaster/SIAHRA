@@ -1,8 +1,7 @@
-import { Camera, Check, Database, Link2, Search } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { Bell, Camera, Check, Database, Link2, Search } from "lucide-react";
+import { useMemo, useRef, useState, type RefObject } from "react";
 import { BRAND } from "../../branding";
 import { BrandMark } from "./BrandMark";
-import { GithubMark } from "./GithubMark";
 import { LanguageToggle } from "./LanguageToggle";
 import { ProvinceChip } from "./ProvinceChip";
 import type { Province } from "../../data/types";
@@ -19,7 +18,7 @@ const ICON_BUTTON =
 
 /**
  * Floating header bar over the map (48 px): brand, province chip, search
- * (province/amphoe/station/dam), share, snapshot, source repo, sources link.
+ * (province/amphoe/station/dam), share, snapshot, notifications bell, sources link.
  *
  * ชื่อแบรนด์เต็ม + แท็กไลน์โผล่เฉพาะ `wide`; ปุ่มทั้งหมดเป็นไอคอนล้วน (ข้อความ
  * เดิมย้ายไป tooltip/aria-label เดียวกับที่ใช้อยู่แล้ว) เพื่อให้ช่องค้นหาและชิป
@@ -34,6 +33,10 @@ export function TopBar({
   onSelectPlace,
   onShare,
   onSnapshot,
+  unreadCount,
+  notificationsOpen,
+  onToggleNotifications,
+  bellRef,
 }: {
   tier: Tier;
   provinces: Province[];
@@ -43,6 +46,11 @@ export function TopBar({
   onSelectPlace: (place: SearchPlace) => void;
   onShare: () => Promise<boolean>;
   onSnapshot: () => void;
+  /** จำนวนรายการที่ยังไม่อ่านในศูนย์การแจ้งเตือน (`lib/notifications.ts`) */
+  unreadCount: number;
+  notificationsOpen: boolean;
+  onToggleNotifications: () => void;
+  bellRef: RefObject<HTMLButtonElement | null>;
 }) {
   const { lang, t } = useLang();
   const [copied, setCopied] = useState(false);
@@ -174,30 +182,46 @@ export function TopBar({
         >
           {copied ? <Check size={14} className="text-[var(--color-success)]" /> : <Link2 size={14} />}
         </button>
-        <button
-          type="button"
-          onClick={onSnapshot}
-          title={t("topbar.snapshotTitle")}
-          aria-label={t("topbar.snapshotTitle")}
-          className={ICON_BUTTON}
-        >
-          <Camera size={14} />
-        </button>
-        {/* ทางเข้าซอร์สโค้ด — โครงการเป็นโอเพนซอร์ส ลิงก์จึงอยู่ในแถบบนของจอกว้าง
-            แต่บนมือถือไม่มีที่พอจริง ๆ (พิสูจน์แล้วบน iPhone: ช่องค้นหาถูกบีบจน
-            แว่นขยายล้นทับปุ่มแชร์) จึงซ่อนเหมือนลิงก์ ThaiWater ด้านล่าง */}
+        {/* ปุ่มบันทึกภาพซ่อนบนมือถือ (แบบเดียวกับปุ่มเต็มจอ/หมุน-เลื่อนที่เปลือกตัดทิ้งบน
+            tier นี้): กระดิ่งแจ้งเตือนมาแทนช่องของปุ่ม GitHub และแสดงทุก tier — ถ้ายังมี
+            ปุ่มกล้องอยู่ ช่องค้นหาบนจอ 390 ถูกบีบเหลือ 44px (เหลือที่พิมพ์ ~2px หลังหัก
+            padding ~42px) คืน 38px ให้ช่องค้นหาแทน */}
         {!phone ? (
-          <a
-            href={BRAND.repoUrl}
-            target="_blank"
-            rel="noreferrer noopener"
-            title={t("topbar.repoTitle")}
-            aria-label={t("topbar.repoTitle")}
+          <button
+            type="button"
+            onClick={onSnapshot}
+            title={t("topbar.snapshotTitle")}
+            aria-label={t("topbar.snapshotTitle")}
             className={ICON_BUTTON}
           >
-            <GithubMark size={15} />
-          </a>
+            <Camera size={14} />
+          </button>
         ) : null}
+        {/* กระดิ่งศูนย์การแจ้งเตือน — แทนที่ปุ่ม GitHub เดิม (ลิงก์ซอร์สโค้ดย้ายไปอยู่ใน
+            บรรทัดเครดิตของ MapAttribution ที่ mount เสมอ) และแสดง **ทุก tier รวมมือถือ**
+            ปุ่มแชร์/ภาพ/กระดิ่ง = 3 × 32px + ช่องว่าง เท่ากับตอนที่ปุ่ม GitHub ยังโชว์บน
+            tablet ขึ้นไป — บนมือถือช่องค้นหาถูกบีบลงอีก 38px แต่ label ที่ `overflow-hidden`
+            ด้านบนคือสิ่งที่กันแว่นขยายล้นทับปุ่มถัดไป (บั๊กเดิมบน iPhone) จึงยังคุมได้ */}
+        <button
+          ref={bellRef}
+          type="button"
+          onClick={onToggleNotifications}
+          aria-haspopup="dialog"
+          aria-expanded={notificationsOpen}
+          aria-label={t("notifications.bell.aria", { n: unreadCount })}
+          title={t("notifications.bell.aria", { n: unreadCount })}
+          className={`${ICON_BUTTON} relative ${notificationsOpen ? "border-white/25 text-[var(--color-fg)]" : ""}`}
+        >
+          <Bell size={14} aria-hidden="true" />
+          {unreadCount > 0 ? (
+            <span
+              aria-hidden="true"
+              className="tabular-nums absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-risk-high)] px-1 text-[9px] leading-none font-semibold text-white"
+            >
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
+          ) : null}
+        </button>
         {/* ลิงก์ไปต้นทาง ThaiWater — บนมือถือไม่มีที่พอ (เครดิตเต็มยังอยู่ในบรรทัด
             attribution ของ dock ตลอดเวลาอยู่แล้ว) */}
         {!phone ? (
