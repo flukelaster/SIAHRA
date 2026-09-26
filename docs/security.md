@@ -49,9 +49,9 @@ of the policy string free to drift from the file Cloudflare actually reads.
 ```
 default-src 'self'; base-uri 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'none';
 form-action 'none'; script-src 'self'; style-src 'self' 'unsafe-inline';
-img-src 'self' data: blob: https://server.arcgisonline.com https://tiles.maps.eox.at;
-font-src 'self'; connect-src 'self' wss://siahra-radar.co https://telemetry.dwr.go.th; worker-src 'self';
-manifest-src 'self'; media-src 'none'
+img-src 'self' data: blob: https://server.arcgisonline.com https://tiles.maps.eox.at https://telemetry.dwr.go.th;
+font-src 'self'; connect-src 'self' wss://siahra-radar.co https://telemetry.dwr.go.th https://camerai1.iticfoundation.org;
+worker-src 'self'; manifest-src 'self'; media-src blob: https://camerai1.iticfoundation.org
 ```
 
 - `script-src 'self'` — the built `index.html` has exactly one `<script src>` and no inline script.
@@ -68,16 +68,32 @@ manifest-src 'self'; media-src 'none'
   looking clean in Chrome.
 - `img-src` — `data:`/`blob:` for the share-image download (`App.tsx`) and the stitched basemap
   canvas; the two hosts are the basemap providers loaded as `<img>` by `scene/SatelliteImagery.ts`
-  (Esri World Imagery and EOX Sentinel-2 cloudless).
-- `connect-src 'self' wss://siahra-radar.co https://telemetry.dwr.go.th` — same-origin `/api/*` plus
+  (Esri World Imagery and EOX Sentinel-2 cloudless). `https://telemetry.dwr.go.th` (E15.2) is the DWR
+  live view: `GET /api/public/cctv/mjpegStream?stnCode={station}` answers
+  `multipart/x-mixed-replace`, which a browser renders as a plain `<img src>` — one camera, only after
+  the user presses "ดูสด" in that camera's popup; the popup re-sets `src` every ~15 s (DWR closes the
+  stream after ~11–24 s), stops by itself after 5 min, and sets `src = ""` on close to drop the
+  connection. Inert when built with `VITE_FEATURE_CCTV=0`.
+- `connect-src 'self' wss://siahra-radar.co https://telemetry.dwr.go.th https://camerai1.iticfoundation.org` — same-origin `/api/*` plus
   the earthquake WebSocket. CSP3 says `'self'` already matches `wss:` on the same origin; the explicit
   host is belt and braces. `https://telemetry.dwr.go.th` (E15) is the Department of Water Resources
   telemetry API: the browser asks it directly for one CCTV snapshot per click (`GET
   /api/public/reportCctv/snapshot/{id}`, then `POST /api/file/image/cctv` for the JPEG — DWR reflects
-  our origin in CORS, checked 2026-09-26). The JPEG is shown from a `blob:` URL, which `img-src`
-  already allows, so only `connect-src` grows. The layer is on in production; building with
-  `VITE_FEATURE_CCTV=0` removes it, and this entry is then inert.
-- `worker-src 'self'` — `src/workers/*.worker.ts` are bundled to same-origin URLs, not blobs.
+  our origin in CORS, checked 2026-09-26). The JPEG is shown from a `blob:` URL. The layer is on in
+  production; building with `VITE_FEATURE_CCTV=0` removes it, and this entry is then inert.
+  `https://camerai1.iticfoundation.org` (E15.2) is the iTIC Foundation's HLS server for the road
+  cameras (Department of Highways and partners; camera list by Longdo, baked into
+  `public/cctv/itic-cameras.json` at ETL time, so the Longdo host itself is never contacted by the
+  browser): hls.js loads the playlist and `.ts` segments by XHR (`Access-Control-Allow-Origin: *`,
+  checked 2026-09-26), one camera per click, one player per page. Inert when built with
+  `VITE_FEATURE_ITIC=0`.
+- `media-src blob: https://camerai1.iticfoundation.org` — was `'none'` until E15.2, the first `<video>`
+  in the app. hls.js feeds the `<video>` through Media Source Extensions, which the element loads
+  from a `blob:` URL; Safari/iOS play the same playlist natively, which is a media load of the
+  `camerai1` URL itself. Nothing else is allowed as media.
+- `worker-src 'self'` — `src/workers/*.worker.ts` are bundled to same-origin URLs, not blobs. hls.js is
+  created with `enableWorker: false` (`src/lib/itic.ts`), so its transmuxer runs on the main thread
+  and never asks for a `blob:` worker; this directive did not change for E15.2.
 - `font-src 'self'` — this is only possible because E4.1 moved Sarabun and IBM Plex Mono into
   `public/fonts/`. Re-adding a Google Fonts `<link>` would force `font-src`/`style-src` back open.
 
@@ -95,6 +111,12 @@ of the running dev server, so `/aoi/**`, `/api/**` and the WebSocket still went 
 - province switch and a radar layer toggle produce **zero** console messages
 - control: `fetch('https://example.com/')` from the page *is* refused by `connect-src`, proving the
   policy is enforced rather than ignored
+
+The 2026-08-19 run predates the E15.2 changes (`img-src` + `https://telemetry.dwr.go.th`, `connect-src` +
+`https://camerai1.iticfoundation.org`, `media-src` from `'none'` to `blob: https://camerai1.iticfoundation.org`).
+QA on 2026-09-26 ran the production `dist` under the enforcing CSP: iTIC played through hls.js/MSE
+(`blob:`), the DWR MJPEG live view ran with its canvas read, the WebSocket opened, and the app raised
+zero violations.
 
 Known gap: whether Cloudflare's asset layer honours `_headers` in production could not be exercised
 here (Vite ignores it, and there is no `wrangler dev` for the web Worker in this environment). It was

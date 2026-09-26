@@ -259,10 +259,15 @@ export const th = {
   "legend.layer.roads.note": "มอเตอร์เวย์ ทางหลวง และถนนสายรอง ซ่อนเองเมื่อกล้องสูงเกิน {km} กม.",
   "legend.layer.dams": "เขื่อน / อ่างเก็บน้ำ",
   "legend.layer.dams.note": "% ความจุตามที่ ThaiWater รายงาน",
-  "legend.layer.cctv": "ภาพกล้อง CCTV (กรมทรัพยากรน้ำ)",
+  "legend.layer.cctv": "กล้อง CCTV (กรมทรัพยากรน้ำ และ iTIC)",
   "legend.layer.cctv.note":
-    "ภาพนิ่งจากกล้องที่สถานีโทรมาตรของกรมทรัพยากรน้ำ อัปเดตราว 15 นาทีครั้ง เวลาที่แสดงคือเวลาถ่ายภาพ และจะขอภาพจาก DWR ก็ต่อเมื่อคลิกหมุดเท่านั้น",
-  "legend.layer.cctv.error": "โหลดรายการกล้องไม่สำเร็จ ({error}) บนแผนที่จึงไม่มีหมุดกล้อง",
+    "หมุดวงกลมคือกล้องริมน้ำที่สถานีโทรมาตรของกรมทรัพยากรน้ำ ภาพนิ่งอัปเดตราว 15 นาทีครั้ง เวลาที่แสดงคือเวลาถ่ายภาพ และกด \"ดูสด\" เพื่อดูภาพสดได้ เราจะขอภาพจาก DWR ก็ต่อเมื่อคลิกหมุดเท่านั้น",
+  "legend.layer.cctv.error": "โหลดรายการกล้องของกรมทรัพยากรน้ำไม่สำเร็จ ({error}) บนแผนที่จึงไม่มีหมุดกล้อง DWR",
+  "legend.layer.cctv.errorItic": "โหลดรายการกล้องถนนของ iTIC ไม่สำเร็จ ({error}) บนแผนที่จึงไม่มีหมุดกล้องถนน",
+  "legend.layer.cctv.noteItic":
+    "หมุดสี่เหลี่ยมสีอำพันคือกล้องถนนของกรมทางหลวงและหน่วยงานพันธมิตร ส่งวิดีโอสดผ่านมูลนิธิ iTIC (รายการกล้องจาก Longdo) วิดีโอจะเริ่มเล่นก็ต่อเมื่อคลิกหมุดเท่านั้น",
+  "legend.layer.cctv.iticOnly": "วิดีโอสดจากกล้องถนน (iTIC)",
+  "legend.layer.cctv.dwrOnly": "ภาพกล้อง CCTV (กรมทรัพยากรน้ำ)",
   "legend.layer.sunlight": "แสงอาทิตย์ตามเวลาจริง",
   "legend.layer.sunlight.note": "ตำแหน่งดวงอาทิตย์และสีท้องฟ้าตามเวลาปัจจุบัน หรือตามเวลาที่เลือกบนไทม์ไลน์",
   "legend.layer.trees": "ต้นไม้ (ESA WorldCover)",
@@ -609,6 +614,53 @@ export const th = {
   "popup.cctv.nearest": "กล้องใกล้เคียง ({km} กม.)",
   "popup.cctv.open": "ดูภาพ",
   "popup.cctv.back": "กลับไปที่สถานี",
+  "popup.cctv.modeLabel": "แบบภาพ",
+  "popup.cctv.modeSnapshot": "ภาพนิ่ง",
+  "popup.cctv.modeLive": "ดูสด",
+  "popup.cctv.snapshotBadge": "ภาพนิ่ง · ถ่าย {time}",
+  "popup.cctv.snapshotBadgeNoTime": "ภาพนิ่ง · ไม่ทราบเวลาถ่าย",
+  "popup.cctv.liveAlt": "ภาพสดจากกล้อง {name}",
+  "popup.cctv.liveConnecting":
+    "กำลังเชื่อมต่อ… (ภาพสดจาก DWR ใช้เวลาราว 4–6 วินาทีกว่าจะได้เฟรมแรก)",
+  "popup.cctv.liveFailed":
+    "ไม่ได้ภาพสดจากกล้องนี้ — DWR ไม่ส่งภาพ หรือเราเชื่อมต่อไม่ได้ (เบราว์เซอร์ไม่บอกว่าแบบไหน) จึงบอกอะไรเกี่ยวกับกล้องหรือพื้นที่นี้ไม่ได้",
+  "popup.cctv.liveBadge": "สด",
+  "popup.cctv.livePausedBadge": "หยุดดูสดแล้ว",
+  "popup.cctv.liveReconnectingBadge": "กำลังเชื่อมต่อใหม่…",
+  "popup.cctv.liveReconnecting":
+    "ไม่ได้เฟรมใหม่จาก DWR มาสักพัก กำลังเชื่อมต่อใหม่ — ภาพที่เห็นคือเฟรมสุดท้ายที่ได้รับ ไม่ใช่ภาพสด",
+  "popup.cctv.livePaused":
+    "หยุดดูสดเองหลัง 5 นาที เพื่อไม่ต่อเซิร์ฟเวอร์ของ DWR ค้างไว้ — ภาพที่เห็นคือเฟรมสุดท้ายที่ได้รับ ไม่ใช่ภาพปัจจุบัน",
+  "popup.cctv.liveNoTime":
+    "ภาพสดจาก DWR (ต่อใหม่ทุก ~15 วินาที) — สตรีมนี้ไม่มีเวลาถ่ายกำกับ จึงไม่แสดงเวลา",
+  "popup.cctv.liveResume": "ดูสดต่อ",
+  "popup.cctv.liveRetry": "ลองใหม่",
+  "popup.itic.fallbackName": "กล้อง {id}",
+  "popup.itic.videoLabel": "วิดีโอสดจากกล้อง {name}",
+  "popup.itic.loading": "กำลังเชื่อมต่อสตรีมวิดีโอของ iTIC…",
+  "popup.itic.suspended":
+    "iTIC ไม่มีสตรีมจากกล้องนี้ตอนนี้ ({detail}) — อาจถูกระงับชั่วคราว; ไม่ได้บอกอะไรเกี่ยวกับสภาพถนนหรือพื้นที่",
+  "popup.itic.unreachable":
+    "เปิดสตรีมจากเซิร์ฟเวอร์วิดีโอของ iTIC ไม่สำเร็จ ({detail}) — เครือข่ายล้มเหลว หรือเซิร์ฟเวอร์ตอบในแบบที่เบราว์เซอร์อ่านไม่ได้ (แยกสองกรณีนี้ไม่ได้) จึงบอกอะไรเกี่ยวกับกล้องหรือถนนนี้ไม่ได้",
+  "popup.itic.unsupported":
+    "เบราว์เซอร์นี้เล่นวิดีโอนี้ไม่ได้ ({detail}) — สตรีมเป็น H.264; ไม่ได้บอกอะไรเกี่ยวกับกล้องหรือถนน",
+  "popup.itic.streamTime": "เวลาในสตรีม",
+  "popup.itic.noStreamTime":
+    "สตรีมนี้ไม่มีเวลากำกับ (ไม่มี EXT-X-PROGRAM-DATE-TIME) จึงไม่แสดงเวลาถ่าย",
+  "popup.itic.owner": "กล้อง: {org}",
+  "popup.itic.credit": "วิดีโอ: มูลนิธิ iTIC",
+  "popup.itic.listCredit": "รายการกล้อง: Longdo",
+  "popup.itic.rights":
+    "ภาพเป็นของเจ้าของกล้องตามที่ระบุ เผยแพร่ผ่าน iTIC — ไม่มีหน่วยงานใดรับรองหรือเกี่ยวข้องกับโครงการนี้",
+  "popup.itic.retry": "ลองใหม่",
+  "popup.itic.bufferingBadge": "กำลังบัฟเฟอร์…",
+  "popup.itic.buffering":
+    "วิดีโอหยุดรอข้อมูลจาก iTIC — ภาพที่ค้างอยู่ไม่ใช่ภาพสด; ไม่ได้บอกอะไรเกี่ยวกับกล้องหรือถนน",
+  "popup.itic.pausedBadge": "หยุดชั่วคราว",
+  "popup.itic.paused": "หยุดชั่วคราว — ภาพที่ค้างอยู่ไม่ใช่ภาพสด; กดเล่นต่อจะกระโดดกลับไปที่ภาพล่าสุด",
+  "popup.itic.coLocated": "กล้องที่ตำแหน่งเดียวกัน",
+  "popup.itic.nearest": "กล้องถนนใกล้เคียง ({km} กม.)",
+  "popup.itic.open": "ดูวิดีโอสด",
   "popup.status": "สถานะ",
   "popup.statusAutomatic": "ตรวจพบโดยอัตโนมัติ ยังไม่มีคนตรวจสอบ",
   "popup.statusReviewed": "ตรวจสอบแล้ว",

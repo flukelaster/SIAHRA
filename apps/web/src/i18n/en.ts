@@ -222,10 +222,17 @@ export const en: Record<keyof typeof th, string> = {
   "legend.layer.roads.note": "Motorways / highways / secondary roads · off above {km} km",
   "legend.layer.dams": "Dams / reservoirs",
   "legend.layer.dams.note": "% of capacity as reported (ThaiWater)",
-  "legend.layer.cctv": "CCTV snapshots (Department of Water Resources)",
+  "legend.layer.cctv": "CCTV cameras (Department of Water Resources · iTIC)",
   "legend.layer.cctv.note":
-    "Still images from DWR telemetry-station cameras, updated about every 15 min · the time shown is when the image was taken · requested from DWR only when you click a marker",
-  "legend.layer.cctv.error": "Could not load the camera list ({error}) — so no camera markers are drawn",
+    "Round markers: DWR telemetry-station river cameras — a still about every 15 min (the time shown is when it was taken) or press \"Live\" · requested from DWR only when you click a marker",
+  "legend.layer.cctv.error":
+    "Could not load the DWR camera list ({error}) — so no DWR camera markers are drawn",
+  "legend.layer.cctv.errorItic":
+    "Could not load the iTIC road-camera list ({error}) — so no road-camera markers are drawn",
+  "legend.layer.cctv.noteItic":
+    "Amber square markers: Department of Highways and partner road cameras via the iTIC Foundation — live video (camera list by Longdo) · starts only when you click a marker",
+  "legend.layer.cctv.iticOnly": "Live road-camera video (iTIC)",
+  "legend.layer.cctv.dwrOnly": "CCTV snapshots (Department of Water Resources)",
   "legend.layer.sunlight": "Sunlight at the real time of day",
   "legend.layer.sunlight.note": "Sun and sky position for the current or timeline time",
   "legend.layer.trees": "Trees (ESA WorldCover)",
@@ -565,6 +572,53 @@ export const en: Record<keyof typeof th, string> = {
   "popup.cctv.nearest": "Nearby camera ({km} km)",
   "popup.cctv.open": "View image",
   "popup.cctv.back": "Back to station",
+  "popup.cctv.modeLabel": "Image mode",
+  "popup.cctv.modeSnapshot": "Snapshot",
+  "popup.cctv.modeLive": "Live",
+  "popup.cctv.snapshotBadge": "Snapshot · taken {time}",
+  "popup.cctv.snapshotBadgeNoTime": "Snapshot · capture time unknown",
+  "popup.cctv.liveAlt": "Live image from camera {name}",
+  "popup.cctv.liveConnecting":
+    "Connecting… (DWR live images take about 4–6 s to send the first frame)",
+  "popup.cctv.liveFailed":
+    "No live image from this camera — DWR sent none or we could not connect (the browser does not say which), so nothing can be said about this camera or this area",
+  "popup.cctv.liveBadge": "LIVE",
+  "popup.cctv.livePausedBadge": "Live paused",
+  "popup.cctv.liveReconnectingBadge": "Reconnecting…",
+  "popup.cctv.liveReconnecting":
+    "No new frame from DWR for a while, reconnecting — the picture is the last frame received, not a live one",
+  "popup.cctv.livePaused":
+    "Live view stops by itself after 5 min so the DWR server is not held open — the picture is the last frame received, not a current one",
+  "popup.cctv.liveNoTime":
+    "Live image from DWR (reconnects every ~15 s) — the stream carries no capture time, so none is shown",
+  "popup.cctv.liveResume": "Resume live",
+  "popup.cctv.liveRetry": "Try again",
+  "popup.itic.fallbackName": "Camera {id}",
+  "popup.itic.videoLabel": "Live video from camera {name}",
+  "popup.itic.loading": "Connecting to the iTIC video stream…",
+  "popup.itic.suspended":
+    "iTIC has no stream from this camera right now ({detail}) — it may be suspended; this says nothing about the road or the area",
+  "popup.itic.unreachable":
+    "Could not open the stream from the iTIC video server ({detail}) — the network failed or the server answered in a way the browser may not read (the two cannot be told apart), so nothing can be said about this camera or this road",
+  "popup.itic.unsupported":
+    "This browser cannot play this video ({detail}) — the stream is H.264; this says nothing about the camera or the road",
+  "popup.itic.streamTime": "Time in stream",
+  "popup.itic.noStreamTime":
+    "This stream carries no timestamp (no EXT-X-PROGRAM-DATE-TIME), so no capture time is shown",
+  "popup.itic.owner": "Camera: {org}",
+  "popup.itic.credit": "Video: iTIC Foundation",
+  "popup.itic.listCredit": "Camera list: Longdo",
+  "popup.itic.rights":
+    "Footage belongs to the camera owner named here, published via iTIC — none of them endorses or is affiliated with this project",
+  "popup.itic.retry": "Try again",
+  "popup.itic.bufferingBadge": "Buffering…",
+  "popup.itic.buffering":
+    "The video is waiting for data from iTIC — the frozen frame is not live; this says nothing about the camera or the road",
+  "popup.itic.pausedBadge": "Paused",
+  "popup.itic.paused": "Paused — the frame shown is not live; pressing play jumps back to the live edge",
+  "popup.itic.coLocated": "Cameras at this spot",
+  "popup.itic.nearest": "Nearby road camera ({km} km)",
+  "popup.itic.open": "Watch live",
   "popup.status": "Status",
   "popup.statusAutomatic": "Detected automatically, not reviewed",
   "popup.statusReviewed": "Reviewed",

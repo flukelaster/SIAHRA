@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type {
   CctvCamera,
+  ItiCCamera,
   DamObservation,
   EarthquakeEvent,
   FloodExtentFeature,
@@ -33,6 +34,8 @@ export type PickResult =
   | { kind: "dam"; dam: DamObservation; anchor: THREE.Vector3 }
   /** กล้อง CCTV ของ DWR (E15) — ภาพถูกดึงเมื่อ popup เปิดเท่านั้น ไม่ใช่ตอนวาดหมุด */
   | { kind: "cctv"; camera: CctvCamera; anchor: THREE.Vector3 }
+  /** กล้องถนนของ iTIC (E15.2) — สตรีมเริ่มเมื่อ popup เปิดเท่านั้น */
+  | { kind: "itic"; camera: ItiCCamera; anchor: THREE.Vector3 }
   | { kind: "quake"; event: EarthquakeEvent; anchor: THREE.Vector3 }
   | {
       kind: "ground";
@@ -48,7 +51,7 @@ export type PickResult =
 const raycaster = new THREE.Raycaster();
 
 /** ชนิดหมุดที่ `pickAt` ตอบกลับตรง ๆ จาก `userData` ของ sprite ใน `handles.markers` */
-const MARKER_KINDS = new Set(["waterlevel", "rainfall", "dam", "cctv"]);
+const MARKER_KINDS = new Set(["waterlevel", "rainfall", "dam", "cctv", "itic"]);
 
 /**
  * `userData` ของหมุดที่โดน → PickResult — null = ไม่ใช่หมุดที่คลิกได้ (เช่นฮาโลรอบสถานี)

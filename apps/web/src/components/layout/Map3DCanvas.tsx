@@ -4,6 +4,7 @@ import type {
   AoiManifest,
   AoiProvenance,
   CctvCamera,
+  ItiCCamera,
   DamObservation,
   EarthquakeEvent,
   FloodExtentResponse,
@@ -53,7 +54,7 @@ import { buildTerrainMesh, type TerrainField } from "../../scene/TerrainMesh";
 import { createTerrainSharedUniforms } from "../../scene/terrainMaterial";
 import { disposedTreeCounters, TerrainTileTree, type TerrainTileStats } from "../../scene/TerrainTiles";
 import { formatNumber } from "../../lib/number";
-import { CCTV_ENABLED } from "../../lib/featureFlags";
+import { CCTV_ENABLED, ITIC_ENABLED } from "../../lib/featureFlags";
 import { SnapshotCache } from "../../lib/cctv";
 import { useLang } from "../../i18n/context";
 import type { MessageKey } from "../../i18n";
@@ -89,8 +90,10 @@ export interface MapLayers {
   floodDepth: boolean;
   dams: boolean;
   /**
-   * กล้อง CCTV ของกรมทรัพยากรน้ำ (E15) — **ปิดเป็นค่าเริ่มต้น** และมีผลเฉพาะเมื่อแฟล็ก
-   * `VITE_FEATURE_CCTV` เปิด (`lib/featureFlags.ts`) ภาพถูกดึงจาก DWR ต่อเมื่อคลิกหมุดเท่านั้น
+   * กล้อง CCTV (เปิดเป็นค่าเริ่มต้น) — สวิตช์เดียวของสองแหล่ง แต่ละแหล่งมีผลเฉพาะเมื่อแฟล็ก
+   * ของตัวเองเปิด (`lib/featureFlags.ts`): กล้องสถานีโทรมาตรของกรมทรัพยากรน้ำ (E15,
+   * `VITE_FEATURE_CCTV` — ภาพนิ่ง + ภาพสด) และกล้องถนนของ iTIC (E15.2, `VITE_FEATURE_ITIC`
+   * — วิดีโอสด) ภาพ/สตรีมถูกขอต่อเมื่อคลิกหมุดเท่านั้น
    */
   cctv: boolean;
   radar: boolean;
@@ -163,6 +166,7 @@ const MAX_STATION_LABELS = 10;
 
 /** ค่าเริ่มต้นที่ identity คงที่ — `[]` ใน default parameter จะสร้างใหม่ทุกเรนเดอร์แล้วสร้างหมุดใหม่ทุกครั้ง */
 const NO_CAMERAS: readonly CctvCamera[] = [];
+const NO_ITIC_CAMERAS: readonly ItiCCamera[] = [];
 
 export function Map3DCanvas({
   aoiId,
@@ -175,6 +179,7 @@ export function Map3DCanvas({
   floodFieldDim = false,
   dams,
   cctvCameras = NO_CAMERAS,
+  iticCameras = NO_ITIC_CAMERAS,
   radar,
   exposure,
   exposureStale = false,
@@ -214,6 +219,11 @@ export function Map3DCanvas({
    * และหา "กล้องใกล้เคียง" ใน popup ของสถานีระดับน้ำ (ทั้งบัญชี ไม่ใช่เฉพาะในจังหวัด)
    */
   cctvCameras?: readonly CctvCamera[];
+  /**
+   * บัญชีกล้องถนนของ iTIC (E15.2) — ว่าง = แฟล็ก `VITE_FEATURE_ITIC` ปิด / ชั้นปิด / ยังไม่โหลด
+   * ใช้วาดหมุดของตัวเอง (คนละไอคอนกับ DWR) และหา "กล้องใกล้เคียง" เช่นเดียวกัน
+   */
+  iticCameras?: readonly ItiCCamera[];
   radar: RadarFramesResponse | null;
   /** run ล่าสุดของ "ระดับการเผชิญน้ำ (ภาพประกอบ)" — null = ยังไม่มี/ชั้นถูกปิด */
   exposure: ProvinceExposureResponse | null;
@@ -290,6 +300,7 @@ export function Map3DCanvas({
   } | null>(null);
   const damsRef = useRef<DamMarkerResult | null>(null);
   const cctvRef = useRef<CctvMarkerResult | null>(null);
+  const iticRef = useRef<CctvMarkerResult | null>(null);
   /**
    * แคชภาพ CCTV 5 นาที (E15) — เจ้าของ object URL ทั้งหมด: ล้าง (revoke) เมื่อปิดชั้น
    * และเมื่อแผนที่ถูกถอด (สลับจังหวัด = remount ด้วย key={aoiId})
@@ -298,6 +309,10 @@ export function Map3DCanvas({
   const cctvOn = CCTV_ENABLED && layers.cctv;
   const cctvOnRef = useRef(cctvOn);
   cctvOnRef.current = cctvOn;
+  // E15.2 — กล้อง iTIC อยู่บนสวิตช์ชั้น `cctv` เดียวกัน แต่มีแฟล็กของตัวเอง
+  const iticOn = ITIC_ENABLED && layers.cctv;
+  const iticOnRef = useRef(iticOn);
+  iticOnRef.current = iticOn;
   const exposureRef = useRef<ExposureMarkerResult | null>(null);
   /** ถอนตัวนับดีบักของชั้นการเผชิญน้ำ (DEV) เมื่อ run เปลี่ยนหรือฉากถูกทิ้ง */
   const exposureDebugRef = useRef<(() => void) | null>(null);
@@ -764,6 +779,8 @@ export function Map3DCanvas({
       damsRef.current = null;
       cctvRef.current?.dispose();
       cctvRef.current = null;
+      iticRef.current?.dispose();
+      iticRef.current = null;
       exposureDebugRef.current?.();
       exposureDebugRef.current = null;
       exposureRef.current?.dispose();
@@ -1042,12 +1059,46 @@ export function Map3DCanvas({
       cctvRef.current = null;
     }
     if (!CCTV_ENABLED || cctvCameras.length === 0) return;
-    const result = buildCctvMarkers(loaded.manifest, cctvCameras, loaded.terrain.sample, handles.viewportHeightPx());
+    const result = buildCctvMarkers(
+      loaded.manifest,
+      { kind: "cctv", cameras: cctvCameras },
+      loaded.terrain.sample,
+      handles.viewportHeightPx(),
+    );
     result.applyExaggeration(handles.getExaggeration());
     result.dots.visible = cctvOnRef.current;
     handles.markers.add(result.dots);
     cctvRef.current = result;
   }, [cctvCameras, state.status]);
+
+  // หมุดกล้องถนนของ iTIC (E15.2) — ชุดแยก คนละไอคอน สร้างเมื่อมีบัญชี (แฟล็ก + ชั้นเปิด)
+  useEffect(() => {
+    const handles = sceneRef.current;
+    const loaded = terrainRef.current;
+    if (!handles || !loaded) return;
+    if (iticRef.current) {
+      handles.markers.remove(iticRef.current.dots);
+      iticRef.current.dispose();
+      iticRef.current = null;
+    }
+    if (!ITIC_ENABLED || iticCameras.length === 0) return;
+    const result = buildCctvMarkers(
+      loaded.manifest,
+      { kind: "itic", cameras: iticCameras },
+      loaded.terrain.sample,
+      handles.viewportHeightPx(),
+    );
+    result.applyExaggeration(handles.getExaggeration());
+    result.dots.visible = iticOnRef.current;
+    handles.markers.add(result.dots);
+    iticRef.current = result;
+  }, [iticCameras, state.status]);
+
+  // ปิดชั้น = ปิด popup ของกล้อง iTIC (ตัวเล่นถูกถอดตอน unmount → ตัดสตรีมทันที)
+  useEffect(() => {
+    if (iticOn) return;
+    setPick((p) => (p?.kind === "itic" ? null : p));
+  }, [iticOn]);
 
   // ปิดชั้น CCTV = ปิด popup ของกล้อง + คืน object URL ทั้งหมด; ถอดแผนที่ = คืนทั้งหมดเช่นกัน
   useEffect(() => {
@@ -1238,6 +1289,7 @@ export function Map3DCanvas({
     markersRef.current?.applyExaggeration(exaggeration);
     damsRef.current?.applyExaggeration(exaggeration);
     cctvRef.current?.applyExaggeration(exaggeration);
+    iticRef.current?.applyExaggeration(exaggeration);
     exposureRef.current?.applyExaggeration(exaggeration);
   }, [exaggeration, state.status]);
 
@@ -1300,6 +1352,7 @@ export function Map3DCanvas({
         damsRef.current.labels.visible = layers.dams;
       }
       if (cctvRef.current) cctvRef.current.dots.visible = cctvOn;
+      if (iticRef.current) iticRef.current.dots.visible = iticOn;
       radarRef.current?.setEnabled(layers.radar);
       loaded.vegetation?.setEnabled(layers.trees);
       if (floodLabelsRef.current) floodLabelsRef.current.visible = layers.floodExtent;
@@ -1318,7 +1371,7 @@ export function Map3DCanvas({
     }
     if (labelsRef.current) labelsRef.current.visible = layers.stations;
     if (buildingsRef.current) buildingsRef.current.visible = layers.buildings;
-  }, [layers, cctvOn, state.status, imageryProgress]);
+  }, [layers, cctvOn, iticOn, state.status, imageryProgress]);
 
   return (
     <div className="absolute inset-0">
@@ -1329,6 +1382,7 @@ export function Map3DCanvas({
             pick={pick}
             onClose={closePopup}
             cctv={cctvOn ? { cameras: cctvCameras, cache: snapshotCache } : null}
+            itic={iticOn ? { cameras: iticCameras } : null}
           />
         </div>
       ) : null}

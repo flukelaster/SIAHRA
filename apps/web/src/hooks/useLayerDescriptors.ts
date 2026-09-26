@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type {
   AoiProvenance,
   CctvCatalogue,
+  ItiCCatalogue,
   AoiProvenanceLayer,
   HazardLayerDescriptor,
   HealthResponse,
@@ -148,12 +149,15 @@ export function useLayerDescriptors(input: {
    * (แล้วแถวใน legend ไม่มีบรรทัดเวลา ไม่ใช่เวลาที่เดาขึ้น)
    */
   cctvCatalogue?: CctvCatalogue | null;
+  /** บัญชีกล้องถนนของ iTIC (E15.2) — null = แฟล็กปิด/ชั้นไม่เคยเปิด/โหลดไม่สำเร็จ */
+  iticCatalogue?: ItiCCatalogue | null;
   health: HealthResponse | null;
   /** `manifest.provenance` ของจังหวัดที่กำลังแสดง — null = manifest ก่อน E9.1 */
   provenance: AoiProvenance | null;
 }): LayerDescriptors {
   const { observations, radar, floodExtent, dams, exposure, floodScenes, floodScene, health, provenance } = input;
   const cctvBuiltAt = input.cctvCatalogue?.builtAt ?? null;
+  const iticBuiltAt = input.iticCatalogue?.builtAt ?? null;
   const obsLayer = observations.data?.layer;
   const radarLayer = radar.data?.layer;
   const floodLayer = floodExtent.data?.layer;
@@ -190,18 +194,27 @@ export function useLayerDescriptors(input: {
       put("floodDepth", withShownScene(floodIndexLayers.depth, shownScene, noSceneInWindow, false));
     }
     // E15 — ประกอบฝั่งเว็บได้โดยไม่ผิดกฎข้างบน เพราะเวลาไม่ใช่นาฬิกาของ client:
-    // `fetchedAt` = `builtAt` ที่สคริปต์ ETL บันทึกไว้ในไฟล์ตอนดึงรายการจาก DWR สำเร็จ
-    // และ `publishedAt` = null เพราะ DWR ไม่ได้ประกาศเวลาเผยแพร่ของรายการกล้อง (ห้ามเติม
-    // จาก builtAt) ชั้นนี้บอกแค่ "กล้องอยู่ตรงไหน" — ภาพแต่ละภาพมีเวลาถ่าย/เวลาดึงของตัวเอง
-    // ใน popup; `dwr-cctv` ไม่มีสถานะใน /health (kind "browser") → health = null ตามจริง
-    if (cctvBuiltAt) {
+    // `fetchedAt` = `builtAt` ที่สคริปต์ ETL บันทึกไว้ในไฟล์ตอนดึงรายการจากต้นทางสำเร็จ
+    // และ `publishedAt` = null เพราะทั้ง DWR และ Longdo ไม่ได้ประกาศเวลาเผยแพร่ของรายการกล้อง
+    // (ห้ามเติมจาก builtAt) ชั้นนี้บอกแค่ "กล้องอยู่ตรงไหน" — ภาพ/สตรีมแต่ละตัวมีเวลาของ
+    // ตัวเองใน popup; ทั้ง `dwr-cctv` และ `itic-cctv` ไม่มีสถานะใน /health (kind "browser")
+    // → health = null ตามจริง
+    //
+    // E15.2 — สองบัญชีอยู่บนแถวเดียว: ได้ทั้งคู่ = `fetchedAt` คือ builtAt ที่ **เก่ากว่า**
+    // (รายการทั้งแถวสดอย่างน้อยเท่านั้น) ห้ามใช้ตัวที่ใหม่กว่าหรือนาฬิกาเครื่อง
+    const catalogues = [
+      cctvBuiltAt ? { at: cctvBuiltAt, source: "dwr-cctv" as const } : null,
+      iticBuiltAt ? { at: iticBuiltAt, source: "itic-cctv" as const } : null,
+    ].filter((c) => c !== null);
+    if (catalogues.length > 0) {
+      const oldest = catalogues.reduce((a, b) => (Date.parse(b.at) < Date.parse(a.at) ? b : a));
       put("cctv", {
-        id: "dwr-cctv-catalogue",
+        id: catalogues.length > 1 ? "cctv-catalogues" : `${catalogues[0].source}-catalogue`,
         epistemicClass: "static-reference",
         liveOrStatic: "static",
         publishedAt: null,
-        fetchedAt: cctvBuiltAt,
-        sourceIds: ["dwr-cctv"],
+        fetchedAt: oldest.at,
+        sourceIds: catalogues.map((c) => c.source),
       });
     }
     return out;
@@ -215,6 +228,7 @@ export function useLayerDescriptors(input: {
     shownScene,
     noSceneInWindow,
     cctvBuiltAt,
+    iticBuiltAt,
     health,
     provenance,
   ]);

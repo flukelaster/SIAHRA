@@ -34,3 +34,35 @@ export interface CctvCatalogue {
   sourceUrl: string;
   cameras: CctvCamera[];
 }
+
+/**
+ * บัญชีกล้องถนนของมูลนิธิ iTIC (E15.2) — `apps/web/public/cctv/itic-cameras.json`
+ * สร้างโดย `npm run build:itic-cctv -w apps/etl` (`apps/etl/src/build-itic-cctv.ts`) จากรายการ
+ * กล้องที่ Longdo เผยแพร่ (`https://camera.longdo.com/feed/?command=json`)
+ *
+ * เป็น **allowlist** เช่นเดียวกับ `CctvCamera`: เก็บเฉพาะ HLS playlist บน
+ * `https://camerai1.iticfoundation.org/` ที่ไม่ใช่ `tempsus` (ป้าย "ระงับชั่วคราว") —
+ * ห้ามเพิ่มลิงก์ภาพ/MJPEG อื่นของต้นทาง (`imgurl`, `vdourl`, `link` อยู่บน
+ * `camera1.iticfoundation.org` ที่วัดแล้ว timeout ทั้งหมด)
+ */
+export interface ItiCCamera {
+  /** `camid` ของต้นทาง (เช่น "DOH-PER-8-012") */
+  id: string;
+  /** `title` ของต้นทาง (ภาษาไทย, มีทางหลวง/ทิศทาง) — null เมื่อว่าง */
+  name: string | null;
+  lat: number;
+  lon: number;
+  /** เจ้าของกล้องตามที่ต้นทางระบุ (เช่น "กรมทางหลวง") — null เมื่อว่าง; แสดงเป็นเครดิตใน popup */
+  organization: string | null;
+  /** HLS playlist — ขึ้นต้นด้วย `https://camerai1.iticfoundation.org/` เสมอ (ETL กรองไว้) */
+  hlsUrl: string;
+  /** จังหวัดจาก point-in-polygon ตอน build — null = ไม่ตกในขอบเขตจังหวัดใดที่เรามี */
+  provinceCode: string | null;
+}
+
+export interface ItiCCatalogue {
+  /** เวลาที่สคริปต์ ETL ดึงรายการสำเร็จ (UTC ISO) — `fetchedAt` ของชั้น; ต้นทางไม่มีเวลาเผยแพร่ */
+  builtAt: string;
+  sourceUrl: string;
+  cameras: ItiCCamera[];
+}

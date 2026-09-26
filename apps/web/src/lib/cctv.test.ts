@@ -1,7 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import type { CctvCamera } from "@siahra/shared-types";
 import {
+  coLocatedCameras,
+  distinctLabels,
   DWR_API,
+  DWR_LIVE_OBSERVED_LIFETIME_MS,
+  DWR_LIVE_STALE_MS,
+  dwrLiveUrl,
+  isDwrFrameFresh,
   fetchSnapshot,
   freshness,
   nearestCamera,
@@ -153,5 +159,102 @@ describe("SnapshotCache", () => {
     cache.clear();
     expect(cache.size).toBe(0);
     expect(revoke.mock.calls.map((c) => c[0]).sort()).toEqual(["blob:a1", "blob:a2", "blob:b", "blob:c", "blob:d"]);
+  });
+});
+
+describe("dwrLiveUrl", () => {
+  it("points at DWR's MJPEG stream with a cache-busting counter", () => {
+    expect(dwrLiveUrl("TC020106", 3)).toBe(`${DWR_API}/public/cctv/mjpegStream?stnCode=TC020106&_=3`);
+    expect(dwrLiveUrl("A B", 1)).toContain("stnCode=A%20B");
+  });
+});
+
+describe("nearestCamera across sources", () => {
+  it("works on any catalogue with lat/lon (iTIC road cameras too)", () => {
+    const road = [
+      { id: "far", lat: 13.9, lon: 100.9 },
+      { id: "near", lat: 13.701, lon: 100.501 },
+    ];
+    expect(nearestCamera(13.7, 100.5, road)?.camera.id).toBe("near");
+    expect(nearestCamera(15, 102, road)).toBeNull();
+  });
+});
+
+describe("isDwrFrameFresh (DWR live badge)", () => {
+  it("is live only while a new frame was seen within the stale window", () => {
+    expect(isDwrFrameFresh(10_000, null, true)).toBe(false);
+    expect(isDwrFrameFresh(10_000, 10_000 - DWR_LIVE_STALE_MS, true)).toBe(true);
+    expect(isDwrFrameFresh(10_001, 10_000 - DWR_LIVE_STALE_MS, true)).toBe(false);
+  });
+
+  it("falls back to the observed stream lifetime when only the first frame is observable", () => {
+    const first = 1_000;
+    expect(isDwrFrameFresh(first + DWR_LIVE_STALE_MS + 1, first, false)).toBe(true);
+    expect(isDwrFrameFresh(first + DWR_LIVE_OBSERVED_LIFETIME_MS, first, false)).toBe(true);
+    expect(isDwrFrameFresh(first + DWR_LIVE_OBSERVED_LIFETIME_MS + 1, first, false)).toBe(false);
+  });
+});
+
+describe("coLocatedCameras", () => {
+  // คู่จริงจากบัญชี iTIC: DOH-PER-3-006 ขาเข้า/ขาออก (~22 ม.) และ ITICM_BMAMI0164–0166 (≤ ~140 ม.)
+  const cams = [
+    { id: "DOH-PER-3-006-out", lat: 13.8302, lon: 100.4132 },
+    { id: "far", lat: 13.84, lon: 100.4132 },
+    { id: "DOH-PER-3-006", lat: 13.83, lon: 100.4132 },
+    { id: "ITICM_BMAMI0164", lat: 13.828648681903177, lon: 100.52881854153176 },
+    { id: "ITICM_BMAMI0165", lat: 13.827772016676931, lon: 100.52787985034071 },
+    { id: "ITICM_BMAMI0166", lat: 13.828683279709187, lon: 100.52784892246397 },
+    { id: "b-twin", lat: 13.9, lon: 100.6 },
+    { id: "a-twin", lat: 13.9, lon: 100.6 },
+    { id: "c-twin", lat: 13.9, lon: 100.6 },
+  ];
+
+  it("puts the picked camera first and includes a same-spot twin, excluding one ~1 km away", () => {
+    expect(coLocatedCameras(cams[2], cams).map((c) => c.id)).toEqual(["DOH-PER-3-006", "DOH-PER-3-006-out"]);
+    expect(coLocatedCameras(cams[0], cams).map((c) => c.id)).toEqual(["DOH-PER-3-006-out", "DOH-PER-3-006"]);
+  });
+
+  it("groups the three Wong Sawang cameras from any one of them, nearest first", () => {
+    expect(coLocatedCameras(cams[3], cams).map((c) => c.id)).toEqual([
+      "ITICM_BMAMI0164",
+      "ITICM_BMAMI0166",
+      "ITICM_BMAMI0165",
+    ]);
+  });
+
+  it("orders equal distances by id and returns only itself when alone", () => {
+    expect(coLocatedCameras(cams[6], cams).map((c) => c.id)).toEqual(["b-twin", "a-twin", "c-twin"]);
+    expect(coLocatedCameras(cams[1], cams).map((c) => c.id)).toEqual(["far"]);
+  });
+
+  it("excludes a camera just past the radius", () => {
+    // 0.002° ละติจูด ≈ 222 ม. > 150 ม.
+    const pair = [
+      { id: "x", lat: 13, lon: 100 },
+      { id: "y", lat: 13.002, lon: 100 },
+    ];
+    expect(coLocatedCameras(pair[0], pair)).toHaveLength(1);
+  });
+});
+
+describe("distinctLabels", () => {
+  it("drops the shared prefix at a word boundary", () => {
+    expect(
+      distinctLabels([
+        "(จ.นนทบุรี) ถ.กาญจนาภิเษก บางใหญ่ ทิศทางมุ่งหน้าบางแค",
+        "(จ.นนทบุรี) ถ.กาญจนาภิเษก บางใหญ่ ทิศทางมุ่งหน้าบางบัวทอง",
+      ]),
+    ).toEqual(["…ทิศทางมุ่งหน้าบางแค", "…ทิศทางมุ่งหน้าบางบัวทอง"]);
+    expect(
+      distinctLabels(["(กรุงเทพมหานคร) รัชดาภิเษก-วงศ์สว่าง", "(กรุงเทพมหานคร) Big C วงศ์สว่าง"]),
+    ).toEqual(["…รัชดาภิเษก-วงศ์สว่าง", "…Big C วงศ์สว่าง"]);
+  });
+
+  it("keeps full names when no whole word is shared, or when alone", () => {
+    expect(distinctLabels(["A cam", "B cam"])).toEqual(["A cam", "B cam"]);
+    expect(distinctLabels(["Road", "Road out"])).toEqual(["Road", "Road out"]);
+    // ชื่อหนึ่งเป็นคำนำหน้าของอีกชื่อ — ยังเหลือคำสุดท้ายที่ต่างกันให้อ่าน
+    expect(distinctLabels(["Road 1", "Road 1 out"])).toEqual(["…1", "…1 out"]);
+    expect(distinctLabels(["Solo"])).toEqual(["Solo"]);
   });
 });

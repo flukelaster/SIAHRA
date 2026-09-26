@@ -39,14 +39,28 @@
   #   img-src                  — data:/blob: for the share-image download and the
   #                              stitched imagery canvas; the two basemap hosts are
   #                              loaded as <img> by scene/SatelliteImagery.ts.
+  #                              https://telemetry.dwr.go.th (E15.2): the DWR live
+  #                              view is DWR's MJPEG stream (multipart/x-mixed-replace)
+  #                              shown as a plain <img src>, one camera, only after the
+  #                              user presses "ดูสด" in its popup.
   #   connect-src              — same-origin /api/* plus the WebSocket. 'self' already
   #                              covers wss: on the same origin in CSP3; wss://siahra-radar.co
   #                              is spelled out so an old implementation cannot get it wrong.
   #                              https://telemetry.dwr.go.th (E15): the browser fetches a DWR
   #                              CCTV snapshot itself, one camera per click (GET the path, then
-  #                              POST for the JPEG); it renders from a blob: URL, which img-src
-  #                              already allows, so img-src does not change. Inert only when
-  #                              built with VITE_FEATURE_CCTV=0 (the kill switch).
+  #                              POST for the JPEG); it renders from a blob: URL. Inert only
+  #                              when built with VITE_FEATURE_CCTV=0 (the kill switch).
+  #                              https://camerai1.iticfoundation.org (E15.2): hls.js fetches
+  #                              the iTIC road-camera playlist and .ts segments by XHR, one
+  #                              camera per click (ACAO *). Inert when built with
+  #                              VITE_FEATURE_ITIC=0.
+  #   media-src                — was 'none'. E15.2 plays one iTIC stream at a time: hls.js
+  #                              feeds the <video> through MediaSource, which the browser
+  #                              loads from a blob: URL; Safari/iOS play the same playlist
+  #                              natively, which is a media load of the camerai1 URL itself.
+  #                              Nothing else in the app uses <video>/<audio>.
   #   worker-src 'self'        — src/workers/* are bundled as real same-origin URLs.
-  Content-Security-Policy: default-src 'self'; base-uri 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; form-action 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://server.arcgisonline.com https://tiles.maps.eox.at; font-src 'self'; connect-src 'self' wss://siahra-radar.co https://telemetry.dwr.go.th; worker-src 'self'; manifest-src 'self'; media-src 'none'
+  #                              hls.js runs with enableWorker:false (lib/itic.ts), so its
+  #                              transmuxer never needs a blob: worker and this stays as is.
+  Content-Security-Policy: default-src 'self'; base-uri 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; form-action 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://server.arcgisonline.com https://tiles.maps.eox.at https://telemetry.dwr.go.th; font-src 'self'; connect-src 'self' wss://siahra-radar.co https://telemetry.dwr.go.th https://camerai1.iticfoundation.org; worker-src 'self'; manifest-src 'self'; media-src blob: https://camerai1.iticfoundation.org
 

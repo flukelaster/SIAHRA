@@ -4,6 +4,7 @@ import * as THREE from "three";
 import type {
   CctvCamera,
   DamObservation,
+  ItiCCamera,
   EarthquakeEvent,
   FloodExtentResponse,
   ObservationSummary,
@@ -44,6 +45,7 @@ export function MapViewport({
   floodFieldDim = false,
   dams,
   cctvCameras,
+  iticCameras,
   radar,
   exposure,
   exposureStale = false,
@@ -92,6 +94,8 @@ export function MapViewport({
   dams: DamObservation[];
   /** บัญชีกล้อง CCTV ของ DWR (E15) — ส่งต่อให้ Map3DCanvas; undefined/ว่าง = ไม่มีหมุด */
   cctvCameras?: readonly CctvCamera[];
+  /** บัญชีกล้องถนนของ iTIC (E15.2) — ส่งต่อให้ Map3DCanvas; undefined/ว่าง = ไม่มีหมุด */
+  iticCameras?: readonly ItiCCamera[];
   radar: RadarFramesResponse | null;
   /** run ล่าสุดของ "ระดับการเผชิญน้ำ (ภาพประกอบ)" — null = ยังไม่มี/ชั้นถูกปิด */
   exposure: ProvinceExposureResponse | null;
@@ -187,6 +191,7 @@ export function MapViewport({
         floodFieldDim={floodFieldDim}
         dams={dams}
         cctvCameras={cctvCameras}
+        iticCameras={iticCameras}
         radar={radar}
         exposure={exposure}
         exposureStale={exposureStale}
