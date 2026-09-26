@@ -10,6 +10,10 @@ import { useLang } from "../../i18n/context";
 import { resolveError } from "../../lib/errorMessage";
 import { ALERT_SEVERITY_STYLE } from "../../lib/alertSeverityStyle";
 import { LOCAL_AUTHORITY_TYPE_KEY } from "../../lib/localAuthorityTypeLabel";
+import { deriveGistdaImpactFreshness, gistdaSourceStatus } from "../../lib/gistdaImpactFreshness";
+import { formatDayMonth } from "../../lib/time";
+import { impactFloodWording } from "../../lib/impactFloodWording";
+import { useNow } from "../../hooks/useNow";
 
 /**
  * รายละเอียดของ อปท. หนึ่งรายที่ผู้ใช้เลือกจาก `AffectedAuthorityList` — E11.6
@@ -20,6 +24,10 @@ import { LOCAL_AUTHORITY_TYPE_KEY } from "../../lib/localAuthorityTypeLabel";
  * ป้ายเดียวทั้งการ์ด: `floodedAreaKm2`/`facilitiesExposed` เป็น `observed`
  * (วัดจริงจากรูปหลายเหลี่ยม) ส่วน `populationExposed`/`buildingsExposed` เป็น
  * `illustrative` (สัดส่วนพื้นที่ ไม่ใช่การนับจริง) — สองอย่างนี้ต้องแยกหน้าตากันได้
+ *
+ * ตัวเลขชุดน้ำท่วม (พื้นที่/สัดส่วน/ประชากร/อาคาร) ถูกหรี่และติดวันที่ของฉาก GISTDA
+ * เมื่อฉากเก่ากว่ารอบปกติหรือ `gistda-flood` ใน /health ไม่ ok — กติกาเดียวกับ
+ * `AffectedAuthorityList` (`lib/gistdaImpactFreshness.ts`)
  */
 export function ImpactSummaryCard({
   authority,
@@ -33,11 +41,20 @@ export function ImpactSummaryCard({
   alerts: readonly AlertEvent[];
 }) {
   const { lang, t } = useLang();
+  const nowMs = useNow();
   const { exposure, impact } = state;
+  const freshness = deriveGistdaImpactFreshness(
+    impact.data?.impact.descriptor ?? null,
+    gistdaSourceStatus(health),
+    nowMs,
+  );
+  const dimClass = freshness.dim ? "opacity-50" : "";
+  const wording = impactFloodWording(freshness.dim);
+  const sceneDate = freshness.fetchedAt ? formatDayMonth(lang, freshness.fetchedAt) : "—";
 
   return (
     <Panel
-      title={t("impact.card.title")}
+      title={t(authority?.type === "bma_district" ? "impact.card.title.bma" : "impact.card.title")}
       icon={<ClipboardList size={16} className="text-[var(--color-accent)]" aria-hidden="true" />}
     >
       {!authority ? (
@@ -114,17 +131,17 @@ export function ImpactSummaryCard({
 
           {impact.data ? (
             <section className="flex flex-col gap-2 border-t border-white/8 pt-2.5">
-              <p className="text-[11px] font-semibold text-[var(--color-fg-muted)]">{t("impact.section.flood")}</p>
+              <p className="text-[11px] font-semibold text-[var(--color-fg-muted)]">{t(wording.sectionKey, { date: sceneDate })}</p>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <p className="text-[11px] text-[var(--color-fg-muted)]">{t("impact.floodedArea.label")}</p>
-                  <p className="text-lg font-bold tabular-nums text-[#4d94b8]">
+                  <p className={`text-lg font-bold tabular-nums text-[#4d94b8] ${dimClass}`}>
                     {formatNumber(lang, impact.data.impact.floodedAreaKm2, 2)}
                   </p>
                 </div>
                 <div>
                   <p className="text-[11px] text-[var(--color-fg-muted)]">{t("impact.floodedFraction.label")}</p>
-                  <p className="text-lg font-bold tabular-nums text-[#4d94b8]">
+                  <p className={`text-lg font-bold tabular-nums text-[#4d94b8] ${dimClass}`}>
                     {impact.data.impact.floodedFraction === null
                       ? "—"
                       : `${formatNumber(lang, impact.data.impact.floodedFraction * 100, 1)}%`}
@@ -134,6 +151,11 @@ export function ImpactSummaryCard({
                   ) : null}
                 </div>
               </div>
+              {freshness.dim && freshness.fetchedAt ? (
+                <p className="text-[10px] text-[var(--color-risk-medium)]">
+                  {t("impact.flood.staleScene", { date: sceneDate })}
+                </p>
+              ) : null}
               <FreshnessMeta
                 descriptor={impact.data.impact.descriptor}
                 health={worstHealth(impact.data.impact.descriptor.sourceIds, health)}
@@ -149,8 +171,8 @@ export function ImpactSummaryCard({
                   if (f.fireStations.length)
                     parts.push(t("impact.facilitiesExposed.fireStations", { n: f.fireStations.length }));
                   return (
-                    <p className="text-sm text-[var(--color-fg)]">
-                      {parts.length > 0 ? parts.join(" · ") : t("impact.facilitiesExposed.none")}
+                    <p className={`text-sm text-[var(--color-fg)] ${dimClass}`}>
+                      {parts.length > 0 ? parts.join(" · ") : t(wording.facilitiesNoneKey)}
                     </p>
                   );
                 })()}
@@ -159,7 +181,7 @@ export function ImpactSummaryCard({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <p className="text-[11px] text-[var(--color-fg-muted)]">{t("impact.populationExposed.label")}</p>
-                  <p className="text-lg font-bold tabular-nums text-[#c4b0f5]">
+                  <p className={`text-lg font-bold tabular-nums text-[#c4b0f5] ${dimClass}`}>
                     {formatNumber(lang, impact.data.impact.populationExposed.estimate)}
                   </p>
                   <FreshnessMeta
@@ -169,7 +191,7 @@ export function ImpactSummaryCard({
                 </div>
                 <div>
                   <p className="text-[11px] text-[var(--color-fg-muted)]">{t("impact.buildingsExposed.label")}</p>
-                  <p className="text-lg font-bold tabular-nums text-[#c4b0f5]">
+                  <p className={`text-lg font-bold tabular-nums text-[#c4b0f5] ${dimClass}`}>
                     {formatNumber(lang, impact.data.impact.buildingsExposed.estimate)}
                   </p>
                   <FreshnessMeta

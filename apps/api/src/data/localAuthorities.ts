@@ -34,7 +34,8 @@ export function queryLocalAuthorities(filter: LocalAuthorityFilter = {}): LocalA
   });
 }
 
-/** รับได้ทั้ง id เต็ม (`TH-LAO-5810401`) และรหัส อปท. เปล่า ๆ (`5810401`) */
+/** รับได้ทั้ง id เต็ม (`TH-LAO-5810401`, `TH-BMA-osm92053`) และรหัส อปท. เปล่า ๆ
+ *  (`5810401`) — เขตของกรุงเทพฯ มี `dlaCode: null` จึงจับคู่ได้ด้วย id เต็มเท่านั้น */
 export function getLocalAuthorityById(idOrDlaCode: string): LocalAuthorityRef | null {
   return (
     LOCAL_AUTHORITIES.find((a) => a.id === idOrDlaCode || a.dlaCode === idOrDlaCode) ?? null

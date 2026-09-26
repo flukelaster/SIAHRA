@@ -379,7 +379,7 @@ export const th = {
   "drawer.close": "ปิดแผง",
   "panel.layers": "ชั้นข้อมูล",
   "panel.flood": "น้ำท่วม",
-  "panel.impact": "ผลกระทบ อปท.",
+  "panel.impact": "ผลกระทบรายพื้นที่",
   "panel.water": "ระดับน้ำ",
   "panel.rain": "ฝน",
   // แผงนี้ไม่อยู่ในรายการ key ที่ยกเว้นคำว่า "พยากรณ์" ของ catalog.test.ts
@@ -757,26 +757,33 @@ export const th = {
   "localAuthority.type.subdistrict_municipality": "เทศบาลตำบล",
   "localAuthority.type.subdistrict_admin_org": "อบต.",
   "localAuthority.type.special_admin_area": "ท้องถิ่นรูปแบบพิเศษ",
+  // ไม่ใช่ อปท. — กรุงเทพฯ ไม่อยู่ในทะเบียนของ DLA จึงแสดงเป็นเขตของ กทม. แยกชัดเจน
+  "localAuthority.type.bma_district": "เขต (กทม.)",
 
   // ── สรุปผลกระทบ อปท. (E11.6) ─────────────────────────────────────────
   "impact.card.title": "สรุปผลกระทบ อปท.",
-  "impact.card.selectPrompt": "เลือก อปท. จากรายการด้านล่างเพื่อดูรายละเอียด",
+  "impact.card.title.bma": "สรุปผลกระทบรายเขต (กทม.)",
+  "impact.card.selectPrompt": "เลือก อปท. หรือเขตจากรายการเพื่อดูรายละเอียด",
   "impact.card.noCoverage":
     "อปท. นี้ยังไม่มีขอบเขตหรือข้อมูลพื้นฐานจริงให้คำนวณผลกระทบ",
   "impact.card.loadError": "โหลดข้อมูลผลกระทบไม่สำเร็จ: {error}",
   "impact.section.baseline": "ข้อมูลพื้นฐาน (ไม่เปลี่ยนตามสถานการณ์)",
   "impact.section.flood": "ผลกระทบจากน้ำท่วมปัจจุบัน",
+  "impact.section.flood.dated": "ผลกระทบจากน้ำท่วมตามภาพ GISTDA ที่ดึงเมื่อ {date}",
   "impact.population.label": "ประชากร",
   "impact.population.estimateNote": "ค่าประมาณจาก WorldPop 2020 ไม่ใช่ตัวเลขจากการนับจริง",
   "impact.buildings.label": "อาคาร (ข้อมูลพื้นฐาน)",
   "impact.floodedArea.label": "พื้นที่น้ำท่วม",
   "impact.floodedFraction.label": "สัดส่วนที่ถูกน้ำท่วม",
   "impact.floodedFraction.neverFetched": "ยังไม่เคยดึงภาพน้ำท่วมจาก GISTDA สำเร็จเลย",
+  "impact.flood.staleScene":
+    "ตัวเลขชุดนี้มาจากภาพ GISTDA ที่ดึงเมื่อ {date} ไม่ใช่สถานการณ์ปัจจุบัน",
   "impact.facilitiesExposed.label": "สถานที่สำคัญในพื้นที่น้ำท่วม",
   "impact.facilitiesExposed.hospitals": "โรงพยาบาล {n}",
   "impact.facilitiesExposed.schools": "โรงเรียน {n}",
   "impact.facilitiesExposed.fireStations": "สถานีดับเพลิง {n}",
   "impact.facilitiesExposed.none": "ตอนนี้ไม่มีสถานที่สำคัญอยู่ในพื้นที่น้ำท่วม",
+  "impact.facilitiesExposed.none.dated": "ในภาพนั้นไม่มีสถานที่สำคัญอยู่ในพื้นที่น้ำท่วม",
   "impact.populationExposed.label": "ประชากรที่อาจได้รับผลกระทบ (ประมาณตามสัดส่วนพื้นที่ท่วม)",
   "impact.buildingsExposed.label": "อาคารที่อาจได้รับผลกระทบ (ประมาณตามสัดส่วนพื้นที่ท่วม)",
   "impact.method.areaWeighted":
@@ -795,8 +802,20 @@ export const th = {
 
   // ── รายชื่อ อปท. ที่ได้รับผลกระทบ (E11.6) ───────────────────────────────
   "authorityList.title": "อปท. ที่ได้รับผลกระทบ",
+  "authorityList.title.bma": "เขตของกรุงเทพฯ ที่ได้รับผลกระทบ",
   "authorityList.empty.noCoverage":
-    "จังหวัดนี้ยังไม่มี อปท. ที่มีขอบเขตให้คำนวณ",
+    "จังหวัดนี้ยังไม่มีขอบเขต อปท. ในข้อมูล OpenStreetMap ให้คำนวณพื้นที่น้ำท่วม — จึงยังแสดงรายการไม่ได้",
+  "authorityList.explain":
+    "% = สัดส่วนพื้นที่ที่ภาพดาวเทียมของ GISTDA ตรวจพบน้ำท่วม ไม่ใช่ระดับน้ำจากสถานี (จุดสีคือการแจ้งเตือนระดับน้ำ/ฝนจากสถานี ThaiWater ซึ่งเป็นคนละแหล่ง)",
+  "authorityList.sceneDate": "ภาพ GISTDA ที่ดึงเมื่อ {date}",
+  "authorityList.notice.unreachable":
+    "ติดต่อ GISTDA ไม่ได้ในรอบล่าสุด — ตัวเลขด้านล่างมาจากภาพล่าสุดที่ดึงสำเร็จ ({date}) ไม่ใช่สถานการณ์ปัจจุบัน",
+  "authorityList.notice.noNewScene":
+    "GISTDA ยังไม่ปล่อยภาพใหม่ — ตัวเลขด้านล่างมาจากภาพ {date} ไม่ใช่สถานการณ์ปัจจุบัน",
+  "authorityList.notice.old":
+    "ภาพ GISTDA ที่ใช้คำนวณเก่ากว่ารอบปรับปรุงปกติ ({date}) — ตัวเลขด้านล่างอาจไม่ตรงกับสถานการณ์ปัจจุบัน",
+  "authorityList.notice.noneMapped":
+    "ดึงภาพ GISTDA ได้ล่าสุด {date} — ภาพนั้นไม่มีพื้นที่น้ำท่วมในเขตพื้นที่ที่แสดงด้านล่าง",
   "authorityList.loadError": "โหลดรายชื่อ อปท. ไม่สำเร็จ: {error}",
   "authorityList.floodedFraction": "ท่วม {pct}%",
   "authorityList.neverFetched": "ยังไม่เคยดึงข้อมูลจาก GISTDA สำเร็จ",

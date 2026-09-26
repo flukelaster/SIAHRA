@@ -23,6 +23,36 @@ npm run build:local-authority-exposure -w apps/etl
   (`apps/etl/data/raw/thailand-latest.osm.pbf`).
   - `osmosis_replication_timestamp`: `2026-08-15T20:21:20.000Z`
 
+## Bangkok districts (added 2026-09-26)
+
+Bangkok is absent from DLA's registry, so (owner decision 2026-09-26) its 50
+districts (เขต, OSM `admin_level=6`, `bma_district`, ids `TH-BMA-osm{relationId}`
+— see `apps/etl/data/sources/osm-admin/COVERAGE.md`) were added with:
+
+```
+npx -y tsx@4 src/buildLocalAuthorityExposure.ts --only=10 --merge   # from apps/etl
+```
+
+`--merge` recomputed only province 10 and kept the 431 existing records
+byte-for-byte (their own `computedAt` of 2026-08-23 included), against the
+same WorldPop raster (sha256 above, `fetchedAt` unchanged) and the same OSM
+extract (`osmosis_replication_timestamp` above) — so the 50 new records carry
+`computedAt` 2026-09-26 while the rest still say 2026-08-23. `coverage.json`
+summarises the merged file (481 records).
+
+- **50 / 50** districts got a full record — zero population failures.
+- **Population**: **10,125,372** across the 50 districts (min 18,457 เขตสัมพันธวงศ์,
+  max 420,070 เขตจตุจักร) — WorldPop's UN-adjusted dasymetric estimate, which in
+  Bangkok sits well above DOPA's registered-residence count for the same reason
+  noted below for the metro municipalities.
+- **Buildings**: **270,891** footprint centroids; no district came back with 0.
+  Median **17.8** buildings / 1,000 population (2 of 50 below 5/1000).
+- **Roads**: **30,035 km** total, all classes.
+- **Facilities**: **173 hospitals**, **686 schools**, **28 fire stations**; 21 / 50
+  districts have at least one matched fire station.
+
+The numbers in the sections below describe the original 431 DLA authorities only.
+
 ## Why direct aggregation, not "illustrative"
 
 Both the population zonal sum (summing real WorldPop pixel values inside a real

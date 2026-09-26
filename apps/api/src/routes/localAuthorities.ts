@@ -56,7 +56,8 @@ export function handleLocalAuthoritiesList(request: Request): Response {
   return json(body, { cache: cachePolicy.slowMoving });
 }
 
-/** GET /api/v1/local-authorities/:id — id เป็นได้ทั้ง `TH-LAO-<code>` หรือ `<code>` เปล่า ๆ */
+/** GET /api/v1/local-authorities/:id — id เป็นได้ทั้ง `TH-LAO-<code>`, `<code>` เปล่า ๆ
+ *  หรือ `TH-BMA-osm<relationId>` (เขตของกรุงเทพฯ — ไม่มีรหัส DLA จึงรับเฉพาะ id เต็ม) */
 export function handleLocalAuthorityDetail(id: string): Response {
   const localAuthority = getLocalAuthorityById(id);
   if (!localAuthority) return json({ error: `No such local authority: ${id}` }, { status: 404 });
@@ -80,7 +81,7 @@ export function handleLocalAuthorityExposure(id: string): Response {
   const exposure = getExposureByLocalAuthorityId(localAuthority.id);
   if (!exposure) {
     return json(
-      { error: `No baseline exposure for ${localAuthority.id} — no E11.2 boundary polygon to compute it against` },
+      { error: `No baseline exposure for ${localAuthority.id} — no boundary polygon to compute it against` },
       { status: 404 },
     );
   }
@@ -108,7 +109,7 @@ export async function handleLocalAuthorityImpact(id: string, env: AppEnv): Promi
   if (!boundary || !baseline) {
     return json(
       {
-        error: `No flood-impact data for ${localAuthority.id} — no E11.2 boundary polygon or E11.3 baseline exposure to compute it against`,
+        error: `No flood-impact data for ${localAuthority.id} — no boundary polygon or baseline exposure to compute it against`,
       },
       { status: 404 },
     );

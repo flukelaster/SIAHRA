@@ -11,8 +11,19 @@
  * กับ api เป็นคนละ workspace ไม่ import ข้ามกัน เหมือนรูปแบบเดิมที่
  * `buildLocalAuthorityBoundaries.ts` คัดลอก point-in-polygon มาแทนที่จะ import)
  * แล้วทำ point-in-polygon จริงกับขอบเขต อปท. จริงของ E11.2/E11.4
- * (`apps/api/src/data/localAuthorityBoundaries.json`, 431 รูปใน 46 จังหวัด)
- * สถานีที่ไม่ตกในขอบเขตไหนเลยจะไม่มี rule — ไม่มี "สถานีใกล้ที่สุด" มาเดาแทน
+ * (`apps/api/src/data/localAuthorityBoundaries.json` — 431 อปท. ใน 46 จังหวัด +
+ * 50 เขตของกรุงเทพฯ) สถานีที่ไม่ตกในขอบเขตไหนเลยจะไม่มี rule — ไม่มี "สถานีใกล้
+ * ที่สุด" มาเดาแทน
+ *
+ * ## `--merge` — ต่อยอดตารางเดิม ไม่ทิ้ง rule ของสถานีที่แค่ขาดจาก snapshot วันนี้
+ * `rain_24h`/`waterlevel_load` เป็นฟีดค่าล่าสุด ไม่ใช่ทะเบียนสถานี — สถานีที่ไม่ส่งค่า
+ * ในรอบที่รันสคริปต์จะหายไปจากคำตอบทั้งตัว (รันจริง 2026-09-26: 60 จาก 286 rule
+ * เดิมเป็นสถานีที่ขาดจากฟีดรอบนั้น) การสร้างตารางใหม่ทั้งหมดจึงลบ rule จริงทิ้ง
+ * เพราะจังหวะเวลาที่รัน ซึ่งคือ "หายไปเงียบ ๆ" แบบที่ห้าม — engine เองก็ถือว่า
+ * สถานีที่ขาดจากรอบล่าสุดเป็นสถานะ "ค้าง" ไม่ใช่ "ไม่มีอยู่" `--merge` จึง:
+ * rule ของสถานีที่อยู่ในฟีดรอบนี้ = คำนวณใหม่ (PIP วันนี้); rule เดิมของสถานีที่
+ * **ไม่อยู่** ในฟีดรอบนี้ = เก็บไว้ตามเดิม; สถานีที่อยู่ในฟีดแต่ไม่ตกในขอบเขตใดแล้ว
+ * = ตัดทิ้ง (อันนี้ตรวจได้จริง) — ดู `mergeRules`
  *
  * ## alertAtLevel เริ่มต้น
  * ทุก rule เริ่มที่ `"high"` (ระดับที่สองจากบนสุดของ `ExposureLevel`) โดยตั้งใจ —
@@ -28,7 +39,7 @@
  * ไม่ใช่ตัวเลขพยากรณ์ เป็นแค่นโยบาย hysteresis ของ engine เอง cooldown 60 นาที
  * กันไม่ให้สถานีที่แกว่งอยู่พอดีขอบเขตแจ้งเตือนซ้ำทุกรอบประเมิน
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { booleanPointInPolygon, point as turfPoint } from "@turf/turf";
@@ -145,8 +156,60 @@ export function buildRules(
     }
   }
   // ลำดับที่นิ่ง (kind แล้ว stationId) เพื่อให้ diff ของไฟล์ที่ commit อ่านออกได้
-  rules.sort((a, b) => (a.stationKind === b.stationKind ? a.stationId - b.stationId : a.stationKind < b.stationKind ? -1 : 1));
-  return rules;
+  return sortRules(rules);
+}
+
+export function stationKey(kind: "rainfall" | "waterlevel", id: number): string {
+  return `${kind}:${id}`;
+}
+
+export interface MergeReport {
+  /** rule เดิมที่เก็บไว้เพราะสถานีไม่อยู่ในฟีดรอบนี้ */
+  keptAbsent: string[];
+  /** rule ใหม่ (ไม่มีในตารางเดิม) */
+  added: string[];
+  /** rule เดิมของสถานีที่อยู่ในฟีดแต่ไม่ตกในขอบเขตใดแล้ว */
+  droppedPresent: string[];
+  /** rule ที่มีทั้งสองฝั่งแต่เนื้อหาเปลี่ยน (เช่น affectedLocalAuthorityIds) */
+  changed: string[];
+}
+
+function sortRules(rules: ThresholdRule[]): ThresholdRule[] {
+  return rules.sort((a, b) =>
+    a.stationKind === b.stationKind ? a.stationId - b.stationId : a.stationKind < b.stationKind ? -1 : 1,
+  );
+}
+
+/**
+ * รวมตารางเดิมกับผล PIP รอบนี้ — ฟังก์ชันล้วน ทดสอบได้ตรง ๆ
+ *
+ * `presentStationKeys` = `stationKey()` ของทุกสถานีที่ฟีดรอบนี้ส่งมา (ไม่ว่าจะตกใน
+ * ขอบเขตหรือไม่) — ใช้แยก "ไม่อยู่ในฟีด" (เก็บ rule เดิม) ออกจาก "อยู่แต่ไม่ตกใน
+ * ขอบเขตแล้ว" (ตัดทิ้ง)
+ */
+export function mergeRules(
+  prev: readonly ThresholdRule[],
+  fresh: readonly ThresholdRule[],
+  presentStationKeys: ReadonlySet<string>,
+): { rules: ThresholdRule[]; report: MergeReport } {
+  const freshById = new Map(fresh.map((r) => [r.id, r]));
+  const prevById = new Map(prev.map((r) => [r.id, r]));
+  const report: MergeReport = { keptAbsent: [], added: [], droppedPresent: [], changed: [] };
+  const out: ThresholdRule[] = [...fresh];
+  for (const r of prev) {
+    if (freshById.has(r.id)) {
+      if (JSON.stringify(freshById.get(r.id)) !== JSON.stringify(r)) report.changed.push(r.id);
+      continue;
+    }
+    if (presentStationKeys.has(stationKey(r.stationKind, r.stationId))) {
+      report.droppedPresent.push(r.id);
+      continue;
+    }
+    report.keptAbsent.push(r.id);
+    out.push(r);
+  }
+  for (const r of fresh) if (!prevById.has(r.id)) report.added.push(r.id);
+  return { rules: sortRules(out), report };
 }
 
 /** ยืนยันว่าทุก id ที่อ้างถึงมีอยู่จริงในทะเบียน E11.1 — เขียนไฟล์ที่มี id ปลอมไม่ได้ */
@@ -171,13 +234,33 @@ export async function run(): Promise<void> {
   const [rainfall, waterlevel] = await Promise.all([fetchRainfallStations(), fetchWaterLevelStations()]);
   console.log(`[alert-rules] rainfall stations: ${rainfall.length}, waterlevel stations: ${waterlevel.length}`);
 
-  const rules = buildRules(rainfall, waterlevel, boundariesArtefact.boundaries);
+  const fresh = buildRules(rainfall, waterlevel, boundariesArtefact.boundaries);
+  let rules = fresh;
+  if (process.argv.includes("--merge")) {
+    const prev = existsSync(OUT_PATH)
+      ? (JSON.parse(readFileSync(OUT_PATH, "utf-8")) as { rules: ThresholdRule[] }).rules
+      : [];
+    const present = new Set([
+      ...rainfall.map((s) => stationKey("rainfall", s.id)),
+      ...waterlevel.map((s) => stationKey("waterlevel", s.id)),
+    ]);
+    const merged = mergeRules(prev, fresh, present);
+    rules = merged.rules;
+    const r = merged.report;
+    console.log(
+      `[alert-rules] --merge: previous ${prev.length}, kept (station absent from today's feed) ${r.keptAbsent.length}, ` +
+        `added ${r.added.length}, dropped (present, no longer inside a boundary) ${r.droppedPresent.length}, changed ${r.changed.length}`,
+    );
+    if (r.added.length) console.log(`[alert-rules]   added: ${r.added.join(", ")}`);
+    if (r.droppedPresent.length) console.log(`[alert-rules]   dropped: ${r.droppedPresent.join(", ")}`);
+    if (r.changed.length) console.log(`[alert-rules]   changed: ${r.changed.join(", ")}`);
+  }
   assertKnownAuthorityIds(rules, knownIds);
 
   const rainfallMatched = rules.filter((r) => r.stationKind === "rainfall").length;
   const waterlevelMatched = rules.filter((r) => r.stationKind === "waterlevel").length;
   console.log(
-    `[alert-rules] matched inside a real E11.2 boundary — rainfall: ${rainfallMatched}, waterlevel: ${waterlevelMatched}`,
+    `[alert-rules] rules written — rainfall: ${rainfallMatched}, waterlevel: ${waterlevelMatched}`,
   );
 
   const artefact = { generatedAt: new Date().toISOString(), recordCount: rules.length, rules };

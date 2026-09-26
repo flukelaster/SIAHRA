@@ -23,7 +23,7 @@ export interface AffectedAuthoritiesState {
    */
   error: ErrorMessage | null;
   /**
-   * `"none"` = จังหวัดนี้ไม่มี อปท. รายใดมีขอบเขต E11.2 จริงเลย (พบได้ปกติ ส่วน
+   * `"none"` = จังหวัดนี้ไม่มี อปท./เขต รายใดมีขอบเขตจริง (E11.2) เลย (พบได้ปกติ ส่วน
    * ใหญ่ของประเทศยังไม่มีขอบเขต — ดู `apps/etl/data/sources/osm-admin/COVERAGE.md`)
    * `"covered"` = มีอย่างน้อยหนึ่งราย `"unknown"` = ยังโหลดไม่เสร็จ/ไม่เคยลองเลย
    */

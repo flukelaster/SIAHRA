@@ -24,13 +24,14 @@ export function neverReceived(lang: Lang): string {
   return translate(lang, "time.neverReceived");
 }
 
-type FormatKind = "time" | "dateTime" | "full" | "weekday";
+type FormatKind = "time" | "dateTime" | "full" | "weekday" | "dayMonth";
 
 const OPTIONS: Record<FormatKind, Intl.DateTimeFormatOptions> = {
   time: { hour: "2-digit", minute: "2-digit" },
   dateTime: { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" },
   full: { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" },
   weekday: { weekday: "short" },
+  dayMonth: { day: "numeric", month: "short" },
 };
 
 const cache = new Map<string, Intl.DateTimeFormat>();
@@ -82,6 +83,13 @@ export function formatTime(lang: Lang, iso: string): string {
 export function formatDateTime(lang: Lang, iso: string): string {
   const ms = parse(iso);
   return ms === null ? "—" : formatter(lang, "dateTime").format(ms);
+}
+
+/** วัน + เดือนแบบย่อ เช่น "10 ก.ย." / "10 Sep" (เขตเวลาไทย) — ป้ายวันที่ของฉาก
+ *  ดาวเทียมที่สั้นพอจะอยู่ข้างตัวเลขในรายการ */
+export function formatDayMonth(lang: Lang, iso: string): string {
+  const ms = parse(iso);
+  return ms === null ? "—" : formatter(lang, "dayMonth").format(ms);
 }
 
 /** วัน + เดือน + ปี + เวลา สำหรับข้อความยาว เช่น footer ของภาพที่บันทึก */

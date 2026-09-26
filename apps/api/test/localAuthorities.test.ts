@@ -6,6 +6,7 @@ import type {
 } from "@siahra/shared-types";
 import { describe, expect, it } from "vitest";
 import { getLocalAuthorityById, LOCAL_AUTHORITIES, queryLocalAuthorities } from "../src/data/localAuthorities.js";
+import { getBoundaryGeometryById } from "../src/data/localAuthorityBoundaries.js";
 import { getExposureByLocalAuthorityId } from "../src/data/localAuthorityExposure.js";
 
 /**
@@ -16,16 +17,52 @@ import { getExposureByLocalAuthorityId } from "../src/data/localAuthorityExposur
 
 const call = (path: string) => workerExports.default.fetch(new Request(`https://siahra-radar.co${path}`));
 
+const DLA = LOCAL_AUTHORITIES.filter((a) => a.type !== "bma_district");
+const BMA = LOCAL_AUTHORITIES.filter((a) => a.type === "bma_district");
+
 describe("LOCAL_AUTHORITIES (baked registry)", () => {
-  it("has a plausible national total (SOURCE.md: 7,849 distinct รหัส อปท.)", () => {
-    expect(LOCAL_AUTHORITIES.length).toBe(7849);
+  it("has a plausible national total (SOURCE.md: 7,849 distinct รหัส อปท.) + Bangkok's 50 districts", () => {
+    expect(DLA.length).toBe(7849);
+    expect(BMA.length).toBe(50);
+    expect(LOCAL_AUTHORITIES.length).toBe(7899);
   });
 
-  it("covers 76 provinces, not 77 — Bangkok is legitimately absent from this dataset", () => {
-    const provinceCodes = new Set(LOCAL_AUTHORITIES.map((a) => a.provinceCode));
+  it("DLA covers 76 provinces, not 77 — Bangkok is legitimately absent from DLA and never synthesized", () => {
+    const provinceCodes = new Set(DLA.map((a) => a.provinceCode));
     expect(provinceCodes.size).toBe(76);
-    // 10 = กรุงเทพมหานคร — must not be synthesized
+    // 10 = กรุงเทพมหานคร — no DLA row may be synthesized for it
     expect(provinceCodes.has("10")).toBe(false);
+    for (const a of DLA) {
+      expect(a.id).toMatch(/^TH-LAO-/);
+      expect(a.dlaCode).not.toBeNull();
+    }
+  });
+
+  it("Bangkok's 50 districts are a separate unit: TH-BMA-osm ids, no DLA code, province 10, real OSM names", () => {
+    const ids = new Set(BMA.map((a) => a.id));
+    const names = new Set(BMA.map((a) => a.nameTh));
+    expect(ids.size).toBe(50);
+    expect(names.size).toBe(50);
+    for (const a of BMA) {
+      expect(a.id).toMatch(/^TH-BMA-osm\d+$/);
+      expect(a.dlaCode).toBeNull();
+      expect(a.provinceCode).toBe("10");
+      expect(a.nameTh.startsWith("เขต")).toBe(true);
+      // the source declares none of these — null, never invented
+      expect(a.centerLat).toBeNull();
+      expect(a.centerLon).toBeNull();
+      expect(a.areaKm2).toBeNull();
+    }
+    expect(queryLocalAuthorities({ query: "เขตพระนคร" })).toMatchObject([
+      { id: "TH-BMA-osm92053", nameEn: "Phra Nakhon District", type: "bma_district" },
+    ]);
+  });
+
+  it("every Bangkok district has a boundary and a baseline exposure record (no predictable 404)", () => {
+    for (const a of BMA) {
+      expect(getBoundaryGeometryById(a.id), a.id).not.toBeNull();
+      expect(getExposureByLocalAuthorityId(a.id), a.id).not.toBeNull();
+    }
   });
 
   it("round-trips a known real record: เมืองพัทยา (special_admin_area, provinceCode 20)", () => {
@@ -63,11 +100,12 @@ describe("GET /api/v1/local-authorities", () => {
     const res = await call("/api/v1/local-authorities");
     expect(res.status).toBe(200);
     const body = (await res.json()) as LocalAuthoritiesResponse;
-    expect(body.total).toBe(7849);
-    expect(body.localAuthorities).toHaveLength(7849);
+    expect(body.total).toBe(7899);
+    expect(body.localAuthorities).toHaveLength(7899);
     expect(body.layer.epistemicClass).toBe("static-reference");
     expect(body.layer.liveOrStatic).toBe("static");
-    expect(body.layer.sourceIds).toEqual(["dla"]);
+    // DLA registry + Bangkok's districts from OSM admin_level=6
+    expect(body.layer.sourceIds).toEqual(["dla", "osm-admin"]);
     // ค่าจริงจาก SOURCE.md — ต้นทางไม่มี field เวลาที่ machine อ่านได้เอง
     expect(body.layer.publishedAt).toBe("2026-06-10T00:00:00Z");
     expect(body.layer.fetchedAt).toBe("2026-08-23T00:00:00Z");
@@ -110,7 +148,21 @@ describe("GET /api/v1/local-authorities/:id", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as LocalAuthorityDetailResponse;
     expect(body.localAuthority.nameTh).toBe("เมืองพัทยา");
-    expect(body.layer.sourceIds).toEqual(["dla"]);
+    expect(body.layer.sourceIds).toEqual(["dla", "osm-admin"]);
+  });
+
+  it("returns a Bangkok district by its full TH-BMA-osm id", async () => {
+    const res = await call("/api/v1/local-authorities/TH-BMA-osm92053");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as LocalAuthorityDetailResponse;
+    expect(body.localAuthority).toMatchObject({ nameTh: "เขตพระนคร", type: "bma_district", dlaCode: null });
+  });
+
+  it("filters Bangkok's districts by ?province=10&type=bma_district", async () => {
+    const res = await call("/api/v1/local-authorities?province=10&type=bma_district");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as LocalAuthoritiesResponse;
+    expect(body.total).toBe(50);
   });
 
   it("returns a real record by the full TH-LAO id", async () => {
@@ -183,6 +235,18 @@ describe("GET /api/v1/local-authorities/:id/exposure", () => {
     await expect(exposure.json()).resolves.toMatchObject({
       error: expect.stringContaining("No baseline exposure"),
     });
+  });
+
+  it("returns a real WorldPop/OSM baseline for a Bangkok district (TH-BMA-osm92053, เขตพระนคร)", async () => {
+    const res = await call("/api/v1/local-authorities/TH-BMA-osm92053/exposure");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as LocalAuthorityExposureResponse;
+    // ETL run 2026-09-26: pop=77,885.28 buildings=7,214 facilities=1/18/0 — bounded, not pinned
+    expect(body.exposure.population.estimate).toBeGreaterThan(50_000);
+    expect(body.exposure.population.estimate).toBeLessThan(120_000);
+    expect(body.exposure.population.descriptor.sourceIds).toEqual(["worldpop"]);
+    expect(body.exposure.buildings.descriptor.sourceIds).toEqual(["osm"]);
+    expect(body.exposure.facilities.schools.length).toBeGreaterThan(0);
   });
 
   it("returns 404 for an id that does not exist in the registry at all", async () => {

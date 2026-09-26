@@ -343,7 +343,7 @@ export const en: Record<keyof typeof th, string> = {
   "drawer.close": "Close panel",
   "panel.layers": "Layers",
   "panel.flood": "Flood",
-  "panel.impact": "Local-authority impact",
+  "panel.impact": "Local impact",
   "panel.water": "Water level",
   "panel.rain": "Rain",
   "panel.forecast": "TMD",
@@ -715,26 +715,32 @@ export const en: Record<keyof typeof th, string> = {
   "localAuthority.type.subdistrict_municipality": "Subdistrict municipality",
   "localAuthority.type.subdistrict_admin_org": "Subdistrict admin org (อบต.)",
   "localAuthority.type.special_admin_area": "Special local-authority area",
+  // Not an อปท. — Bangkok is absent from DLA's registry, so its districts are a separate unit
+  "localAuthority.type.bma_district": "Bangkok district (เขต)",
 
   // ── Local-authority impact summary (E11.6) ──────────────────────────────
   "impact.card.title": "Local-authority impact summary",
-  "impact.card.selectPrompt": "Select a local authority from the list below to see details",
+  "impact.card.title.bma": "Bangkok district impact summary",
+  "impact.card.selectPrompt": "Select a local authority or district from the list to see details",
   "impact.card.noCoverage":
     "This local authority has no real boundary or baseline data to compute impact against yet",
   "impact.card.loadError": "Failed to load impact data: {error}",
   "impact.section.baseline": "Baseline (static)",
   "impact.section.flood": "Current flood impact",
+  "impact.section.flood.dated": "Flood impact per the GISTDA image fetched {date}",
   "impact.population.label": "Population",
   "impact.population.estimateNote": "WorldPop 2020 estimate — not a real headcount",
   "impact.buildings.label": "Buildings (baseline)",
   "impact.floodedArea.label": "Flooded area",
   "impact.floodedFraction.label": "Share of area flooded",
   "impact.floodedFraction.neverFetched": "GISTDA has never fetched a flood scene successfully",
+  "impact.flood.staleScene": "These figures come from the GISTDA image fetched {date}, not the current situation",
   "impact.facilitiesExposed.label": "Key facilities inside the flooded area",
   "impact.facilitiesExposed.hospitals": "{n} hospitals",
   "impact.facilitiesExposed.schools": "{n} schools",
   "impact.facilitiesExposed.fireStations": "{n} fire stations",
   "impact.facilitiesExposed.none": "No key facilities inside the flooded area right now",
+  "impact.facilitiesExposed.none.dated": "That image shows no key facilities inside the flooded area",
   "impact.populationExposed.label": "Population possibly exposed (area-weighted share)",
   "impact.buildingsExposed.label": "Buildings possibly exposed (area-weighted share)",
   "impact.method.areaWeighted":
@@ -753,8 +759,20 @@ export const en: Record<keyof typeof th, string> = {
 
   // ── Affected local-authority list (E11.6) ───────────────────────────────
   "authorityList.title": "Affected local authorities",
+  "authorityList.title.bma": "Affected Bangkok districts",
   "authorityList.empty.noCoverage":
-    "No local authority in this province has real E11.2 boundary coverage to compute against",
+    "No local-authority boundaries for this province in OpenStreetMap yet to measure flooded area against, so there is no list to show",
+  "authorityList.explain":
+    "% = share of the area where GISTDA's satellite image detected flooding, not a station water level (the dots are ThaiWater station water-level/rain alerts, a different source)",
+  "authorityList.sceneDate": "GISTDA image fetched {date}",
+  "authorityList.notice.unreachable":
+    "Could not reach GISTDA on the latest attempt — the figures below come from the last image fetched successfully ({date}), not the current situation",
+  "authorityList.notice.noNewScene":
+    "GISTDA has not published a new image yet — the figures below come from the image of {date}, not the current situation",
+  "authorityList.notice.old":
+    "The GISTDA image used is older than the usual refresh ({date}) — the figures below may not match the current situation",
+  "authorityList.notice.noneMapped":
+    "Latest GISTDA image fetched {date} — it maps no flooding in any of the areas listed below",
   "authorityList.loadError": "Failed to load the authority list: {error}",
   "authorityList.floodedFraction": "{pct}% flooded",
   "authorityList.neverFetched": "GISTDA has never been fetched successfully",

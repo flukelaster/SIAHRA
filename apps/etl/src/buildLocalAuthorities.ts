@@ -10,16 +10,27 @@
  * โดยตั้งใจ — `buildLocalAuthorities.test.ts` import ฟังก์ชันล้วนพวกนี้ทดสอบกับ
  * fixture เล็ก ๆ เท่านั้น ไม่แตะไฟล์ 13 MB จริง และ `main()` รันเฉพาะตอนสั่งสคริปต์นี้
  * ตรง ๆ (ผ่าน `tsx`) ไม่ใช่ตอนถูก import
+ *
+ * ## 50 เขตของกรุงเทพฯ (ไม่ใช่ อปท.)
+ * ทะเบียน DLA ไม่มีกรุงเทพฯ (ดู SOURCE.md) — 50 เขตถูกต่อท้ายจากไฟล์ตั้งต้น
+ * `data/sources/osm-admin/bma-districts.json` ที่ `buildBmaDistricts.ts` สร้างจาก OSM
+ * เป็นหน่วยแยก (`type: "bma_district"`, `dlaCode: null`, id `TH-BMA-osm*`) ไม่แตะ
+ * แถว DLA ใด ๆ และไม่มีแถว DLA ใดถูกประดิษฐ์ให้กรุงเทพฯ — รัน `buildBmaDistricts.ts`
+ * ก่อนสคริปต์นี้เสมอ
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type {
+  BmaDistrictRef,
+  BmaDistrictsProvenance,
+  DlaLocalAuthorityRef,
   HazardLayerDescriptor,
   LocalAuthoritiesRegistry,
   LocalAuthorityRef,
   LocalAuthorityType,
 } from "@siahra/shared-types";
+import { readBmaDistrictsArtefact } from "./buildBmaDistricts.js";
 import { sha256File } from "./provenance.js";
 import { normalizeThaiName, readProvinceList, type ProvinceEntry } from "./provinceBoundaries.js";
 
@@ -182,7 +193,7 @@ export function parseDlaCsv(csvText: string): RawDlaRow[] {
 }
 
 /** ตรงกับ 6 ค่าที่พบจริงเท่านั้น (verified ใน SOURCE.md) — ค่าอื่นต้องถูกปฏิเสธ */
-const TYPE_MAP: Record<string, LocalAuthorityType> = {
+const TYPE_MAP: Record<string, Exclude<LocalAuthorityType, "bma_district">> = {
   "อบจ.": "provincial_admin_org",
   เทศบาลนคร: "city_municipality",
   เทศบาลเมือง: "town_municipality",
@@ -221,7 +232,7 @@ export type RejectReason = "unknown-type" | "unmatched-province";
 export function toLocalAuthorityRef(
   row: RawDlaRow,
   provinces: readonly ProvinceEntry[],
-): { ok: true; ref: LocalAuthorityRef } | { ok: false; reason: RejectReason } {
+): { ok: true; ref: DlaLocalAuthorityRef } | { ok: false; reason: RejectReason } {
   const type = TYPE_MAP[row.typeTh];
   if (!type) return { ok: false, reason: "unknown-type" };
 
@@ -229,7 +240,7 @@ export function toLocalAuthorityRef(
   const province = provinces.find((p) => normalizeThaiName(p.nameTh) === targetName);
   if (!province) return { ok: false, reason: "unmatched-province" };
 
-  const ref: LocalAuthorityRef = {
+  const ref: DlaLocalAuthorityRef = {
     id: `TH-LAO-${row.dlaCode}`,
     dlaCode: row.dlaCode,
     nameTh: row.nameTh,
@@ -251,6 +262,8 @@ export interface CoverageReport {
   rejectedEmptyCode: number;
   rejectedUnknownType: number;
   rejectedUnmatchedProvince: number;
+  /** เขตของกรุงเทพฯ ที่ต่อท้ายจาก OSM — ไม่ได้มาจาก CSV ของ DLA */
+  bmaDistricts: number;
 }
 
 /**
@@ -260,7 +273,12 @@ export interface CoverageReport {
 export function buildRegistry(
   csvText: string,
   provinces: readonly ProvinceEntry[],
-  meta: { sourceSha256: string; descriptor: HazardLayerDescriptor },
+  meta: {
+    sourceSha256: string;
+    descriptor: HazardLayerDescriptor;
+    /** 50 เขตของกรุงเทพฯ จาก `bma-districts.json` — ต่อท้ายหลังแถว DLA ทั้งหมด */
+    bmaDistricts?: { refs: readonly BmaDistrictRef[]; provenance: BmaDistrictsProvenance };
+  },
 ): { registry: LocalAuthoritiesRegistry; report: CoverageReport; rejectedSamples: string[] } {
   const rawRows = parseDlaCsv(csvText);
   const { groups, rejectedEmptyCode } = groupByCode(rawRows);
@@ -289,19 +307,32 @@ export function buildRegistry(
     }
   }
 
+  const dlaWritten = localAuthorities.length;
+  const bma = meta.bmaDistricts;
+  if (bma) {
+    const dlaIds = new Set(localAuthorities.map((a) => a.id));
+    for (const ref of bma.refs) {
+      // id คนละ namespace (TH-BMA-osm* vs TH-LAO-*) — ชนกันได้ก็ต่อเมื่อไฟล์ตั้งต้นเสีย
+      if (dlaIds.has(ref.id)) throw new Error(`[local-authorities] BMA district id collides with DLA: ${ref.id}`);
+      localAuthorities.push(ref);
+    }
+  }
+
   const report: CoverageReport = {
     totalRows: rawRows.length,
     uniqueCodes: groups.size,
-    written: localAuthorities.length,
+    written: dlaWritten,
     rejectedEmptyCode,
     rejectedUnknownType,
     rejectedUnmatchedProvince,
+    bmaDistricts: bma ? bma.refs.length : 0,
   };
 
   const registry: LocalAuthoritiesRegistry = {
     descriptor: meta.descriptor,
     sourceSha256: meta.sourceSha256,
     recordCount: localAuthorities.length,
+    ...(bma ? { bmaDistricts: bma.provenance } : {}),
     localAuthorities,
   };
 
@@ -316,19 +347,26 @@ export function writeLocalAuthorities(csvPath: string = CSV_PATH, outPath: strin
   const csvText = readFileSync(csvPath, "utf-8");
   const sourceSha256 = sha256File(csvPath);
   const provinces = readProvinceList();
+  const bmaArtefact = readBmaDistrictsArtefact();
 
+  // publishedAt/fetchedAt ยังเป็นของ DLA (แหล่งหลัก 7,849 แถว) — เวลาของชุด OSM ที่
+  // 50 เขตมาจากอยู่ใน `registry.bmaDistricts.publishedAt` แยกไว้ ไม่สวมทับกัน
   const descriptor: HazardLayerDescriptor = {
     id: "local-authorities",
     epistemicClass: "static-reference",
     liveOrStatic: "static",
     publishedAt: SOURCE_PUBLISHED_AT,
     fetchedAt: SOURCE_FETCHED_AT,
-    sourceIds: ["dla"],
+    sourceIds: ["dla", "osm-admin"],
   };
 
   const { registry, report, rejectedSamples } = buildRegistry(csvText, provinces, {
     sourceSha256,
     descriptor,
+    bmaDistricts: {
+      refs: bmaArtefact.districts.map((d) => d.ref),
+      provenance: bmaArtefact.provenance,
+    },
   });
 
   mkdirSync(path.dirname(outPath), { recursive: true });
@@ -338,7 +376,8 @@ export function writeLocalAuthorities(csvPath: string = CSV_PATH, outPath: strin
 
   console.log(`[local-authorities] rows read: ${report.totalRows}`);
   console.log(`[local-authorities] unique รหัส อปท.: ${report.uniqueCodes}`);
-  console.log(`[local-authorities] records written: ${report.written}`);
+  console.log(`[local-authorities] DLA records written: ${report.written}`);
+  console.log(`[local-authorities] BMA districts appended (OSM, not DLA): ${report.bmaDistricts}`);
   console.log(
     `[local-authorities] rejected — empty code: ${report.rejectedEmptyCode}, ` +
       `unknown type: ${report.rejectedUnknownType}, unmatched province: ${report.rejectedUnmatchedProvince}`,
