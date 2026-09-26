@@ -9,6 +9,7 @@ import {
   type ImageryPlan,
   type ImageryProvider,
 } from "./SatelliteImagery";
+import { decodePresentBits, decodeTerrainTile, terrainTileSpan, tileUrl } from "../lib/tileCodec";
 import { shouldSplit } from "./lod";
 import { createTerrainMaterial, type TerrainSharedUniforms } from "./terrainMaterial";
 
@@ -84,10 +85,7 @@ function keyOf(z: number, x: number, y: number): string {
 }
 
 function decodePresent(level: TerrainTileLevel): Uint8Array {
-  const bin = atob(level.present);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
+  return decodePresentBits(level.present);
 }
 
 export interface TerrainTileTreeOptions {
@@ -400,20 +398,19 @@ export class TerrainTileTree {
         heights = sliced.heights;
         span = sliced.span;
       } else {
-        const url = this.pyramid.urlTemplate
-          .replace("{z}", String(tile.z))
-          .replace("{x}", String(tile.x))
-          .replace("{y}", String(tile.y));
+        // URL/ตัวถอดชุดเดียวกับ worker ของแผ่นน้ำ 30 ม. (lib/tileCodec.ts) — ใช้ HTTP cache ร่วมกัน
+        const url = tileUrl(this.pyramid.urlTemplate, tile.z, tile.x, tile.y);
         const res = await fetch(url, { signal: tile.abort.signal });
         if (!res.ok) throw new Error(`tile ${tile.id}: HTTP ${res.status}`);
         const buf = await res.arrayBuffer();
-        span = this.pyramid.tileSize + 1 + this.pyramid.border * 2;
-        if (buf.byteLength !== span * span * 2) {
+        span = terrainTileSpan(this.pyramid.tileSize, this.pyramid.border);
+        const decoded = decodeTerrainTile(buf, this.pyramid.tileSize, this.pyramid.border);
+        if (!decoded) {
           // A static host answered with something else (SPA shell) — treat as absent.
           tile.state = "empty";
           return;
         }
-        heights = new Int16Array(buf);
+        heights = decoded;
         if (tile.z === this.leafZ) tile.heights = heights;
       }
       if (this.disposed) return;

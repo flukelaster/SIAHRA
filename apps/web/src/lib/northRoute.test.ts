@@ -11,6 +11,7 @@ import {
   peaks48h,
   percentOfQmax,
   pointAt,
+  routeReadings,
   routeView,
   segmentFlow,
   STALE_OBS_MS,
@@ -311,5 +312,18 @@ describe("segmentFlow — ค่าจากปลายท้ายน้ำ �
     expect(segmentFlow({ upstreamCode: null, downstreamCode: null }, none)).toBeNull();
     const stale = new Map([["B", reading({ qmaxPct: 40, stale: true })]]);
     expect(segmentFlow({ upstreamCode: null, downstreamCode: "B" }, stale)?.stale).toBe(true);
+  });
+});
+
+describe("routeReadings", () => {
+  const topology = topologyJson as unknown as NorthRouteTopology;
+  it("ทุกสถานีในผังได้ค่า — สถานีที่ API ไม่ส่งมาเป็น missing (เทา) ไม่ใช่หายไป", () => {
+    const r = routeReadings(topology, [], { mode: "live" }, NOW);
+    expect(r.size).toBe(topology.stations.length);
+    for (const v of r.values()) expect(v.missing).toBe(true);
+  });
+  it("นอกหน้าต่าง 48 ชม. ทุกสถานีเป็น missing", () => {
+    const r = routeReadings(topology, null, routeView(iso(NOW - 72 * H), NOW), NOW);
+    expect([...r.values()].every((v) => v.missing)).toBe(true);
   });
 });

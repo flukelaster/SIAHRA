@@ -15,6 +15,8 @@ import { useFloodExposure } from "./hooks/useFloodExposure";
 import { useFloodExtent } from "./hooks/useFloodExtent";
 import { useFloodScene } from "./hooks/useFloodScene";
 import { useFloodScenes } from "./hooks/useFloodScenes";
+import { useNorthRoute } from "./hooks/useNorthRoute";
+import type { FloodSourceAgeInput } from "./lib/floodSourceAge";
 import { useAffectedAuthorities } from "./hooks/useAffectedAuthorities";
 import { useActiveAlerts } from "./hooks/useActiveAlerts";
 import { useLocalAuthorityImpact } from "./hooks/useLocalAuthorityImpact";
@@ -80,6 +82,11 @@ const DEFAULT_LAYERS: MapLayers = {
   // เสื่อมคุณภาพที่ต้องซ่อนไว้ก่อน — เปิดเป็นค่าเริ่มต้นได้ ตราบใดที่ legend บอก
   // caveat ความไม่ครบทุกครั้งที่ชั้นนี้แสดงอยู่ (ดู MapLegend.tsx)
   localAuthorities: true,
+  // E16 B-1 — "ล้นตลิ่งตอนนี้" ใน 3 มิติ: GISTDA ไม่ได้ข้อมูลตั้งแต่ 2026-09-10 และ Sentinel-1 ผ่าน
+  // ทุก 6–12 วัน ระดับน้ำเทียบตลิ่งจึงเป็นสัญญาณที่สดที่สุดที่มี — แผ่นน้ำจำลอง (illustrative) เปิด
+  // เป็นค่าเริ่มต้นได้ตราบใดที่ legend บอก caveat ทุกครั้งที่แสดง (แบบเดียวกับ localAuthorities)
+  stationSheet: true,
+  northRoute: true,
 };
 
 /**
@@ -184,6 +191,24 @@ export default function App() {
     summary: floodSummary,
     dimmed: floodFieldDim,
   };
+  // E16 B-1 — ชิปอายุแหล่งน้ำท่วมจากดาวเทียมบนแผนที่ (แสดงเมื่อชั้นน้ำท่วมจากดาวเทียมชั้นใดเปิดอยู่)
+  const gistdaSource = sourceStatus(apiHealth.health, "gistda-flood");
+  const floodAge: FloodSourceAgeInput | null =
+    layers.floodExtent || layers.floodGfm
+      ? {
+          apiDown: apiHealth.apiDown,
+          gistda: gistdaSource,
+          gfm: {
+            sceneObservedAt: floodScene.scene?.observedAt ?? null,
+            noSceneInWindow: floodScene.reason === "no-scene-in-window",
+            missing: floodScenes.missing,
+            error: floodScenes.error !== null || floodScene.error !== null,
+            loading: floodScenes.loading || floodScene.loading,
+            health: gfmSource,
+          },
+          atIso,
+        }
+      : null;
   // ชั้นปิดอยู่ = ไม่ยิงคำขอเลยแม้แต่ครั้งเดียว (รูปแบบเดียวกับ useRadar)
   const exposure = useFloodExposure(provinceCode, layers.exposure);
   // E11.6 — แดชบอร์ดผลกระทบ อปท.: รายชื่อจัดอันดับ + แจ้งเตือนทั้งจังหวัด + ราย
@@ -269,6 +294,20 @@ export default function App() {
     // ที่ backend แยกไว้ (ดูคำอธิบายที่ useFloodExposure.ts)
     noRunReason: exposure.noRunReason,
   };
+  // เปลือกหน้าต่าง: tier / drawer / แผ่นเลื่อน / ความสูง dock → safe area (lib/shellLayout.ts)
+  // ไม่มีการ re-frame กล้องตอนเปิด-ปิด drawer — `frameTerrain` ยังถูกเรียกเฉพาะตอน
+  // AOI โหลด (Map3DCanvas) เหมือนเดิม การเปลี่ยนจังหวัดจึงจัดกรอบตามสถานะ drawer ขณะนั้น
+  // (ถูกเรียกก่อน useLayerDescriptors เพราะ hook เส้นทางน้ำเหนือต้องรู้ว่าแผงไหนถูกเลือก)
+  const shell = useShellState();
+  // E16 — hook เส้นทางน้ำเหนือตัวเดียว ใช้ร่วมกันระหว่างแผง north กับชั้นเส้นลำน้ำ 3 มิติ
+  // ยิงคำขอเฉพาะเมื่อชั้นเปิดหรือแผง north ถูกเลือกอยู่ (ไม่งั้นไม่ poll เลย)
+  // แผง north "เปิดอยู่" = ถูกเรนเดอร์จริง: drawer เปิด (≥ tablet) หรือแผ่นเลื่อนไม่อยู่ที่ peek (มือถือ)
+  // — เงื่อนไขเดียวกับที่การ์ดเคยถูก mount ก่อน B-1
+  const northPanel =
+    shell.panel === "north" && (shell.tier === "phone" ? shell.sheetSnap !== "peek" : shell.drawerOpen);
+  const northRoute = useNorthRoute(layers.northRoute || northPanel, northPanel);
+  const northTopology = layers.northRoute ? northRoute.topology : null;
+  const northStations = layers.northRoute ? (northRoute.route?.stations ?? null) : null;
   const aoiId = aoiIdForProvince(provinceCode);
   // ป้ายชนิดความรู้ + เวลาของแต่ละชั้นใน legend มาจาก descriptor ที่ backend ประกาศ
   // (หรือจาก data/staticLayerDescriptors.ts สำหรับชั้นคงที่) — อายุคำนวณตอนเรนเดอร์
@@ -280,6 +319,7 @@ export default function App() {
     exposure,
     floodScenes,
     floodScene,
+    northRoute,
     cctvCatalogue: CCTV_ENABLED ? cctvCatalogue.data : null,
     iticCatalogue: ITIC_ENABLED ? iticCatalogue.data : null,
     health: apiHealth.health,
@@ -397,10 +437,6 @@ export default function App() {
     window.setTimeout(() => URL.revokeObjectURL(url), 5000);
   }, [province, provinceName, atIso, lang, t]);
 
-  // เปลือกหน้าต่าง: tier / drawer / แผ่นเลื่อน / ความสูง dock → safe area (lib/shellLayout.ts)
-  // ไม่มีการ re-frame กล้องตอนเปิด-ปิด drawer — `frameTerrain` ยังถูกเรียกเฉพาะตอน
-  // AOI โหลด (Map3DCanvas) เหมือนเดิม การเปลี่ยนจังหวัดจึงจัดกรอบตามสถานะ drawer ขณะนั้น
-  const shell = useShellState();
   // ปุ่ม "ชั้นข้อมูล" บนคอลัมน์เครื่องมือของมือถือ — identity คงที่เพื่อไม่ให้
   // MapViewport (และ Map3DCanvas ใต้มัน) re-render ทุกครั้งที่ App เรนเดอร์ใหม่
   const openPanel = shell.openPanel;
@@ -479,6 +515,8 @@ export default function App() {
     // เลือกเวลาแล้วมาตรวัดน้ำ/ดวงอาทิตย์/GISTDA ?at=/เรดาร์ จึงเดินตามพร้อมกัน
     setAtIso: handleAtIsoChange,
     focusStation,
+    northRoute,
+    floodAge,
   };
 
   return (
@@ -512,6 +550,9 @@ export default function App() {
         layers={layers}
         safeArea={shell.safeArea}
         observationsStale={observationsStale}
+        northRouteTopology={northTopology}
+        northRouteStations={northStations}
+        floodAge={floodAge}
         initialPose={initialPoseRef.current}
         exaggeration={exaggeration}
         quality={quality}

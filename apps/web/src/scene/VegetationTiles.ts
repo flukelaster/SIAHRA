@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import type { AoiManifest, LandcoverTilePyramid, TerrainTilePyramid } from "@siahra/shared-types";
+import { decodeLandcoverTile, decodePresentBits, tileUrl } from "../lib/tileCodec";
 import type { LocalProjection } from "./localProjection";
 import type { TerrainTileTree } from "./TerrainTiles";
 
@@ -28,10 +29,7 @@ function keyOf(z: number, x: number, y: number): string {
   return `${z}/${x}/${y}`;
 }
 function decodePresent(b64: string): Uint8Array {
-  const bin = atob(b64);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
+  return decodePresentBits(b64);
 }
 
 /** Procedural tree sprite: dark trunk, layered canopy, transparent edges. */
@@ -180,13 +178,15 @@ export class VegetationTiles {
     t.state = "loading";
     this.loading++;
     try {
-      const url = this.pyramid.urlTemplate.replace("{z}", String(t.z)).replace("{x}", String(t.x)).replace("{y}", String(t.y));
+      // URL/ตัวถอดชุดเดียวกับ worker ของแผ่นน้ำ 30 ม. (lib/tileCodec.ts) — ใช้ HTTP cache ร่วมกัน
+      const url = tileUrl(this.pyramid.urlTemplate, t.z, t.x, t.y);
       const res = await fetch(url);
       if (!res.ok) throw new Error(`landcover ${t.id}: ${res.status}`);
-      const buf = new Uint8Array(await res.arrayBuffer());
+      const raw = await res.arrayBuffer();
       if (this.disposed) return;
       const T = this.terrain.tileSize;
-      if (buf.length !== T * T) {
+      const buf = decodeLandcoverTile(raw, T);
+      if (!buf) {
         t.state = "empty";
         return;
       }

@@ -12,6 +12,7 @@ import type {
 import { floodCellAt, type FloodCell, type FloodField, type FloodFieldGrid } from "./floodField";
 import type { LocalProjection } from "./localProjection";
 import type { SceneHandles } from "./setupScene";
+import type { StationSheetCellPick } from "./StationSheet";
 
 /**
  * เซลล์ของฉาก Copernicus GFM ใต้จุดที่คลิก (E14.F5) + ฉากที่มันมาจาก — popup ต้อง
@@ -46,8 +47,18 @@ export type PickResult =
       flood: FloodExtentFeature | null;
       /** เซลล์ GFM ใต้จุดนี้ — null = ไม่มีฉากที่วาดอยู่ หรือจุดอยู่นอกกริด (ไม่ใช่ "แห้ง") */
       floodCell: FloodCellPick | null;
+      /** เซลล์ของแผ่นน้ำจำลองจากสถานีใต้จุดนี้ — null = ชั้นซ่อน/ไม่มีแผ่นตรงนี้ (ไม่ใช่ "ไม่ท่วม") */
+      stationSheet: StationSheetCellPick | null;
       anchor: THREE.Vector3;
     };
+
+/**
+ * แผ่นน้ำจำลองจากระดับน้ำที่สถานี (E16 B-1, `StationSheet.ts`) — อ่านเซลล์ใต้จุดคลิกบนพื้น
+ * null/ไม่ส่ง = ชั้นซ่อนหรือไม่มีแผ่น
+ */
+export interface StationSheetPickSource {
+  cellAt: (x: number, z: number) => StationSheetCellPick | null;
+}
 
 const raycaster = new THREE.Raycaster();
 
@@ -104,6 +115,8 @@ export function pickAt(
     floodFeatures: FloodExtentFeature[];
     /** ฉาก GFM ที่วาดอยู่ (E14.F5) — ไม่ส่ง/null = ไม่มีฉาก ไม่ใส่ floodCell */
     floodField?: FloodFieldPickSource | null;
+    /** แผ่นน้ำจำลองจากระดับน้ำที่สถานี (E16 B-1) — ไม่ส่ง/null = ชั้นซ่อนหรือไม่มีแผ่น */
+    stationSheet?: StationSheetPickSource | null;
   },
 ): PickResult | null {
   raycaster.setFromCamera(ndc, handles.camera);
@@ -137,6 +150,7 @@ export function pickAt(
     elevationM,
     flood,
     floodCell,
+    stationSheet: opts.stationSheet?.cellAt(gh.point.x, gh.point.z) ?? null,
     anchor: new THREE.Vector3(gh.point.x, gh.point.y / scaleY, gh.point.z),
   };
 }

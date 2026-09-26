@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { FloodFieldClass, type CctvCamera, type ItiCCamera } from "@siahra/shared-types";
 import { gfmConfidence } from "../../scene/floodField";
 import type { FloodCellPick, PickResult } from "../../scene/picking";
+import type { StationSheetCellPick } from "../../scene/StationSheet";
 import { useStationHistory } from "../../hooks/useStationHistory";
 import { useNow } from "../../hooks/useNow";
 import {
@@ -123,6 +124,44 @@ export function GfmCellBlock({ cell, lang, t }: { cell: FloodCellPick; lang: Lan
         <ExternalLink size={10} aria-hidden="true" />
         {t("freshness.methodology")}
       </a>
+    </div>
+  );
+}
+
+/**
+ * เซลล์ของแผ่นน้ำจำลองจากระดับน้ำที่สถานี (E16 B-1) — ทุกบรรทัดบอกว่า "จำลอง" และชี้กลับไปที่
+ * ค่าตรวจวัดที่มันมาจาก (ชื่อสถานี, ระดับ ม.รทก., เวลาตรวจวัด) ไม่ใช่ความลึกที่ใครวัดได้ตรงนี้
+ */
+/** C3 — ความละเอียดที่สถานีนั้นถูกคำนวณจริง และเหตุที่ไม่ใช่กริดละเอียด */
+const SHEET_RESOLUTION_KEY: Record<StationSheetCellPick["resolution"], MessageKey> = {
+  leaf: "popup.sheet.resolution.leaf",
+  overview: "popup.sheet.resolution.overview",
+  pending: "popup.sheet.resolution.pending",
+  "overview-budget": "popup.sheet.resolution.budget",
+  "overview-failed": "popup.sheet.resolution.failed",
+};
+
+export function StationSheetBlock({ cell, lang, t }: { cell: StationSheetCellPick; lang: Lang; t: TFunction }) {
+  const name = pickName(cell.obs.station.nameTh, cell.obs.station.nameEn, lang) ?? `#${cell.obs.station.id}`;
+  return (
+    <div className="mt-2 border-t border-white/10 pt-1.5" data-station-sheet={cell.obs.station.id}>
+      <p className="text-[11px] text-[var(--color-fg-subtle)]">{t("popup.sheet.title")}</p>
+      <p className="mt-0.5 text-[11px] text-[#7fe0c8]">
+        {cell.depthCm === null
+          ? t("popup.sheet.notEst")
+          : t("popup.sheet.depth", { m: (cell.depthCm / 100).toFixed(1) })}
+      </p>
+      <p className="text-[11px] text-[var(--color-fg-muted)]">
+        {t("popup.sheet.source", {
+          station: name,
+          level: formatNumber(lang, cell.obs.waterlevelMsl, 2),
+          time: fmtTime(lang, cell.obs.observedAt),
+        })}
+      </p>
+      <p className="text-[10px] text-[var(--color-fg-muted)]" data-sheet-resolution={cell.resolution}>
+        {t(SHEET_RESOLUTION_KEY[cell.resolution], { m: formatNumber(lang, cell.cellSizeM, 0) })}
+      </p>
+      <p className="mt-0.5 text-[10px] text-[var(--color-fg-subtle)]">{t("popup.sheet.note")}</p>
     </div>
   );
 }
@@ -1306,6 +1345,8 @@ export function InfoPopup({
           ) : null}
           {/* เซลล์ GFM ใต้จุดนี้ (E14.F5) — null = ไม่มีฉากที่วาดอยู่ จึงไม่พูดถึงเลย ไม่ใช่ "แห้ง" */}
           {pick.floodCell ? <GfmCellBlock cell={pick.floodCell} lang={lang} t={t} /> : null}
+          {/* แผ่นน้ำจำลองจากสถานี (E16 B-1) — null = ชั้นซ่อน/ไม่มีแผ่นตรงนี้ จึงไม่พูดถึงเลย */}
+          {pick.stationSheet ? <StationSheetBlock cell={pick.stationSheet} lang={lang} t={t} /> : null}
         </>
       ) : null}
     </div>

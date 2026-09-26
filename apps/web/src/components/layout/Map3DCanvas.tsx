@@ -8,6 +8,8 @@ import type {
   DamObservation,
   EarthquakeEvent,
   FloodExtentResponse,
+  NorthRouteStationState,
+  NorthRouteTopology,
   ObservationsResponse,
   ProvinceExposureResponse,
   RadarFramesResponse,
@@ -54,6 +56,9 @@ import {
   type SceneHandles,
 } from "../../scene/setupScene";
 import { buildStationMarkers, type StationMarkerResult } from "../../scene/StationMarkers";
+import { StationSheetLayer, type StationSheetInfo } from "../../scene/StationSheet";
+import { buildNorthRouteRivers, type NorthRouteRiversResult } from "../../scene/NorthRouteRivers";
+import { routeReadings, routeView } from "../../lib/northRoute";
 import { buildTerrainMesh, type TerrainField } from "../../scene/TerrainMesh";
 import { createTerrainSharedUniforms } from "../../scene/terrainMaterial";
 import { disposedTreeCounters, TerrainTileTree, type TerrainTileStats } from "../../scene/TerrainTiles";
@@ -111,6 +116,17 @@ export interface MapLayers {
    * ข้อมูลจริงที่ครอบคลุมบางส่วน ไม่ใช่ข้อมูลที่เสื่อมคุณภาพซึ่งต้องซ่อนไว้ก่อน
    */
   localAuthorities: boolean;
+  /**
+   * แผ่นน้ำจำลองจากระดับน้ำที่สถานี (E16 B-1, `scene/StationSheet.ts`) — **illustrative**:
+   * ระดับน้ำที่วัดได้ของสถานีที่เกินตลิ่ง เติมลงพื้นที่ต่ำกว่าระดับนั้นบน DEM ในรัศมีจำกัด
+   * เปิดเป็นค่าเริ่มต้น; legend บอก caveat ทุกครั้งที่ชั้นนี้แสดงอยู่
+   */
+  stationSheet: boolean;
+  /**
+   * เส้นทางน้ำเหนือบนแผนที่ (E16 B-1) — แนวลำน้ำ OSM (static-reference) ระบายสี/ลายไหลจาก
+   * ค่าตรวจวัดของสถานีบนเส้นทาง (observed) ใช้ข้อมูลชุดเดียวกับแผงเส้นทางน้ำเหนือ
+   */
+  northRoute: boolean;
 }
 
 export interface MapInfo {
@@ -146,6 +162,11 @@ export interface MapInfo {
    * เพราะผู้ใช้ทั่วไปไม่เปิด console — legend ต้องบอกว่าชั้นนี้หายไปเพราะโหลดพลาด
    */
   buildingsError: string | null;
+  /**
+   * แผ่นน้ำจำลองจากสถานี (E16 B-1 รอบ 3) — กี่สถานีคำนวณบนกริด 30 ม. กี่สถานีบนกริดภาพรวมและ
+   * เพราะอะไร (ข้อจำกัด C3: การลดความละเอียดต้องมองเห็น) — ไม่มี/null = ชั้นยังไม่ทำงาน
+   */
+  stationSheet?: StationSheetInfo | null;
 }
 
 /** Imperative map controls exposed to the shell (search fly-to, permalink, capture). */
@@ -200,6 +221,8 @@ export function Map3DCanvas({
   tool,
   safeArea,
   observationsStale = false,
+  northRouteTopology = null,
+  northRouteStations = null,
   initialPose,
   quality,
   onQualityLevel,
@@ -265,6 +288,10 @@ export function Map3DCanvas({
   safeArea: SafeArea;
   /** Dim station markers/halos when the source is stale or unreachable. */
   observationsStale?: boolean;
+  /** ผังเส้นทางน้ำเหนือ (`/rivers/north-route.json`) — null = ยังไม่โหลด/ชั้นปิด */
+  northRouteTopology?: NorthRouteTopology | null;
+  /** ค่าตรวจวัด + 48 ชม. ของสถานีบนเส้นทาง (`/api/v1/rivers/north`) — null = ยังไม่มี */
+  northRouteStations?: readonly NorthRouteStationState[] | null;
   onSceneReady?: (handles: SceneHandles | null) => void;
   onInfo?: (info: MapInfo | null) => void;
 }) {
@@ -293,6 +320,10 @@ export function Map3DCanvas({
   const boundaryRef = useRef<BoundaryOutlineResult | null>(null);
   const localAuthoritiesRef = useRef<LocalAuthorityOutlineResult | null>(null);
   const markersRef = useRef<StationMarkerResult | null>(null);
+  /** แผ่นน้ำจำลองจากสถานี (E16 B-1) + ตัวถอนตัวนับดีบัก — ถูกทิ้งพร้อมกันเสมอ (worker ด้วย) */
+  const sheetRef = useRef<{ layer: StationSheetLayer; unregister: (() => void) | null } | null>(null);
+  /** เส้นทางน้ำเหนือ (E16 B-1) — geometry ต่อจังหวัด; ค่าตรวจวัดเขียนทับผ่าน setReadings */
+  const riversRef = useRef<{ result: NorthRouteRiversResult; unregister: (() => void) | null } | null>(null);
   const labelsRef = useRef<THREE.Group | null>(null);
   const quakesRef = useRef<EarthquakeMarkerResult | null>(null);
   const floodMaskRef = useRef<FloodMask | null>(null);
@@ -375,6 +406,22 @@ export function Map3DCanvas({
     cur.texture.dispose();
   };
 
+  /** ทิ้งแผ่นน้ำจำลองทั้งก้อน (worker, geometry, วัสดุ, texture, ตัวนับดีบัก) — idempotent */
+  const disposeSheet = () => {
+    const cur = sheetRef.current;
+    if (!cur) return;
+    sheetRef.current = null;
+    cur.unregister?.();
+    cur.layer.dispose();
+  };
+  const disposeRivers = () => {
+    const cur = riversRef.current;
+    if (!cur) return;
+    riversRef.current = null;
+    cur.unregister?.();
+    cur.result.dispose();
+  };
+
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -441,6 +488,7 @@ export function Map3DCanvas({
             terrainObjects,
             quakeGroup: quakesRef.current?.group ?? null,
             floodFeatures: floodFeaturesRef.current,
+            stationSheet: sheetRef.current?.layer ?? null,
             floodField: fp
               ? {
                   field: fp.field,
@@ -792,6 +840,8 @@ export function Map3DCanvas({
       localAuthoritiesRef.current = null;
       markersRef.current?.dispose();
       markersRef.current = null;
+      disposeSheet();
+      disposeRivers();
       if (labelsRef.current) disposeLabels(labelsRef.current);
       labelsRef.current = null;
       quakesRef.current?.dispose();
@@ -968,6 +1018,81 @@ export function Map3DCanvas({
     publishInfo({ stationCount: result.visibleCount, hazardCount: haloCount });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [observations, state.status, lang, t]);
+
+  // แผ่นน้ำจำลองจากระดับน้ำที่สถานี (E16 B-1) — คำนวณใหม่ใน worker เฉพาะเมื่อค่าตรวจวัด (poll สด
+  // หรือเลื่อนเส้นเวลา: useObservations ดึงค่า ณ atIso ให้แล้ว) / เวลาที่เลือก / จังหวัดเปลี่ยน ไม่ใช่ต่อเฟรม
+  // ชั้นปิด = ไม่คำนวณ (ไม่ปลุก worker) — เปิดกลับมาเอฟเฟกต์นี้รันใหม่เพราะ deps เปลี่ยน
+  // เลื่อนไปช่วงที่ไม่มีข้อมูล = API ไม่ส่งสถานีมา → ไม่มีแผ่น
+  useEffect(() => {
+    const handles = sceneRef.current;
+    const loaded = terrainRef.current;
+    if (!handles || !loaded || !layers.stationSheet) return;
+    let cur = sheetRef.current;
+    if (!cur) {
+      const layer = new StationSheetLayer(
+        handles.world,
+        loaded.terrain,
+        loaded.manifest,
+        loaded.terrain.material.uniforms.uTime,
+        (info) => publishInfo({ stationSheet: info }),
+      );
+      // ดาวเทียมที่เห็นจริงมาก่อน (เอฟเฟกต์ข้างล่างเขียนซ้ำเมื่อฉาก/ชั้น GFM เปลี่ยน)
+      layer.setObserved(layers.floodGfm ? floodField : null);
+      // กฎการหรี่เดียวกับหมุด (เอฟเฟกต์ observationsStale/forecastAtIso ข้างล่างเขียนซ้ำเมื่อเปลี่ยน)
+      layer.setDimmed(observationsStale || forecastAtIso !== null);
+      const unregister = import.meta.env.DEV ? handles.debug.register("stationSheet", () => layer.debug()) : null;
+      cur = { layer, unregister };
+      sheetRef.current = cur;
+    }
+    cur.layer.update(observations?.waterlevel ?? null, atIso ? Date.parse(atIso) : Date.now());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [observations, atIso, layers.stationSheet, state.status]);
+
+  // ฉาก GFM ที่ *แสดงอยู่* (ในหน้าต่าง 14 วัน + ชั้นเปิด) มาก่อนแผ่นจำลอง: เซลล์ที่ดาวเทียมสังเกตแล้ว
+  // (ท่วม/แห้ง) ไม่ถูกแผ่นจำลองวาดทับ — worker ส่งผลเดิมกลับมาใหม่ ไม่วางแผน/ไม่ขอไทล์
+  useEffect(() => {
+    sheetRef.current?.layer.setObserved(layers.floodGfm ? floodField : null);
+  }, [floodField, layers.floodGfm, layers.stationSheet, state.status]);
+
+  // เส้นทางน้ำเหนือ (E16 B-1): geometry ต่อจังหวัด + ผัง — ค่าตรวจวัดเขียนทับในเอฟเฟกต์ถัดไป
+  useEffect(() => {
+    const handles = sceneRef.current;
+    const loaded = terrainRef.current;
+    disposeRivers();
+    if (!handles || !loaded || !northRouteTopology) return;
+    const result = buildNorthRouteRivers(
+      loaded.manifest,
+      northRouteTopology,
+      loaded.terrain.insideMask,
+      loaded.terrain.sample,
+      loaded.terrain.material.uniforms.uTime,
+    );
+    if (!result) return; // ไม่มีลำน้ำบนเส้นทางผ่านจังหวัดนี้
+    result.group.visible = layers.northRoute;
+    handles.world.add(result.group);
+    let last = { animated: 0, still: 0 };
+    const apply = result.setReadings;
+    result.setReadings = (r) => (last = apply(r));
+    let unregister: (() => void) | null = null;
+    if (import.meta.env.DEV) {
+      unregister = handles.debug.register("northRoute", () => ({
+        reaches: result.reachIds,
+        vertices: result.vertexCount,
+        ...last,
+        visible: result.group.visible,
+      }));
+    }
+    riversRef.current = { result, unregister };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [northRouteTopology, state.status]);
+
+  useEffect(() => {
+    const rivers = riversRef.current?.result;
+    if (!rivers) return;
+    // คิดครั้งเดียวต่อการเปลี่ยนของข้อมูล/เวลา (ไม่ใช่ต่อเฟรม) — สถานะ "ค้าง" จึงขยับตามรอบ poll
+    const nowMs = Date.now();
+    rivers.setReadings(routeReadings(northRouteTopology, northRouteStations, routeView(atIso, nowMs), nowMs));
+  }, [northRouteTopology, northRouteStations, atIso, state.status]);
 
   // Earthquake epicentres inside the province.
   useEffect(() => {
@@ -1332,6 +1457,7 @@ export function Map3DCanvas({
     // ที่กำลังแสดงบนภูมิประเทศ (สีมาจากแบบจำลอง ไม่ใช่จากหมุด)
     const dim = observationsStale || forecastAtIso !== null;
     markersRef.current?.setDimmed(dim);
+    sheetRef.current?.layer.setDimmed(dim);
     const u = terrainRef.current?.terrain.material.uniforms;
     if (u) u.uHazardStale.value = observationsStale ? 1 : 0;
     if (labelsRef.current) labelsRef.current.visible = layers.stations && !observationsStale;
@@ -1391,6 +1517,8 @@ export function Map3DCanvas({
     if (localAuthoritiesRef.current) {
       localAuthoritiesRef.current.group.visible = layers.localAuthorities;
     }
+    sheetRef.current?.layer.setVisible(layers.stationSheet);
+    if (riversRef.current) riversRef.current.result.group.visible = layers.northRoute;
     if (markersRef.current) {
       markersRef.current.dots.visible = layers.stations;
       markersRef.current.rings.visible = layers.stations;

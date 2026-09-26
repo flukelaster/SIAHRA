@@ -1432,11 +1432,48 @@ nothing in E16 turns rain into a water level or computes when water will arrive.
    flow-dash animation speed comes from observed discharge as % `qmax`; it is not water velocity and
    is absent with no data, outside 48 h, or under reduced motion.
 
-#### E16.B — 3D "flooded now" — *planned*
+#### E16.B-1 — Station water sheet, 3D route rivers, flood-source age chip — *done, PR pending* (2026-09-26)
+- Touches: web only (no api / DO / R2 / `wrangler.jsonc` change) — `scene/StationSheet.ts`,
+  `workers/stationSheet.worker.ts`, `lib/stationSheet{,Field,Leaf}.ts`, `scene/NorthRouteRivers.ts`,
+  `lib/routeRibbon.ts`, `components/layout/FloodSourceAgeChip.tsx` + `lib/floodSourceAge.ts`,
+  `lib/pollSchedule.ts`, shared `lib/tileCodec.ts` (`TerrainTiles`/`VegetationTiles` now use it),
+  `FloodSurface` render order, `MapLegend`, `InfoPopup`, `useLayerDescriptors`, `useNorthRoute`
+- devops: go-with-constraints (leaf-fetch budget, polling cadence); measured leaf fetches 16/48
+  Ayutthaya, 3/48 Bangkok
+- Bundle: after rebasing onto main, entry + vendor 1367.11 kB raw, 367.84 kB gzipped — 7.84 kB
+  over the 360 kB warning-only guard in `scripts/check-bundle-budget.mjs` (E8.2), so the build
+  log now prints that warning; the build-breaking 900 kB ceiling is unaffected
+- Follow-up: the `station-level-sheet-illustrative` descriptor has no `methodologyUrl`; a
+  `docs/methodology/` page (like `flood-depth.md` / `lowland.md`) is not written yet
+- Issue: _(not yet filed)_
+
+1. Layer `stationSheet` (default on) is `illustrative`, descriptor `station-level-sheet-illustrative`,
+   sources `thaiwater` + `copernicus-dem`, `fetchedAt` copied from the observations. Per ThaiWater
+   station whose level is above `minBankMsl` with a reading ≤ 6 h old against the selected time, a
+   worker flood-fills (4-connected) ground lower than the measured level within 5 km and the province
+   mask — overview grid first, then 30 m leaf terrain with the WorldCover 60 m mask (built-up / tree =
+   depth not estimated, stippled). It fades with distance, is hatched, capped at 0.55 opacity, badged
+   "แผ่นน้ำจำลอง — ไม่ใช่ภาพน้ำท่วมจริง", and its legend and popup ("น้ำลึกประมาณ X.X ม. (จำลอง)" + the
+   source station, level and time) state the caveats: a DSM, whole-metre heights, not a satellite
+   extent, embankments / dikes / pumping not modelled (a bathtub fill), 30 m vs overview resolution
+   per station. GFM-observed cells always win and GFM draws above it.
+2. Leaf tiles: ≤ 48 requests per province layer, derived from the overview fill dilated one cell and
+   the manifest present-bitmask, same URLs as `TerrainTiles` / `VegetationTiles`, deduped, ≤ 6
+   concurrent, 250 ms debounce, none while the layer is off or nothing is over bank; a crashed worker
+   degrades to overview only with a persistent legend error.
+3. Layer `northRoute` (default on) drapes the route reaches on terrain, clipped to the province,
+   coloured by the nearest route station's status, animated downstream from observed discharge as %
+   `qmax` — static and dimmed with no data, absent outside 48 h.
+4. The flood-source age chip names the Sentinel-1 age first, then GISTDA ("ไม่ได้ข้อมูลตั้งแต่ {time}"
+   while its health is down; never-received for a null `fetchedAt`; health unreachable said as such).
+5. Polling: the route every 10 min with only the layer on, 5 min while the north panel is open, 120 s
+   retry; dams panel-only every 15 min; nothing while the tab is hidden.
+
+#### E16.B — 3D "flooded now" (remaining) — *planned*
 - GISTDA in 3D once PR0 lands (FwDET depth as `illustrative` only if the polygons turn out to be real
   satellite extents; a flat translucent extrusion, said so in the legend, if they are admin polygons);
-  a "now" chip stating each flood source's age; observed 3D gauge columns per station; the route
-  rivers draped on terrain, coloured by the nearest station's observed situation
+  `gfm-ingest.yml` cron from every 6 h to
+  hourly (GitHub minutes only while the repo is public; devops confirms the R2 operations)
 - Depends: E16.PR0 (for the GISTDA part), E16.PR1
 - Issue: _(not yet filed)_
 
