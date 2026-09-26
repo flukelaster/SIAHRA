@@ -7,7 +7,7 @@ import type {
   NorthRouteStationState,
   NorthRouteTopology,
 } from "@siahra/shared-types";
-import { useNorthRoute } from "../../hooks/useNorthRoute";
+import type { NorthRouteState } from "../../hooks/useNorthRoute";
 import { useNow } from "../../hooks/useNow";
 import { useLang } from "../../i18n/context";
 import type { Lang, MessageKey, TFunction } from "../../i18n";
@@ -16,7 +16,7 @@ import { resolveError } from "../../lib/errorMessage";
 import {
   layoutSchematic,
   nodeColor,
-  nodeReading,
+  routeReadings,
   peaks48h,
   FLOW_DASH_PERIOD,
   FREEBOARD_NEAR_M,
@@ -510,33 +510,29 @@ function damReport(ids: readonly number[], dams: readonly DamObservation[]): Dam
 }
 
 export function NorthWaterCard({
+  state,
   atIso,
   onFocusStation,
 }: {
+  /**
+   * ข้อมูลของแผง — hook ตัวเดียวใน App.tsx (`useNorthRoute`) ที่ชั้นเส้นลำน้ำ 3 มิติใช้ร่วมกัน
+   * ไม่ใช่ hook ของการ์ดเอง ไม่งั้นเปิดทั้งแผงและชั้นพร้อมกันจะ poll สองชุด
+   */
+  state: NorthRouteState;
   atIso: string | null;
   onFocusStation: (target: StationFocus) => void;
 }) {
   const { lang, t } = useLang();
   const nowMs = useNow();
-  const state = useNorthRoute();
   const { topology, route } = state;
   const view = routeView(atIso, nowMs);
   const byCode = useMemo(() => new Map((route?.stations ?? []).map((s) => [s.ridCode, s])), [route]);
-  const readings = useMemo(() => {
-    const out = new Map<string, NodeReading>();
-    for (const s of topology?.stations ?? []) {
-      const st = byCode.get(s.ridCode);
-      out.set(
-        s.ridCode,
-        st
-          ? nodeReading(st, view, nowMs)
-          : nodeReading({ ridCode: s.ridCode, thaiwaterId: s.thaiwaterId, reachId: s.reachId, latest: null, datum: "unknown", history48h: [], historyFetchedAt: null }, view, nowMs),
-      );
-    }
-    return out;
+  const readings = useMemo(
+    () => routeReadings(topology, route?.stations ?? null, view, nowMs),
     // view เปลี่ยนตาม atIso/nowMs — คิดใหม่ทุกครั้งที่สองค่านั้นเปลี่ยน
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topology, byCode, atIso, nowMs]);
+    [topology, route, atIso, nowMs],
+  );
   const gapText = topology?.reaches
     .filter((r) => r.gaps.length > 0)
     .map((r) => `${lang === "th" ? r.nameTh : r.nameEn} ${r.gaps.map((g) => `${g.fromKm}–${g.toKm} ${t("unit.km")}`).join(", ")}`)

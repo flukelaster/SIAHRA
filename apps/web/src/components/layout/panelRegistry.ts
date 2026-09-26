@@ -57,7 +57,7 @@ export const PANELS: readonly PanelDef[] = [
     icon: Route,
     labelKey: "panel.north",
     render: (ctx) =>
-      createElement(NorthWaterCard, { atIso: ctx.atIso, onFocusStation: ctx.focusStation }),
+      createElement(NorthWaterCard, { state: ctx.northRoute, atIso: ctx.atIso, onFocusStation: ctx.focusStation }),
   },
   { key: "rain", icon: CloudRain, labelKey: "panel.rain", render: (ctx) => createElement(RainPanel, { ctx }) },
   {

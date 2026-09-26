@@ -458,3 +458,38 @@ export function segmentFlow(
   }
   return null;
 }
+
+/**
+ * ค่าของทุกสถานีในผัง ณ มุมมองที่เลือก — กุญแจ = รหัส RID ตัวเดียวกันที่ทั้งแผง (`NorthWaterCard`)
+ * และเส้นลำน้ำ 3 มิติ (`scene/NorthRouteRivers.ts`) ใช้ สถานีที่ไม่อยู่ในคำตอบของ API
+ * ได้ค่า `missing` (สีเทา ไม่เคลื่อนไหว) ไม่ใช่ถูกข้ามไปเงียบ ๆ
+ */
+export function routeReadings(
+  topology: Pick<NorthRouteTopology, "stations"> | null,
+  stations: readonly NorthRouteStationState[] | null,
+  view: RouteView,
+  nowMs: number,
+): Map<string, NodeReading> {
+  const byCode = new Map((stations ?? []).map((s) => [s.ridCode, s]));
+  const out = new Map<string, NodeReading>();
+  for (const s of topology?.stations ?? []) {
+    const st = byCode.get(s.ridCode);
+    out.set(
+      s.ridCode,
+      nodeReading(
+        st ?? {
+          ridCode: s.ridCode,
+          thaiwaterId: s.thaiwaterId,
+          reachId: s.reachId,
+          latest: null,
+          datum: "unknown",
+          history48h: [],
+          historyFetchedAt: null,
+        },
+        view,
+        nowMs,
+      ),
+    );
+  }
+  return out;
+}
