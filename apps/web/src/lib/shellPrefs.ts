@@ -11,7 +11,7 @@
  * storage / นโยบายองค์กร) getter จึงถูกเรียก **ใน** `try` เดียวกับ `.getItem()`
  * ตามแบบเดียวกับ `i18n/initialLang.ts`
  */
-export const PANEL_KEYS = ["layers", "flood", "impact", "water", "rain", "forecast", "dams", "quake"] as const;
+export const PANEL_KEYS = ["layers", "flood", "impact", "water", "north", "rain", "forecast", "dams", "quake"] as const;
 export type PanelKey = (typeof PANEL_KEYS)[number];
 
 export const SHELL_STORAGE_KEY = "siahra.shell";

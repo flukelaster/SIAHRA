@@ -43,6 +43,9 @@ function station(id: number, provinceCode: string | null) {
     amphoeNameTh: null,
     basinNameTh: null,
     agencyShortTh: null,
+    ridCode: null,
+    subBasinId: null,
+    isKeyStation: false,
   };
 }
 
@@ -56,6 +59,9 @@ function water(id: number, provinceCode: string | null, observedAt: string): Wat
     freeboardM: 4,
     situationLevel: 2,
     storagePercent: null,
+    dischargeM3s: null,
+    qmaxM3s: null,
+    criticalLevelMsl: null,
     observedAt,
   };
 }

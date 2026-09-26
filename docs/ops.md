@@ -141,7 +141,12 @@ refresh, so they cannot double-fetch.
 | `ObservationCacheDO` (exposure) | `exposure-illustrative` | on every ThaiWater refresh (~5 min) | with that refresh | 3600 (1 h) | 1800 (30 min) | runs kept indefinitely (see §6) |
 
 Side cadences inside `ObservationCacheDO`: dams every 30 min (5 min pause after a failure so a broken
-feed is not hammered), station history at most every 10 min per station, one nationwide R2 snapshot
+feed is not hammered), station history at most every 10 min per station, the E16 north-route history
+pull **at most once an hour** (`pullRouteHistory()`, gated by `lastRoutePullMs` in `meta`, run via
+`ctx.waitUntil` after the alarm is armed; it walks the 26 route stations through `pullHistory()` at
+priority 9, skips any pulled < 10 min ago, stops at the first failure and records it in `meta`
+`routePullError` — which `/api/v1/health` does not read, so a failed pull shows only as an older
+`historyFetchedAt` in `/api/v1/rivers/north`), one nationwide R2 snapshot
 per Bangkok hour, the previous day's per-province archive written after 00:20 Bangkok time, and the
 retention sweep of both history tables **at most once an hour** (`pruneRetention()`, gated by
 `lastPruneMs` in the DO's `meta` table) — on the shared refresh path, deliberately not on the

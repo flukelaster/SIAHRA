@@ -84,6 +84,19 @@ export interface PanelContext {
    * App.tsx): แผงฉาก GFM เลือกเวลาผ่านทางนี้ ทุกชั้นที่เดินตามเส้นเวลาจึงตามไปด้วยกัน
    */
   setAtIso: (atIso: string | null) => void;
+  /**
+   * E16 — แผงเส้นทางน้ำเหนือ: สลับไปจังหวัดของสถานี บินไปที่หมุด แล้วเปิด popup ของมัน
+   * (กลไกเดียวกับการคลิกหมุดเอง — `MapApi.selectWaterlevel`)
+   */
+  focusStation: (target: StationFocus) => void;
+}
+
+/** เป้าหมายของ `focusStation` — พิกัด/จังหวัดมาจากผังเส้นทาง (ใช้ได้แม้ไม่มีค่าล่าสุด) */
+export interface StationFocus {
+  stationId: number;
+  provinceCode: string | null;
+  lat: number;
+  lon: number;
 }
 
 /** แผงชั้นข้อมูล: legend เดิมไม่แก้ + สถานะการดึงของ ThaiWater เป็น footer (ย้ายมาจาก Sidebar เดิม) */

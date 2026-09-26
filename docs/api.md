@@ -38,6 +38,7 @@ edit in that table.
 | `/api/v1/health` | GET | 300 | default | per route | Polled by every open tab; several tabs behind one NAT address must not lock each other out of the status bar |
 | `/api/v1/observations` | GET | 120 | default | per route | 2–4 MB upstream payload behind a DO cache; the map fetches it per province switch, not per frame |
 | `/api/v1/dams` | GET | 300 | default | per route | Fetched on province switch |
+| `/api/v1/rivers/north` | GET | 120 | default | per route | E16 north-route panel; one `ObservationCacheDO` RPC per edge-cache miss, and the edge cache (120 s) absorbs the rest |
 | `/api/v1/stations/{id}/history` | GET | 60 | 20 | shared `history` | One bucket for all stations: clicking through many stations quickly is normal, scripted enumeration is not |
 | `/api/v1/archive/days` | GET | 300 | default | per route | Small, cached 5 min |
 | `/api/v1/archive/snapshot` | GET | 60 | default | per route | Reads an R2 object per call; the timeline scrubber requests one snapshot per settled position, not per drag frame |
@@ -80,6 +81,7 @@ Two rules are enforced by `json()` in `apps/api/src/router.ts` rather than by ea
 | `/api/v1/health` | `health` | `public, max-age=15` |
 | `/api/v1/observations` | `observations` | `public, max-age=60, s-maxage=120` |
 | `/api/v1/dams` | `slowMoving` | `public, max-age=300` |
+| `/api/v1/rivers/north` | `history` | `public, max-age=120`; also stored in the Cache API for the same 120 s, keyed on origin + path **without** the query string |
 | `/api/v1/stations/{id}/history` | `history` | `public, max-age=120` |
 | `/api/v1/archive/days` | `slowMoving` | `public, max-age=300` |
 | `/api/v1/archive/snapshot` | `archivedSnapshot` | `public, max-age=3600` |
@@ -136,6 +138,21 @@ TMD's API publishes neither a grid resolution nor a model run time, and neither 
   the date window TMD declares it holds daily data for, and `daily: null` with `fetchedAt: null`
   means we have never read that window successfully — not that TMD has no data.
 
+### North route responses (E16)
+
+`GET /api/v1/rivers/north` answers `NorthRouteResponse` (`packages/shared-types/src/rivers.ts`): the
+latest ThaiWater reading and up to 48 h of history for each of the 26 stations in
+`apps/api/src/data/northRoute.ts`, under one `observed` descriptor. It carries **no arrival time and
+no forecast of any kind**. The route geometry and station order are not in this response — they are
+the static file `apps/web/public/rivers/north-route.json` (`NorthRouteTopology`).
+
+- The request path is a read-only, primary-key-only `northRoute()` on `ObservationCacheDO`; it never
+  fetches upstream. The 48 h history is filled by the DO's hourly route pull (`docs/ops.md` §4).
+- `fetchedAt: null` means ThaiWater has never been read successfully; per station, `latest: null`
+  means that station is not in the stored feed, and `historyFetchedAt: null` with an empty
+  `history48h` means its history has never been pulled — neither may render as "now" or as a quiet river.
+- A DO failure answers `503 {"error":"River route data unavailable"}`.
+
 ## Input rules
 
 All query parameters are validated by the shared `parseQuery()` helper (`apps/api/src/query.ts`).
@@ -160,6 +177,8 @@ Notes:
   the response look like it honoured a filter it ignored.
 - Path parameters are validated by the route pattern itself: `{NN}` is `[0-9]{2}`, a station id is
   `[0-9]+`, a radar frame id is `[0-9]+`. A path that does not match is a `404`, not a `400`.
+- `/api/v1/rivers/north` takes **no** query parameters: any query string answers `400` before the edge
+  cache or the Durable Object is reached, so `?t=` cannot be used to bust the cache.
 - `at` on `/api/v1/archive/snapshot` is **required**; a missing `at` answers `400`. On
   `/api/v1/observations` and `/api/v1/provinces/{NN}/flood-extent` it is optional (absent = latest). For
   flood-extent, an `at` before the E16.PR0 cutover is answered from the legacy WFS archive (`flood_scenes`,

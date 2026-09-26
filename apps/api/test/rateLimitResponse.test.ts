@@ -1,5 +1,9 @@
 import { exports as workerExports } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
+// โหลดกราฟโมดูลของ Worker (src/index.ts + JSON ใน src/data ~4 MB) ตั้งแต่ตอน collect ไฟล์ —
+// `exports.default` import มันแบบ lazy ตอนถูกเรียกครั้งแรก ซึ่งกินเวลา 5 วิของเทสแรกไป
+// 2–4.6 วิเมื่อไฟล์เทสรันขนานกัน (CI เคย timeout ที่นี่) แบบเดียวกับ routeTable.test.ts
+import "../src/index";
 
 /**
  * E5.5 AC 1 (ส่วน 429) — rate limit ที่ประกาศไว้ในตารางเส้นทางจริง ต้องออกมาเป็น

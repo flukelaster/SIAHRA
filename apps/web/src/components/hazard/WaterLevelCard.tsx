@@ -8,6 +8,7 @@ import { neverReceived, formatFetchedAt } from "../../lib/time";
 import { useLang } from "../../i18n/context";
 import type { Lang, MessageKey, TFunction } from "../../i18n";
 import { resolveError } from "../../lib/errorMessage";
+import { formatNumber } from "../../lib/number";
 
 /**
  * ThaiWater's own published situation levels. This app displays the source's
@@ -79,6 +80,15 @@ function StationRow({
               </span>
             </>
           ) : null}
+          {/* E16 — อัตราการไหลของค่าตรวจวัดเดียวกัน (แถวก่อน E16 ไม่มีฟิลด์นี้ = ไม่แสดง) */}
+          {(obs.dischargeM3s ?? null) !== null ? (
+            <>
+              <span aria-hidden="true">·</span>
+              <span className="tabular-nums">
+                {t("water.discharge", { n: formatNumber(lang, obs.dischargeM3s, 1), unit: t("unit.m3s") })}
+              </span>
+            </>
+          ) : null}
         </p>
       </div>
       {meta ? (
@@ -103,6 +113,10 @@ function StationRow({
               points={history.data.points}
               bankMsl={history.data.datum === "msl" ? obs.minBankMsl : null}
             />
+            {/* E16 — อัตราการไหลจากประวัติชุดเดียวกัน (มีเฉพาะสถานีที่ต้นทางส่ง discharge) */}
+            {history.data.points.some((p) => p.discharge !== null) ? (
+              <Sparkline points={history.data.points} bankMsl={null} series="discharge" className="mt-1 h-12 w-full" />
+            ) : null}
             <p className="text-[10px] text-[var(--color-fg-subtle)]">
               {t("water.history.caption", {
                 datum: t(

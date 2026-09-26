@@ -1,0 +1,75 @@
+{
+  "$comment": "E16 northern-water route topology. STRINGS ONLY: reach ids, names, confluences, RID station codes upstream -> downstream, dam names and citation URLs. No coordinates and no numbers live here: station ids/positions come from the live ThaiWater waterlevel_load feed, dam ids/positions from ThaiWater analyst/dam, river lines from OpenStreetMap, and build-north-route.ts refuses to write if a code does not resolve, a station sits off its river line, or the chainage order contradicts the order listed here. See build-north-route.README.md.",
+  "reaches": [
+    {
+      "id": "ping",
+      "nameTh": "แม่น้ำปิง",
+      "nameEn": "Ping River",
+      "osmName": "แม่น้ำปิง",
+      "joinsReachId": "chao-phraya",
+      "stations": ["P.67", "P.1", "P.2A", "P.7A", "P.17"],
+      "citations": [
+        "https://en.wikipedia.org/wiki/Ping_River",
+        "https://hydro.rid.go.th/",
+        "https://api-v3.thaiwater.net/api/v1/thaiwater30/public/waterlevel_load"
+      ]
+    },
+    {
+      "id": "wang",
+      "nameTh": "แม่น้ำวัง",
+      "nameEn": "Wang River",
+      "osmName": "แม่น้ำวัง",
+      "joinsReachId": "ping",
+      "stations": ["W.1C", "W.3A", "W.4A"],
+      "citations": [
+        "https://en.wikipedia.org/wiki/Wang_River",
+        "https://hydro.rid.go.th/",
+        "https://api-v3.thaiwater.net/api/v1/thaiwater30/public/waterlevel_load"
+      ]
+    },
+    {
+      "id": "yom",
+      "nameTh": "แม่น้ำยม",
+      "nameEn": "Yom River",
+      "osmName": "แม่น้ำยม",
+      "joinsReachId": "nan",
+      "stations": ["Y.20", "Y.1C", "Y.3A", "Y.4", "Y.16", "Y.17"],
+      "citations": [
+        "https://en.wikipedia.org/wiki/Yom_River",
+        "https://hydro.rid.go.th/",
+        "https://api-v3.thaiwater.net/api/v1/thaiwater30/public/waterlevel_load"
+      ]
+    },
+    {
+      "id": "nan",
+      "nameTh": "แม่น้ำน่าน",
+      "nameEn": "Nan River",
+      "osmName": "แม่น้ำน่าน",
+      "joinsReachId": "chao-phraya",
+      "stations": ["N.64", "N.1", "N.2B", "N.5A", "N.7A", "N.67"],
+      "citations": [
+        "https://en.wikipedia.org/wiki/Nan_River",
+        "https://hydro.rid.go.th/",
+        "https://api-v3.thaiwater.net/api/v1/thaiwater30/public/waterlevel_load"
+      ]
+    },
+    {
+      "id": "chao-phraya",
+      "nameTh": "แม่น้ำเจ้าพระยา",
+      "nameEn": "Chao Phraya River",
+      "osmName": "แม่น้ำเจ้าพระยา",
+      "joinsReachId": null,
+      "stations": ["C.2", "C.13", "C.3", "C.7A", "C.35", "C.12"],
+      "citations": [
+        "https://en.wikipedia.org/wiki/Chao_Phraya_River",
+        "https://hydro.rid.go.th/",
+        "https://api-v3.thaiwater.net/api/v1/thaiwater30/public/waterlevel_load"
+      ]
+    }
+  ],
+  "dams": [
+    { "nameTh": "ภูมิพล", "reachId": "ping", "citation": "https://api-v3.thaiwater.net/api/v1/thaiwater30/analyst/dam" },
+    { "nameTh": "สิริกิติ์", "reachId": "nan", "citation": "https://api-v3.thaiwater.net/api/v1/thaiwater30/analyst/dam" },
+    { "nameTh": "แควน้อยบำรุงแดน", "reachId": "nan", "citation": "https://api-v3.thaiwater.net/api/v1/thaiwater30/analyst/dam" }
+  ]
+}

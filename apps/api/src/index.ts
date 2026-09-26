@@ -14,6 +14,7 @@ import {
 } from "./routes/localAuthorities.js";
 import { handleObservations } from "./routes/observations.js";
 import { handleRadarFrame, handleRadarFrames } from "./routes/radar.js";
+import { handleNorthRoute } from "./routes/rivers.js";
 import { handleDams, handleStationHistory } from "./routes/stations.js";
 import { handleArchiveDays, handleArchiveSnapshot } from "./routes/archive.js";
 import type { AppEnv } from "./types.js";
@@ -39,6 +40,13 @@ export const routes: Route[] = [
   { method: "GET", pattern: /^\/api\/v1\/observations$/, handler: handleObservations, limit: { perMinute: 120 } },
   { method: "GET", pattern: /^\/api\/v1\/flood-extent\/summary$/, handler: handleFloodExtentSummary, limit: { perMinute: 300 } },
   { method: "GET", pattern: /^\/api\/v1\/dams$/, handler: handleDams, limit: { perMinute: 300 } },
+  {
+    // E16 — เส้นทางน้ำเหนือ: RPC เดียวต่อ cache miss และแคชที่ขอบ 120 วิ (ดู routes/rivers.ts)
+    method: "GET",
+    pattern: /^\/api\/v1\/rivers\/north$/,
+    handler: (req, env, _params, ctx) => handleNorthRoute(req, env, ctx),
+    limit: { perMinute: 120 },
+  },
   {
     method: "GET",
     pattern: /^\/api\/v1\/local-authorities$/,

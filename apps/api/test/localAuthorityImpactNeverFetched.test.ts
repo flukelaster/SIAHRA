@@ -2,6 +2,10 @@ import { exports as workerExports } from "cloudflare:workers";
 import type { LocalAuthorityImpactResponse } from "@siahra/shared-types";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TEST_GISTDA_KEY, runFloodAlarm, serveGistda, setGistdaKey } from "./helpers/gistdaApi";
+// โหลดกราฟโมดูลของ Worker (src/index.ts + JSON ใน src/data ~4 MB) ตั้งแต่ตอน collect ไฟล์ —
+// `exports.default` import มันแบบ lazy ตอนถูกเรียกครั้งแรก ซึ่งกินเวลา 5 วิของเทสแรกไป
+// 2–4.6 วิเมื่อไฟล์เทสรันขนานกัน (CI เคย timeout ที่นี่) แบบเดียวกับ routeTable.test.ts
+import "../src/index";
 
 /**
  * E11.4 — the "GISTDA has never been fetched successfully" case, against the
