@@ -2,6 +2,10 @@ import { exports as workerExports } from "cloudflare:workers";
 import { TEST_GISTDA_KEY, gistdaCell, runFloodAlarm, serveGistda, setGistdaKey } from "./helpers/gistdaApi";
 import type { FloodExtentFeature, LocalAuthorityImpactResponse } from "@siahra/shared-types";
 import { afterEach, describe, expect, it, vi } from "vitest";
+// โหลดกราฟโมดูลของ Worker (src/index.ts + JSON ใน src/data ~4 MB) ตั้งแต่ตอน collect ไฟล์ —
+// `exports.default` import มันแบบ lazy ตอนถูกเรียกครั้งแรก ซึ่งกินเวลา 5 วิของเทสแรกไป
+// 2–4.6 วิเมื่อไฟล์เทสรันขนานกัน (CI เคย timeout ที่นี่) แบบเดียวกับ routeTable.test.ts
+import "../src/index";
 import { getBoundaryGeometryById } from "../src/data/localAuthorityBoundaries.js";
 import { getExposureByLocalAuthorityId } from "../src/data/localAuthorityExposure.js";
 import { computeLocalAuthorityImpact } from "../src/geo/floodIntersection.js";
