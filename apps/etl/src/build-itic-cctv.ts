@@ -1,8 +1,10 @@
 /**
- * สร้าง `apps/web/public/cctv/itic-cameras.json` — บัญชีกล้องถนนที่เผยแพร่ผ่านมูลนิธิ iTIC
- * (E15.2) จากรายการกล้องของ Longdo `https://camera.longdo.com/feed/?command=json`
+ * สร้าง `apps/web/public/cctv/itic-cctv.json` — บัญชีกล้องถนนที่เผยแพร่ผ่านมูลนิธิ iTIC
+ * (E15.2) จากรายการกล้องของ Longdo `https://camera.longdo.com/feed/?command=json` ในรูปทั่วไป
+ * `CameraCatalogue` (`packages/shared-types/src/cctv.ts`)
  *
- *   npm run build:itic-cctv -w apps/etl
+ *   npm run build:cctv:itic -w apps/etl        # หรือ npx -y tsx@4 src/build-itic-cctv.ts
+ *   ตัวเลือก: --no-probe (ทุกสตรีม `not-probed`), --vantage <ป้ายเครือข่ายที่รัน>
  *
  * ขั้นตอน (ดึงครั้งเดียว ไม่ใช่งานประจำ):
  *   1. GET feed → array ของกล้อง (วัดจริง 2026-09-26: 294 รายการ, ACAO *)
@@ -20,21 +22,28 @@
  *        `jpeg.cgi?camid=PER-3-008_2`        — 0 ไบต์
  *      กลุ่มใหม่ต้องวัดก่อนแล้วค่อยขยาย pattern — ไม่เดาจากรูปลิงก์
  *   4. จังหวัดจาก point-in-polygon กับ `apps/web/public/aoi/{code}/boundary.geojson`
+ *   5. probe ทุกสตรีมจาก vantage ที่รัน (`cameraCatalogue.ts` `probeStreams`): hls ตาม master →
+ *      chunklist แล้วตั้ง `captureTime = "program-date-time"` **เฉพาะ** เมื่อ chunklist มี
+ *      `EXT-X-PROGRAM-DATE-TIME` จริง (ค่าตั้งต้น `"none"`); jpeg = `"burned-in"` (เวลาพิมพ์บนภาพ)
+ *      `camera1.iticfoundation.org` ถามไม่ได้จากบางเครือข่าย (`unreachable`) — ไม่ใช่กล้องตาย
  *
  * `lastupdate` ของต้นทางเป็นค่าเติม (2030/2099) ไม่ได้บอกความสด จึงไม่ถูกเก็บ
  *
- * ความปลอดภัย (แนวเดียวกับ build-cctv.ts):
+ * ความปลอดภัย (แนวเดียวกับ build-dwr-cctv.ts):
  *   - แปลงทุกรายการผ่าน schema `zod/mini` ที่ประกาศเฉพาะฟิลด์ที่ใช้ แล้วประกอบผลลัพธ์ทีละฟิลด์
  *   - ลิงก์ทั้งสองแบบต้อง parse ได้ด้วย `URL`, origin ตรง และไม่มี username/password
  *   - ไม่ log รายการดิบ — log เฉพาะจำนวน
- *   - ตรวจผลลัพธ์ที่ serialise แล้วด้วย `CREDENTIAL_PATTERN` ก่อนเขียน เจอ = ยกเลิกทั้งหมด
+ *   - `writeCatalogue` ตรวจ origin ซ้ำกับ `CAMERA_SOURCES["itic-cctv"].hosts` และผลลัพธ์ที่ serialise
+ *     แล้วด้วย `CREDENTIAL_PATTERN` ก่อนเขียน เจอ = ยกเลิกทั้งหมด
  */
-import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as z from "zod/mini";
-import type { ItiCCamera, ItiCCatalogue, ItiCStream } from "@siahra/shared-types";
-import { assignProvince, CREDENTIAL_PATTERN, loadProvincePolygons, type ProvincePolygon } from "./provincePolygons.js";
+import type { Camera, CameraStream } from "@siahra/shared-types";
+import { formatProbeTable, NOT_PROBED, parseBuildArgs, probeStreams, probeVantageLabel, writeCatalogue } from "./cameraCatalogue.js";
+import { assignProvince, loadProvincePolygons, type ProvincePolygon } from "./provincePolygons.js";
+
+export const SOURCE_ID = "itic-cctv" as const;
 
 export const FEED_URL = "https://camera.longdo.com/feed/?command=json";
 /** โฮสต์ HLS เดียวที่ใช้ได้จริง (วัด 2026-09-26) — web ตรวจ prefix เดียวกันซ้ำตอนเล่น */
@@ -48,7 +57,6 @@ export const JPEG_ORIGIN = "https://camera1.iticfoundation.org";
 export const JPEG_PATTERN = /^https:\/\/camera1\.iticfoundation\.org\/jpeg2\.php\?camid=10\.8\.0\.\d+:\d+$/;
 
 const AOI_ROOT = path.resolve(import.meta.dirname, "../../web/public/aoi");
-const OUT_PATH = path.resolve(import.meta.dirname, "../../web/public/cctv/itic-cameras.json");
 
 const text = z.optional(z.nullable(z.string()));
 
@@ -162,12 +170,14 @@ export interface BuildStats {
   noProvince: number;
 }
 
-/** ประกอบระเบียนทีละฟิลด์จาก allowlist — ไม่มีการ spread ของต้นทาง */
-export function buildCatalogue(
+/**
+ * ประกอบระเบียนทีละฟิลด์จาก allowlist — ไม่มีการ spread ของต้นทาง; สตรีมเริ่มที่ `not-probed`
+ * (ห้ามเริ่มที่ `ok`) และ hls เริ่มที่ `captureTime: "none"` จนกว่า probe จะเห็น `EXT-X-PROGRAM-DATE-TIME`
+ */
+export function buildCameras(
   rawItems: readonly unknown[],
   provinces: readonly ProvincePolygon[],
-  builtAt: string,
-): { catalogue: ItiCCatalogue; stats: BuildStats } {
+): { cameras: Camera[]; stats: BuildStats } {
   const stats: BuildStats = {
     total: rawItems.length,
     malformed: 0,
@@ -185,7 +195,7 @@ export function buildCatalogue(
     noCoords: 0,
     noProvince: 0,
   };
-  const cameras: ItiCCamera[] = [];
+  const cameras: Camera[] = [];
   const seen = new Set<string>();
   for (const raw of rawItems) {
     const item = parseFeedItem(raw);
@@ -193,10 +203,10 @@ export function buildCatalogue(
       stats.malformed++;
       continue;
     }
-    let stream: ItiCStream;
+    let stream: CameraStream;
     const verdict = classifyHlsUrl(item.hls_url);
     if (verdict === "ok") {
-      stream = { kind: "hls", url: item.hls_url!.trim() };
+      stream = { kind: "hls", url: item.hls_url!.trim(), label: null, captureTime: "none", probe: { ...NOT_PROBED } };
     } else {
       if (verdict === "empty") stats.empty++;
       else if (verdict === "other-host") stats.otherHost++;
@@ -210,7 +220,7 @@ export function buildCatalogue(
         else stats.jpegCredential++;
         continue;
       }
-      stream = { kind: "jpeg", url: item.imgurl!.trim() };
+      stream = { kind: "jpeg", url: item.imgurl!.trim(), label: null, captureTime: "burned-in", probe: { ...NOT_PROBED } };
     }
     const id = item.camid.trim();
     if (!id || seen.has(id)) {
@@ -229,25 +239,22 @@ export function buildCatalogue(
     if (provinceCode === null) stats.noProvince++;
     cameras.push({
       id,
-      name: cleanText(item.title),
+      sourceId: SOURCE_ID,
+      // `title` ของต้นทางเป็นภาษาไทย (มีทางหลวง/ทิศทาง) — ไม่มีชื่ออังกฤษ
+      nameTh: cleanText(item.title),
+      nameEn: null,
       lat: pt.lat,
       lon: pt.lon,
-      organization: cleanText(item.organization),
-      stream,
+      coordSource: "upstream",
       provinceCode,
+      // เจ้าของกล้องตามที่ต้นทางระบุ (กรมทางหลวง / iTIC Motion) — แสดงเป็นเครดิตใน popup
+      owner: cleanText(item.organization),
+      code: null,
+      placeTh: null,
+      streams: [stream],
     });
   }
-  cameras.sort((a, b) => a.id.localeCompare(b.id));
-  return { catalogue: { builtAt, sourceUrl: FEED_URL, cameras }, stats };
-}
-
-/** serialise แล้วตรวจ — เจอรูปแบบข้อมูลรับรองเมื่อไหร่ โยนทิ้งทั้งไฟล์ (ข้อความไม่อ้างค่าที่เจอ) */
-export function serializeCatalogue(catalogue: ItiCCatalogue): string {
-  const json = `${JSON.stringify(catalogue, null, 2)}\n`;
-  if (CREDENTIAL_PATTERN.test(json)) {
-    throw new Error("build-itic-cctv: output matches the credential pattern — refusing to write it");
-  }
-  return json;
+  return { cameras, stats };
 }
 
 async function fetchFeed(): Promise<unknown> {
@@ -265,11 +272,12 @@ async function main() {
   const provinces = loadProvincePolygons(AOI_ROOT);
   console.log(`boundaries: ${new Set(provinces.map((p) => p.code)).size} provinces (${provinces.length} polygons)`);
 
+  const args = parseBuildArgs(process.argv.slice(2));
   const items = parseFeed(await fetchFeed());
-  // เวลาที่ดึงรายการสำเร็จ (ตาม doc ของ ItiCCatalogue.builtAt) — ไม่ใช่เวลาเริ่มสคริปต์
+  // เวลาที่ดึงรายการสำเร็จ (ตาม doc ของ CameraCatalogue.builtAt) — ไม่ใช่เวลาเริ่มสคริปต์
   const builtAt = new Date().toISOString();
 
-  const { catalogue, stats } = buildCatalogue(items, provinces, builtAt);
+  const { cameras, stats } = buildCameras(items, provinces);
   console.log(
     [
       `feed: ${stats.total} entries`,
@@ -289,15 +297,22 @@ async function main() {
     ].join(", "),
   );
   const orgs = new Map<string, number>();
-  for (const c of catalogue.cameras) orgs.set(c.organization ?? "(none)", (orgs.get(c.organization ?? "(none)") ?? 0) + 1);
+  for (const c of cameras) orgs.set(c.owner ?? "(none)", (orgs.get(c.owner ?? "(none)") ?? 0) + 1);
   console.log(
-    `cameras: ${catalogue.cameras.length} written (${stats.hls} HLS, ${stats.jpeg} JPEG), ${stats.noProvince} outside every province boundary; by organization: ${[...orgs].map(([k, n]) => `${k}=${n}`).join(", ")}`,
+    `cameras: ${cameras.length} projected (${stats.hls} HLS, ${stats.jpeg} JPEG), ${stats.noProvince} outside every province boundary; by owner: ${[...orgs].map(([k, n]) => `${k}=${n}`).join(", ")}`,
   );
-  const json = serializeCatalogue(catalogue);
-  mkdirSync(path.dirname(OUT_PATH), { recursive: true });
-  writeFileSync(OUT_PATH, json);
-  const provincesCovered = new Set(catalogue.cameras.map((c) => c.provinceCode).filter(Boolean)).size;
-  console.log(`wrote ${path.relative(process.cwd(), OUT_PATH)} (${provincesCovered} provinces)`);
+
+  // probe จาก vantage ที่รัน — ผลเป็นของเวลานั้น/เครือข่ายนั้น ไม่ใช่สถานะปัจจุบัน
+  const probeVantage = args.probe ? probeVantageLabel(args.vantage) : null;
+  const probed = await probeStreams(cameras, { skip: !args.probe });
+  const probedAt = args.probe ? new Date().toISOString() : null;
+  console.log(args.probe ? `probe (${probeVantage}, ${probedAt}):` : "probe skipped (--no-probe): every stream is not-probed");
+  console.log(formatProbeTable(probed.stats, probed.cameras));
+
+  const { path: out, stats: written } = writeCatalogue(SOURCE_ID, probed.cameras, { builtAt, sourceUrl: FEED_URL, probedAt, probeVantage });
+  console.log(
+    `wrote ${path.relative(process.cwd(), out)}: ${written.cameras} cameras (${written.duplicates} duplicate id dropped), ${written.streams} streams, ${written.provinces} provinces`,
+  );
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

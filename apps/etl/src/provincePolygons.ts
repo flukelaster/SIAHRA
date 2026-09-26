@@ -1,6 +1,6 @@
 /**
  * จังหวัดจาก point-in-polygon + ตัวกันข้อมูลรับรองรั่ว — ใช้ร่วมกันโดยสคริปต์บัญชีกล้อง
- * `build-cctv.ts` (DWR, E15) และ `build-itic-cctv.ts` (iTIC, E15.2)
+ * `build-dwr-cctv.ts` (DWR, E15) และ `build-itic-cctv.ts` (iTIC, E15.2) — ผ่าน `cameraCatalogue.ts`
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";

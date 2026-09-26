@@ -304,6 +304,34 @@ npm run deploy:api    # deploy siahra-api เท่านั้น — ไม่
 ครั้งแรกต้องรันทั้งคู่ (คนละ Worker คนละ route) หลังจากนั้นรันเฉพาะฝั่งที่แก้
 CI (`.github/workflows/ci.yml` job `Build`) รัน `wrangler deploy --dry-run` ทั้งสอง config ทุก PR
 
+### 4.1 บัญชีกล้อง CCTV (`apps/web/public/cctv/*.json`) — rebuild ด้วยมือ ไม่มี cron
+บัญชีกล้อง (E15/E15.2/E15.3) เป็น static asset ที่ track ใน git และไปกับ `npm run deploy:web` — ไม่มี R2, DO, cron
+หรือ route ใด ๆ (Actions cron ถูกเลื่อนไว้: เป็น meter นอก Cloudflare ที่ฟรีเฉพาะตอน repo public) ตอนนี้มีสี่ไฟล์:
+`dwr-cameras.json` / `itic-cameras.json` (รูปเก่า — **ไฟล์ที่เว็บอ่านอยู่จริง** จนกว่า E15.3 PR B จะย้าย) และ
+`dwr-cctv.json` / `itic-cctv.json` (รูปทั่วไป `CameraCatalogue` ที่สคริปต์เขียนตั้งแต่ E15.3 PR A) — สคริปต์ build
+**ไม่แตะไฟล์รูปเก่า** ดังนั้น rebuild วันนี้ยังไม่เปลี่ยนอะไรบนเว็บจนกว่า PR B จะ merge
+
+รันจาก `apps/etl` (สคริปต์ npm `build:cctv:dwr` / `build:cctv:itic` / `build:cctv` / `probe:cameras` มีอยู่ แต่ยังล้มด้วย
+"tsx: command not found" เพราะ `tsx` หายจาก `package-lock.json` — เรียก `tsx` ตรงจนกว่าจะแก้):
+```bash
+cd apps/etl
+npx -y tsx@4 src/build-dwr-cctv.ts  --vantage <ป้ายเครือข่าย>   # DWR: ~10 นาที (ยิงทีละ 4 ต่อ telemetry.dwr.go.th)
+npx -y tsx@4 src/build-itic-cctv.ts --vantage <ป้ายเครือข่าย>   # iTIC: ฟีด Longdo หนึ่งครั้ง + probe ทุกสตรีม (6 พร้อมกัน)
+npx -y tsx@4 src/probe-cameras.ts <dwr-cctv|itic-cctv> --vantage <ป้ายเครือข่าย>   # probe ซ้ำจากไฟล์ที่ build แล้ว ไม่เขียนอะไร
+```
+- `--vantage` เป็น**ป้าย**ที่ลงไฟล์สาธารณะ (`probeVantage`) — ใส่ชื่อเครือข่ายอย่าง `fortinet-lan` / `ais-4g`
+  ห้ามใส่ hostname หรือชื่อผู้ใช้; ไม่ให้ = `unlabelled`. `--no-probe` ข้ามการยิงทั้งหมด (ทุกสตรีมเป็น `not-probed`,
+  `probedAt`/`probeVantage` เป็น `null`) — `ok` ไม่เคยเป็นค่าตั้งต้น
+- ผล probe เป็นภาพของ**เครือข่ายนั้น ณ เวลานั้น** ไม่ใช่สถานะปัจจุบัน: `unreachable` = ถามไม่ได้จากที่รัน ไม่ใช่แหล่งตาย
+  (เครื่อง deploy อยู่หลัง Fortinet — build 2026-09-26 จึงเห็น `camera1.iticfoundation.org` ทั้ง 9 ตัวเป็น `unreachable`
+  ทั้งที่ตอบภาพจริงจากนอกเครือข่าย) ถ้าทำได้ให้ build จากเครือข่ายผู้บริโภคไทยแล้วใส่ป้ายให้ตรง
+- **rebuild เมื่อ**: ฟีดของ Longdo เปลี่ยนระหว่างวัน (2026-09-26 มี 130 รายการที่ไม่มี HLS ใช้ได้ — 83 `tempsus`, 27 ไม่มี `hls_url`, 20 อยู่บนโฮสต์อื่น — ที่อาจกลับมา),
+  DWR เพิ่ม/ย้ายกล้อง, หรือได้ vantage ที่ดีกว่าให้ probe ซ้ำ — ดูจำนวนในตารางท้าย `apps/etl/src/build-*-cctv.README.md`
+  แล้วอัปเดตตารางนั้นด้วยผลรอบใหม่; ส่ง diff ของ JSON ผ่าน PR ตามปกติ (สคริปต์ปฏิเสธทั้งไฟล์ถ้ามี URL ที่ไม่ใช่ `https:`,
+  มี userinfo, origin นอก `CAMERA_SOURCES[id].hosts` หรือตรง `CREDENTIAL_PATTERN`)
+- หลัง deploy: `curl -sk -I https://siahra-radar.co/cctv/dwr-cctv.json` ต้องได้ **200 และ `content-type: application/json`**
+  — 200 อย่างเดียวคือหน้า SPA (path ที่ไม่มีไฟล์ตกไป asset layer เสมอ)
+
 ## 5. WAF / Rate limiting rules (Security → WAF → Rate limiting rules; แผน Free ก็ใช้ได้)
 Worker มี token-bucket ต่อ IP อยู่แล้ว (`apps/api/src/rateLimit.ts`) แต่กติกาที่ edge กันได้ก่อนถึง Worker และไม่กิน request quota:
 

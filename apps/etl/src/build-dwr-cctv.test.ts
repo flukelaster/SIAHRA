@@ -1,14 +1,8 @@
 import { describe, expect, it } from "vitest";
-import {
-  assignProvince,
-  buildCatalogue,
-  CREDENTIAL_PATTERN,
-  parseListItem,
-  parseListPage,
-  parseStationPoint,
-  serializeCatalogue,
-  type ProvincePolygon,
-} from "./build-cctv.js";
+import { buildCameras, LIST_URL, parseListItem, parseListPage, parseStationPoint, SOURCE_ID } from "./build-dwr-cctv.js";
+import { assembleCatalogue, NOT_PROBED, serializeCatalogue } from "./cameraCatalogue.js";
+import { PROVINCES } from "./cameraCatalogue.testUtils.js";
+import { assignProvince, CREDENTIAL_PATTERN } from "./provincePolygons.js";
 
 /**
  * fixture ปลอมทั้งหมด — รูปเดียวกับ payload จริงของ DWR (ตรวจ 2026-09-26) รวมถึงฟิลด์
@@ -72,26 +66,9 @@ const stationPayload = (lat: number, lon: number) => ({
   },
 });
 
-/** จังหวัดสี่เหลี่ยมสมมุติ 99 ครอบ lon 100..101, lat 13..14 */
-const PROVINCES: ProvincePolygon[] = [
-  {
-    code: "99",
-    geometry: {
-      type: "Polygon",
-      coordinates: [
-        [
-          [100, 13],
-          [101, 13],
-          [101, 14],
-          [100, 14],
-          [100, 13],
-        ],
-      ],
-    },
-  },
-];
+const META = { builtAt: "2026-09-26T00:00:00.000Z", sourceUrl: LIST_URL, probedAt: null, probeVantage: null };
 
-describe("build-cctv projection", () => {
+describe("build-dwr-cctv projection", () => {
   const page = parseListPage(listPage);
   const items = page.results.map(parseListItem);
 
@@ -102,45 +79,56 @@ describe("build-cctv projection", () => {
     expect(items[2]).toBeNull();
   });
 
-  it("never lets a credential link reach the serialized catalogue", () => {
+  it("projects two url-less streams per camera, starting not-probed, and never lets a credential link reach the file", () => {
     const points = new Map([
       ["TC000001", parseStationPoint(stationPayload(13.5, 100.5))],
       ["TC000002", parseStationPoint(stationPayload(15, 102))],
     ]);
-    const { catalogue, noCoords, noProvince } = buildCatalogue(
-      items.filter((i) => i !== null),
-      points,
-      PROVINCES,
-      "2026-09-26T00:00:00.000Z",
-    );
-    const json = serializeCatalogue(catalogue);
-    for (const needle of ["user:pass", "admin:secret", "dyndns", "@", "cctvSnapshotLink", "cctvVideoLink", "snapshot.cgi"]) {
-      expect(json).not.toContain(needle);
-    }
+    const { cameras, noCoords, noProvince } = buildCameras(items.filter((i) => i !== null), points, PROVINCES);
     expect(noCoords).toBe(0);
     expect(noProvince).toBe(1);
-    expect(catalogue.cameras).toEqual([
+    expect(cameras).toEqual([
       {
         id: "cam-a",
-        stationCode: "TC000001",
+        sourceId: SOURCE_ID,
         nameTh: "สถานีทดสอบ ก",
         nameEn: "Test A",
         lat: 13.5,
         lon: 100.5,
+        coordSource: "upstream",
         provinceCode: "99",
-        amphoeTh: "เมือง",
+        owner: null,
+        code: "TC000001",
+        placeTh: "เมือง",
+        streams: [
+          { kind: "dwr-snapshot", label: null, captureTime: "path", probe: NOT_PROBED },
+          { kind: "dwr-mjpeg", stationCode: "TC000001", label: null, captureTime: "none", probe: NOT_PROBED },
+        ],
       },
       {
         id: "cam-b",
-        stationCode: "TC000002",
+        sourceId: SOURCE_ID,
         nameTh: "สถานีทดสอบ ข",
         nameEn: null,
         lat: 15,
         lon: 102,
+        coordSource: "upstream",
         provinceCode: null,
-        amphoeTh: null,
+        owner: null,
+        code: "TC000002",
+        placeTh: null,
+        streams: [
+          { kind: "dwr-snapshot", label: null, captureTime: "path", probe: NOT_PROBED },
+          { kind: "dwr-mjpeg", stationCode: "TC000002", label: null, captureTime: "none", probe: NOT_PROBED },
+        ],
       },
     ]);
+    const { catalogue } = assembleCatalogue(SOURCE_ID, cameras, META);
+    const json = serializeCatalogue(catalogue);
+    for (const needle of ["user:pass", "admin:secret", "dyndns", "@", "cctvSnapshotLink", "cctvVideoLink", "snapshot.cgi", "\"url\""]) {
+      expect(json).not.toContain(needle);
+    }
+    expect(json).toContain('"sourceId": "dwr-cctv"');
   });
 
   it("drops cameras whose station has no usable coordinates", () => {
@@ -148,24 +136,36 @@ describe("build-cctv projection", () => {
       ["TC000001", parseStationPoint({ value: { fullCon: { entity: { point: null } } } })],
       ["TC000002", parseStationPoint(stationPayload(0, 0))],
     ]);
-    const { catalogue, noCoords } = buildCatalogue(items.filter((i) => i !== null), points, PROVINCES, "x");
-    expect(catalogue.cameras).toEqual([]);
+    const { cameras, noCoords } = buildCameras(items.filter((i) => i !== null), points, PROVINCES);
+    expect(cameras).toEqual([]);
     expect(noCoords).toBe(2);
   });
 
-  it("refuses to serialize anything matching the credential pattern", () => {
-    const leaked = {
-      builtAt: "x",
-      sourceUrl: "x",
-      cameras: [
-        { id: FAKE_SNAPSHOT, stationCode: "a", nameTh: null, nameEn: null, lat: 0, lon: 0, provinceCode: null, amphoeTh: null },
+  it("the shared writer refuses anything matching the credential pattern, without quoting it", () => {
+    const { catalogue } = assembleCatalogue(
+      SOURCE_ID,
+      [
+        {
+          id: FAKE_SNAPSHOT,
+          sourceId: SOURCE_ID,
+          nameTh: null,
+          nameEn: null,
+          lat: 0,
+          lon: 0,
+          coordSource: "upstream",
+          provinceCode: null,
+          owner: null,
+          code: "a",
+          placeTh: null,
+          streams: [],
+        },
       ],
-    };
-    expect(() => serializeCatalogue(leaked)).toThrow(/credential pattern/);
-    // ข้อความผิดพลาดต้องไม่อ้างค่าที่เจอ
-    expect(() => serializeCatalogue(leaked)).not.toThrow(/user|dyndns/);
+      META,
+    );
+    expect(() => serializeCatalogue(catalogue)).toThrow(/credential pattern/);
+    expect(() => serializeCatalogue(catalogue)).not.toThrow(/user|dyndns/);
     expect(CREDENTIAL_PATTERN.test("http://a:b@host")).toBe(true);
-    expect(CREDENTIAL_PATTERN.test("https://telemetry.dwr.go.th/api/public/reportCctv/listPaginate")).toBe(false);
+    expect(CREDENTIAL_PATTERN.test(LIST_URL)).toBe(false);
   });
 });
 

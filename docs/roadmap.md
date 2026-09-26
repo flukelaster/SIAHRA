@@ -1308,7 +1308,9 @@ it in production with visible attribution rather than wait for an answer (§4). 
 Cloudflare cost: no DO, R2, cron or route; the browser asks DWR directly.
 
 - Touches: new `apps/etl/src/build-cctv.ts` (+ test, + `build-cctv.README.md`) and `npm run
-  build:cctv -w apps/etl` → tracked `apps/web/public/cctv/dwr-cameras.json`;
+  build:cctv -w apps/etl` → tracked `apps/web/public/cctv/dwr-cameras.json` (since E15.3 the script is
+  `build-dwr-cctv.ts` / `build-dwr-cctv.README.md`, run as `npm run build:cctv:dwr`, and writes
+  `dwr-cctv.json` in the generic contract next to the legacy file, which the web still reads until PR B);
   `packages/shared-types/src/{cctv,sources}.ts` (`CctvCamera`, `CctvCatalogue`, `SourceId`
   `dwr-cctv`, new `SourceDescriptor` kind `"browser"`, excluded from `LIVE_SOURCE_IDS`); web
   `lib/{cctv,featureFlags}.ts`, `hooks/useCctvCatalogue.ts`, `scene/CctvMarkers.ts`, pick kind
@@ -1350,7 +1352,9 @@ no DO, R2, cron or route.
 
 - Touches: new `apps/etl/src/build-itic-cctv.ts` (+ test, + `build-itic-cctv.README.md`), helpers
   shared with `build-cctv.ts` moved to `apps/etl/src/provincePolygons.ts`, `npm run build:itic-cctv
-  -w apps/etl` → tracked `apps/web/public/cctv/itic-cameras.json`; `packages/shared-types/src/{cctv,
+  -w apps/etl` → tracked `apps/web/public/cctv/itic-cameras.json` (since E15.3: `npm run build:cctv:itic`,
+  writing `itic-cctv.json` in the generic contract next to the legacy file, which the web still reads
+  until PR B); `packages/shared-types/src/{cctv,
   sources}.ts` (`ItiCCamera`, `ItiCCatalogue`, `SourceId` `itic-cctv`, kind `"browser"`, not in
   `/api/v1/health`); web `lib/{itic,cctv,featureFlags}.ts`, `hooks/useCctvCatalogue.ts`,
   `scene/CctvMarkers.ts` (amber play-glyph markers for iTIC), `InfoPopup`, legend, attribution;
@@ -1381,6 +1385,70 @@ no DO, R2, cron or route.
 6. The enforcing CSP was exercised on the production `dist` (2026-09-26) with zero app violations;
    entry + vendor 341.68 kB gz of the 360 kB guard.
 
+### E15.3 — CCTV: N-source catalogue contract + ETL (PR A) — *done* (2026-09-26); PR B web switch and PR C Department of Highways — *planned*
+
+Scope decided 2026-09-26 after a survey of public camera sources (the plan file of that day): the
+two-source UI hard-codes DWR vs iTIC in ~15 files, so a third source needs a generic contract first.
+Three PRs, each its own `/implement` run:
+
+- **PR A — contract + ETL (this entry, done).** `packages/shared-types/src/cctv.ts` gains the generic
+  `Camera` / `CameraStream` / `CameraCatalogue` / `CameraSourceMeta` shapes, `CAMERA_SOURCE_IDS`,
+  `CAMERA_SOURCES`, `cameraCatalogueUrl()`, `cameraKey()`, `streamDirective()` — **alongside** the old
+  `CctvCamera` / `ItiCCamera` types, which the web still uses. `apps/etl/src/cameraCatalogue.ts`
+  (`writeCatalogue`, `probeStreams`, `classifyProbe`, `parseBuildArgs`) is shared by
+  `build-dwr-cctv.ts` (renamed from `build-cctv.ts`) and the rewritten `build-itic-cctv.ts`; the new
+  read-only CLI `probe-cameras.ts` re-probes a built catalogue or one URL and writes nothing. Outputs
+  `apps/web/public/cctv/dwr-cctv.json` and `itic-cctv.json` sit next to the legacy
+  `dwr-cameras.json` / `itic-cameras.json`, which stay the files the web reads until PR B.
+- **PR B — web switch (planned; UI PR, screenshot required).** Read `{sourceId}.json` per enabled
+  source, one pick kind `camera`, markers by stream kind (video / still × verified / dimmed) instead of
+  by source, a per-source build-time disable list, delete the legacy JSONs and the old types.
+- **PR C — Department of Highways `doh-cctv` (planned).** From the 2026-09-26 survey of
+  `highwaytraffic.go.th`: 190 sites nationwide, at most ~140 not already in iTIC (a ceiling before
+  dedupe by the `PER-x-yyy` code), HLS on `streaming1` answered with `Access-Control-Allow-Origin: *`
+  and no `EXT-X-PROGRAM-DATE-TIME`, `streaming2` timed out from both probe vantages, 4 raw-IP hosts
+  to be cut at build. Ships with attribution + kill switch per the §4 decision.
+
+Zero Cloudflare cost at every step: the catalogues are static assets of the web Worker, the browser
+asks upstream itself, nothing touches `/api`, DO, R2 or cron.
+
+- Touches (PR A): `packages/shared-types/src/cctv.ts`; `apps/etl/src/{cameraCatalogue,
+  cameraCatalogue.testUtils, probe-cameras, build-dwr-cctv, build-itic-cctv}.ts` (+ tests, +
+  `build-dwr-cctv.README.md` / `build-itic-cctv.README.md`), `apps/etl/package.json`
+  (`build:cctv:dwr`, `build:cctv:itic`, `build:cctv` = both, `probe:cameras`);
+  `apps/web/public/cctv/{dwr-cctv,itic-cctv}.json`; no web code
+- Depends: E15.2 (PR B depends on PR A; PR C on PR B and the §4 government-CCTV decision)
+- Size: M per PR
+- Risk: a probe result is a **build-time snapshot from one network** — `unreachable` means "could
+  not be reached from that vantage", never that the source is down, and the file must say so; the
+  same `npm run build:*` / `tsx` lockfile problem as E15.2 (run with `npx -y tsx@4` from `apps/etl`)
+- Issue: _(not yet filed)_
+
+1. `writeCatalogue` refuses the whole file when any stream URL is not `https:`, carries userinfo, sits
+   on an origin outside `CAMERA_SOURCES[id].hosts` for the CSP directive its kind needs, misses the
+   source's `urlPattern`, or when the serialized output matches `CREDENTIAL_PATTERN`; tests prove
+   each refusal.
+2. Every stream carries `probe: {result, cors}`; `probedAt` / `probeVantage` are stored once per
+   catalogue, `probeVantage` is the `--vantage` label only (`unlabelled` when none is given — never a
+   hostname or user, the file is public), and `--no-probe` yields `not-probed` with both fields
+   `null` — `ok` is never a default. An HLS stream is classified from its chunklist (master 200 +
+   chunklist 404 is `http-4xx`), and `captureTime: "program-date-time"` only when that chunklist
+   actually carries the tag.
+3. DWR build of 2026-09-26 13:30Z: 126 cameras in 58 provinces, 252 streams (`dwr-snapshot` +
+   `dwr-mjpeg` per camera, neither with a URL). Probe 13:40:52Z from vantage `fortinet-lan`
+   (~10 min, 4 in flight): snapshot 122 `ok` / 4 `unreachable`; MJPEG 61 `ok` / 45 `empty` (DWR
+   answered 200 with no bytes — its own "no live picture") / 1 `http-4xx` / 19 `unreachable`.
+4. iTIC build of 2026-09-26 13:25Z: 293 feed entries → 172 cameras (163 HLS + 9 JPEG; กรมทางหลวง
+   104, iTIC Motion 68) in 46 provinces; 130 entries without usable HLS (27 no `hls_url`, 20 other
+   host, 83 `tempsus`), of which 9 kept as stills and 121 dropped. Probe 13:25:43Z from
+   `fortinet-lan`: HLS 158 `ok` / 5 `http-4xx` (chunklist 404 at probe time — 3 of the 5 answered
+   again minutes later, a snapshot of a chain that comes and goes); JPEG 9 `unreachable` (all on
+   `camera1.iticfoundation.org`, which that network cannot reach at all — the same group returned
+   real frames from outside it earlier that day). Both groups **stay in the file**.
+5. The web app, `dwr-cameras.json`, `itic-cameras.json`, `public/_headers` and the CSP are
+   byte-for-byte untouched by PR A; root `npm test`, `npx tsc --noEmit` in `apps/etl` and the web
+   build are green.
+
 ## 3. Suggested first two weeks
 
 - **Week 1** (all independent, can run in any order): E1.1, E1.2, E2.1, E2.2, E2.3 (once the secrets
@@ -1403,6 +1471,8 @@ Tracked as one pinned `needs-user` checklist issue, not as tasks.
 | **blocker: R2 storage past the free tier** — E9.2's versioned prefix means the same 5.174 GiB / 303,260 objects exist twice (the old prefix is served `immutable` for a year and can never be deleted), taking the bucket to about 10.35 GiB against a 10 GB free allowance. Server-side copy, so nothing is re-uploaded from a laptop; 303k Class A operations stay inside the free 1M/month | E9.2, E9.3 | **resolved 2026-08-20: copy all 303,260 objects** — accepted the overage. Server-side copy only, proved on one province (11, 903 files) with a 200 through `siahra-radar.co` before the other 76 |
 | **DWR permission** — the Department of Water Resources publishes no terms for its telemetry CCTV API | shipping E15 in production | **resolved 2026-09-26: ship with attribution** — owner's call (a request would likely go unanswered); DWR credited in every camera popup and the always-mounted credit line, and `VITE_FEATURE_CCTV=0` at build time removes the layer if DWR objects |
 | **iTIC / Longdo permission** — no licence is granted for the iTIC road-camera streams (Department of Highways and partner cameras), and Longdo's API terms restrict redisplay of its camera list | shipping E15.2 in production | **resolved 2026-09-26: ship with attribution** — owner's call, accepting the risk that Longdo's terms restrict redisplay; iTIC, the camera owner and Longdo credited in every camera popup and the always-mounted credit line, and `VITE_FEATURE_ITIC=0` at build time removes the iTIC cameras if any of them objects |
+| **Government CCTV sources in general** — the Department of Highways (`highwaytraffic.go.th`) publishes no terms for its camera pages (checked 2026-09-26); BMA Drainage and Sewerage (`dds.bangkok.go.th`), EGAT (`egatwater.egat.co.th`) and the municipal portals were surveyed the same day for reachability and format only — their terms have **not** been checked yet | E15.3 PR C and every later camera source | **resolved 2026-09-26: every government CCTV source ships with attribution + a build-time kill switch**, the DWR/iTIC rule applied once for all — the source and the camera owner credited in the popup and the always-mounted credit line, each source's terms checked and dated in its `CAMERA_SOURCES[id].licenceNote` before it ships; today's switches are `VITE_FEATURE_CCTV=0` (whole layer) and `VITE_FEATURE_ITIC=0`, a per-source disable is part of PR B. Sources that embed credentials (`wmsc.rid.go.th`, the ThaiWater `*.dyndns.org` links) stay out permanently, whatever the terms |
+| **BMA Traffic needs a Thai-network vantage** — `bmatraffic.com` refused connections from both probe vantages on 2026-09-26 (ECONNREFUSED; a Cloudflare challenge is reported), so nothing about its camera list, image format, CORS or coordinates is known; the owner records a HAR from a phone on a Thai consumer network (load the index, open one camera, wait 30 s — cookies/tokens are never copied into the repo). The same phone check settles the 9 iTIC stills on `camera1.iticfoundation.org` and `streaming2.highwaytraffic.go.th`, both `unreachable` only from the filtered network | a BMA Traffic source (PR D), and the 6 BMA DDS drainage cameras that have no coordinates of their own and would take them from BMA's list — otherwise `hand-placed` with a per-camera `SOURCE.md`, or not emitted | **open** — owner action; if the images turn out to need a challenge cookie the source is unusable and is reported as such |
 | Is a GitHub blob URL acceptable as the methodology URL? | E3.4, E10.1 | **resolved 2026-08-18: no — a `/methodology` page on the web app**, rendering the Markdown in `docs/methodology/` |
 
 ## 5. Deferred — deliberately not doing now (with triggers)

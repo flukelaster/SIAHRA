@@ -1,8 +1,10 @@
 /**
- * สร้าง `apps/web/public/cctv/dwr-cameras.json` — บัญชีกล้อง CCTV ของสถานีโทรมาตร
- * กรมทรัพยากรน้ำ (DWR, E15) จาก API สาธารณะ `https://telemetry.dwr.go.th/api`
+ * สร้าง `apps/web/public/cctv/dwr-cctv.json` — บัญชีกล้อง CCTV ของสถานีโทรมาตร
+ * กรมทรัพยากรน้ำ (DWR, E15) จาก API สาธารณะ `https://telemetry.dwr.go.th/api` ในรูปทั่วไป
+ * `CameraCatalogue` (`packages/shared-types/src/cctv.ts`)
  *
- *   npm run build:cctv -w apps/etl
+ *   npm run build:cctv:dwr -w apps/etl        # หรือ npx -y tsx@4 src/build-dwr-cctv.ts
+ *   ตัวเลือก: --no-probe (ทุกสตรีม `not-probed`), --vantage <ป้ายเครือข่ายที่รัน>
  *
  * ขั้นตอน (ดึงครั้งเดียว ไม่ใช่งานประจำ):
  *   1. POST `public/reportCctv/listPaginate` ทีละหน้า (pageSize 200) จนครบ `totalCount`
@@ -11,6 +13,10 @@
  *   2. GET `public/station/getByCode/{stationCode}` ทีละสถานี ห่างกัน ~200 ms
  *      → พิกัดอยู่ที่ `value.fullCon.entity.point.{lat,lon}`
  *   3. จังหวัดจาก point-in-polygon กับ `apps/web/public/aoi/{code}/boundary.geojson`
+ *   4. กล้องหนึ่งตัว = สองสตรีม: `dwr-snapshot` (ภาพล่าสุด, เวลาถ่ายจาก path) และ `dwr-mjpeg`
+ *      (ภาพสด, ไม่มีเวลากำกับ) — ทั้งคู่ derive url จาก `id`/`stationCode` ตอนเปิด ไม่เก็บ url
+ *   5. probe ทุกสตรีมจาก vantage ที่รัน (`cameraCatalogue.ts` `probeStreams`) — DWR ตอบ MJPEG
+ *      ช้า 4–6 วิถึงเฟรมแรก จึงจำกัด 4 คำขอพร้อมกันบนโฮสต์นี้
  *
  * **ความปลอดภัย — ห้ามแก้ข้อนี้**: payload ของทั้งสอง endpoint มีลิงก์กล้องที่ฝังชื่อผู้ใช้/
  * รหัสผ่านจริง (`cctvSnapshotLink`/`cctvVideoLink` แบบ `http://user:pass@….dyndns…`)
@@ -19,22 +25,27 @@
  *     ตัดคีย์ที่ไม่รู้จักทิ้ง) แล้วประกอบผลลัพธ์ทีละฟิลด์ ไม่ spread ของต้นทาง
  *   - ไม่ log/print response ดิบ ไม่เขียนมันลงไฟล์ใด — log เฉพาะจำนวน, รหัสสถานี, HTTP status
  *   - ข้อผิดพลาดของ schema รายงานแค่ path/code ของ issue ไม่รายงานค่าที่รับเข้ามา
- *   - ตรวจผลลัพธ์ที่ serialise แล้วด้วย `CREDENTIAL_PATTERN` ก่อนเขียน เจอ = ยกเลิกทั้งหมด
+ *   - `writeCatalogue` ตรวจผลลัพธ์ที่ serialise แล้วด้วย `CREDENTIAL_PATTERN` ก่อนเขียน เจอ = ยกเลิกทั้งหมด
  *
- * ฟังก์ชันล้วนถูก export ให้ `build-cctv.test.ts` ทดสอบกับ fixture ปลอม ส่วน `main()`
+ * ฟังก์ชันล้วนถูก export ให้ `build-dwr-cctv.test.ts` ทดสอบกับ fixture ปลอม ส่วน `main()`
  * รันเฉพาะตอนสั่งสคริปต์นี้ตรง ๆ (ผ่าน `tsx`) ไม่ใช่ตอนถูก import
  */
-import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as z from "zod/mini";
-import type { CctvCamera, CctvCatalogue } from "@siahra/shared-types";
-import { assignProvince, CREDENTIAL_PATTERN, loadProvincePolygons, type ProvincePolygon } from "./provincePolygons.js";
+import type { Camera } from "@siahra/shared-types";
+import {
+  DWR_API,
+  formatProbeTable,
+  NOT_PROBED,
+  parseBuildArgs,
+  probeStreams,
+  probeVantageLabel,
+  writeCatalogue,
+} from "./cameraCatalogue.js";
+import { assignProvince, loadProvincePolygons, type ProvincePolygon } from "./provincePolygons.js";
 
-// ย้ายไปอยู่ใน `provincePolygons.ts` (ใช้ร่วมกับ build-itic-cctv) — export ต่อให้ผู้เรียกเดิม
-export { assignProvince, CREDENTIAL_PATTERN, loadProvincePolygons, type ProvincePolygon };
-
-export const DWR_API = "https://telemetry.dwr.go.th/api";
+export const SOURCE_ID = "dwr-cctv" as const;
 export const LIST_URL = `${DWR_API}/public/reportCctv/listPaginate`;
 const STATION_URL = (code: string) => `${DWR_API}/public/station/getByCode/${encodeURIComponent(code)}`;
 const PAGE_SIZE = 200;
@@ -43,7 +54,6 @@ const MAX_PAGES = 20;
 const STATION_GAP_MS = 200;
 
 const AOI_ROOT = path.resolve(import.meta.dirname, "../../web/public/aoi");
-const OUT_PATH = path.resolve(import.meta.dirname, "../../web/public/cctv/dwr-cameras.json");
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Schemas — allowlist เท่านั้น: ไม่มีฟิลด์ลิงก์กล้องใดถูกประกาศไว้ที่นี่
@@ -112,7 +122,7 @@ export function parseStationPoint(raw: unknown): { lat: number; lon: number } | 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Projection + guard
+// Projection
 // ─────────────────────────────────────────────────────────────────────────────
 
 function cleanText(s: string | null | undefined): string | null {
@@ -120,31 +130,42 @@ function cleanText(s: string | null | undefined): string | null {
   return v ? v : null;
 }
 
-/** ประกอบระเบียนกล้องทีละฟิลด์จาก allowlist — ไม่มีการ spread ของต้นทาง */
+/**
+ * ประกอบระเบียนกล้องทีละฟิลด์จาก allowlist — ไม่มีการ spread ของต้นทาง; สตรีมทั้งสองเริ่มที่
+ * `not-probed` (ห้ามเริ่มที่ `ok`) แล้ว `probeStreams` เติมผลจริงให้
+ */
 export function projectCamera(
   item: DwrListItem,
   pt: { lat: number; lon: number },
   provinceCode: string | null,
-): CctvCamera {
+): Camera {
+  const stationCode = item.entity.stationCode;
   return {
     id: item.entity.id,
-    stationCode: item.entity.stationCode,
+    sourceId: SOURCE_ID,
     nameTh: cleanText(item.entity.stnNameTh),
     nameEn: cleanText(item.entity.stnNameEn),
     lat: pt.lat,
     lon: pt.lon,
+    coordSource: "upstream",
     provinceCode,
-    amphoeTh: cleanText(item.districtNameTh),
+    // DWR ไม่ระบุเจ้าของแยกจากตัวแหล่ง (กล้องของสถานีโทรมาตร DWR เอง) — เครดิตมาจาก SOURCES["dwr-cctv"]
+    owner: null,
+    code: stationCode,
+    placeTh: cleanText(item.districtNameTh),
+    streams: [
+      { kind: "dwr-snapshot", label: null, captureTime: "path", probe: { ...NOT_PROBED } },
+      { kind: "dwr-mjpeg", stationCode, label: null, captureTime: "none", probe: { ...NOT_PROBED } },
+    ],
   };
 }
 
-export function buildCatalogue(
+export function buildCameras(
   items: readonly DwrListItem[],
   points: ReadonlyMap<string, { lat: number; lon: number } | null>,
   provinces: readonly ProvincePolygon[],
-  builtAt: string,
-): { catalogue: CctvCatalogue; noCoords: number; noProvince: number } {
-  const cameras: CctvCamera[] = [];
+): { cameras: Camera[]; noCoords: number; noProvince: number } {
+  const cameras: Camera[] = [];
   let noCoords = 0;
   let noProvince = 0;
   const seen = new Set<string>();
@@ -160,17 +181,7 @@ export function buildCatalogue(
     if (provinceCode === null) noProvince++;
     cameras.push(projectCamera(item, pt, provinceCode));
   }
-  cameras.sort((a, b) => a.stationCode.localeCompare(b.stationCode) || a.id.localeCompare(b.id));
-  return { catalogue: { builtAt, sourceUrl: LIST_URL, cameras }, noCoords, noProvince };
-}
-
-/** serialise แล้วตรวจ — เจอรูปแบบข้อมูลรับรองเมื่อไหร่ โยนทิ้งทั้งไฟล์ (ข้อความไม่อ้างค่าที่เจอ) */
-export function serializeCatalogue(catalogue: CctvCatalogue): string {
-  const json = `${JSON.stringify(catalogue, null, 2)}\n`;
-  if (CREDENTIAL_PATTERN.test(json)) {
-    throw new Error("build-cctv: output matches the credential pattern — refusing to write it");
-  }
-  return json;
+  return { cameras, noCoords, noProvince };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -216,12 +227,13 @@ async function fetchAllListItems(): Promise<{ items: DwrListItem[]; malformed: n
 }
 
 async function main() {
+  const args = parseBuildArgs(process.argv.slice(2));
   const provinces = loadProvincePolygons(AOI_ROOT);
   const provinceCodes = new Set(provinces.map((p) => p.code));
   console.log(`boundaries: ${provinceCodes.size} provinces (${provinces.length} polygons)`);
 
   const { items, malformed, totalCount } = await fetchAllListItems();
-  // เวลาที่ดึงรายการจาก DWR สำเร็จ (ตาม doc ของ CctvCatalogue.builtAt) — ไม่ใช่เวลาเริ่มสคริปต์
+  // เวลาที่ดึงรายการจาก DWR สำเร็จ (ตาม doc ของ CameraCatalogue.builtAt) — ไม่ใช่เวลาเริ่มสคริปต์
   const builtAt = new Date().toISOString();
   console.log(`listPaginate: totalCount=${totalCount}, parsed=${items.length}, malformed=${malformed}`);
 
@@ -241,20 +253,27 @@ async function main() {
   }
   console.log(`getByCode: ${codes.length} stations, ${failed} failed`);
 
-  const { catalogue, noCoords, noProvince } = buildCatalogue(items, points, provinces, builtAt);
+  const built = buildCameras(items, points, provinces);
   console.log(
-    `cameras: ${catalogue.cameras.length} written, ${noCoords} dropped (no coordinates), ${noProvince} outside every province boundary`,
+    `cameras: ${built.cameras.length} projected, ${built.noCoords} dropped (no coordinates), ${built.noProvince} outside every province boundary`,
   );
-  const json = serializeCatalogue(catalogue);
-  mkdirSync(path.dirname(OUT_PATH), { recursive: true });
-  writeFileSync(OUT_PATH, json);
-  const provincesCovered = new Set(catalogue.cameras.map((c) => c.provinceCode).filter(Boolean)).size;
-  console.log(`wrote ${path.relative(process.cwd(), OUT_PATH)} (${provincesCovered} provinces)`);
+
+  // probe จาก vantage ที่รัน — ผลเป็นของเวลานั้น/เครือข่ายนั้น ไม่ใช่สถานะปัจจุบัน
+  const probeVantage = args.probe ? probeVantageLabel(args.vantage) : null;
+  const probed = await probeStreams(built.cameras, { skip: !args.probe });
+  const probedAt = args.probe ? new Date().toISOString() : null;
+  console.log(args.probe ? `probe (${probeVantage}, ${probedAt}):` : "probe skipped (--no-probe): every stream is not-probed");
+  console.log(formatProbeTable(probed.stats, probed.cameras));
+
+  const { path: out, stats } = writeCatalogue(SOURCE_ID, probed.cameras, { builtAt, sourceUrl: LIST_URL, probedAt, probeVantage });
+  console.log(
+    `wrote ${path.relative(process.cwd(), out)}: ${stats.cameras} cameras (${stats.duplicates} duplicate id dropped), ${stats.streams} streams, ${stats.provinces} provinces`,
+  );
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().catch((err: unknown) => {
-    console.error(err instanceof Error ? err.message : "build-cctv failed");
+    console.error(err instanceof Error ? err.message : "build-dwr-cctv failed");
     process.exit(1);
   });
 }
