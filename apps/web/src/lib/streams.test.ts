@@ -2,31 +2,24 @@ import { describe, expect, it, vi } from "vitest";
 import {
   classifyHlsFatal,
   classifyProbe,
-  isPlayableHlsUrl,
-  isSnapshotJpegUrl,
-  ITIC_SNAPSHOT_MAX_MS,
-  ITIC_SNAPSHOT_REFRESH_MS,
-  ITIC_SNAPSHOT_TIMEOUT_MS,
+  fetchJpegOnce,
+  JPEG_POLL_MAX_MS,
+  JPEG_POLL_REFRESH_MS,
+  JPEG_POLL_TIMEOUT_MS,
+  parseLastModified,
   snapshotFrameUrl,
   startHlsPlayer,
-  startItiCSnapshots,
+  startJpegPoll,
   type HlsPlayerState,
-  type ItiCSnapshotState,
+  type JpegFetchDeps,
+  type JpegPollState,
   type SnapshotImage,
-} from "./itic";
+} from "./streams";
+import { isAllowedUrl } from "./cameraSources";
 
-describe("isPlayableHlsUrl", () => {
-  it("accepts only camerai1 playlists that are not the suspended placeholder", () => {
-    expect(
-      isPlayableHlsUrl("https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_012.stream/playlist.m3u8"),
-    ).toBe(true);
-    expect(isPlayableHlsUrl("https://camerai1.iticfoundation.org/hls/kk08.m3u8")).toBe(true);
-    expect(isPlayableHlsUrl("https://camerai1.iticfoundation.org/hls/tempsus.m3u8")).toBe(false);
-    expect(isPlayableHlsUrl("https://camera1.iticfoundation.org/hls/kk08.m3u8")).toBe(false);
-    expect(isPlayableHlsUrl("https://camerai1.iticfoundation.org.evil.test/x.m3u8")).toBe(false);
-    expect(isPlayableHlsUrl("http://camerai1.iticfoundation.org/hls/kk08.m3u8")).toBe(false);
-  });
-});
+/** guard ที่ inject เข้าตัวเล่นในเทส — อันเดียวกับที่ CameraBody ใช้ (ทะเบียนของ iTIC) */
+const allowHls = (url: string) => isAllowedUrl("itic-cctv", "hls", url);
+const allowJpeg = (url: string) => isAllowedUrl("itic-cctv", "jpeg", url);
 
 describe("classifyHlsFatal", () => {
   it("a playlist the server refuses (4xx) or a malformed one is `suspended`", () => {
@@ -111,7 +104,7 @@ describe("startHlsPlayer lifecycle", () => {
   it("goes loading → live on `playing`, and says there is no stream time when the stream has none", () => {
     const video = fakeVideo();
     const states: HlsPlayerState[] = [];
-    const stop = startHlsPlayer(video as unknown as HTMLVideoElement, URL_A, (s) => states.push(s));
+    const stop = startHlsPlayer(video as unknown as HTMLVideoElement, URL_A, (s) => states.push(s), allowHls);
     expect(video.src).toBe(URL_A);
     video.fire("playing");
     expect(states).toEqual([{ status: "loading" }, { status: "live", programDateTime: null }]);
@@ -121,7 +114,7 @@ describe("startHlsPlayer lifecycle", () => {
   it("waiting after playback → buffering (not live, not a failure), back to live on `playing`", () => {
     const video = fakeVideo();
     const states: HlsPlayerState[] = [];
-    const stop = startHlsPlayer(video as unknown as HTMLVideoElement, URL_A, (s) => states.push(s));
+    const stop = startHlsPlayer(video as unknown as HTMLVideoElement, URL_A, (s) => states.push(s), allowHls);
     video.fire("playing");
     video.fire("waiting");
     expect(states.at(-1)).toEqual({ status: "buffering", programDateTime: null });
@@ -133,7 +126,7 @@ describe("startHlsPlayer lifecycle", () => {
   it("waiting before the first frame stays `loading`", () => {
     const video = fakeVideo();
     const states: HlsPlayerState[] = [];
-    const stop = startHlsPlayer(video as unknown as HTMLVideoElement, URL_A, (s) => states.push(s));
+    const stop = startHlsPlayer(video as unknown as HTMLVideoElement, URL_A, (s) => states.push(s), allowHls);
     video.fire("waiting");
     video.fire("stalled");
     expect(states).toEqual([{ status: "loading" }]);
@@ -143,7 +136,7 @@ describe("startHlsPlayer lifecycle", () => {
   it("stalled counts as buffering only when there is no data for the next frame", () => {
     const video = fakeVideo();
     const states: HlsPlayerState[] = [];
-    const stop = startHlsPlayer(video as unknown as HTMLVideoElement, URL_A, (s) => states.push(s));
+    const stop = startHlsPlayer(video as unknown as HTMLVideoElement, URL_A, (s) => states.push(s), allowHls);
     video.fire("playing");
     video.readyState = 4; // HAVE_ENOUGH_DATA — ยังเล่นจากบัฟเฟอร์ได้
     video.fire("stalled");
@@ -161,7 +154,7 @@ describe("startHlsPlayer lifecycle", () => {
   it("pause after playback → paused (never live), play jumps to the live edge, `playing` is the only way back to live", () => {
     const video = fakeVideo();
     const states: HlsPlayerState[] = [];
-    const stop = startHlsPlayer(video as unknown as HTMLVideoElement, URL_A, (s) => states.push(s));
+    const stop = startHlsPlayer(video as unknown as HTMLVideoElement, URL_A, (s) => states.push(s), allowHls);
     video.fire("playing");
     video.currentTime = 10;
     video.fire("pause");
@@ -189,7 +182,7 @@ describe("startHlsPlayer lifecycle", () => {
   it("pause before the first frame stays `loading`; play without a seekable range does not seek", () => {
     const video = fakeVideo();
     const states: HlsPlayerState[] = [];
-    const stop = startHlsPlayer(video as unknown as HTMLVideoElement, URL_A, (s) => states.push(s));
+    const stop = startHlsPlayer(video as unknown as HTMLVideoElement, URL_A, (s) => states.push(s), allowHls);
     video.fire("pause");
     expect(states).toEqual([{ status: "loading" }]);
     video.fire("playing");
@@ -204,7 +197,7 @@ describe("startHlsPlayer lifecycle", () => {
     const video = fakeVideo();
     const states: HlsPlayerState[] = [];
     video.pause.mockImplementation(() => video.fire("pause"));
-    const stop = startHlsPlayer(video as unknown as HTMLVideoElement, URL_A, (s) => states.push(s));
+    const stop = startHlsPlayer(video as unknown as HTMLVideoElement, URL_A, (s) => states.push(s), allowHls);
     video.fire("playing");
     stop();
     expect(states.at(-1)?.status).toBe("live");
@@ -212,7 +205,7 @@ describe("startHlsPlayer lifecycle", () => {
 
   it("dispose drops the connection: pause, remove src, load(), no listeners left", () => {
     const video = fakeVideo();
-    const stop = startHlsPlayer(video as unknown as HTMLVideoElement, URL_A, () => {});
+    const stop = startHlsPlayer(video as unknown as HTMLVideoElement, URL_A, () => {}, allowHls);
     stop();
     expect(video.pause).toHaveBeenCalled();
     expect(video.removeAttribute).toHaveBeenCalledWith("src");
@@ -228,8 +221,8 @@ describe("startHlsPlayer lifecycle", () => {
     const a = fakeVideo();
     const b = fakeVideo();
     const statesA: HlsPlayerState[] = [];
-    const stopA = startHlsPlayer(a as unknown as HTMLVideoElement, URL_A, (s) => statesA.push(s));
-    const stopB = startHlsPlayer(b as unknown as HTMLVideoElement, URL_A, () => {});
+    const stopA = startHlsPlayer(a as unknown as HTMLVideoElement, URL_A, (s) => statesA.push(s), allowHls);
+    const stopB = startHlsPlayer(b as unknown as HTMLVideoElement, URL_A, () => {}, allowHls);
     expect(a.load).toHaveBeenCalledTimes(1);
     expect(a.src).toBe("");
     expect(b.src).toBe(URL_A);
@@ -246,7 +239,7 @@ describe("startHlsPlayer lifecycle", () => {
       vi.stubGlobal("fetch", vi.fn(probe));
       const video = fakeVideo();
       const states: HlsPlayerState[] = [];
-      const stop = startHlsPlayer(video as unknown as HTMLVideoElement, URL_A, (s) => states.push(s));
+      const stop = startHlsPlayer(video as unknown as HTMLVideoElement, URL_A, (s) => states.push(s), allowHls);
       video.fire("error");
       await new Promise((r) => setTimeout(r, 0));
       stop();
@@ -262,40 +255,37 @@ describe("startHlsPlayer lifecycle", () => {
     expect((await run(() => Promise.resolve(new Response("#EXTM3U", { status: 200 }))))?.status).toBe("unsupported");
   });
 
-  it("refuses a URL outside the allowlist without touching the network", () => {
+  it("refuses a URL the injected guard rejects without touching the network", () => {
     const video = fakeVideo();
     const states: HlsPlayerState[] = [];
-    startHlsPlayer(video as unknown as HTMLVideoElement, "https://camerai1.iticfoundation.org/hls/tempsus.m3u8", (s) =>
-      states.push(s),
+    startHlsPlayer(
+      video as unknown as HTMLVideoElement,
+      "https://camerai1.iticfoundation.org/hls/tempsus.m3u8",
+      (s) => states.push(s),
+      allowHls,
     )();
     expect(states).toEqual([{ status: "unsupported", detail: "url rejected" }]);
     expect(video.play).not.toHaveBeenCalled();
+    // guard ที่ปฏิเสธทุกอย่าง = ไม่มีทางตั้ง src แม้ URL จะดูถูกต้อง
+    const v2 = fakeVideo();
+    startHlsPlayer(v2 as unknown as HTMLVideoElement, URL_A, () => {}, () => false)();
+    expect(v2.src).toBe("");
   });
 });
 
 const JPEG = "https://camera1.iticfoundation.org/jpeg2.php?camid=10.8.0.19:8802";
 
-describe("isSnapshotJpegUrl", () => {
-  it("accepts only the probed jpeg2.php camid 10.8.0.x:port group", () => {
-    expect(isSnapshotJpegUrl(JPEG)).toBe(true);
-    expect(isSnapshotJpegUrl("https://camera1.iticfoundation.org/jpeg2.php?camid=X.X.X.X:YYYY")).toBe(false);
-    expect(isSnapshotJpegUrl("https://camera1.iticfoundation.org/jpeg2.php?camid=CAMPK0001")).toBe(false);
-    expect(isSnapshotJpegUrl("https://camera1.iticfoundation.org/jpeg2.php?camid=61.91.182.114:1111")).toBe(false);
-    expect(isSnapshotJpegUrl("https://user:pw@camera1.iticfoundation.org/jpeg2.php?camid=10.8.0.1:80")).toBe(false);
-    expect(isSnapshotJpegUrl("http://camera1.iticfoundation.org/jpeg2.php?camid=10.8.0.1:80")).toBe(false);
-    expect(isSnapshotJpegUrl("https://camera1.iticfoundation.org.evil.test/jpeg2.php?camid=10.8.0.1:80")).toBe(false);
-    expect(isSnapshotJpegUrl(`${JPEG}&x=1`)).toBe(false);
-  });
-
-  it("builds a fresh cache-busting URL per attempt", () => {
+describe("snapshotFrameUrl", () => {
+  it("builds a fresh cache-busting URL per attempt, with ? or & as the URL needs", () => {
     const a = snapshotFrameUrl(JPEG, 1, 1_000);
     const b = snapshotFrameUrl(JPEG, 2, 1_000);
     expect(a.startsWith(`${JPEG}&_=`)).toBe(true);
     expect(a).not.toBe(b);
+    expect(snapshotFrameUrl("https://example.test/cam.jpg", 1, 1_000).startsWith("https://example.test/cam.jpg?_=")).toBe(true);
   });
 });
 
-describe("startItiCSnapshots lifecycle", () => {
+describe("startJpegPoll lifecycle", () => {
   class FakeImage implements SnapshotImage {
     src = "";
     private listeners = new Map<string, Set<() => void>>();
@@ -318,16 +308,21 @@ describe("startItiCSnapshots lifecycle", () => {
     let clock = Date.parse("2026-09-26T05:00:00Z");
     const images: FakeImage[] = [];
     const shown: (FakeImage | null)[] = [];
-    const states: ItiCSnapshotState[] = [];
-    const stop = startItiCSnapshots(JPEG, (s) => states.push(s), {
-      createImage: () => {
-        const img = new FakeImage();
-        images.push(img);
-        return img;
+    const states: JpegPollState[] = [];
+    const stop = startJpegPoll(
+      JPEG,
+      (s) => states.push(s),
+      {
+        createImage: () => {
+          const img = new FakeImage();
+          images.push(img);
+          return img;
+        },
+        show: (img) => shown.push(img),
+        now: () => clock,
       },
-      show: (img) => shown.push(img),
-      now: () => clock,
-    });
+      allowJpeg,
+    );
     const advance = (ms: number) => {
       clock += ms;
       vi.advanceTimersByTime(ms);
@@ -346,7 +341,7 @@ describe("startItiCSnapshots lifecycle", () => {
       images[0].fire("load");
       expect(shown).toEqual([images[0]]);
       expect(states.at(-1)).toEqual({ status: "ok", fetchedAt: "2026-09-26T05:00:01.200Z" });
-      advance(ITIC_SNAPSHOT_REFRESH_MS - 1);
+      advance(JPEG_POLL_REFRESH_MS - 1);
       expect(images).toHaveLength(1);
       advance(1);
       expect(images).toHaveLength(2);
@@ -365,14 +360,14 @@ describe("startItiCSnapshots lifecycle", () => {
     vi.useFakeTimers();
     try {
       const { images, states, stop, advance } = setup();
-      advance(ITIC_SNAPSHOT_TIMEOUT_MS);
+      advance(JPEG_POLL_TIMEOUT_MS);
       expect(states.at(-1)).toEqual({ status: "unreachable", detail: "timeout", lastFetchedAt: null });
       expect(images[0].src).toBe("");
       expect(images[0].listenerCount()).toBe(0);
       // error ที่ src = "" ยิงตามมาต้องไม่ถูกนับเป็นรอบใหม่
       images[0].fire("error");
       expect(states.filter((s) => s.status === "unreachable")).toHaveLength(1);
-      advance(ITIC_SNAPSHOT_REFRESH_MS);
+      advance(JPEG_POLL_REFRESH_MS);
       expect(images).toHaveLength(2);
       stop();
     } finally {
@@ -385,8 +380,8 @@ describe("startItiCSnapshots lifecycle", () => {
     try {
       const { images, states, stop, advance } = setup();
       images[0].fire("load");
-      const ok = states.at(-1) as Extract<ItiCSnapshotState, { status: "ok" }>;
-      advance(ITIC_SNAPSHOT_REFRESH_MS);
+      const ok = states.at(-1) as Extract<JpegPollState, { status: "ok" }>;
+      advance(JPEG_POLL_REFRESH_MS);
       images[1].fire("error");
       expect(states.at(-1)).toEqual({ status: "unreachable", detail: "error", lastFetchedAt: ok.fetchedAt });
       stop();
@@ -402,12 +397,12 @@ describe("startItiCSnapshots lifecycle", () => {
       let i = 0;
       while (states.at(-1)?.status !== "paused" && i < 200) {
         images[i].fire("load");
-        advance(ITIC_SNAPSHOT_REFRESH_MS);
+        advance(JPEG_POLL_REFRESH_MS);
         i++;
       }
       expect(states.at(-1)).toMatchObject({ status: "paused", lastFailed: false });
       const n = images.length;
-      advance(ITIC_SNAPSHOT_MAX_MS);
+      advance(JPEG_POLL_MAX_MS);
       expect(images).toHaveLength(n);
       stop();
     } finally {
@@ -420,14 +415,14 @@ describe("startItiCSnapshots lifecycle", () => {
     try {
       const { images, shown, states, stop, advance } = setup();
       images[0].fire("load");
-      advance(ITIC_SNAPSHOT_REFRESH_MS);
+      advance(JPEG_POLL_REFRESH_MS);
       const count = states.length;
       stop();
       expect(images[0].src).toBe("");
       expect(images[1].src).toBe("");
       expect(shown.at(-1)).toBeNull();
       images[1].fire("load");
-      advance(ITIC_SNAPSHOT_REFRESH_MS * 3);
+      advance(JPEG_POLL_REFRESH_MS * 3);
       expect(states).toHaveLength(count);
       expect(images).toHaveLength(2);
       stop();
@@ -436,19 +431,92 @@ describe("startItiCSnapshots lifecycle", () => {
     }
   });
 
-  it("refuses a URL outside the probed group without requesting anything", () => {
+  it("refuses a URL outside the probed group (guard) without requesting anything", () => {
     const created: FakeImage[] = [];
-    const states: ItiCSnapshotState[] = [];
-    const stop = startItiCSnapshots("https://camera1.iticfoundation.org/jpeg2.php?camid=CAMPK0001", (s) => states.push(s), {
-      createImage: () => {
-        const img = new FakeImage();
-        created.push(img);
-        return img;
+    const states: JpegPollState[] = [];
+    const stop = startJpegPoll(
+      "https://camera1.iticfoundation.org/jpeg2.php?camid=CAMPK0001",
+      (s) => states.push(s),
+      {
+        createImage: () => {
+          const img = new FakeImage();
+          created.push(img);
+          return img;
+        },
+        show: () => {},
       },
-      show: () => {},
-    });
+      allowJpeg,
+    );
     expect(created).toHaveLength(0);
     expect(states).toEqual([{ status: "unreachable", detail: "url rejected", lastFetchedAt: null }]);
     stop();
+  });
+});
+
+describe("parseLastModified", () => {
+  it("HTTP-date → ISO, anything else → null (never filled from the clock)", () => {
+    expect(parseLastModified("Fri, 26 Sep 2026 07:17:00 GMT")).toBe("2026-09-26T07:17:00.000Z");
+    expect(parseLastModified(null)).toBeNull();
+    expect(parseLastModified("")).toBeNull();
+    expect(parseLastModified("not a date")).toBeNull();
+  });
+});
+
+describe("fetchJpegOnce (jpeg-fetch)", () => {
+  const FETCH_URL = "https://camera1.iticfoundation.org/jpeg2.php?camid=10.8.0.19:8802";
+  const NOW = Date.parse("2026-09-26T00:30:00Z");
+  function deps(responses: (Response | Error)[]): JpegFetchDeps & { calls: string[] } {
+    const calls: string[] = [];
+    let i = 0;
+    return {
+      calls,
+      fetch: (async (input: RequestInfo | URL) => {
+        calls.push(String(input));
+        const r = responses[i++];
+        if (r instanceof Error) throw r;
+        return r;
+      }) as typeof fetch,
+      createObjectURL: () => "blob:fake-1",
+      now: () => NOW,
+    };
+  }
+  const jpeg = (headers: Record<string, string> = {}) =>
+    new Response(new Blob([new Uint8Array([0xff, 0xd8, 0xff])], { type: "image/jpeg" }), { status: 200, headers });
+  const signal = () => new AbortController().signal;
+  const allowAll = () => true;
+
+  it("ok: blob URL + observedAt from Last-Modified only, fetchedAt from the injected clock", async () => {
+    const d = deps([jpeg({ "last-modified": "Fri, 26 Sep 2026 00:17:00 GMT" })]);
+    expect(await fetchJpegOnce(FETCH_URL, signal(), allowAll, d)).toEqual({
+      kind: "ok",
+      blobUrl: "blob:fake-1",
+      observedAt: "2026-09-26T00:17:00.000Z",
+      fetchedAt: "2026-09-26T00:30:00.000Z",
+    });
+    expect(d.calls[0].startsWith(`${FETCH_URL}&_=`)).toBe(true);
+  });
+
+  it("no Last-Modified → observedAt null (not fetchedAt)", async () => {
+    const r = await fetchJpegOnce(FETCH_URL, signal(), allowAll, deps([jpeg()]));
+    expect(r.kind === "ok" ? r.observedAt : "x").toBeNull();
+  });
+
+  it("404 / empty / non-image → no-image; network / 5xx → unreachable; guard reject → unreachable without a request", async () => {
+    expect(await fetchJpegOnce(FETCH_URL, signal(), allowAll, deps([new Response(null, { status: 404 })]))).toEqual({ kind: "no-image" });
+    expect(await fetchJpegOnce(FETCH_URL, signal(), allowAll, deps([new Response(new Blob([]), { status: 200 })]))).toEqual({ kind: "no-image" });
+    expect(
+      await fetchJpegOnce(FETCH_URL, signal(), allowAll, deps([new Response("nope", { status: 200, headers: { "content-type": "text/plain" } })])),
+    ).toEqual({ kind: "no-image" });
+    expect((await fetchJpegOnce(FETCH_URL, signal(), allowAll, deps([new TypeError("Failed to fetch")]))).kind).toBe("unreachable");
+    expect((await fetchJpegOnce(FETCH_URL, signal(), allowAll, deps([new Response("", { status: 503 })]))).kind).toBe("unreachable");
+    const d = deps([jpeg()]);
+    expect(await fetchJpegOnce(FETCH_URL, signal(), () => false, d)).toEqual({ kind: "unreachable", detail: "url rejected" });
+    expect(d.calls).toEqual([]);
+  });
+
+  it("an aborted request rethrows instead of reporting the source as unreachable", async () => {
+    const c = new AbortController();
+    c.abort();
+    await expect(fetchJpegOnce(FETCH_URL, c.signal, allowAll, deps([new DOMException("Aborted", "AbortError")]))).rejects.toThrow();
   });
 });

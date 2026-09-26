@@ -2,32 +2,43 @@
  * เรขาคณิตและท่าทางของแผงกล้องด้านขวา (`components/map/CameraSheet.tsx`) + การแยก
  * "คลิก" ออกจาก "ลาก" บนแผนที่ (`Map3DCanvas`) — pure module ไม่มี React/DOM ให้เทสตรง ๆ
  */
-import type { CctvCamera, ItiCCamera } from "@siahra/shared-types";
+import { cameraKey, type Camera, type CameraSourceId } from "@siahra/shared-types";
 import type { Lang, TFunction } from "../i18n";
+import type { CatalogueProbe } from "../hooks/useCameraCatalogues";
+import type { SnapshotCache } from "./snapshotCache";
 import { GUTTER, TOOLS_W, type ShellSafeArea, type Tier } from "./shellLayout";
 
 /**
  * กล้องที่แผงด้านขวากำลังแสดง — มาจากการคลิกหมุดกล้อง (`distanceKm` null) หรือปุ่ม
- * "กล้องใกล้เคียง" ใน popup ของสถานีระดับน้ำ (ระยะจากสถานี)
+ * "กล้องใกล้เคียง" ใน popup ของสถานีระดับน้ำ (ระยะจากสถานี) — แหล่งอยู่ใน `camera.sourceId`
  */
-export type CameraSelection =
-  | { kind: "cctv"; camera: CctvCamera; distanceKm: number | null }
-  | { kind: "itic"; camera: ItiCCamera; distanceKm: number | null };
+export interface CameraSelection {
+  camera: Camera;
+  distanceKm: number | null;
+}
 
-/** ชื่อกล้อง DWR ตามภาษา (ต้นทางให้มา ไม่ได้แปลเอง) — ใช้ทั้งใน `CctvBody` และหัวแผงกล้อง */
-export function cctvCameraName(camera: CctvCamera, lang: Lang, t: TFunction): string {
+/**
+ * สิ่งที่แผงกล้อง/popup ต้องใช้กับกล้อง (E15.3) — null = ไม่มีแหล่งเปิดอยู่หรือชั้นปิด: ไม่มีแถว
+ * "กล้องใกล้เคียง" และไม่มีทางที่ popup จะส่ง request ไปหาต้นทางกล้องใด
+ */
+export interface CameraContext {
+  /** ทุกแหล่ง ทั้งประเทศ — สถานีริมเขตจังหวัดอาจใกล้กล้องของจังหวัดข้างเคียงที่สุด */
+  cameras: readonly Camera[];
+  /** แคชภาพนิ่ง DWR (กุญแจ `cameraKey`) — เจ้าของ object URL ทั้งหมด */
+  cache: SnapshotCache;
+  /** เวลา/vantage ของ probe ต่อแหล่ง — ป้าย "ไม่ตอบตอน build เมื่อ … จาก …" ในแผงกล้อง */
+  probes: Partial<Record<CameraSourceId, CatalogueProbe>>;
+}
+
+/** ชื่อกล้องตามภาษา (ต้นทางให้มา ไม่ได้แปลเอง) — ไม่มีชื่อ = "กล้อง {id}" ใช้ทั้งในแผงกล้องและ popup */
+export function cameraName(camera: Pick<Camera, "id" | "nameTh" | "nameEn">, lang: Lang, t: TFunction): string {
   const name = lang === "th" ? (camera.nameTh ?? camera.nameEn) : (camera.nameEn ?? camera.nameTh);
-  return name ?? t("popup.cctv.fallbackName", { code: camera.stationCode });
+  return name ?? t("popup.camera.fallbackName", { id: camera.id });
 }
 
-/** ชื่อกล้อง iTIC — ต้นทางมีชื่อเดียว (ไม่แยกภาษา) */
-export function iticCameraName(camera: ItiCCamera, t: TFunction): string {
-  return camera.name ?? t("popup.itic.fallbackName", { id: camera.id });
-}
-
-/** คีย์ของการเลือก — เปลี่ยน = remount เนื้อหา (ตัวเล่น/ตัวขอภาพของกล้องเดิมหยุดก่อน) */
+/** คีย์ของการเลือก (= `cameraKey`) — เปลี่ยน = remount เนื้อหา (ตัวเล่น/ตัวขอภาพของกล้องเดิมหยุดก่อน) */
 export function cameraSelectionKey(sel: CameraSelection): string {
-  return `${sel.kind}:${sel.camera.id}`;
+  return cameraKey(sel.camera);
 }
 
 /* ------------------------------------------------------------------ */

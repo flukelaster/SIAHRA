@@ -321,10 +321,10 @@ CI (`.github/workflows/ci.yml` job `Build`) รัน `wrangler deploy --dry-run
 
 ### 4.1 บัญชีกล้อง CCTV (`apps/web/public/cctv/*.json`) — rebuild ด้วยมือ ไม่มี cron
 บัญชีกล้อง (E15/E15.2/E15.3) เป็น static asset ที่ track ใน git และไปกับ `npm run deploy:web` — ไม่มี R2, DO, cron
-หรือ route ใด ๆ (Actions cron ถูกเลื่อนไว้: เป็น meter นอก Cloudflare ที่ฟรีเฉพาะตอน repo public) ตอนนี้มีสี่ไฟล์:
-`dwr-cameras.json` / `itic-cameras.json` (รูปเก่า — **ไฟล์ที่เว็บอ่านอยู่จริง** จนกว่า E15.3 PR B จะย้าย) และ
-`dwr-cctv.json` / `itic-cctv.json` (รูปทั่วไป `CameraCatalogue` ที่สคริปต์เขียนตั้งแต่ E15.3 PR A) — สคริปต์ build
-**ไม่แตะไฟล์รูปเก่า** ดังนั้น rebuild วันนี้ยังไม่เปลี่ยนอะไรบนเว็บจนกว่า PR B จะ merge
+หรือ route ใด ๆ (Actions cron ถูกเลื่อนไว้: เป็น meter นอก Cloudflare ที่ฟรีเฉพาะตอน repo public) มีไฟล์ละแหล่ง
+`{sourceId}.json` (`dwr-cctv.json` / `itic-cctv.json` — รูป `CameraCatalogue` ของ `packages/shared-types/src/cctv.ts`)
+ซึ่งเว็บอ่านตรง ๆ ตาม `ENABLED_CAMERA_SOURCES` (E15.3 PR B ลบไฟล์รูปเก่าของ E15/E15.2 ทิ้งแล้ว) — rebuild แล้ว deploy web
+= หมุด/ป้าย probe บนเว็บเปลี่ยนตาม
 
 รันจาก `apps/etl` (สคริปต์ npm `build:cctv:dwr` / `build:cctv:itic` / `build:cctv` / `probe:cameras` มีอยู่ แต่ยังล้มด้วย
 "tsx: command not found" เพราะ `tsx` หายจาก `package-lock.json` — เรียก `tsx` ตรงจนกว่าจะแก้):

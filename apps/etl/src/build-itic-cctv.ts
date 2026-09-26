@@ -52,7 +52,7 @@ export const HLS_PREFIX = "https://camerai1.iticfoundation.org/";
 export const JPEG_ORIGIN = "https://camera1.iticfoundation.org";
 /**
  * กลุ่มภาพนิ่งเดียวที่ตอบภาพจริงเมื่อวัด 2026-09-26 (ดูหัวไฟล์) — web ตรวจ pattern เดียวกันซ้ำ
- * (`apps/web/src/lib/itic.ts` `ITIC_JPEG_PATTERN`) ยึดหัว-ท้าย จึงไม่มีที่ให้ userinfo/พารามิเตอร์อื่น
+ * (`CAMERA_SOURCES["itic-cctv"].urlPattern`, ตรวจซ้ำใน `apps/web/src/lib/cameraSources.ts`) ยึดหัว-ท้าย จึงไม่มีที่ให้ userinfo/พารามิเตอร์อื่น
  */
 export const JPEG_PATTERN = /^https:\/\/camera1\.iticfoundation\.org\/jpeg2\.php\?camid=10\.8\.0\.\d+:\d+$/;
 

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { SOURCES } from "@siahra/shared-types";
 import { LANGS, translator, type Lang } from "../../i18n";
+import { ENABLED_CAMERA_SOURCES } from "../../lib/featureFlags";
 import { LanguageContext } from "../../i18n/context";
 import { FLOOD_DEPTH_LEGEND_STOPS_M, FLOOD_RGB, GISTDA_SHEET_RGB, STATION_SHEET_RGB } from "../../lib/floodStyle";
 import { MapLegend, type FloodGfmLegendState, type GistdaDepthLegendState } from "./MapLegend";
@@ -257,5 +259,43 @@ describe("สามแผ่นน้ำแยกสีกันได้ (E16 B
     }
     // ม่วง = R และ B สูงกว่า G ชัดเจน (ILLUSTRATIVE_RGB / EXPOSURE_RGB) — ปลายทั้งสองของแผ่น GISTDA ต้องไม่ใช่
     for (const [r, g, b] of [GISTDA_SHEET_RGB.shallow, GISTDA_SHEET_RGB.deep]) expect(r > g && b > g).toBe(false);
+  });
+});
+
+describe("MapLegend — แถวกล้อง CCTV (E15.3: N แหล่ง)", () => {
+  const renderCctv = (lang: Lang, cameraErrors?: Parameters<typeof MapLegend>[0]["cameraErrors"]) =>
+    renderToStaticMarkup(
+      createElement(
+        LanguageContext.Provider,
+        { value: { lang, setLang: () => {}, t: translator(lang) } },
+        createElement(MapLegend, {
+          layers: { ...ALL_OFF, cctv: true },
+          onToggle: () => {},
+          descriptors: {},
+          quality: "auto",
+          qualityLevel: "balanced",
+          onQualityChange: () => {},
+          cameraErrors,
+        }),
+      ),
+    ).replaceAll("&#x27;", "'");
+
+  it.each(LANGS)("ป้ายทั่วไป + หมายเหตุระบุชื่อทุกแหล่งที่เปิดอยู่ (จาก SOURCES ไม่ใช่คีย์ต่อแหล่ง) (%s)", (lang) => {
+    const html = renderCctv(lang);
+    const t = translator(lang);
+    expect(html).toContain(t("legend.layer.cctv"));
+    for (const id of ENABLED_CAMERA_SOURCES) expect(html).toContain(lang === "th" ? SOURCES[id].nameTh : SOURCES[id].nameEn);
+    expect(html).toContain(t("legend.layer.cctv.unverified"));
+    expect(html).toContain(t("legend.layer.cctv.video"));
+    expect(html).toContain(t("legend.layer.cctv.still"));
+  });
+
+  it.each(LANGS)("โหลดบัญชีของแหล่งหนึ่งไม่ได้ = บรรทัดแดงที่ระบุชื่อแหล่งนั้น แหล่งอื่นไม่ถูกพูดถึง (%s)", (lang) => {
+    const html = renderCctv(lang, { "itic-cctv": { raw: "HTTP 404" } });
+    const t = translator(lang);
+    const itic = lang === "th" ? SOURCES["itic-cctv"].nameTh : SOURCES["itic-cctv"].nameEn;
+    const dwr = lang === "th" ? SOURCES["dwr-cctv"].nameTh : SOURCES["dwr-cctv"].nameEn;
+    expect(html).toContain(t("legend.layer.cctv.error", { source: itic, error: "HTTP 404" }));
+    expect(html).not.toContain(t("legend.layer.cctv.error", { source: dwr, error: "HTTP 404" }));
   });
 });

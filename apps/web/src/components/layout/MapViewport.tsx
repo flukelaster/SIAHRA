@@ -2,9 +2,9 @@ import { Hand, Layers, Maximize2, Minimize2, Minus, MousePointer2, Navigation, P
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import type {
-  CctvCamera,
+  Camera,
+  CameraSourceId,
   DamObservation,
-  ItiCCamera,
   EarthquakeEvent,
   FloodExtentResponse,
   NorthRouteStationState,
@@ -15,6 +15,7 @@ import type {
   RadarFramesResponse,
 } from "@siahra/shared-types";
 import type { CameraPose, MapTool, SafeArea, SceneHandles } from "../../scene/setupScene";
+import type { CatalogueProbe } from "../../hooks/useCameraCatalogues";
 import type { FloodField } from "../../scene/floodField";
 import { IconButton } from "../ui/Panel";
 import { Map3DCanvas, type MapApi, type MapInfo, type MapLayers } from "./Map3DCanvas";
@@ -53,8 +54,8 @@ export function MapViewport({
   floodFieldDim = false,
   gistdaDim = false,
   dams,
-  cctvCameras,
-  iticCameras,
+  cameras,
+  cameraProbes,
   radar,
   exposure,
   exposureStale = false,
@@ -106,10 +107,10 @@ export function MapViewport({
   /** E16 B-2 — แหล่ง GISTDA ค้าง/ติดต่อไม่ได้ → แผ่นน้ำ GISTDA หรี่ลง */
   gistdaDim?: boolean;
   dams: DamObservation[];
-  /** บัญชีกล้อง CCTV ของ DWR (E15) — ส่งต่อให้ Map3DCanvas; undefined/ว่าง = ไม่มีหมุด */
-  cctvCameras?: readonly CctvCamera[];
-  /** บัญชีกล้องถนนของ iTIC (E15.2) — ส่งต่อให้ Map3DCanvas; undefined/ว่าง = ไม่มีหมุด */
-  iticCameras?: readonly ItiCCamera[];
+  /** กล้องทุกแหล่งที่โหลดได้ (E15/E15.3) — ส่งต่อให้ Map3DCanvas; undefined/ว่าง = ไม่มีหมุด */
+  cameras?: readonly Camera[];
+  /** เวลา/vantage ของ probe ต่อแหล่ง — ป้ายในแผงกล้อง */
+  cameraProbes?: Partial<Record<CameraSourceId, CatalogueProbe>>;
   radar: RadarFramesResponse | null;
   /** run ล่าสุดของ "ระดับการเผชิญน้ำ (ภาพประกอบ)" — null = ยังไม่มี/ชั้นถูกปิด */
   exposure: ProvinceExposureResponse | null;
@@ -237,8 +238,8 @@ export function MapViewport({
         floodFieldDim={floodFieldDim}
         gistdaDim={gistdaDim}
         dams={dams}
-        cctvCameras={cctvCameras}
-        iticCameras={iticCameras}
+        cameras={cameras}
+        cameraProbes={cameraProbes}
         radar={radar}
         exposure={exposure}
         exposureStale={exposureStale}

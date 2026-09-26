@@ -15,13 +15,13 @@
  *   - `unreachable` — เราถาม DWR ไม่สำเร็จ (เครือข่าย/CORS/5xx) บอกอะไรเกี่ยวกับกล้องไม่ได้
  *   - `no-image`    — DWR ตอบแล้วว่าไม่มีภาพให้ (value ว่าง หรือไฟล์ภาพ 404)
  */
+import { cameraKey, type Camera } from "@siahra/shared-types";
 import type { Lang } from "../i18n";
+import { DWR_API } from "./cameraSources";
 import { formatAge } from "./time";
 
-export const DWR_API = "https://telemetry.dwr.go.th/api";
-/** หน้าเว็บของ DWR สำหรับเครดิต/ลิงก์กลับ */
-export const DWR_HOME = "https://telemetry.dwr.go.th";
-export { CCTV_CATALOGUE_URL } from "./cameraCatalogues";
+// origin/API ของ DWR อยู่ใน `lib/cameraSources.ts` (โมดูลเล็กที่ entry ก็ใช้) — re-export ให้ผู้เรียกเดิม
+export { DWR_API };
 
 /**
  * ภาพสด MJPEG ของ DWR (E15.2) — `multipart/x-mixed-replace` แสดงด้วย `<img src>` ได้ตรง ๆ
@@ -208,7 +208,7 @@ export function haversineKm(lat1: number, lon1: number, lat2: number, lon2: numb
 
 /**
  * กล้องที่ใกล้ที่สุดภายใน `maxKm` — null = ไม่มีกล้องในระยะ (ไม่ใช่ "ไม่มีน้ำ")
- * ใช้ได้กับบัญชีกล้องทุกแหล่ง (DWR / iTIC) — ผู้เรียกเทียบระยะข้ามแหล่งเอง
+ * ใช้กับรายการรวมทุกแหล่ง (`useCameraCatalogues().cameras`) — ระยะข้ามแหล่งเทียบกันตรง ๆ
  */
 export function nearestCamera<T extends { lat: number; lon: number }>(
   lat: number,
@@ -225,21 +225,23 @@ export function nearestCamera<T extends { lat: number; lon: number }>(
 }
 
 /**
- * กล้องที่ตั้งอยู่ด้วยกันกับ `camera` (ภายใน `maxKm` จากตัวมันเอง ไม่ต่อเป็นโซ่) — หมุดที่ซ้อนกันบน
- * แผนที่คลิกได้แค่ตัวเดียว popup จึงใช้รายการนี้ทำปุ่มสลับ ตัวที่ถูกคลิกอยู่หน้าสุดเสมอ ที่เหลือเรียง
- * ตามระยะแล้วตาม `id` (ลำดับคงที่) — 150 ม. เพราะคู่ที่ซ้อนกันจริงห่างกัน ~22 ม. (ขาเข้า/ขาออกของ
- * DOH-PER-3-006) ถึง ~140 ม. (ITICM_BMAMI0164–0166 ที่แยกกันไม่ออกเมื่อซูมระดับจังหวัด)
+ * กล้องที่ตั้งอยู่ด้วยกันกับ `camera` (ภายใน `maxKm` จากตัวมันเอง ไม่ต่อเป็นโซ่ **ข้ามแหล่งได้**) —
+ * หมุดที่ซ้อนกันบนแผนที่คลิกได้แค่ตัวเดียว แผงกล้องจึงใช้รายการนี้ทำปุ่มสลับ ตัวที่ถูกคลิกอยู่หน้าสุด
+ * เสมอ ที่เหลือเรียงตามระยะแล้วตาม `cameraKey` (ลำดับคงที่; `id` ซ้ำกันข้ามแหล่งได้ จึงเทียบด้วย
+ * กุญแจ) — 150 ม. เพราะคู่ที่ซ้อนกันจริงห่างกัน ~22 ม. (ขาเข้า/ขาออกของ DOH-PER-3-006) ถึง ~140 ม.
+ * (ITICM_BMAMI0164–0166 ที่แยกกันไม่ออกเมื่อซูมระดับจังหวัด)
  */
-export function coLocatedCameras<T extends { id: string; lat: number; lon: number }>(
+export function coLocatedCameras<T extends Pick<Camera, "sourceId" | "id" | "lat" | "lon">>(
   camera: T,
   cams: readonly T[],
   maxKm = 0.15,
 ): T[] {
+  const key = cameraKey(camera);
   const others = cams
-    .filter((c) => c.id !== camera.id)
-    .map((c) => ({ c, d: haversineKm(camera.lat, camera.lon, c.lat, c.lon) }))
+    .filter((c) => cameraKey(c) !== key)
+    .map((c) => ({ c, k: cameraKey(c), d: haversineKm(camera.lat, camera.lon, c.lat, c.lon) }))
     .filter((x) => x.d <= maxKm)
-    .sort((a, b) => a.d - b.d || (a.c.id < b.c.id ? -1 : a.c.id > b.c.id ? 1 : 0))
+    .sort((a, b) => a.d - b.d || (a.k < b.k ? -1 : a.k > b.k ? 1 : 0))
     .map((x) => x.c);
   return [camera, ...others];
 }

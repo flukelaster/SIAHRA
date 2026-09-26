@@ -1308,14 +1308,14 @@ it in production with visible attribution rather than wait for an answer (§4). 
 Cloudflare cost: no DO, R2, cron or route; the browser asks DWR directly.
 
 - Touches: new `apps/etl/src/build-cctv.ts` (+ test, + `build-cctv.README.md`) and `npm run
-  build:cctv -w apps/etl` → tracked `apps/web/public/cctv/dwr-cameras.json` (since E15.3 the script is
-  `build-dwr-cctv.ts` / `build-dwr-cctv.README.md`, run as `npm run build:cctv:dwr`, and writes
-  `dwr-cctv.json` in the generic contract next to the legacy file, which the web still reads until PR B);
+  build:cctv -w apps/etl` → tracked `apps/web/public/cctv/dwr-cameras.json` (history: since E15.3 PR A the
+  script is `build-dwr-cctv.ts` / `build-dwr-cctv.README.md`, run as `npm run build:cctv:dwr`, and writes
+  `dwr-cctv.json` in the generic contract; E15.3 PR B deleted the legacy file and the web reads only the new one);
   `packages/shared-types/src/{cctv,sources}.ts` (`CctvCamera`, `CctvCatalogue`, `SourceId`
   `dwr-cctv`, new `SourceDescriptor` kind `"browser"`, excluded from `LIVE_SOURCE_IDS`); web
   `lib/{cctv,featureFlags}.ts`, `hooks/useCctvCatalogue.ts`, `scene/CctvMarkers.ts`, pick kind
-  `cctv`, `InfoPopup` `CctvBody`, the legend row and descriptor; `public/_headers` +
-  `docs/security.md` (`connect-src` only)
+  `cctv`, `InfoPopup` `CctvBody`, the legend row and descriptor (all of these were generalised or
+  replaced by E15.3 PR B — see that entry); `public/_headers` + `docs/security.md` (`connect-src` only)
 - Depends: —
 - Size: M
 - Risk: the source's permission — a licence decision, not a code one; the upstream payloads carry
@@ -1352,12 +1352,14 @@ no DO, R2, cron or route.
 
 - Touches: new `apps/etl/src/build-itic-cctv.ts` (+ test, + `build-itic-cctv.README.md`), helpers
   shared with `build-cctv.ts` moved to `apps/etl/src/provincePolygons.ts`, `npm run build:itic-cctv
-  -w apps/etl` → tracked `apps/web/public/cctv/itic-cameras.json` (since E15.3: `npm run build:cctv:itic`,
-  writing `itic-cctv.json` in the generic contract next to the legacy file, which the web still reads
-  until PR B); `packages/shared-types/src/{cctv,
-  sources}.ts` (`ItiCCamera`, `ItiCCatalogue`, `SourceId` `itic-cctv`, kind `"browser"`, not in
-  `/api/v1/health`); web `lib/{itic,cctv,featureFlags}.ts`, `hooks/useCctvCatalogue.ts`,
-  `scene/CctvMarkers.ts` (amber play-glyph markers for iTIC), `InfoPopup`, legend, attribution;
+  -w apps/etl` → tracked `apps/web/public/cctv/itic-cameras.json` (history: since E15.3 PR A `npm run
+  build:cctv:itic` writes `itic-cctv.json` in the generic contract; PR B deleted the legacy file);
+  `packages/shared-types/src/{cctv,
+  sources}.ts` (`ItiCCamera`, `ItiCCatalogue` — deleted in E15.3 PR B — `SourceId` `itic-cctv`, kind
+  `"browser"`, not in `/api/v1/health`); web `lib/{itic,cctv,featureFlags}.ts`, `hooks/useCctvCatalogue.ts`,
+  `scene/CctvMarkers.ts` (amber play-glyph markers for iTIC), `InfoPopup`, legend, attribution (all
+  generalised or replaced by E15.3 PR B: `lib/itic.ts` became `lib/streams.ts`, the amber per-source
+  marker became the per-kind icon);
   `hls.js` dependency; `public/_headers` + `docs/security.md` (`img-src`, `connect-src`, `media-src`)
 - Depends: E15
 - Size: M
@@ -1549,24 +1551,52 @@ Owner decisions (2026-09-26):
 Deferred (not in v1): drawing storms in the 3D scene; a national view; a JTWC fallback when JMA is
 down; following several provinces at once; Web Push notifications.
 
-### E15.3 — CCTV: N-source catalogue contract + ETL (PR A) — *done* (2026-09-26); PR B web switch and PR C Department of Highways — *planned*
+### E15.3 — CCTV: N-source catalogue contract + ETL (PR A) — *done* (2026-09-26); PR B web switch — *done* (2026-09-26); PR C Department of Highways — *planned*
 
 Scope decided 2026-09-26 after a survey of public camera sources (the plan file of that day): the
 two-source UI hard-codes DWR vs iTIC in ~15 files, so a third source needs a generic contract first.
 Three PRs, each its own `/implement` run:
 
-- **PR A — contract + ETL (this entry, done).** `packages/shared-types/src/cctv.ts` gains the generic
+- **PR A — contract + ETL (done).** `packages/shared-types/src/cctv.ts` gains the generic
   `Camera` / `CameraStream` / `CameraCatalogue` / `CameraSourceMeta` shapes, `CAMERA_SOURCE_IDS`,
-  `CAMERA_SOURCES`, `cameraCatalogueUrl()`, `cameraKey()`, `streamDirective()` — **alongside** the old
-  `CctvCamera` / `ItiCCamera` types, which the web still uses. `apps/etl/src/cameraCatalogue.ts`
+  `CAMERA_SOURCES`, `cameraCatalogueUrl()`, `cameraKey()`, `streamDirective()` — at the time
+  **alongside** the old `CctvCamera` / `ItiCCamera` types, which the web still used until PR B. `apps/etl/src/cameraCatalogue.ts`
   (`writeCatalogue`, `probeStreams`, `classifyProbe`, `parseBuildArgs`) is shared by
   `build-dwr-cctv.ts` (renamed from `build-cctv.ts`) and the rewritten `build-itic-cctv.ts`; the new
   read-only CLI `probe-cameras.ts` re-probes a built catalogue or one URL and writes nothing. Outputs
-  `apps/web/public/cctv/dwr-cctv.json` and `itic-cctv.json` sit next to the legacy
-  `dwr-cameras.json` / `itic-cameras.json`, which stay the files the web reads until PR B.
-- **PR B — web switch (planned; UI PR, screenshot required).** Read `{sourceId}.json` per enabled
-  source, one pick kind `camera`, markers by stream kind (video / still × verified / dimmed) instead of
-  by source, a per-source build-time disable list, delete the legacy JSONs and the old types.
+  `apps/web/public/cctv/dwr-cctv.json` and `itic-cctv.json` sat next to the legacy
+  `dwr-cameras.json` / `itic-cameras.json`, which stayed the files the web read until PR B.
+- **PR B — web switch (done, 2026-09-26; UI PR).** The web reads `{sourceId}.json` per id in
+  `ENABLED_CAMERA_SOURCES` (`lib/featureFlags.ts`: `CAMERA_SOURCE_IDS` filtered by `defaultEnabled`
+  minus `VITE_FEATURE_CCTV_DISABLE=<id,…>`; `VITE_FEATURE_ITIC=0` kept one release as an alias for
+  `itic-cctv`; `ITIC_ENABLED` deleted) through `hooks/useCameraCatalogues.ts` (one `useStaticCatalogue`
+  per enabled id, `sourceId` mismatch fails only that source, `mergeCatalogues()` in `CAMERA_SOURCE_IDS`
+  order); one pick kind `camera`; `scene/CctvMarkers.ts` draws one group whose icon is the pure
+  `markerStyle(camera)` — play glyph = video, camera glyph = still, dimmed when no stream probed `ok`
+  (`not-probed` dims and is labelled "not probed", not "failed"), `renderOrder = markerPriority`;
+  `lib/cameraSources.ts` (`isAllowedStreamUrl` hard allowlist from the registry, `hasEnabledKind("hls")`
+  gating the hls.js chunk) with a test that parses `public/_headers` against `CAMERA_SOURCES[id].hosts`;
+  `lib/itic.ts` → `lib/streams.ts` (guard injected, `startJpegPoll`, `fetchJpegOnce` for `jpeg-fetch`);
+  `components/map/CameraBody.tsx` (co-located picker → stream picker → one view per `stream.kind`,
+  build-time probe note keeping `unreachable` / answered-with-nothing / `not-probed` apart, `hand-placed` note, generic credits from `SOURCES`); `CameraSheet` takes one
+  `CameraContext {cameras, cache, probes}`; `InfoPopup` lost its camera bodies; legend row generic with
+  the enabled source names and a per-source error line; `cameraLayerDescriptor(builtAt)` (oldest
+  `builtAt`, `publishedAt null`, loaded ids only); `MapAttribution` splices `...ENABLED_CAMERA_SOURCES`;
+  i18n `popup.cctv.*` / `popup.itic.*` → `stream.{dwrSnapshot,mjpeg,hls,jpeg,jpegFetch}.*` +
+  `popup.camera.*`; the legacy JSONs, `hooks/useCctvCatalogue.ts`, `lib/itic.ts`, `lib/cameraCatalogues.ts`
+  and the old `CctvCamera` / `ItiCCamera` / `CctvCatalogue` / `ItiCStream` / `ItiCCatalogue` types
+  deleted. Behaviour that changed on purpose: marker colour no longer encodes the source (DWR blue
+  circle / iTIC amber square → one dark circle, icon by kind, dimmed by probe); the Longdo link in the
+  iTIC popup became part of the source's `attributionText` (title of the source link) rather than a
+  second link; the co-located cluster is now cross-source. CSP hosts unchanged.
+  - *Known / accepted (QA, 2026-09-26 build):* (a) the kill-switch builds are behaviourally inert but
+    not byte-clean — under `VITE_FEATURE_CCTV=0` the registry chunk still carries every
+    `CAMERA_SOURCES` host string and the hls.js chunk is still emitted, though `hasEnabledKind("hls")`
+    means it is never requested and no catalogue, marker, credit or upstream request exists; (b)
+    `hooks/useCameraCatalogues.ts` loops `useStaticCatalogue` over the build-time constant
+    `ENABLED_CAMERA_SOURCES` behind an `oxlint-disable-next-line react/rules-of-hooks` — safe only
+    because that list's length cannot change at runtime, which is why it must never be filtered by
+    runtime state.
 - **PR C — Department of Highways `doh-cctv` (planned).** From the 2026-09-26 survey of
   `highwaytraffic.go.th`: 190 sites nationwide, at most ~140 not already in iTIC (a ceiling before
   dedupe by the `PER-x-yyy` code), HLS on `streaming1` answered with `Access-Control-Allow-Origin: *`
@@ -1609,9 +1639,9 @@ asks upstream itself, nothing touches `/api`, DO, R2 or cron.
    again minutes later, a snapshot of a chain that comes and goes); JPEG 9 `unreachable` (all on
    `camera1.iticfoundation.org`, which that network cannot reach at all — the same group returned
    real frames from outside it earlier that day). Both groups **stay in the file**.
-5. The web app, `dwr-cameras.json`, `itic-cameras.json`, `public/_headers` and the CSP are
-   byte-for-byte untouched by PR A; root `npm test`, `npx tsc --noEmit` in `apps/etl` and the web
-   build are green.
+5. The web app, the legacy JSONs, `public/_headers` and the CSP were byte-for-byte untouched by PR A;
+   PR B then rewrote the web and the `_headers` comment block (hosts unchanged) and deleted the legacy
+   JSONs; root `npm test`, `npx tsc --noEmit` in `apps/etl` and the web build are green after each.
 
 ## 3. Suggested first two weeks
 

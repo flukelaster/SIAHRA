@@ -69,41 +69,50 @@ worker-src 'self'; manifest-src 'self'; media-src blob: https://camerai1.iticfou
   looking clean in Chrome.
 - `img-src` — `data:`/`blob:` for the share-image download (`App.tsx`) and the stitched basemap
   canvas; the two hosts are the basemap providers loaded as `<img>` by `scene/SatelliteImagery.ts`
-  (Esri World Imagery and EOX Sentinel-2 cloudless). `https://telemetry.dwr.go.th` (E15.2) is the DWR
-  live view: `GET /api/public/cctv/mjpegStream?stnCode={station}` answers
-  `multipart/x-mixed-replace`, which a browser renders as a plain `<img src>` — one camera, only after
-  the user presses "ดูสด" in that camera's popup; the popup re-sets `src` every ~15 s (DWR closes the
-  stream after ~11–24 s), stops by itself after 5 min, and sets `src = ""` on close to drop the
-  connection. Inert when built with `VITE_FEATURE_CCTV=0`.
-  `https://camera1.iticfoundation.org` (added 2026-09-26) serves still images for the few iTIC road
-  cameras that have no usable HLS stream: `GET /jpeg2.php?camid=10.8.0.{n}:{port}` answers a JPEG
-  (the only `jpeg2.php` group that returned a real frame when probed on 2026-09-26 — the placeholder,
-  `CAMPK…`, `61.91.182.114` and `jpeg.cgi` groups return "not found", "No signal" or nothing, and are
-  never stored; `apps/etl/src/build-itic-cctv.README.md`). One camera, only after a click; the popup
-  re-requests it every ~5 s with a cache-busting parameter while open, gives up on a request after
-  15 s, stops after 5 min, and sets `src = ""` on close. The image is only displayed — no
-  `crossOrigin`, never drawn to a canvas — so the host needs no CORS and appears in `img-src`
-  **only**: nothing on `camera1` is fetched by XHR or loaded as media. Inert when built with
-  `VITE_FEATURE_ITIC=0`.
-- `connect-src 'self' wss://siahra-radar.co https://telemetry.dwr.go.th https://camerai1.iticfoundation.org` — same-origin `/api/*` plus
-  the earthquake WebSocket. CSP3 says `'self'` already matches `wss:` on the same origin; the explicit
-  host is belt and braces. `https://telemetry.dwr.go.th` (E15) is the Department of Water Resources
-  telemetry API: the browser asks it directly for one CCTV snapshot per click (`GET
-  /api/public/reportCctv/snapshot/{id}`, then `POST /api/file/image/cctv` for the JPEG — DWR reflects
-  our origin in CORS, checked 2026-09-26). The JPEG is shown from a `blob:` URL. The layer ships in
-  production (off by default since 2026-09-26); building with `VITE_FEATURE_CCTV=0` removes it, and this entry is then inert.
-  `https://camerai1.iticfoundation.org` (E15.2) is the iTIC Foundation's HLS server for the road
-  cameras (Department of Highways and partners; camera list by Longdo, baked into
-  `public/cctv/itic-cameras.json` at ETL time, so the Longdo host itself is never contacted by the
-  browser): hls.js loads the playlist and `.ts` segments by XHR (`Access-Control-Allow-Origin: *`,
-  checked 2026-09-26), one camera per click, one player per page. Inert when built with
-  `VITE_FEATURE_ITIC=0`.
-- `media-src blob: https://camerai1.iticfoundation.org` — was `'none'` until E15.2, the first `<video>`
-  in the app. hls.js feeds the `<video>` through Media Source Extensions, which the element loads
-  from a `blob:` URL; Safari/iOS play the same playlist natively, which is a media load of the
-  `camerai1` URL itself. Nothing else is allowed as media.
+  (Esri World Imagery and EOX Sentinel-2 cloudless). The camera hosts are listed below.
+- `connect-src 'self' wss://siahra-radar.co …` — same-origin `/api/*` plus the earthquake WebSocket.
+  CSP3 says `'self'` already matches `wss:` on the same origin; the explicit host is belt and braces.
+  The camera hosts are listed below.
+- `media-src blob: …` — was `'none'` until E15.2, the first `<video>` in the app. hls.js feeds the
+  `<video>` through Media Source Extensions, which the element loads from a `blob:` URL; Safari/iOS
+  play the same playlist natively, which is a media load of the playlist host itself. Nothing else is
+  allowed as media.
+- **Camera hosts (E15 / E15.2 / E15.3)** — one bullet per host in `CAMERA_SOURCES[id].hosts`
+  (`packages/shared-types/src/cctv.ts`). `streamDirective(kind)` says which directive a stream kind
+  needs; `apps/web/src/lib/cameraSources.test.ts` reads `public/_headers` and asserts every registry
+  host appears under each of those directives, and `lib/cameraSources.ts` refuses any stream URL
+  whose origin is not in the registry (plus `https:` only, no userinfo, the source's `urlPattern`).
+  The browser contacts a host only after the user opens that camera's sheet, one camera at a time;
+  the API never does, so none of these sources has a row in `/api/v1/health` (kind `"browser"`). A
+  source removed at build time — `VITE_FEATURE_CCTV=0` for the whole layer, or
+  `VITE_FEATURE_CCTV_DISABLE=<id,…>` per source (`VITE_FEATURE_ITIC=0` stays one release as an alias
+  for `itic-cctv`) — fetches no catalogue, draws no marker, prints no credit and leaves its entries
+  here inert.
+  - `https://telemetry.dwr.go.th` — `dwr-cctv`, in **`connect-src`** (snapshot: the browser asks for
+    one snapshot per click, `GET /api/public/reportCctv/snapshot/{id}` then `POST
+    /api/file/image/cctv` for the JPEG — DWR reflects our origin in CORS, checked 2026-09-26; shown
+    from a `blob:` URL) and **`img-src`** (live view: `GET /api/public/cctv/mjpegStream?stnCode=…`
+    answers `multipart/x-mixed-replace`, rendered as a plain `<img src>`, re-set every ~15 s because
+    DWR closes the stream after ~11–24 s, stopped after 5 min, `src = ""` on close; the pixel-hash
+    frame check reads the image back with `crossOrigin="anonymous"` only because the build-time
+    probe recorded `cors: true`).
+  - `https://camerai1.iticfoundation.org` — `itic-cctv`, in **`connect-src`** and **`media-src`**:
+    the iTIC Foundation's HLS server for the road cameras (Department of Highways and partners; the
+    camera list from Longdo is baked into `public/cctv/itic-cctv.json` at ETL time, so the Longdo
+    host itself is never contacted by the browser). hls.js loads the playlist and `.ts` segments by
+    XHR (`Access-Control-Allow-Origin: *`, checked 2026-09-26), one camera per click, one player per
+    page; Safari/iOS load the playlist natively as media.
+  - `https://camera1.iticfoundation.org` — `itic-cctv`, in **`img-src` only**: still images for the
+    few iTIC road cameras that have no usable HLS stream, `GET /jpeg2.php?camid=10.8.0.{n}:{port}`
+    (the source's `urlPattern` — the only `jpeg2.php` group that returned a real frame when probed on
+    2026-09-26; the placeholder, `CAMPK…`, `61.91.182.114` and `jpeg.cgi` groups return "not found",
+    "No signal" or nothing and are never stored, `apps/etl/src/build-itic-cctv.README.md`). One
+    camera, only after a click; re-requested every ~5 s with a cache-busting parameter while open,
+    a request is given up after 15 s, the loop stops after 5 min, `src = ""` on close. The image is
+    only displayed — no `crossOrigin`, never drawn to a canvas — so nothing on `camera1` is fetched
+    by XHR or loaded as media.
 - `worker-src 'self'` — `src/workers/*.worker.ts` are bundled to same-origin URLs, not blobs. hls.js is
-  created with `enableWorker: false` (`src/lib/itic.ts`), so its transmuxer runs on the main thread
+  created with `enableWorker: false` (`src/lib/streams.ts`), so its transmuxer runs on the main thread
   and never asks for a `blob:` worker; this directive did not change for E15.2.
 - `font-src 'self'` — this is only possible because E4.1 moved Sarabun and IBM Plex Mono into
   `public/fonts/`. Re-adding a Google Fonts `<link>` would force `font-src`/`style-src` back open.

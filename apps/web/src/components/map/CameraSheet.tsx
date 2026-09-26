@@ -1,23 +1,20 @@
-import { Camera, Video, X } from "lucide-react";
+import { Camera as CameraIcon, Video, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { SOURCES, cameraKey } from "@siahra/shared-types";
 import { isTypingTarget } from "../../hooks/useShellState";
 import { useViewport } from "../../hooks/useViewport";
 import { useLang } from "../../i18n/context";
 import {
+  cameraName,
   cameraSelectionKey,
   cameraSheetBox,
-  cctvCameraName,
-  iticCameraName,
   swipeShouldClose,
+  type CameraContext,
   type CameraSelection,
 } from "../../lib/cameraSheet";
 import type { ShellSafeArea } from "../../lib/shellLayout";
-import {
-  CctvBody,
-  ItiCPickBody,
-  type CctvPopupContext,
-  type ItiCPopupContext,
-} from "./InfoPopup";
+import { markerStyle } from "../../scene/CctvMarkers";
+import { CameraBody } from "./CameraBody";
 
 const TITLE_ID = "camera-sheet-title";
 /** ขยับเกินนี้ก่อนจึงตัดสินว่าเป็นการปัดแนวนอนหรือการเลื่อนแนวตั้ง */
@@ -38,7 +35,7 @@ interface SwipeSession {
 }
 
 /**
- * แผงกล้องด้านขวา — กล้อง DWR / iTIC ที่เลือกจากหมุดหรือจากปุ่ม "กล้องใกล้เคียง" ของสถานี
+ * แผงกล้องด้านขวา — กล้องของแหล่งใดก็ได้ที่เลือกจากหมุดหรือจากปุ่ม "กล้องใกล้เคียง" ของสถานี
  * แทน popup ที่เกาะหมุด (ซึ่งหลุดขอบจอบ่อยและเล็กเกินจะดูภาพ)
  *
  * - ≥ tablet: ใต้ TopBar เหนือ dock อยู่ซ้ายของคอลัมน์เข็มทิศ/ซูม (`cameraSheetBox`)
@@ -54,14 +51,12 @@ interface SwipeSession {
 export function CameraSheet({
   selection,
   safeArea,
-  cctv,
-  itic,
+  ctx,
   onClose,
 }: {
   selection: CameraSelection;
   safeArea: ShellSafeArea;
-  cctv: CctvPopupContext | null;
-  itic: ItiCPopupContext | null;
+  ctx: CameraContext | null;
   onClose: () => void;
 }) {
   const { t } = useLang();
@@ -167,8 +162,6 @@ export function CameraSheet({
     setTx(0, SNAP_BACK);
   };
 
-  const hasContext = selection.kind === "cctv" ? cctv !== null : itic !== null;
-
   return (
     <section
       ref={frameRef}
@@ -198,15 +191,8 @@ export function CameraSheet({
         paddingRight: phone ? "env(safe-area-inset-right)" : undefined,
       }}
     >
-      {hasContext ? (
-        <CameraSheetContent
-          key={selKey}
-          selection={selection}
-          cctv={cctv}
-          itic={itic}
-          onClose={onClose}
-          closeLabel={t("common.close")}
-        />
+      {ctx ? (
+        <CameraSheetContent key={selKey} selection={selection} ctx={ctx} onClose={onClose} closeLabel={t("common.close")} />
       ) : null}
     </section>
   );
@@ -214,49 +200,40 @@ export function CameraSheet({
 
 /**
  * หัวแผง + เนื้อหาของกล้องหนึ่งตัว — remount ต่อกล้อง (key) จึงถือสถานะกล้องที่เลือกในกลุ่มที่
- * ตั้งซ้อนกันของ iTIC ไว้ที่นี่ แล้วหัวแผงแสดงชื่อกล้องที่กำลังดูอยู่จริง
+ * ตั้งซ้อนกันไว้ที่นี่ แล้วหัวแผงแสดงชื่อและแหล่งของกล้องที่กำลังดูอยู่จริง
  */
 function CameraSheetContent({
   selection,
-  cctv,
-  itic,
+  ctx,
   onClose,
   closeLabel,
 }: {
   selection: CameraSelection;
-  cctv: CctvPopupContext | null;
-  itic: ItiCPopupContext | null;
+  ctx: CameraContext;
   onClose: () => void;
   closeLabel: string;
 }) {
   const { lang, t } = useLang();
   const headingRef = useRef<HTMLHeadingElement | null>(null);
-  const [iticActiveId, setIticActiveId] = useState(selection.camera.id);
+  const [activeKey, setActiveKey] = useState(cameraKey(selection.camera));
 
   useEffect(() => {
     headingRef.current?.focus({ preventScroll: true });
   }, []);
 
-  const iticActive =
-    selection.kind === "itic"
-      ? ((itic?.cameras.find((c) => c.id === iticActiveId) ?? selection.camera))
-      : null;
-  const title =
-    selection.kind === "cctv" ? cctvCameraName(selection.camera, lang, t) : iticCameraName(iticActive ?? selection.camera, t);
-  const kicker =
-    selection.kind === "cctv" ? t("legend.layer.cctv.dwrOnly") : t("legend.layer.cctv.iticOnly");
-  const KickerIcon = selection.kind === "itic" && iticActive?.stream.kind !== "jpeg" ? Video : Camera;
+  const active = ctx.cameras.find((c) => cameraKey(c) === activeKey) ?? selection.camera;
+  const title = cameraName(active, lang, t);
+  const source = SOURCES[active.sourceId];
+  const kicker = lang === "th" ? source.nameTh : source.nameEn;
+  const style = markerStyle(active);
+  const KickerIcon = style.kind === "video" ? Video : CameraIcon;
 
   return (
     <>
       <header className="flex shrink-0 items-start gap-2 border-b border-white/8 px-3.5 py-2.5">
         <div className="min-w-0 flex-1">
           <p className="inline-flex items-center gap-1 text-[10px] text-[var(--color-fg-subtle)]">
-            <KickerIcon
-              size={11}
-              aria-hidden="true"
-              className={selection.kind === "cctv" ? "text-[#0ea5e9]" : "text-[#fbbf24]"}
-            />
+            <KickerIcon size={11} aria-hidden="true" className={style.verified ? "text-[#38bdf8]" : "text-[#94a3b8]"} />
             {kicker}
           </p>
           <h2
@@ -279,28 +256,16 @@ function CameraSheetContent({
         </button>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3.5 py-3">
-        {selection.kind === "cctv" && cctv ? (
-          <CctvBody
-            camera={selection.camera}
-            cache={cctv.cache}
-            lang={lang}
-            t={t}
-            distanceKm={selection.distanceKm}
-            showName={false}
-          />
-        ) : null}
-        {selection.kind === "itic" && itic ? (
-          <ItiCPickBody
-            camera={selection.camera}
-            cameras={itic.cameras}
-            lang={lang}
-            t={t}
-            distanceKm={selection.distanceKm}
-            activeId={iticActiveId}
-            onActiveChange={setIticActiveId}
-            showName={false}
-          />
-        ) : null}
+        <CameraBody
+          camera={selection.camera}
+          ctx={ctx}
+          lang={lang}
+          t={t}
+          distanceKm={selection.distanceKm}
+          activeKey={activeKey}
+          onActiveChange={setActiveKey}
+          showName={false}
+        />
       </div>
     </>
   );

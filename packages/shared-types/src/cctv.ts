@@ -1,91 +1,8 @@
 import type { SourceId } from "./sources.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// รูปเก่า (E15/E15.2) — web ยังอ่าน `dwr-cameras.json`/`itic-cameras.json` ด้วยชนิดสองชุดนี้อยู่
-// ETL เขียนรูปใหม่ (`Camera`/`CameraCatalogue` ด้านล่าง) ลง `{sourceId}.json` คู่ขนานกันไปก่อน
-// จนกว่า web จะย้ายตาม (PR B) แล้วชนิดเก่าจึงถูกลบ — ห้ามใช้กับไฟล์ใหม่
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * บัญชีกล้อง CCTV ของกรมทรัพยากรน้ำ (DWR, E15) — `apps/web/public/cctv/dwr-cameras.json`
- * สร้างโดย `npm run build:cctv:dwr -w apps/etl` (`apps/etl/src/build-dwr-cctv.ts`) จาก API
- * สาธารณะ `https://telemetry.dwr.go.th/api`
- *
- * ชนิดนี้เป็น **allowlist**: ต้นทางส่งลิงก์กล้องที่ฝังชื่อผู้ใช้/รหัสผ่านจริงมาด้วย
- * (`cctvSnapshotLink`/`cctvVideoLink`) ฟิลด์เหล่านั้นจึงไม่มีที่อยู่ในชนิดนี้โดยตั้งใจ
- * ห้ามเพิ่มฟิลด์ลิงก์ใด ๆ ของตัวกล้องเข้ามา — ภาพล่าสุดขอผ่าน API ของ DWR ด้วย `id`
- * เท่านั้น (ดู `apps/web/src/lib/cctv.ts`)
- */
-export interface CctvCamera {
-  /** id ของระเบียน reportCctv ที่ DWR ใช้ขอภาพล่าสุด (`public/reportCctv/snapshot/{id}`) */
-  id: string;
-  /** รหัสสถานีโทรมาตรของ DWR ที่กล้องติดอยู่ (เช่น "TC020106") */
-  stationCode: string;
-  nameTh: string | null;
-  nameEn: string | null;
-  /** WGS84 จาก `public/station/getByCode/{stationCode}` ของ DWR */
-  lat: number;
-  lon: number;
-  /**
-   * จังหวัดจาก point-in-polygon กับ `apps/web/public/aoi/{code}/boundary.geojson`
-   * ตอน build — null = พิกัดไม่ตกในขอบเขตจังหวัดใดที่เรามี (ไม่เดาจากชื่อจังหวัดของต้นทาง)
-   */
-  provinceCode: string | null;
-  /** ชื่ออำเภอตามที่ DWR ระบุ — null เมื่อต้นทางไม่ได้ให้ไว้ */
-  amphoeTh: string | null;
-}
-
-export interface CctvCatalogue {
-  /** เวลาที่สคริปต์ ETL ดึงรายการจาก DWR สำเร็จ (UTC ISO) — ใช้เป็น `fetchedAt` ของชั้น */
-  builtAt: string;
-  /** endpoint ที่รายการนี้มาจาก — ให้ตรวจย้อนได้ */
-  sourceUrl: string;
-  cameras: CctvCamera[];
-}
-
-/**
- * บัญชีกล้องถนนของมูลนิธิ iTIC (E15.2) — `apps/web/public/cctv/itic-cameras.json`
- * สร้างโดย `npm run build:cctv:itic -w apps/etl` (`apps/etl/src/build-itic-cctv.ts`) จากรายการ
- * กล้องที่ Longdo เผยแพร่ (`https://camera.longdo.com/feed/?command=json`)
- *
- * เป็น **allowlist** เช่นเดียวกับ `CctvCamera`: เก็บลิงก์ของต้นทางได้สองแบบเท่านั้น (ดู `ItiCStream`)
- * — ห้ามเพิ่มลิงก์ภาพ/MJPEG อื่นของต้นทาง (`vdourl`, `link`, `imgurl` นอกกลุ่มที่วัดแล้ว)
- */
-export interface ItiCCamera {
-  /** `camid` ของต้นทาง (เช่น "DOH-PER-8-012") */
-  id: string;
-  /** `title` ของต้นทาง (ภาษาไทย, มีทางหลวง/ทิศทาง) — null เมื่อว่าง */
-  name: string | null;
-  lat: number;
-  lon: number;
-  /** เจ้าของกล้องตามที่ต้นทางระบุ (เช่น "กรมทางหลวง") — null เมื่อว่าง; แสดงเป็นเครดิตใน popup */
-  organization: string | null;
-  /** สิ่งที่เบราว์เซอร์เปิดได้จากกล้องนี้ — วิดีโอสด HLS หรือภาพนิ่ง JPEG ที่ขอใหม่เป็นระยะ */
-  stream: ItiCStream;
-  /** จังหวัดจาก point-in-polygon ตอน build — null = ไม่ตกในขอบเขตจังหวัดใดที่เรามี */
-  provinceCode: string | null;
-}
-
-/**
- * ลิงก์ของกล้อง iTIC หนึ่งตัว (ETL กรองไว้ และ web ตรวจรูปแบบซ้ำก่อนใช้):
- *
- * - `hls`  — HLS playlist บน `https://camerai1.iticfoundation.org/` ที่ไม่ใช่ `tempsus`
- *   (ป้าย "ระงับชั่วคราว") — วิดีโอสด
- * - `jpeg` — `https://camera1.iticfoundation.org/jpeg2.php?camid=10.8.0.{n}:{port}` เท่านั้น: ภาพนิ่ง
- *   หนึ่งเฟรม (เวลาถ่ายพิมพ์อยู่บนภาพ ไม่มีเป็นข้อมูล) — กลุ่มเดียวของกล้องที่ไม่มี HLS ใช้ได้ซึ่ง
- *   ตอบภาพจริงเมื่อวัด 2026-09-26 (เหตุผลและผลของกลุ่มอื่นอยู่ใน `build-itic-cctv.README.md`)
- */
-export type ItiCStream = { kind: "hls"; url: string } | { kind: "jpeg"; url: string };
-
-export interface ItiCCatalogue {
-  /** เวลาที่สคริปต์ ETL ดึงรายการสำเร็จ (UTC ISO) — `fetchedAt` ของชั้น; ต้นทางไม่มีเวลาเผยแพร่ */
-  builtAt: string;
-  sourceUrl: string;
-  cameras: ItiCCamera[];
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// รูปทั่วไป — กล้องหนึ่งชนิด, N แหล่ง (แผน 2026-09-26 ขั้นที่ 2a)
+// กล้องหนึ่งชนิด, N แหล่ง (E15.3, แผน 2026-09-26 ขั้นที่ 2a) — ชนิดต่อแหล่งของ E15/E15.2 ถูกลบ
+// ใน PR B; web อ่านเฉพาะ `{sourceId}.json` ในรูปนี้ (`apps/web/src/hooks/useCameraCatalogues.ts`)
 //
 // แหล่งกล้องทุกแหล่งเป็น `SourceDescriptor` ชนิด `"browser"`: เบราว์เซอร์ของผู้ใช้ขอภาพ/สตรีม
 // จากต้นทางเองทีละกล้องเมื่อคลิก api ไม่เคยถาม จึงไม่มีสถานะใน `/api/v1/health` และไม่มี
@@ -208,7 +125,7 @@ export interface CameraSourceMeta {
   hosts: Partial<Record<CspDirective, readonly string[]>>;
   /** รูปแบบ url เพิ่มเติมที่ต้องตรงทั้งเส้น (ยึดหัว-ท้าย) — เช่นกลุ่มภาพนิ่งเดียวของ iTIC ที่วัดแล้ว */
   urlPattern?: RegExp;
-  /** เปิดในบิลด์ปกติไหม (ปิดรายแหล่งด้วย `VITE_FEATURE_CCTV_DISABLE=<id,...>` ใน PR B) */
+  /** เปิดในบิลด์ปกติไหม (ปิดรายแหล่งด้วย `VITE_FEATURE_CCTV_DISABLE=<id,...>` — `apps/web/src/lib/featureFlags.ts`) */
   defaultEnabled: boolean;
   /** `renderOrder` ของหมุด — เลขมากอยู่บน */
   markerPriority: number;
