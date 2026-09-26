@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type {
   AoiManifest,
@@ -36,6 +36,8 @@ import { RadarOverlay } from "../../scene/RadarOverlay";
 import { pickAt, type PickResult } from "../../scene/picking";
 import { QualityManager, type QualityLevel, type QualityMode } from "../../scene/quality";
 import { InfoPopup } from "../map/InfoPopup";
+import { CameraSheet } from "../map/CameraSheet";
+import { isClickRelease, type CameraSelection } from "../../lib/cameraSheet";
 import { buildEarthquakeMarkers, type EarthquakeMarkerResult } from "../../scene/EarthquakeMarkers";
 import { buildExposureMarkers, type ExposureMarkerResult } from "../../scene/ExposureMarkers";
 import { declutterLabels, disposeLabels, makeLabel, makePlaceLabel } from "../../scene/labels";
@@ -321,6 +323,11 @@ export function Map3DCanvas({
   const qualityCbRef = useRef(onQualityLevel);
   qualityCbRef.current = onQualityLevel;
   const [pick, setPick] = useState<PickResult | null>(null);
+  /**
+   * กล้องในแผงด้านขวา (`CameraSheet`) — แยกจาก `pick` โดยสิ้นเชิง: หมุดกล้องไม่แตะ popup
+   * และหมุดอื่น/พื้นดิน/ท้องฟ้าไม่ปิดแผงกล้อง (ปิดได้ด้วย X / Escape / ปัดขวา / ปิดชั้นเท่านั้น)
+   */
+  const [cameraSel, setCameraSel] = useState<CameraSelection | null>(null);
   const popupDivRef = useRef<HTMLDivElement | null>(null);
   const pickRef = useRef<PickResult | null>(null);
   pickRef.current = pick;
@@ -335,8 +342,6 @@ export function Map3DCanvas({
     floodField && floodSceneId && floodSceneObservedAt
       ? { field: floodField, sceneId: floodSceneId, observedAt: floodSceneObservedAt }
       : null;
-  const toolRef = useRef(tool);
-  toolRef.current = tool;
   const floodLabelsRef = useRef<THREE.Group | null>(null);
   const infoRef = useRef<MapInfo | null>(null);
   const safeAreaRef = useRef(safeArea);
@@ -384,8 +389,9 @@ export function Map3DCanvas({
 
         // Click/tap-to-inspect: a press+release with little movement.
         //
-        // เมาส์ยังเคารพเครื่องมือ (เฉพาะโหมด select) แต่ **จอสัมผัสไม่มีเครื่องมือแล้ว**
-        // — นิ้วเดียวเลื่อนแผนที่เสมอ การแตะจึงไม่กำกวมและต้องเลือกได้ทุกโหมด
+        // **ไม่ขึ้นกับเครื่องมือ** (ลูกศร/มือ) ทั้งเมาส์และนิ้ว — เครื่องมือเปลี่ยนแค่ว่าการ *ลาก*
+        // หมุนหรือเลื่อน (setTool) คลิกที่แทบไม่ขยับไม่ได้ขยับแผนที่ในโหมดไหนเลย จึงเลือกได้เหมือนกัน
+        // ส่วนการลากที่ไปจบบนหมุดขยับเกินเกณฑ์ของ `isClickRelease` จึงไม่เปิดหมุดนั้น
         // สองนิ้วขึ้นไปไม่ใช่การแตะเด็ดขาด ไม่งั้นการบีบที่จบตรงจุดเดิมจะถูกนับเป็นแตะ
         let downAt: { x: number; y: number; t: number; touch: boolean } | null = null;
         let activeTouches = 0;
@@ -410,9 +416,7 @@ export function Map3DCanvas({
           const held = performance.now() - downAt.t;
           const wasTouch = downAt.touch;
           downAt = null;
-          if (!wasTouch && toolRef.current !== "select") return;
-          // นิ้วสั่นกว่าเมาส์ — การเลื่อนย่อมเกินเกณฑ์นี้อยู่แล้วโดยนิยาม
-          if (moved > (wasTouch ? 10 : 5) || held > 600) return;
+          if (!isClickRelease(moved, held, wasTouch)) return;
           const h = sceneRef.current;
           const loaded = terrainRef.current;
           if (!h || !loaded) return;
@@ -438,6 +442,15 @@ export function Map3DCanvas({
                 }
               : null,
           });
+          // กล้องเปิดในแผงด้านขวา ไม่ใช่ popup ที่เกาะหมุด — popup ที่เปิดอยู่ (เช่นสถานี) ไม่ถูกแตะ
+          if (result?.kind === "cctv") {
+            setCameraSel({ kind: "cctv", camera: result.camera, distanceKm: null });
+            return;
+          }
+          if (result?.kind === "itic") {
+            setCameraSel({ kind: "itic", camera: result.camera, distanceKm: null });
+            return;
+          }
           setPick(result);
         };
         // iOS ยิง pointercancel ใจกว้าง (ปัดขอบจอ ดึงศูนย์แจ้งเตือน) — ถ้าไม่ล้าง
@@ -994,6 +1007,7 @@ export function Map3DCanvas({
   }, [state.status]);
 
   const closePopup = useCallback(() => setPick(null), []);
+  const closeCamera = useCallback(() => setCameraSel(null), []);
 
   useEffect(() => {
     qualityRef.current?.setMode(quality);
@@ -1094,17 +1108,17 @@ export function Map3DCanvas({
     iticRef.current = result;
   }, [iticCameras, state.status]);
 
-  // ปิดชั้น = ปิด popup ของกล้อง iTIC (ตัวเล่นถูกถอดตอน unmount → ตัดสตรีมทันที)
+  // ปิดชั้น = ปิดแผงกล้อง iTIC (ตัวเล่นถูกถอดตอน unmount → ตัดสตรีมทันที)
   useEffect(() => {
     if (iticOn) return;
-    setPick((p) => (p?.kind === "itic" ? null : p));
+    setCameraSel((c) => (c?.kind === "itic" ? null : c));
   }, [iticOn]);
 
-  // ปิดชั้น CCTV = ปิด popup ของกล้อง + คืน object URL ทั้งหมด; ถอดแผนที่ = คืนทั้งหมดเช่นกัน
+  // ปิดชั้น CCTV = ปิดแผงกล้อง DWR + คืน object URL ทั้งหมด; ถอดแผนที่ = คืนทั้งหมดเช่นกัน
   useEffect(() => {
     if (cctvOn) return;
     snapshotCache.clear();
-    setPick((p) => (p?.kind === "cctv" ? null : p));
+    setCameraSel((c) => (c?.kind === "cctv" ? null : c));
   }, [cctvOn, snapshotCache]);
   useEffect(() => () => snapshotCache.clear(), [snapshotCache]);
 
@@ -1373,6 +1387,12 @@ export function Map3DCanvas({
     if (buildingsRef.current) buildingsRef.current.visible = layers.buildings;
   }, [layers, cctvOn, iticOn, state.status, imageryProgress]);
 
+  const cctvContext = useMemo(
+    () => (cctvOn ? { cameras: cctvCameras, cache: snapshotCache } : null),
+    [cctvOn, cctvCameras, snapshotCache],
+  );
+  const iticContext = useMemo(() => (iticOn ? { cameras: iticCameras } : null), [iticOn, iticCameras]);
+
   return (
     <div className="absolute inset-0">
       <div ref={containerRef} className="map-sky absolute inset-0 touch-none" />
@@ -1381,10 +1401,20 @@ export function Map3DCanvas({
           <InfoPopup
             pick={pick}
             onClose={closePopup}
-            cctv={cctvOn ? { cameras: cctvCameras, cache: snapshotCache } : null}
-            itic={iticOn ? { cameras: iticCameras } : null}
+            cctv={cctvContext}
+            itic={iticContext}
+            onOpenCamera={setCameraSel}
           />
         </div>
+      ) : null}
+      {cameraSel ? (
+        <CameraSheet
+          selection={cameraSel}
+          safeArea={safeArea}
+          cctv={cctvContext}
+          itic={iticContext}
+          onClose={closeCamera}
+        />
       ) : null}
 
       {state.status === "loading" ||
