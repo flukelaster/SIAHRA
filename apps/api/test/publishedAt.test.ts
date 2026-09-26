@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchGistdaFloodExtent } from "../src/ingestion/gistda";
 import { fetchRadarIndex } from "../src/ingestion/tmdRadar";
 
 /**
@@ -31,22 +30,8 @@ describe("fetchRadarIndex", () => {
   });
 });
 
-describe("fetchGistdaFloodExtent", () => {
-  const scene = (extra: Record<string, unknown>) =>
-    new Response(JSON.stringify({ ...extra, features: [] }), { headers: { "Content-Type": "application/json" } });
-
-  /**
-   * `timeStamp` ของ WFS คือ "เวลาที่ GeoServer สร้าง response" ไม่ใช่เวลาที่ฉาก
-   * ถูกเผยแพร่ — วัดจริง 2026-08-19 แล้วมันเดินตามนาฬิกาของคำขอทั้งที่ข้อมูล
-   * เหมือนเดิมทุกไบต์ ดังนั้นถึงต้นทางจะส่งมาก็ห้ามเอามาใช้
-   */
-  it("ไม่เอา timeStamp ของ WFS มาเป็นเวลาเผยแพร่ แม้ต้นทางจะส่งมา", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(scene({ timeStamp: "2026-08-18T10:00:00.000Z" }));
-    await expect(fetchGistdaFloodExtent({ attempts: 1 }).then((s) => s.publishedAt)).resolves.toBeNull();
-  });
-
-  it("ไม่มี timeStamp ก็ยังเป็น null (ต้นทางไม่มีวันที่ถ่ายภาพ/วันที่เผยแพร่เลย)", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(scene({}));
-    await expect(fetchGistdaFloodExtent({ attempts: 1 }).then((s) => s.publishedAt)).resolves.toBeNull();
-  });
-});
+/*
+ * GISTDA (E16.PR0): ต้นทางใหม่มี `_createdAt` ต่อเซลล์ = เวลาที่ GISTDA สร้างระเบียนจริง
+ * `publishedAt` ของชั้นจึงเป็น `_createdAt` ใหม่สุด ไม่ใช่ null อีกต่อไป (และไม่ใช่ `timeStamp`
+ * ของซอง ซึ่งยังเป็นเวลาที่สร้าง response) — เทสอยู่ที่ floodExtentDO.test.ts / floodLayer.test.ts
+ */

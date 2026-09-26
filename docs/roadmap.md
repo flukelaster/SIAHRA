@@ -1203,7 +1203,7 @@ hydraulics stay excluded and the four scoping decisions in §0 are unchanged.
     km²; click selects `sceneAtIso`; marks outside the range are not drawn; `dense` and `full`
     variants); a "นอกช่วงของแถบเลื่อน" chip when `atIso` is older than the range (in `dense` it
     replaces the archive chip so it fits the phone sheet)
-  - **behaviour change:** changing the range (72 h / 7 d / 30 d) no longer resets `atIso` to live
+  - **behaviour change:** changing the range (72 h / 7 d / 30 d; 48 h / 7 d / 30 d since E16) no longer resets `atIso` to live
     (`lib/timelineRange.ts` `applyRangeChange` deliberately takes no `onChange`) — the old reset
     would have dropped a picked 2024 event; the out-of-range chip is what tells the user instead
   - popup: the ground pick (`scene/picking.ts`) gains `floodCell` from the pure `floodCellAt(field,
@@ -1380,8 +1380,112 @@ no DO, R2, cron or route.
    (≤ 3 km) considers both sources.
 6. The enforcing CSP was exercised on the production `dist` (2026-09-26) with zero app violations;
    entry + vendor 341.68 kB gz of the 360 kB guard.
+### E16 — Northern-water routes (น้ำเหนือ)
 
-### E16 — Storm track layer v1 (JMA + GDACS NIO) — *done* (2026-09-26)
+New scope, not from the audit. The Ping (+ Wang) and Nan (+ Yom) meet at Nakhon Sawan and become the
+Chao Phraya down to Bangkok; E16 shows that route as observed stations along the rivers, then (later
+phases) in 3D, and only ever with measured or cited numbers. It does not reopen scoping decision 1:
+nothing in E16 turns rain into a water level or computes when water will arrive.
+
+#### E16.PR0 — Restore GISTDA flood extent — *blocked on the user*
+- The GISTDA WFS `flooding_vis_public` has answered `401 Unauthorized` since 2026-09-10 (`gistda-flood`
+  is `down` in `/api/v1/health`, `fetchedAt` stuck at that date; the UI dims it as it should), and the
+  newer `api-gateway.gistda.or.th` flood resources answer `407` — both need an API key (§4)
+- Once a key exists: probe the gateway's flood products, point `apps/api/src/ingestion/gistda.ts` at
+  them behind a zod schema, map a real observation date to `observedAt` if the product carries one,
+  and record whether the polygons are satellite extents or tambon admin shapes (this gates E16.B)
+- Touches: `apps/api/src/ingestion/gistda.ts`, `FloodExtentDO` (devops gate: touches the DO and
+  ingestion, cadence unchanged)
+- Depends: the GISTDA API key (§4)
+- Size: M
+- Risk: the gateway schema and whether it carries an observation date are unknown until probed
+- Issue: _(not yet filed)_
+
+#### E16.PR1 — Northern-water route panel — *done* (2026-09-26)
+- Touches: `packages/shared-types/src/{observations,rivers}.ts` (`StationRef.ridCode`/`subBasinId`/
+  `isKeyStation`; `WaterLevelObservation.dischargeM3s`/`qmaxM3s`/`criticalLevelMsl` from ThaiWater
+  `waterlevel_load` — `qmaxM3s`/`criticalLevelMsl` ≤ 0 → `null`, `dischargeM3s` < 0 → `null` (0 is a real reading); `NorthRouteTopology`,
+  `NorthRouteResponse`); `apps/etl/src/build-north-route.ts` (+ test, + README, strings-only cited
+  `northRoute.source.json`) and `npm run build:north-route -w apps/etl` → tracked
+  `apps/web/public/rivers/north-route.json` + `apps/api/src/data/northRouteStations.json`;
+  `apps/api/src/routes/rivers.ts` (`GET /api/v1/rivers/north`) and `ObservationCacheDO`
+  `northRoute()` / `pullRouteHistory()`; web `NorthWaterCard` (panel `north`), `useNorthRoute`,
+  `lib/{northRoute,sparklineRange}.ts`, `InfoPopup` discharge / % `qmax` / critical level with a
+  level/discharge chart toggle, `WaterLevelCard` discharge, `TimelineBar` ranges 48 h / 7 d / 30 d
+- Depends: —
+- Size: L
+- Risk: a route station dropping out of ThaiWater `waterlevel_load` makes the next
+  `build:north-route` refuse to write rather than the panel degrade; OSM line gaps are bridged straight
+- devops: go-with-constraints (C1–C12), post-diff verify pass, delta ≈ $0
+- Issue: _(not yet filed)_
+
+1. 26 RID stations (Ping / Wang / Yom / Nan → C.2 Nakhon Sawan → … → C.12 Samsen) are placed by
+   chainage on OSM river lines; line gaps are declared, not hidden, and the build refuses on an
+   unresolved station code, a station > 2 km off its line, an order that contradicts the cited source,
+   or any number in the source file.
+2. `GET /api/v1/rivers/north` costs one read-only, primary-key-only DO RPC per 120 s edge-cache miss
+   and rejects any query string with `400`; the 48 h history is pulled at most hourly, stopping at the
+   first failure.
+3. The panel shows observed values only — situation / bank-distance colour, discharge and % `qmax`,
+   3 h trend, 48 h sparklines, observed 48 h peak times, dams on the route — and **no arrival time and
+   no forecast**; it follows `atIso` within 48 h, shows a chip outside it, and dims stale data. The
+   flow-dash animation speed comes from observed discharge as % `qmax`; it is not water velocity and
+   is absent with no data, outside 48 h, or under reduced motion.
+
+#### E16.B-1 — Station water sheet, 3D route rivers, flood-source age chip — *done, PR pending* (2026-09-26)
+- Touches: web only (no api / DO / R2 / `wrangler.jsonc` change) — `scene/StationSheet.ts`,
+  `workers/stationSheet.worker.ts`, `lib/stationSheet{,Field,Leaf}.ts`, `scene/NorthRouteRivers.ts`,
+  `lib/routeRibbon.ts`, `components/layout/FloodSourceAgeChip.tsx` + `lib/floodSourceAge.ts`,
+  `lib/pollSchedule.ts`, shared `lib/tileCodec.ts` (`TerrainTiles`/`VegetationTiles` now use it),
+  `FloodSurface` render order, `MapLegend`, `InfoPopup`, `useLayerDescriptors`, `useNorthRoute`
+- devops: go-with-constraints (leaf-fetch budget, polling cadence); measured leaf fetches 16/48
+  Ayutthaya, 3/48 Bangkok
+- Bundle: after rebasing onto main, entry + vendor 1367.11 kB raw, 367.84 kB gzipped — 7.84 kB
+  over the 360 kB warning-only guard in `scripts/check-bundle-budget.mjs` (E8.2), so the build
+  log now prints that warning; the build-breaking 900 kB ceiling is unaffected
+- Follow-up: the `station-level-sheet-illustrative` descriptor has no `methodologyUrl`; a
+  `docs/methodology/` page (like `flood-depth.md` / `lowland.md`) is not written yet
+- Issue: _(not yet filed)_
+
+1. Layer `stationSheet` (default on) is `illustrative`, descriptor `station-level-sheet-illustrative`,
+   sources `thaiwater` + `copernicus-dem`, `fetchedAt` copied from the observations. Per ThaiWater
+   station whose level is above `minBankMsl` with a reading ≤ 6 h old against the selected time, a
+   worker flood-fills (4-connected) ground lower than the measured level within 5 km and the province
+   mask — overview grid first, then 30 m leaf terrain with the WorldCover 60 m mask (built-up / tree =
+   depth not estimated, stippled). It fades with distance, is hatched, capped at 0.55 opacity, badged
+   "แผ่นน้ำจำลอง — ไม่ใช่ภาพน้ำท่วมจริง", and its legend and popup ("น้ำลึกประมาณ X.X ม. (จำลอง)" + the
+   source station, level and time) state the caveats: a DSM, whole-metre heights, not a satellite
+   extent, embankments / dikes / pumping not modelled (a bathtub fill), 30 m vs overview resolution
+   per station. GFM-observed cells always win and GFM draws above it.
+2. Leaf tiles: ≤ 48 requests per province layer, derived from the overview fill dilated one cell and
+   the manifest present-bitmask, same URLs as `TerrainTiles` / `VegetationTiles`, deduped, ≤ 6
+   concurrent, 250 ms debounce, none while the layer is off or nothing is over bank; a crashed worker
+   degrades to overview only with a persistent legend error.
+3. Layer `northRoute` (default on) drapes the route reaches on terrain, clipped to the province,
+   coloured by the nearest route station's status, animated downstream from observed discharge as %
+   `qmax` — static and dimmed with no data, absent outside 48 h.
+4. The flood-source age chip names the Sentinel-1 age first, then GISTDA ("ไม่ได้ข้อมูลตั้งแต่ {time}"
+   while its health is down; never-received for a null `fetchedAt`; health unreachable said as such).
+5. Polling: the route every 10 min with only the layer on, 5 min while the north panel is open, 120 s
+   retry; dams panel-only every 15 min; nothing while the tab is hidden.
+
+#### E16.B — 3D "flooded now" (remaining) — *planned*
+- GISTDA in 3D once PR0 lands (FwDET depth as `illustrative` only if the polygons turn out to be real
+  satellite extents; a flat translucent extrusion, said so in the legend, if they are admin polygons);
+  `gfm-ingest.yml` cron from every 6 h to
+  hourly (GitHub minutes only while the repo is public; devops confirms the R2 operations)
+- Depends: E16.PR0 (for the GISTDA part), E16.PR1
+- Issue: _(not yet filed)_
+
+#### E16.C — Forward-looking data, cited only — *planned*
+- TMD NWP rain summed over each reach's upstream provinces, shown as a `forecast` descriptor and
+  **never converted to a water level**; an official water-level forecast is ingested (as `forecast`,
+  with its model name and `issuedAt`) only if HII/RID are found to publish a citable, machine-readable
+  one — otherwise the panel states that no citable water-level forecast exists
+- Depends: E16.PR1, E12
+- Issue: _(not yet filed)_
+
+### E17 — Storm track layer v1 (JMA + GDACS NIO) — *done* (2026-09-26)
 
 PR #99's notification center left storm tracks out because no source was known. Probing on
 2026-09-26: TMD publishes warning text only, no machine-readable track; JMA's bosai JSON (CORS `*`,
@@ -1429,7 +1533,7 @@ Owner decisions (2026-09-26):
 5. The notification center has a Storm tab; a storm row appears within `STORM_NOTIFY_KM` = 300 km of
    the selected province, a stated distance rule the row text spells out.
 6. The i18n forecast-wording ban is relaxed only for `storm.*`, and "probability" / "%" only for
-   `storm.circle.*`. Entry + vendor 356.88 kB gz of the 360 kB guard.
+   `storm.circle.*`. Entry + vendor 356.88 kB gz on the branch alone; 379.42 kB gz (over the 360 kB warning guard) after merging E16.
 
 Deferred (not in v1): drawing storms in the 3D scene; a national view; a JTWC fallback when JMA is
 down; following several provinces at once; Web Push notifications.
@@ -1448,6 +1552,7 @@ Tracked as one pinned `needs-user` checklist issue, not as tasks.
 |---|---|---|
 | Workers Paid active (the DO-backed endpoints return 500 on the Free tier — already documented) | any api change deployed | **open** — user action, deploy-time only |
 | **blocker: TMD secrets** — `wrangler secret put TMD_UID` / `TMD_UKEY` (a registered key is preferable) | E2.3 | **open** — user action; the code degrades honestly without them, but the TMD feed stays `degraded` in production until they are set |
+| **GISTDA API key** — the open WFS answers 401 since 2026-09-10; the API gateway needs `GISTDA_API_KEY` (`npx wrangler secret put GISTDA_API_KEY` from an interactive terminal, `docs/deploy.md` §3) | E16.PR0 (GISTDA flood extent) | **resolved for dev 2026-09-26** (`apps/api/.dev.vars`); **open for prod** — the owner sets the secret, then checks `gistda-flood` is `ok` in `/api/v1/health` |
 | **blocker: licence choice** — MIT / Apache-2.0 / other | E2.4 | **resolved 2026-08-18: MIT** |
 | Make `Test` a required check (`.github/rulesets/main.json` + `scripts/apply-branch-rules.sh`) once E1.3 is stable | after M1 | **open** — user action |
 | HSTS `includeSubDomains`/`preload`: yes or no | E4.2 | **resolved 2026-08-18: `max-age` only** — no `includeSubDomains`, no `preload` |
@@ -1456,6 +1561,7 @@ Tracked as one pinned `needs-user` checklist issue, not as tasks.
 | **blocker: R2 storage past the free tier** — E9.2's versioned prefix means the same 5.174 GiB / 303,260 objects exist twice (the old prefix is served `immutable` for a year and can never be deleted), taking the bucket to about 10.35 GiB against a 10 GB free allowance. Server-side copy, so nothing is re-uploaded from a laptop; 303k Class A operations stay inside the free 1M/month | E9.2, E9.3 | **resolved 2026-08-20: copy all 303,260 objects** — accepted the overage. Server-side copy only, proved on one province (11, 903 files) with a 200 through `siahra-radar.co` before the other 76 |
 | **DWR permission** — the Department of Water Resources publishes no terms for its telemetry CCTV API | shipping E15 in production | **resolved 2026-09-26: ship with attribution** — owner's call (a request would likely go unanswered); DWR credited in every camera popup and the always-mounted credit line, and `VITE_FEATURE_CCTV=0` at build time removes the layer if DWR objects |
 | **iTIC / Longdo permission** — no licence is granted for the iTIC road-camera streams (Department of Highways and partner cameras), and Longdo's API terms restrict redisplay of its camera list | shipping E15.2 in production | **resolved 2026-09-26: ship with attribution** — owner's call, accepting the risk that Longdo's terms restrict redisplay; iTIC, the camera owner and Longdo credited in every camera popup and the always-mounted credit line, and `VITE_FEATURE_ITIC=0` at build time removes the iTIC cameras if any of them objects |
+| **blocker: GISTDA API key** — the GISTDA flood WFS has answered `401` since 2026-09-10 and the newer gateway answers `407`; register for a key and `wrangler secret put GISTDA_API_KEY` for `siahra-api` | E16.PR0 | **open** — user action; `gistda-flood` shows `down` in `/api/v1/health` and the layer stays dimmed until then |
 | Is a GitHub blob URL acceptable as the methodology URL? | E3.4, E10.1 | **resolved 2026-08-18: no — a `/methodology` page on the web app**, rendering the Markdown in `docs/methodology/` |
 
 ## 5. Deferred — deliberately not doing now (with triggers)

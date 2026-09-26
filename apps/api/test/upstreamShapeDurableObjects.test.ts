@@ -3,7 +3,7 @@ import { runInDurableObject } from "cloudflare:test";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SourceStatus } from "@siahra/shared-types";
 import { healthOk } from "../src/routes/health";
-import gistdaFixture from "./fixtures/gistda-wfs.json";
+import { TEST_GISTDA_KEY, gistdaCell, serveGistda, setGistdaKey } from "./helpers/gistdaApi";
 import damFixture from "./fixtures/thaiwater-analyst-dam.json";
 import rainFixture from "./fixtures/thaiwater-rain24h.json";
 import waterFixture from "./fixtures/thaiwater-waterlevel-load.json";
@@ -206,42 +206,46 @@ describe("ObservationCacheDO: payload ผิดรูปไม่แตะแถ
   });
 });
 
-describe("FloodExtentDO: ฉากที่ผิดรูปไม่ทับฉากล่าสุด และไม่แตะ R2 ครึ่งทาง", () => {
-  const floodRoute: FetchRoute = (url) => (url.includes("flooding_vis") ? jsonResponse(gistdaFixture) : null);
-  const brokenRoute: FetchRoute = (url) => (url.includes("flooding_vis") ? jsonResponse({ type: "FeatureCollection" }) : null);
-
-  it("รอบที่พังคงแถวเดิม คง archive เดิมใน R2 และรายงาน degraded", async () => {
+describe("FloodExtentDO: หน้าที่ผิดรูปไม่ทับคำตอบล่าสุด และไม่แตะ R2 ครึ่งทาง", () => {
+  it("รอบที่ทุกจังหวัดได้ {} คงคำตอบเดิม คง archive เดิมใน R2 และรายงาน degraded", async () => {
     const stub = env.FLOOD_EXTENT.getByName("flood-shape");
-    routeFetch(floodRoute);
+    setGistdaKey(TEST_GISTDA_KEY);
+    serveGistda({ "16": [gistdaCell({ h3: "89a", province: "16" }), gistdaCell({ h3: "89b", province: "16", lon: 100.6 })] });
     await runInDurableObject(stub, (instance) => instance.alarm());
 
-    const before = await runInDurableObject(stub, (_instance, ctx) => ({
-      features: countRows(ctx, "flood_features"),
+    const before = await runInDurableObject(stub, async (instance, ctx) => ({
       retrievedAt: meta(ctx, "retrievedAt"),
-      sceneHash: meta(ctx, "sceneHash"),
+      rows: countRows(ctx, "flood_province_scenes"),
+      body: await new Response(
+        new Response((await instance.getProvinceBody("16")).gz).body!.pipeThrough(new DecompressionStream("gzip")),
+      ).text(),
     }));
-    expect(before.features).toBe(2);
-    const archiveBefore = (await env.HAZARD_BUCKET.list({ prefix: "archive/flood/" })).objects.map((o) => ({
+    expect(before.rows).toBe(77);
+    expect(JSON.parse(before.body).features).toHaveLength(2);
+    const archiveBefore = (await env.HAZARD_BUCKET.list({ prefix: "archive/flood-v2/" })).objects.map((o) => ({
       key: o.key,
       size: o.size,
     }));
-    expect(archiveBefore.length).toBeGreaterThan(0);
+    expect(archiveBefore).toHaveLength(77);
 
-    routeFetch(brokenRoute);
+    vi.restoreAllMocks();
+    routeFetch((url) => (url.includes("api-gateway.gistda.or.th") ? jsonResponse({ type: "FeatureCollection" }) : null));
     await runInDurableObject(stub, (instance) => instance.alarm());
 
-    const after = await runInDurableObject(stub, (_instance, ctx) => ({
-      features: countRows(ctx, "flood_features"),
+    const after = await runInDurableObject(stub, async (instance, ctx) => ({
       retrievedAt: meta(ctx, "retrievedAt"),
-      sceneHash: meta(ctx, "sceneHash"),
+      rows: countRows(ctx, "flood_province_scenes"),
       lastError: meta(ctx, "lastError"),
+      body: await new Response(
+        new Response((await instance.getProvinceBody("16")).gz).body!.pipeThrough(new DecompressionStream("gzip")),
+      ).text(),
     }));
-    expect(after.features).toBe(before.features);
     expect(after.retrievedAt).toBe(before.retrievedAt);
-    expect(after.sceneHash).toBe(before.sceneHash);
+    expect(after.rows).toBe(before.rows);
+    expect(after.body).toBe(before.body);
     expect(after.lastError).toContain("shape");
 
-    const archiveAfter = (await env.HAZARD_BUCKET.list({ prefix: "archive/flood/" })).objects.map((o) => ({
+    const archiveAfter = (await env.HAZARD_BUCKET.list({ prefix: "archive/flood-v2/" })).objects.map((o) => ({
       key: o.key,
       size: o.size,
     }));
@@ -252,6 +256,7 @@ describe("FloodExtentDO: ฉากที่ผิดรูปไม่ทับ�
     expect(status.health).toBe("degraded");
     expect(status.lastError).toContain("gistda");
     expect(healthOk([status])).toBe(false);
+    setGistdaKey(undefined);
   });
 });
 

@@ -17,6 +17,7 @@ import type { FloodExposureState } from "./useFloodExposure";
 import type { FloodExtentState } from "./useFloodExtent";
 import type { FloodSceneState } from "./useFloodScene";
 import type { FloodScenesState } from "./useFloodScenes";
+import type { NorthRouteState } from "./useNorthRoute";
 import type { ObservationsState } from "./useObservations";
 import type { RadarState } from "./useRadar";
 
@@ -27,6 +28,12 @@ export interface LayerDescriptorEntry {
    * null = ชั้นนี้ไม่ได้ผูกกับแหล่งข้อมูลสดใด ๆ หรือยังไม่ได้ค่า health มา
    */
   health: SourceHealth | null;
+  /**
+   * descriptor ที่สองของชั้นที่ประกอบจากสองชนิดความรู้ (E16 B-1: เส้นทางน้ำเหนือ = แนวลำน้ำ
+   * static-reference จาก ETL + สี/ลายไหลจากค่าตรวจวัด observed) — legend แสดงทั้งสองบรรทัด
+   * ไม่ยุบรวมเป็น descriptor เดียวที่ไม่มีใครประกาศ
+   */
+  secondary?: { descriptor: HazardLayerDescriptor; health: SourceHealth | null };
 }
 
 export type LayerDescriptors = Partial<Record<keyof MapLayers, LayerDescriptorEntry>>;
@@ -148,6 +155,25 @@ export function stormLayerDescriptors(
 }
 
 /**
+ * descriptor ของแผ่นน้ำจำลองจากระดับน้ำที่สถานี (E16 B-1, `scene/StationSheet.ts`) — ชนิด
+ * `illustrative`: ค่าตรวจวัดของ ThaiWater (observed) + ความสูงพื้นจาก Copernicus DEM แต่พื้นที่และ
+ * ความลึกเป็นสิ่งที่เราคำนวณเอง ไม่ใช่สิ่งที่ใครวัดได้ เวลาทุกตัว (`observedAt`, `fetchedAt`,
+ * `staleAfterSeconds`) มาจาก descriptor ของ observations ที่ backend ประกาศ — ไม่มีการเติมเวลาเอง
+ */
+export function stationSheetDescriptor(obs: HazardLayerDescriptor): HazardLayerDescriptor {
+  return {
+    id: "station-level-sheet-illustrative",
+    epistemicClass: "illustrative",
+    liveOrStatic: "live",
+    ...(obs.observedAt !== undefined ? { observedAt: obs.observedAt } : {}),
+    publishedAt: null,
+    fetchedAt: obs.fetchedAt,
+    ...(obs.staleAfterSeconds !== undefined ? { staleAfterSeconds: obs.staleAfterSeconds } : {}),
+    sourceIds: ["thaiwater", "copernicus-dem"],
+  };
+}
+
+/**
  * รวม `HazardLayerDescriptor` ของทุกชั้นที่ legend แสดง ไว้ที่เดียว
  *
  * - ชั้นที่มาจาก API อ่าน `.layer` ที่ backend ประกาศไว้ตรง ๆ (ห้ามประกอบเอง
@@ -167,6 +193,8 @@ export function useLayerDescriptors(input: {
   floodScenes: FloodScenesState;
   /** ฉาก GFM ที่กำลังแสดง — ตัวกำหนด `observedAt` ที่ legend เห็น (ดู withShownScene) */
   floodScene: FloodSceneState;
+  /** เส้นทางน้ำเหนือ (E16) — `route.layer` (observed) + `topology.layer` (static-reference) */
+  northRoute?: Pick<NorthRouteState, "topology" | "route"> | null;
   /**
    * บัญชีกล้อง CCTV ของ DWR (E15) — null = แฟล็กปิด/ชั้นไม่เคยเปิด/โหลดไม่สำเร็จ
    * (แล้วแถวใน legend ไม่มีบรรทัดเวลา ไม่ใช่เวลาที่เดาขึ้น)
@@ -193,6 +221,8 @@ export function useLayerDescriptors(input: {
   // ฝั่งเว็บเช่นกัน: `methodologyUrl`, `staleAfterSeconds`, `fetchedAt` ถูกประกาศโดย job
   const floodIndexLayers = floodScenes.index?.layers;
   const shownScene = floodScene.scene;
+  const routeLayer = input.northRoute?.route?.layer;
+  const topologyLayer = input.northRoute?.topology?.layer;
   const noSceneInWindow = floodScene.reason === "no-scene-in-window";
 
   return useMemo(() => {
@@ -212,6 +242,19 @@ export function useLayerDescriptors(input: {
     put("floodExtent", floodLayer);
     put("dams", damsLayer);
     put("exposure", exposureLayer);
+    // E16 B-1 — แผ่นน้ำจำลองจากระดับน้ำที่สถานี: **illustrative** (เราเติมระดับน้ำลง DEM เอง)
+    // เวลาทุกตัวคัดลอกจาก descriptor ของ observations ที่ backend ประกาศ — fetchedAt null ยังเป็น null
+    put("stationSheet", obsLayer ? stationSheetDescriptor(obsLayer) : undefined);
+    // เส้นทางน้ำเหนือ: บรรทัดหลัก = ค่าตรวจวัด (สี/ลายไหล) บรรทัดรอง = แนวลำน้ำ (ETL) — ยังไม่มีค่า
+    // ตรวจวัด = แสดงแนวลำน้ำเป็นบรรทัดหลัก (เส้นยังวาดอยู่ สีเทานิ่ง)
+    const main = routeLayer ?? topologyLayer;
+    if (main) {
+      put("northRoute", main);
+      const entry = out.northRoute;
+      if (entry && routeLayer && topologyLayer) {
+        entry.secondary = { descriptor: topologyLayer, health: worstHealth(topologyLayer.sourceIds, health) };
+      }
+    }
     if (floodIndexLayers) {
       put("floodGfm", withShownScene(floodIndexLayers.extent, shownScene, noSceneInWindow, true));
       put("floodDepth", withShownScene(floodIndexLayers.depth, shownScene, noSceneInWindow, false));
@@ -248,6 +291,8 @@ export function useLayerDescriptors(input: {
     damsLayer,
     exposureLayer,
     floodIndexLayers,
+    routeLayer,
+    topologyLayer,
     shownScene,
     noSceneInWindow,
     cctvBuiltAt,

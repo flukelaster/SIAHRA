@@ -158,6 +158,7 @@ The Worker exposes a versioned JSON API under `/api/v1`:
 | `GET /api/v1/provinces/:code/flood-extent` | Flood extent for one province; `?at=<ISO>` returns the scene that covered that instant (`reason: "no-archived-scene"` when none was recorded) |
 | `GET /api/v1/provinces/:code/hazards/latest` | Latest hazard snapshot for one province |
 | `GET /api/v1/dams` | Reservoir storage levels |
+| `GET /api/v1/rivers/north` | Latest reading and 48 h of observed level/discharge for the 26 RID stations on the northern-water route (Ping/Wang/Yom/Nan → Chao Phraya to Bangkok) — observed only, no arrival times or forecasts |
 | `GET /api/v1/radar/frames` · `/radar/frame/:ts.png` | Weather radar composite frames |
 | `GET /api/v1/stations/:id/history` | Historical readings for one gauge station |
 | `GET /api/v1/local-authorities` · `/:id` | National local-authority (อปท.) registry, sourced from DLA, plus Bangkok's 50 districts (`bma_district`, from OSM, `dlaCode: null`) — static-reference, baked into the build, not live-polled |

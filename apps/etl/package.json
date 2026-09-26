@@ -26,7 +26,8 @@
     "gfm:run": "uv run --frozen --directory gfm python -m gfm run",
     "gfm:backfill": "uv run --frozen --directory gfm python -m gfm backfill",
     "gfm:check-grid": "uv run --frozen --directory gfm python -m gfm check-grid",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:north-route": "tsx src/build-north-route.ts"
   },
   "dependencies": {
     "@siahra/shared-types": "*",

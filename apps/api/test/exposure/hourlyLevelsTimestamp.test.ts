@@ -34,6 +34,9 @@ function station(id: number) {
     amphoeNameTh: null,
     basinNameTh: null,
     agencyShortTh: null,
+    ridCode: null,
+    subBasinId: null,
+    isKeyStation: false,
   };
 }
 
@@ -47,6 +50,9 @@ function water(id: number, observedAt: string | null, waterlevelMsl = 5): WaterL
     freeboardM: 3,
     situationLevel: 2,
     storagePercent: null,
+    dischargeM3s: null,
+    qmaxM3s: null,
+    criticalLevelMsl: null,
     observedAt,
   };
 }

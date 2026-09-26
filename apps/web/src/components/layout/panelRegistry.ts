@@ -1,5 +1,5 @@
 import { createElement, lazy, Suspense, type ComponentType, type ReactNode } from "react";
-import { Activity, BellRing, CloudRain, CloudSun, Dam, Layers, Satellite, Tornado, Waves } from "lucide-react";
+import { Activity, BellRing, CloudRain, CloudSun, Dam, Layers, Route, Satellite, Tornado, Waves } from "lucide-react";
 import { translator, type MessageKey } from "../../i18n";
 import { alertRailBadge } from "../../lib/alertSummary";
 import { summarizeStorms } from "../../lib/storms";
@@ -9,6 +9,7 @@ import { EarthquakeLiveCard } from "../hazard/EarthquakeLiveCard";
 import { FloodScenesCard } from "../hazard/FloodScenesCard";
 import { ForecastCard } from "../hazard/ForecastCard";
 import type { RailBadge } from "./PanelBadge";
+import { NorthWaterCard } from "../hazard/NorthWaterCard";
 import { ImpactPanel, LayersPanel, RainPanel, WaterPanel, type PanelContext } from "./panelViews";
 
 export { PANEL_KEYS };
@@ -63,6 +64,14 @@ export const PANELS: readonly PanelDef[] = [
     badge: (ctx) => alertRailBadge(ctx.activeAlerts),
   },
   { key: "water", icon: Waves, labelKey: "panel.water", render: (ctx) => createElement(WaterPanel, { ctx }) },
+  {
+    // E16 — เส้นทางน้ำเหนือ (ระดับประเทศ ไม่ขึ้นกับจังหวัดที่เลือก) เดินตาม atIso ของ TimelineBar
+    key: "north",
+    icon: Route,
+    labelKey: "panel.north",
+    render: (ctx) =>
+      createElement(NorthWaterCard, { state: ctx.northRoute, atIso: ctx.atIso, onFocusStation: ctx.focusStation }),
+  },
   { key: "rain", icon: CloudRain, labelKey: "panel.rain", render: (ctx) => createElement(RainPanel, { ctx }) },
   {
     key: "forecast",

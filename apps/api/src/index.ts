@@ -15,6 +15,7 @@ import {
 import { handleObservations } from "./routes/observations.js";
 import { handleRadarFrame, handleRadarFrames } from "./routes/radar.js";
 import { handleStorms } from "./routes/storms.js";
+import { handleNorthRoute } from "./routes/rivers.js";
 import { handleDams, handleStationHistory } from "./routes/stations.js";
 import { handleArchiveDays, handleArchiveSnapshot } from "./routes/archive.js";
 import type { AppEnv } from "./types.js";
@@ -42,6 +43,13 @@ export const routes: Route[] = [
   { method: "GET", pattern: /^\/api\/v1\/flood-extent\/summary$/, handler: handleFloodExtentSummary, limit: { perMinute: 300 } },
   { method: "GET", pattern: /^\/api\/v1\/dams$/, handler: handleDams, limit: { perMinute: 300 } },
   {
+    // E16 — เส้นทางน้ำเหนือ: RPC เดียวต่อ cache miss และแคชที่ขอบ 120 วิ (ดู routes/rivers.ts)
+    method: "GET",
+    pattern: /^\/api\/v1\/rivers\/north$/,
+    handler: (req, env, _params, ctx) => handleNorthRoute(req, env, ctx),
+    limit: { perMinute: 120 },
+  },
+  {
     method: "GET",
     pattern: /^\/api\/v1\/local-authorities$/,
     handler: (req) => handleLocalAuthoritiesList(req),
@@ -65,7 +73,7 @@ export const routes: Route[] = [
     // เข้า bundle — จำกัดอัตราเท่ากับเส้นทางอื่นที่พึ่งพา flood extent
     method: "GET",
     pattern: /^\/api\/v1\/local-authorities\/([A-Za-z0-9-]+)\/impact$/,
-    handler: (_req, env, [id]) => handleLocalAuthorityImpact(id, env),
+    handler: (req, env, [id], ctx) => handleLocalAuthorityImpact(id, req, env, ctx),
     limit: { perMinute: 300 },
   },
   { method: "GET", pattern: /^\/api\/v1\/archive\/days$/, handler: handleArchiveDays, limit: { perMinute: 300 } },
@@ -88,7 +96,7 @@ export const routes: Route[] = [
   {
     method: "GET",
     pattern: /^\/api\/v1\/provinces\/([0-9]{2})\/flood-extent$/,
-    handler: (req, env, [province]) => handleProvinceFloodExtent(province, req, env),
+    handler: (req, env, [province], ctx) => handleProvinceFloodExtent(province, req, env, ctx),
     limit: { perMinute: 300 },
   },
   {

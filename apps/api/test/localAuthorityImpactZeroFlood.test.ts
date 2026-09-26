@@ -1,6 +1,11 @@
 import { exports as workerExports } from "cloudflare:workers";
 import type { LocalAuthorityImpactResponse } from "@siahra/shared-types";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { TEST_GISTDA_KEY, runFloodAlarm, serveGistda, setGistdaKey } from "./helpers/gistdaApi";
+// โหลดกราฟโมดูลของ Worker (src/index.ts + JSON ใน src/data ~4 MB) ตั้งแต่ตอน collect ไฟล์ —
+// `exports.default` import มันแบบ lazy ตอนถูกเรียกครั้งแรก ซึ่งกินเวลา 5 วิของเทสแรกไป
+// 2–4.6 วิเมื่อไฟล์เทสรันขนานกัน (CI เคย timeout ที่นี่) แบบเดียวกับ routeTable.test.ts
+import "../src/index";
 
 /**
  * E11.4 — the "fetched successfully, nothing currently overlaps" case,
@@ -20,11 +25,11 @@ const call = (path: string) => workerExports.default.fetch(new Request(`https://
 
 describe("GET /api/v1/local-authorities/:id/impact — fetched successfully, zero overlap right now", () => {
   it("TH-LAO-3300102: real 0, distinguishable from the never-fetched null case", async () => {
-    vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
-      new Response(JSON.stringify({ type: "FeatureCollection", features: [] }), {
-        headers: { "Content-Type": "application/json" },
-      }),
-    );
+    // GISTDA ถูกถามจริงและตอบ 0 เซลล์ทุกจังหวัด — ผ่าน alarm (ทางเดียวที่ยิงต้นทาง)
+    setGistdaKey(TEST_GISTDA_KEY);
+    serveGistda({});
+    await runFloodAlarm();
+    setGistdaKey(undefined);
     const res = await call("/api/v1/local-authorities/TH-LAO-3300102/impact");
     expect(res.status).toBe(200);
     const body = (await res.json()) as LocalAuthorityImpactResponse;

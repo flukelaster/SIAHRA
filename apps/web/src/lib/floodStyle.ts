@@ -48,6 +48,22 @@ export const GISTDA_RGB = {
   rim: [0.85, 0.93, 0.98] as const,
 };
 
+/**
+ * แผ่นน้ำจำลองจากระดับน้ำที่สถานี (E16 B-1, ชั้น `stationSheet`) — เขียวอมฟ้า (teal) แยกจากฟ้า/
+ * น้ำเงินของ GFM ที่ดาวเทียมเห็นจริง: ชั้นนี้เป็นภาพประกอบ ต้องไม่ถูกอ่านเป็นขอบเขตน้ำท่วมจริง
+ * ใช้สูตรไล่ระดับความลึกเดียวกัน (`depthToMix`) ต่างแค่ปลายสองสี
+ */
+export const STATION_SHEET_RGB = {
+  shallow: [0.62, 0.95, 0.84] as const,
+  deep: [0.02, 0.3, 0.3] as const,
+};
+
+/**
+ * เพดานความทึบของแผ่นน้ำจำลอง (ก่อนตัวคูณหรี่/ความจางตามระยะ/ลายทแยง) — ภาพถ่ายต้องลอดผ่านได้เสมอ
+ * เพราะแผ่นนี้เป็นภาพประกอบ ไม่ใช่น้ำที่ใครเห็นจริง (GFM ทึบได้ถึง 0.95)
+ */
+export const STATION_SHEET_MAX_ALPHA = 0.55;
+
 /** ความลึกอ้างอิงของสูตรไล่ระดับ: ที่ 3 ม. สีถึง 90% ของทางไปสีน้ำลึก */
 export const FLOOD_DEPTH_REF_M = 3;
 export const FLOOD_DEPTH_REF_MIX = 0.9;
@@ -82,6 +98,11 @@ function css(c: readonly [number, number, number]): string {
 /** สี GFM เป็น CSS `rgb()` ให้ legend ใช้ค่าชุดเดียวกับ shader */
 export function floodCss(which: keyof typeof FLOOD_RGB): string {
   return css(FLOOD_RGB[which]);
+}
+
+/** สีของแผ่นน้ำจำลองจากสถานีเป็น CSS `rgb()` */
+export function stationSheetCss(which: keyof typeof STATION_SHEET_RGB): string {
+  return css(STATION_SHEET_RGB[which]);
 }
 
 /** สี GISTDA เป็น CSS `rgb()` */

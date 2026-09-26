@@ -54,7 +54,7 @@ describe("json() + นโยบายแคช", () => {
 
 describe("floodExtent", () => {
   it("แคชได้เมื่อเคยดึงสำเร็จ", () => {
-    expect(cachePolicy.floodExtent("2026-08-19T00:00:00.000Z").value).toBe("public, max-age=300, s-maxage=600");
+    expect(cachePolicy.floodExtent("2026-08-19T00:00:00.000Z").value).toBe("public, max-age=300");
   });
 
   it("ยังไม่เคยดึงสำเร็จ = no-store (ห้ามให้ 'ต้นทางไม่ตอบสนอง' ค้างในแคช)", () => {
@@ -76,7 +76,7 @@ describe("floodExtent", () => {
   });
 
   it("live ไม่เปลี่ยนเมื่อ historical=false", () => {
-    expect(cachePolicy.floodExtent("2026-08-19T00:00:00.000Z", false).value).toBe("public, max-age=300, s-maxage=600");
+    expect(cachePolicy.floodExtent("2026-08-19T00:00:00.000Z", false).value).toBe("public, max-age=300");
   });
 });
 

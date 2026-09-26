@@ -14,6 +14,7 @@ import { PanelBadge } from "./PanelBadge";
 import { PANELS, panelByKey, type PanelContext } from "./panelRegistry";
 import { SourceStatusPopover } from "./SourceStatusPopover";
 import { StatPills } from "./StatPills";
+import { FloodSourceAgeChip } from "./FloodSourceAgeChip";
 import { TimelineBar, type TimelineMark } from "./TimelineBar";
 
 /**
@@ -161,6 +162,12 @@ export function MobileSheet({
               <ExaggerationControl value={exaggeration} onChange={onExaggerationChange} compact />
             </div>
           </div>
+          {/* E16 B-1 — อายุแหล่งน้ำท่วมจากดาวเทียม (บนจอกว้างอยู่ข้าง StatPills บนแผนที่) */}
+          {ctx.floodAge ? (
+            <div className="shrink-0">
+              <FloodSourceAgeChip input={ctx.floodAge} compact />
+            </div>
+          ) : null}
           {/* แบบ `dense` ใช้ไม่ได้ที่ความกว้างนี้: ป้าย "พยากรณ์จากแบบจำลอง TMD"
               กับค่าฝนย่อไม่ได้ (ป้ายบอกว่านี่คือแบบจำลอง ไม่ใช่ค่าที่วัด — ตัดทิ้ง
               ไม่ได้) รวมกับปุ่มล้างแล้วกินไปแล้ว ~320 จาก 372px สไลเดอร์เลยเหลือ

@@ -7,6 +7,8 @@ import type {
   ItiCCamera,
   EarthquakeEvent,
   FloodExtentResponse,
+  NorthRouteStationState,
+  NorthRouteTopology,
   ObservationSummary,
   ObservationsResponse,
   ProvinceExposureResponse,
@@ -17,13 +19,19 @@ import type { FloodField } from "../../scene/floodField";
 import { IconButton } from "../ui/Panel";
 import { Map3DCanvas, type MapApi, type MapInfo, type MapLayers } from "./Map3DCanvas";
 import { StatPills } from "./StatPills";
+import { FloodSourceAgeChip } from "./FloodSourceAgeChip";
+import type { FloodSourceAgeInput } from "../../lib/floodSourceAge";
 import type { ForecastBandLevel } from "../../lib/forecastStyle";
 import { GUTTER, TOOLS_W, type Tier } from "../../lib/shellLayout";
+import { ILLUSTRATIVE_HATCH_DUTY, ILLUSTRATIVE_HATCH_PERIOD_PX, illustrativeCss } from "../../lib/illustrativeStyle";
+import { stationSheetCss } from "../../lib/floodStyle";
 import type { QualityLevel, QualityMode } from "../../scene/quality";
 import { formatDateTime, formatTime } from "../../lib/time";
 import { useLang } from "../../i18n/context";
 
 const ZOOM_FACTOR = 0.75;
+/** ความกว้างเส้นของลายบนป้าย "แผ่นน้ำจำลอง" — คาบ/สัดส่วนเดียวกับลายบนแผ่นจริง */
+const SHEET_BADGE_STRIPE_PX = ILLUSTRATIVE_HATCH_PERIOD_PX * ILLUSTRATIVE_HATCH_DUTY;
 
 function handlesHeading(h: SceneHandles): number {
   const dx = h.camera.position.x - h.controls.target.x;
@@ -55,6 +63,9 @@ export function MapViewport({
   layers,
   safeArea,
   observationsStale = false,
+  northRouteTopology = null,
+  northRouteStations = null,
+  floodAge = null,
   initialPose,
   exaggeration,
   quality,
@@ -110,6 +121,11 @@ export function MapViewport({
   layers: MapLayers;
   safeArea: SafeArea;
   observationsStale?: boolean;
+  /** เส้นทางน้ำเหนือ (E16 B-1) — ส่งต่อให้ Map3DCanvas ตรง ๆ */
+  northRouteTopology?: NorthRouteTopology | null;
+  northRouteStations?: readonly NorthRouteStationState[] | null;
+  /** ชิปอายุแหล่งน้ำท่วมจากดาวเทียม — null = ไม่แสดง (ชั้นน้ำท่วมทั้งสองปิดอยู่) */
+  floodAge?: FloodSourceAgeInput | null;
   onInfo?: (info: MapInfo | null) => void;
   /** มือถือ: ปุ่ม "ชั้นข้อมูล" บนคอลัมน์เครื่องมือ — ไม่ส่ง = ไม่มีปุ่ม */
   onOpenLayers?: () => void;
@@ -122,6 +138,33 @@ export function MapViewport({
   const [info, setInfo] = useState<MapInfo | null>(null);
   const sceneRef = useRef<SceneHandles | null>(null);
   const unsubHeading = useRef<(() => void) | null>(null);
+
+  // ป้าย "แผ่นน้ำจำลอง" — ติดแผนที่ตลอดที่แผ่นถูกวาดอยู่จริง (ชั้น illustrative ต้องบอกตัวเองบนภาพ
+  // ไม่ใช่แค่ใน legend) บนมือถือแตะแล้วเปิดแผงชั้นข้อมูล (legend + หมายเหตุเต็ม)
+  const sheetBadgeBody = (
+    <>
+      <span
+        className="h-2 w-3 rounded-sm"
+        style={{
+          background: `repeating-linear-gradient(45deg,${illustrativeCss("light")} 0 ${SHEET_BADGE_STRIPE_PX}px,${stationSheetCss("deep")} ${SHEET_BADGE_STRIPE_PX}px ${ILLUSTRATIVE_HATCH_PERIOD_PX}px)`,
+        }}
+        aria-hidden="true"
+      />
+      {t("viewport.sheetBadge")}
+    </>
+  );
+  const sheetBadgeCls =
+    "pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-black/70 px-2.5 py-0.5 text-[11px] leading-5 text-white/90 ring-1 ring-white/25 ring-inset backdrop-blur-sm";
+  const sheetBadge =
+    layers.stationSheet && info?.stationSheet?.drawn ? (
+      onOpenLayers ? (
+        <button type="button" onClick={onOpenLayers} className={`${sheetBadgeCls} cursor-pointer`}>
+          {sheetBadgeBody}
+        </button>
+      ) : (
+        <p className={sheetBadgeCls}>{sheetBadgeBody}</p>
+      )
+    ) : null;
 
   const poseTimer = useRef<number | null>(null);
   const handleSceneReady = useCallback(
@@ -203,6 +246,8 @@ export function MapViewport({
         tool={tool}
         safeArea={safeArea}
         observationsStale={observationsStale}
+        northRouteTopology={northRouteTopology}
+        northRouteStations={northRouteStations}
         initialPose={initialPose}
         quality={quality}
         onQualityLevel={onQualityLevel}
@@ -242,6 +287,8 @@ export function MapViewport({
                 {t("viewport.radarFrame", { time: formatTime(lang, info.radarFrameAt) })}
               </p>
             ) : null}
+            {floodAge ? <FloodSourceAgeChip input={floodAge} /> : null}
+            {sheetBadge}
           </div>
         </div>
       )}
@@ -252,6 +299,16 @@ export function MapViewport({
           และ fullscreen ใช้ไม่ได้บน iOS Safari ของ iPhone ส่วนปุ่ม "ชั้นข้อมูล"
           เข้ามาแทนเพราะบนมือถือมันอยู่ลึกกว่าเดิมหนึ่งชั้น
           z-10 ชัดเจน: ตอนเป็น z-auto มันถูก dock (z-10) ทับจนกดไม่ได้บนจอเตี้ย */}
+      {compact && sheetBadge ? (
+        // มุมซ้ายล่างเหนือส่วน peek ของแผ่นเลื่อน — ด้านบนเป็นที่ของ AlertToast (ทับป้ายนี้จนมองไม่เห็น)
+        // ด้านขวาเป็นคอลัมน์เครื่องมือ
+        <div
+          className="pointer-events-none absolute"
+          style={{ bottom: safeArea.bottom + 8, left: leftEdge, right: titleRight }}
+        >
+          {sheetBadge}
+        </div>
+      ) : null}
       {compact ? (
         <div
           className="absolute z-10 flex flex-col items-center gap-1.5"

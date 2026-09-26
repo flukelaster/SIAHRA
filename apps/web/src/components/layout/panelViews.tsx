@@ -12,6 +12,8 @@ import type { FloodSceneState } from "../../hooks/useFloodScene";
 import type { FloodScenesState } from "../../hooks/useFloodScenes";
 import type { LayerDescriptors } from "../../hooks/useLayerDescriptors";
 import type { LocalAuthorityImpactState } from "../../hooks/useLocalAuthorityImpact";
+import type { NorthRouteState } from "../../hooks/useNorthRoute";
+import type { FloodSourceAgeInput } from "../../lib/floodSourceAge";
 import type { ObservationsState } from "../../hooks/useObservations";
 import type { ProvinceForecastState } from "../../hooks/useProvinceForecast";
 import type { StormsState } from "../../hooks/useStorms";
@@ -90,6 +92,23 @@ export interface PanelContext {
    * App.tsx): แผงฉาก GFM เลือกเวลาผ่านทางนี้ ทุกชั้นที่เดินตามเส้นเวลาจึงตามไปด้วยกัน
    */
   setAtIso: (atIso: string | null) => void;
+  /**
+   * E16 — แผงเส้นทางน้ำเหนือ: สลับไปจังหวัดของสถานี บินไปที่หมุด แล้วเปิด popup ของมัน
+   * (กลไกเดียวกับการคลิกหมุดเอง — `MapApi.selectWaterlevel`)
+   */
+  focusStation: (target: StationFocus) => void;
+  /** E16 — ข้อมูลเส้นทางน้ำเหนือจาก hook ตัวเดียวใน App.tsx (แผง north + ชั้นเส้นลำน้ำ 3 มิติ) */
+  northRoute: NorthRouteState;
+  /** E16 B-1 — ชิปอายุแหล่งน้ำท่วมจากดาวเทียม (แผ่นเลื่อนมือถือ) — null = ชั้นน้ำท่วมปิดทั้งคู่ */
+  floodAge: FloodSourceAgeInput | null;
+}
+
+/** เป้าหมายของ `focusStation` — พิกัด/จังหวัดมาจากผังเส้นทาง (ใช้ได้แม้ไม่มีค่าล่าสุด) */
+export interface StationFocus {
+  stationId: number;
+  provinceCode: string | null;
+  lat: number;
+  lon: number;
 }
 
 /** แผงชั้นข้อมูล: legend เดิมไม่แก้ + สถานะการดึงของ ThaiWater เป็น footer (ย้ายมาจาก Sidebar เดิม) */
@@ -109,6 +128,7 @@ export function LayersPanel({ ctx }: { ctx: PanelContext }) {
         exposure={ctx.exposureLegend}
         forecast={ctx.forecastLegend}
         floodGfm={ctx.floodGfmLegend}
+        stationSheet={ctx.mapInfo?.stationSheet ?? null}
         cctvError={ctx.cctvCatalogue.error}
         iticError={ctx.iticCatalogue.error}
       />

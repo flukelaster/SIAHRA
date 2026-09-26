@@ -15,6 +15,8 @@ import {
   ILLUSTRATIVE_HATCH_DUTY,
   ILLUSTRATIVE_HATCH_PERIOD_PX,
   ILLUSTRATIVE_RIM_WIDTH_PX,
+  STATION_SHEET_HATCH_GAP_ALPHA,
+  STATION_SHEET_HATCH_MIX,
   illustrativeCss,
 } from "../../lib/illustrativeStyle";
 import {
@@ -29,7 +31,10 @@ import {
   floodDepthLegendRamp,
   floodDepthMaxLabel,
   floodDepthStopLabel,
+  stationSheetCss,
 } from "../../lib/floodStyle";
+import { SHEET_MAX_RADIUS_M } from "../../lib/stationSheet";
+import type { StationSheetInfo } from "../../scene/StationSheet";
 import { FLOOD_SCENE_MAX_AGE_MS, type FloodSceneReason } from "../../lib/floodScenes";
 import type { ErrorMessage } from "../../lib/errorMessage";
 import { resolveError } from "../../lib/errorMessage";
@@ -133,6 +138,37 @@ function ExposureSwatch() {
       </defs>
       <rect width="20" height="12" fill="url(#siahra-exposure-hatch-base)" />
       <rect width="20" height="12" fill="url(#siahra-exposure-hatch-cross)" />
+    </svg>
+  );
+}
+
+/**
+ * สัญลักษณ์ของแผ่นน้ำจำลองจากสถานี (E16 B-1) — teal ตื้น → ลึก → จาง (ความจางตามระยะจากสถานี)
+ * ทับด้วยลายทแยงที่ shader วาดบนแผ่นจริง (`scene/FloodSurface.ts`): คาบ/สัดส่วน/มุม/สี/น้ำหนักเส้น
+ * และความทึบของช่องว่าง มาจาก `lib/illustrativeStyle.ts` ชุดเดียวกัน
+ */
+function StationSheetSwatch() {
+  const period = ILLUSTRATIVE_HATCH_PERIOD_PX;
+  return (
+    <svg className="h-3 w-5 rounded-sm" viewBox="0 0 20 12" aria-hidden="true">
+      <defs>
+        <linearGradient id="siahra-sheet-ramp">
+          <stop offset="0" stopColor={stationSheetCss("shallow")} />
+          <stop offset="0.6" stopColor={stationSheetCss("deep")} />
+          <stop offset="1" stopColor={stationSheetCss("deep")} stopOpacity="0" />
+        </linearGradient>
+        <pattern
+          id="siahra-sheet-hatch"
+          width={period}
+          height={period}
+          patternUnits="userSpaceOnUse"
+          patternTransform={`rotate(${ILLUSTRATIVE_HATCH_ANGLE_DEG})`}
+        >
+          <rect width={period * ILLUSTRATIVE_HATCH_DUTY} height={period} fill={illustrativeCss("light")} opacity={STATION_SHEET_HATCH_MIX} />
+        </pattern>
+      </defs>
+      <rect width="20" height="12" fill="url(#siahra-sheet-ramp)" opacity={STATION_SHEET_HATCH_GAP_ALPHA} />
+      <rect width="20" height="12" fill="url(#siahra-sheet-hatch)" />
     </svg>
   );
 }
@@ -696,17 +732,8 @@ const LAYER_ROWS: {
       />
     ),
   },
-  {
-    key: "floodExtent",
-    labelKey: "legend.layer.floodExtent",
-    noteKey: "legend.layer.floodExtent.note",
-    swatch: (
-      <span
-        className="h-3 w-5 rounded-sm"
-        style={{ background: "linear-gradient(90deg,#1a5680,#4d94b8 70%,#d9edf7)" }}
-      />
-    ),
-  },
+  // ดาวเทียมที่เห็นจริงมาก่อน (E16 B-1 รอบ 3, การตัดสินใจของผู้ใช้ข้อ 3): Sentinel-1 → GISTDA →
+  // แผ่นจำลองจากสถานี — ลำดับเดียวกับลำดับการวาด (GFM อยู่บนแผ่นจำลอง) และชิปอายุข้อมูล
   {
     // E14.F4 — สีเดียว "พื้นที่ที่ดาวเทียมเห็นน้ำ" (สิ่งที่วาดเมื่อปิดชั้นความลึก)
     key: "floodGfm",
@@ -719,6 +746,25 @@ const LAYER_ROWS: {
     labelKey: "legend.layer.floodDepth",
     noteKey: "legend.layer.floodDepth.note",
     swatch: <FloodDepthSwatch />,
+  },
+  {
+    key: "floodExtent",
+    labelKey: "legend.layer.floodExtent",
+    noteKey: "legend.layer.floodExtent.note",
+    swatch: (
+      <span
+        className="h-3 w-5 rounded-sm"
+        style={{ background: "linear-gradient(90deg,#1a5680,#4d94b8 70%,#d9edf7)" }}
+      />
+    ),
+  },
+  {
+    // E16 B-1 — แผ่นน้ำจำลองจากระดับน้ำที่สถานี: teal ไล่ความลึก + ลายทแยง "ภาพประกอบ"
+    // (ต่างจากฟ้า/น้ำเงินล้วนของ GFM ที่ดาวเทียมเห็นจริง) + จางไปทางขวา = จางตามระยะจากสถานี
+    key: "stationSheet",
+    labelKey: "legend.layer.stationSheet",
+    noteKey: "legend.layer.stationSheet.note",
+    swatch: <StationSheetSwatch />,
   },
   {
     key: "lowland",
@@ -752,6 +798,17 @@ const LAYER_ROWS: {
         <span className="h-2.5 w-2.5 rounded-full border border-white/80 bg-[#22c55e]" />
         <span className="h-2.5 w-2.5 rotate-45 border border-white/80 bg-[#38bdf8]" />
       </span>
+    ),
+  },
+  {
+    key: "northRoute",
+    labelKey: "legend.layer.northRoute",
+    noteKey: "legend.layer.northRoute.note",
+    swatch: (
+      <span
+        className="h-1.5 w-5 rounded-full"
+        style={{ background: "repeating-linear-gradient(90deg,#22c55e 0 5px,#bbf7d0 5px 8px)" }}
+      />
     ),
   },
   {
@@ -925,6 +982,54 @@ function LayerMeta({
   );
 }
 
+/**
+ * แผ่นน้ำจำลองจากสถานี — ความละเอียดที่แต่ละสถานีถูกคำนวณจริง (ข้อจำกัด C3: เมื่องบไทล์ 30 ม.
+ * ของจังหวัดหมด สถานีที่เหลืออยู่บนกริดภาพรวม และต้องมองเห็น ไม่ใช่ลดความละเอียดเงียบ ๆ)
+ * ตัวเลขขนาดเซลล์ทั้งหมดมาจาก manifest ของจังหวัด
+ */
+function StationSheetDetails({ info, lang, t }: { info: StationSheetInfo; lang: Lang; t: TFunction }) {
+  if (info.stations === 0 && info.workerError === null) return null;
+  const leafM = info.leafCellSizeM !== null ? formatNumber(lang, info.leafCellSizeM, 0) : null;
+  const ovM = formatNumber(lang, info.overviewCellSizeM, 0);
+  const ov = info.stations - info.leaf - info.pending;
+  const line = "block text-[10px] text-[var(--color-fg-subtle)]";
+  const warn = "block text-[10px] text-[var(--color-risk-medium)]";
+  return (
+    <div className="ml-[3.25rem] flex flex-col gap-0.5 pb-1" data-station-sheet-legend="">
+      {info.workerError !== null ? (
+        <span className={warn}>{t("legend.stationSheet.worker", { error: info.workerError })}</span>
+      ) : null}
+      {info.stations > 0 ? (
+        <span className={line}>
+          {leafM !== null
+            ? t("legend.stationSheet.resolution", { leafM, leaf: info.leaf, ovM, ov })
+            : t("legend.stationSheet.overviewOnly", { ovM, ov })}
+        </span>
+      ) : null}
+      {leafM !== null && info.pending > 0 ? (
+        <span className={line}>{t("legend.stationSheet.pending", { leafM, n: info.pending })}</span>
+      ) : null}
+      {leafM !== null && info.budget > 0 ? (
+        <span className={warn}>
+          {t("legend.stationSheet.budget", {
+            leafM,
+            ovM,
+            n: info.budget,
+            issued: info.requests?.issued ?? 0,
+            max: info.requests?.max ?? 0,
+          })}
+        </span>
+      ) : null}
+      {leafM !== null && info.failed > 0 ? (
+        <span className={warn}>{t("legend.stationSheet.failed", { leafM, ovM, n: info.failed })}</span>
+      ) : null}
+      {info.leaf > 0 && info.maskCellSizeM !== null ? (
+        <span className={line}>{t("legend.stationSheet.mask", { m: formatNumber(lang, info.maskCellSizeM, 0) })}</span>
+      ) : null}
+    </div>
+  );
+}
+
 export function MapLegend({
   layers,
   onToggle,
@@ -937,6 +1042,7 @@ export function MapLegend({
   exposure,
   forecast,
   floodGfm,
+  stationSheet = null,
   cctvError = null,
   iticError = null,
 }: {
@@ -950,6 +1056,8 @@ export function MapLegend({
   forecast?: ForecastLegendState;
   /** ฉาก Copernicus GFM ที่กำลังแสดง + เหตุผลเมื่อไม่มี (E14.F4) */
   floodGfm?: FloodGfmLegendState;
+  /** แผ่นน้ำจำลองจากสถานี: ความละเอียดที่คำนวณจริงต่อสถานี (C3) — null = ชั้นยังไม่ทำงาน */
+  stationSheet?: StationSheetInfo | null;
   /** E15 — โหลดบัญชีกล้อง CCTV ไม่สำเร็จ: ไม่มีหมุดเพราะอะไร ต้องบอก ไม่ใช่หายเงียบ */
   cctvError?: ErrorMessage | null;
   /** E15.2 — โหลดบัญชีกล้องถนนของ iTIC ไม่สำเร็จ (แยกจาก DWR: อีกแหล่งอาจยังมีหมุดอยู่) */
@@ -1019,7 +1127,7 @@ export function MapLegend({
                   ))
                 ) : (
                   <span className="block text-[10px] text-[var(--color-fg-subtle)]">
-                    {t(row.noteKey, { km: DETAIL_TILE_ALTITUDE_GATE_M / 1000 })}
+                    {t(row.noteKey, { km: DETAIL_TILE_ALTITUDE_GATE_M / 1000, radiusKm: SHEET_MAX_RADIUS_M / 1000 })}
                   </span>
                 )}
                 {integrityKey ? (
@@ -1049,6 +1157,7 @@ export function MapLegend({
                   </span>
                 ) : null}
                 {entry ? <LayerMeta entry={entry} nowMs={nowMs} lang={lang} t={t} /> : null}
+                {entry?.secondary ? <LayerMeta entry={entry.secondary} nowMs={nowMs} lang={lang} t={t} /> : null}
               </span>
             </label>
             {/* รายละเอียดของชั้นการเผชิญน้ำอยู่นอก <label> โดยตั้งใจ — ไม่งั้นการกด
@@ -1066,6 +1175,9 @@ export function MapLegend({
             {row.key === "floodGfm" && floodGfm ? <FloodGfmDetails state={floodGfm} lang={lang} t={t} /> : null}
             {row.key === "floodDepth" ? (
               <FloodDepthDetails state={floodGfm} gfmEnabled={layers.floodGfm} lang={lang} t={t} />
+            ) : null}
+            {row.key === "stationSheet" && layers.stationSheet && stationSheet ? (
+              <StationSheetDetails info={stationSheet} lang={lang} t={t} />
             ) : null}
           </li>
           );

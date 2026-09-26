@@ -52,6 +52,14 @@ export const ILLUSTRATIVE_RIM_MIX = 0.5;
 /** ความหนาเส้นขอบใน legend (CSS px) ให้พอ ๆ กับที่ shader วาดบนแผนที่ */
 export const ILLUSTRATIVE_RIM_WIDTH_PX = 1;
 
+/**
+ * แผ่นน้ำจำลองจากสถานี (E16 B-1): ลายทแยงชุดเดียวกัน (คาบ/สัดส่วน/มุมข้างบน) วาด *บน* แผ่น teal —
+ * เส้น = ผสมไปทาง `ILLUSTRATIVE_RGB.light` เท่านี้, ช่องว่างระหว่างเส้น = ความทึบคูณ `GAP_ALPHA`
+ * (เห็นภาพถ่ายลอดได้) ทั้ง `scene/FloodSurface.ts` และ swatch ใน legend อ่านค่านี้
+ */
+export const STATION_SHEET_HATCH_MIX = 0.4;
+export const STATION_SHEET_HATCH_GAP_ALPHA = 0.5;
+
 const to255 = (v: number) => Math.round(v * 255);
 
 /** แปลงค่าสี 0–1 เป็น CSS `rgb()` เพื่อให้ SVG ใน legend ใช้ค่าชุดเดียวกับ shader */

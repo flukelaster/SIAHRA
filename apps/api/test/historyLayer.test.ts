@@ -1,6 +1,10 @@
 import { exports as workerExports } from "cloudflare:workers";
 import type { HazardLayerDescriptor, WaterLevelHistoryResponse } from "@siahra/shared-types";
 import { afterEach, describe, expect, it, vi } from "vitest";
+// โหลดกราฟโมดูลของ Worker (src/index.ts + JSON ใน src/data ~4 MB) ตั้งแต่ตอน collect ไฟล์ —
+// `exports.default` import มันแบบ lazy ตอนถูกเรียกครั้งแรก ซึ่งกินเวลา 5 วิของเทสแรกไป
+// 2–4.6 วิเมื่อไฟล์เทสรันขนานกัน (CI เคย timeout ที่นี่) แบบเดียวกับ routeTable.test.ts
+import "../src/index";
 
 /**
  * /api/v1/stations/{id}/history ต้องยิงต้นทางรายสถานี จึงตอบ 503 ตามจริงเมื่อ

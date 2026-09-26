@@ -1,0 +1,135 @@
+{
+  "builtAt": "2026-09-26T04:40:36.385Z",
+  "stations": [
+    {
+      "ridCode": "P.67",
+      "thaiwaterId": 3247,
+      "reachId": "ping"
+    },
+    {
+      "ridCode": "P.1",
+      "thaiwaterId": 3226,
+      "reachId": "ping"
+    },
+    {
+      "ridCode": "P.2A",
+      "thaiwaterId": 2963,
+      "reachId": "ping"
+    },
+    {
+      "ridCode": "P.7A",
+      "thaiwaterId": 2900,
+      "reachId": "ping"
+    },
+    {
+      "ridCode": "P.17",
+      "thaiwaterId": 2832,
+      "reachId": "ping"
+    },
+    {
+      "ridCode": "W.1C",
+      "thaiwaterId": 3168,
+      "reachId": "wang"
+    },
+    {
+      "ridCode": "W.3A",
+      "thaiwaterId": 3102,
+      "reachId": "wang"
+    },
+    {
+      "ridCode": "W.4A",
+      "thaiwaterId": 3018,
+      "reachId": "wang"
+    },
+    {
+      "ridCode": "Y.20",
+      "thaiwaterId": 3205,
+      "reachId": "yom"
+    },
+    {
+      "ridCode": "Y.1C",
+      "thaiwaterId": 3146,
+      "reachId": "yom"
+    },
+    {
+      "ridCode": "Y.3A",
+      "thaiwaterId": 3041,
+      "reachId": "yom"
+    },
+    {
+      "ridCode": "Y.4",
+      "thaiwaterId": 2986,
+      "reachId": "yom"
+    },
+    {
+      "ridCode": "Y.16",
+      "thaiwaterId": 2941,
+      "reachId": "yom"
+    },
+    {
+      "ridCode": "Y.17",
+      "thaiwaterId": 2906,
+      "reachId": "yom"
+    },
+    {
+      "ridCode": "N.64",
+      "thaiwaterId": 3246,
+      "reachId": "nan"
+    },
+    {
+      "ridCode": "N.1",
+      "thaiwaterId": 3219,
+      "reachId": "nan"
+    },
+    {
+      "ridCode": "N.2B",
+      "thaiwaterId": 3095,
+      "reachId": "nan"
+    },
+    {
+      "ridCode": "N.5A",
+      "thaiwaterId": 2953,
+      "reachId": "nan"
+    },
+    {
+      "ridCode": "N.7A",
+      "thaiwaterId": 2895,
+      "reachId": "nan"
+    },
+    {
+      "ridCode": "N.67",
+      "thaiwaterId": 2821,
+      "reachId": "nan"
+    },
+    {
+      "ridCode": "C.2",
+      "thaiwaterId": 2795,
+      "reachId": "chao-phraya"
+    },
+    {
+      "ridCode": "C.13",
+      "thaiwaterId": 2744,
+      "reachId": "chao-phraya"
+    },
+    {
+      "ridCode": "C.3",
+      "thaiwaterId": 2723,
+      "reachId": "chao-phraya"
+    },
+    {
+      "ridCode": "C.7A",
+      "thaiwaterId": 2626,
+      "reachId": "chao-phraya"
+    },
+    {
+      "ridCode": "C.35",
+      "thaiwaterId": 2609,
+      "reachId": "chao-phraya"
+    },
+    {
+      "ridCode": "C.12",
+      "thaiwaterId": 2599,
+      "reachId": "chao-phraya"
+    }
+  ]
+}

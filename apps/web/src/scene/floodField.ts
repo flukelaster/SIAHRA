@@ -287,8 +287,9 @@ export interface FloodFieldBounds {
 /**
  * กรอบของเซลล์ FLOODED ที่มีค่าความลึก — แผ่นน้ำ 3 มิติสร้าง vertex เฉพาะในกรอบนี้
  * (บวกขอบ 1 เซลล์) แทนทั้งจังหวัด; `null` = ไม่มีอะไรให้ยกเป็นแผ่น
+ * `includeNotEstimated` = นับเซลล์ "ไม่ได้ประมาณความลึก" ด้วย (แผ่นจำลองจากสถานีวาดเซลล์พวกนั้นเป็นลายจุด)
  */
-export function floodFieldDepthBounds(field: FloodField): FloodFieldBounds | null {
+export function floodFieldDepthBounds(field: FloodField, includeNotEstimated = false): FloodFieldBounds | null {
   let c0 = Infinity;
   let c1 = -Infinity;
   let r0 = Infinity;
@@ -297,7 +298,8 @@ export function floodFieldDepthBounds(field: FloodField): FloodFieldBounds | nul
   for (let r = 0; r < height; r++) {
     for (let c = 0; c < width; c++) {
       const i = r * width + c;
-      if (field.cls[i] !== FloodFieldClass.FLOODED || field.depthCm[i] === FLOOD_FIELD_NO_DEPTH) continue;
+      const notEst = includeNotEstimated && field.cls[i] === FloodFieldClass.FLOODED_DEPTH_NOT_ESTIMATED;
+      if (!notEst && (field.cls[i] !== FloodFieldClass.FLOODED || field.depthCm[i] === FLOOD_FIELD_NO_DEPTH)) continue;
       if (c < c0) c0 = c;
       if (c > c1) c1 = c;
       if (r < r0) r0 = r;

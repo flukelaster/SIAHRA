@@ -3,9 +3,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Segmented } from "../ui/Segmented";
 import { floodCss } from "../../lib/floodStyle";
 import { formatFetchedAt } from "../../lib/time";
-import { applyRangeChange } from "../../lib/timelineRange";
+import { applyRangeChange, DEFAULT_TIMELINE_RANGE_INDEX, TIMELINE_RANGES } from "../../lib/timelineRange";
 import { useLang } from "../../i18n/context";
-import type { MessageKey, TFunction } from "../../i18n";
+import type { TFunction } from "../../i18n";
 
 /**
  * ขีดรอบบินของ Sentinel-1 บนแถบเวลา (E14.F5) — หนึ่งขีด = หนึ่ง `sceneId` = หนึ่งรอบบิน
@@ -104,12 +104,8 @@ function OutOfRangeChip({ t }: { t: TFunction }) {
   );
 }
 
-/** Selectable playback windows: hours, slider step in minutes, tick marks (hours ago). */
-const RANGES: { hours: number; stepMin: number; labelKey: MessageKey; ticks: number[] }[] = [
-  { hours: 72, stepMin: 30, labelKey: "timeline.range.72h", ticks: [72, 48, 24, 0] },
-  { hours: 7 * 24, stepMin: 60, labelKey: "timeline.range.7d", ticks: [168, 120, 72, 24, 0] },
-  { hours: 30 * 24, stepMin: 180, labelKey: "timeline.range.30d", ticks: [720, 480, 240, 0] },
-];
+/** Selectable playback windows (lib/timelineRange.ts) — 48 h is the default (E16). */
+const RANGES = TIMELINE_RANGES;
 /** Beyond this the backend reads from the long-term archive (R2). */
 const HOT_HOURS = 7 * 24;
 
@@ -143,7 +139,7 @@ export function TimelineBar({
 }) {
   const { lang, t } = useLang();
   const [playing, setPlaying] = useState(false);
-  const [rangeIdx, setRangeIdx] = useState(0);
+  const [rangeIdx, setRangeIdx] = useState(DEFAULT_TIMELINE_RANGE_INDEX);
   const range = RANGES[rangeIdx];
   const RANGE_HOURS = range.hours;
   const STEP_MIN = range.stepMin;
