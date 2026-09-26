@@ -84,6 +84,13 @@ const ROUTE_PULL_INTERVAL_MS = 60 * 60 * 1000;
  * warm จังหวัด 2/6) งานเบื้องหลังนี้จึงไม่มีวันแซงงานที่มีคนรออยู่
  */
 const ROUTE_PULL_PRIORITY = 9;
+/**
+ * เพดานเวลาที่ `alarm()` รอรอบดึงเส้นทางน้ำเหนือ — alarm รอบถัดไปถูกตั้งไว้แล้ว (+5 นาที)
+ * แต่จะไม่ยิงจนกว่า handler นี้จะคืน และ fetch ของ ThaiWater ไม่มี timeout ของมันเอง
+ * ต้นทางที่ค้างจึงต้องไม่ลากจังหวะ refresh หลักไปด้วย: เกินเพดานนี้ alarm คืนก่อน
+ * ส่วนรอบดึงที่ยังค้างถูก `ctx.waitUntil` ถือไว้ (ปกติ 25 สถานี × 250 ms ≈ ไม่กี่วินาที)
+ */
+const ROUTE_PULL_AWAIT_MS = 90 * 1000;
 /** หน้าต่างของแผงเส้นทางน้ำเหนือ — ทั้งที่อ่าน (`northRoute`) และที่ UI แสดง */
 const ROUTE_WINDOW_MS = 48 * 60 * 60 * 1000;
 /** Hot window served from SQLite; older requests go to the R2 archive. */
@@ -319,10 +326,9 @@ export class ObservationCacheDO extends DurableObject<Env> {
     this.ctx.waitUntil(this.archiveTick().catch((err: unknown) => {
       this.writeMeta("archiveError", String(err).slice(0, 200));
     }));
-    // E16 — หลัง armAlarm() เสมอ และไม่อยู่ในสาย refreshOnce(): คำขอแรกตอน cold start
-    // (`getObservations`) รอ refreshOnce อยู่ การพ่วงงานดึงประวัติ 25 สถานีไว้ตรงนั้น
-    // จะทำให้คำขอนั้นช้าลงเปล่า ๆ — ตัวมันเองมีด่านชั่วโมงละครั้งและไม่มีวัน reject
-    this.ctx.waitUntil(this.pullRouteHistory(Date.now()));
+    // E16 — ไม่ดึงประวัติเส้นทางน้ำเหนือที่นี่: ensureFresh() ตั้ง alarm ไว้เสมอ (≤ 5 นาที)
+    // และ alarm() ดึงให้ชั่วโมงละครั้งอยู่แล้ว ส่วนการปล่อยมันเป็น waitUntil จากที่นี่
+    // (cron `scheduled()` ซึ่งไม่รอ waitUntil) ทำให้ fetch ของมันไปโผล่นอกช่วงชีวิตของผู้เรียก
   }
 
   private async armAlarm(): Promise<void> {
@@ -351,7 +357,19 @@ export class ObservationCacheDO extends DurableObject<Env> {
       logError("archive tick failed", { error: errorText(err) });
     }));
     // E16 — ประวัติรายชั่วโมงของสถานีบนเส้นทางน้ำเหนือ (ด่านชั่วโมงละครั้งอยู่ข้างใน)
-    this.ctx.waitUntil(this.pullRouteHistory(Date.now()));
+    // หลัง armAlarm() เสมอ และ **รอให้จบภายในช่วงชีวิตของ alarm** แทนการปล่อยเป็น
+    // waitUntil ลอย ๆ ที่ fetch ของมันไปโผล่หลัง handler คืนแล้ว — แต่รอไม่เกิน
+    // ROUTE_PULL_AWAIT_MS (ดูเหตุผลที่ค่าคงที่) ตัวมันเองไม่มีวัน reject
+    const routePull = this.pullRouteHistory(Date.now());
+    this.ctx.waitUntil(routePull);
+    let deadline: ReturnType<typeof setTimeout> | null = null;
+    await Promise.race([
+      routePull,
+      new Promise<void>((resolve) => {
+        deadline = setTimeout(resolve, ROUTE_PULL_AWAIT_MS);
+      }),
+    ]);
+    clearTimeout(deadline);
   }
 
   /**
@@ -360,7 +378,8 @@ export class ObservationCacheDO extends DurableObject<Env> {
    * ที่ถูกเขียน **ตอนเริ่ม** ไม่ใช่ตอนสำเร็จ — ต้นทางที่พังค้างจึงถูกลองใหม่ชั่วโมงละครั้ง
    * ไม่ใช่ทุก 5 นาที
    *
-   * เรียกจาก `alarm()`/`ensureFresh()` หลัง `armAlarm()` ผ่าน `ctx.waitUntil` เท่านั้น
+   * เรียกจาก `alarm()` เท่านั้น หลัง `armAlarm()` และถูกรอภายในช่วงชีวิตของ alarm
+   * (ไม่เกิน `ROUTE_PULL_AWAIT_MS`)
    * **ไม่เคยอยู่บนเส้นทาง HTTP** (`northRoute()` อ่านอย่างเดียว)
    *
    * แต่ละสถานีใช้ `pullHistory()` ตัวเดิม: หา MAX(ts_ms) ด้วย prefix ของ PK แล้วเขียนเฉพาะ
