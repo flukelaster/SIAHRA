@@ -44,8 +44,8 @@ const missingText = (kind: EpistemicClass, lang: Lang) =>
 describe("missingFetchedAtKey", () => {
   it("เลือกข้อความตามชนิดของชั้นข้อมูล ไม่ใช่ตามความเป็น null อย่างเดียว (th)", () => {
     expect(missingText("observed", "th")).toBe(neverReceived("th"));
-    expect(missingText("static-reference", "th")).toBe("ไม่ได้บันทึกเวลาที่ดึงข้อมูล");
-    expect(missingText("illustrative", "th")).toContain("ไม่มีการดึงข้อมูลรายครั้ง");
+    expect(missingText("static-reference", "th")).toBe("ไม่ได้บันทึกไว้ว่าดึงข้อมูลเมื่อไร");
+    expect(missingText("illustrative", "th")).toContain("ไม่ได้ดึงข้อมูลใหม่เป็นรอบ");
     expect(missingText("probabilistic", "th")).toContain("ยังไม่เคยได้รับผล");
     // ชั้นพยากรณ์ต้องบอกด้วยว่าเป็นผลของ TMD ไม่ใช่ของโครงการนี้
     expect(missingText("forecast", "th")).toContain("TMD");
@@ -84,8 +84,8 @@ describe("describeLayerFreshness", () => {
 
   it("ข้อมูลสด: แสดงเวลาตรวจวัดและอายุของการดึง โดยไม่เป็นสีเหลือง", () => {
     const f = describe_(descriptor("observed", "2026-08-19T09:55:00+07:00"), "ok");
-    expect(f.timeText).toContain("ตรวจวัด 09:50");
-    expect(f.timeText).toContain("ดึงข้อมูล 5 นาทีที่แล้ว");
+    expect(f.timeText).toContain("ตรวจวัดเมื่อ 09:50");
+    expect(f.timeText).toContain("ดึงข้อมูลล่าสุด 5 นาทีที่แล้ว");
     expect(f.amber).toBe(false);
     expect(f.statusText).toBeNull();
 

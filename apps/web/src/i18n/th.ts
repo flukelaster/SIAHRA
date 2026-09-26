@@ -65,34 +65,34 @@ export const th = {
 
   // ── ป้ายชนิดความรู้ (EpistemicClass) ───────────────────────────────────
   "badge.observed": "ตรวจวัดจริง",
-  "badge.observed.title": "ค่าที่เครื่องมือตรวจวัด/ดาวเทียมรายงานมาโดยตรง",
+  "badge.observed.title": "ค่าที่เครื่องมือวัดหรือดาวเทียมรายงานมาโดยตรง",
   "badge.staticReference": "ข้อมูลอ้างอิงคงที่",
-  "badge.staticReference.title": "ชุดข้อมูลอ้างอิงที่ฝังมากับแผนที่ ไม่ได้อัปเดตแบบเรียลไทม์",
+  "badge.staticReference.title": "ชุดข้อมูลอ้างอิงที่มากับแผนที่ ไม่ได้อัปเดตแบบเรียลไทม์",
   "badge.illustrative": "ภาพประกอบ",
   "badge.illustrative.title":
-    "เราคำนวณเองจากภูมิประเทศเพื่อประกอบการอ่านแผนที่ ไม่ใช่การตรวจวัดและไม่ใช่การพยากรณ์",
+    "เราคำนวณเองจากภูมิประเทศเพื่อช่วยอ่านแผนที่ ไม่ได้มาจากการตรวจวัด และไม่ใช่การพยากรณ์",
   "badge.probabilistic": "แบบจำลองภายนอกที่อ้างอิงได้",
   "badge.probabilistic.title":
-    "ผลจากแบบจำลองของหน่วยงานภายนอกที่ระบุที่มาได้ ไม่ใช่การคำนวณของโครงการนี้",
+    "ผลจากแบบจำลองของหน่วยงานภายนอกที่อ้างอิงที่มาได้ เราไม่ได้คำนวณเอง",
   /** ต้องมีคำว่า "TMD" ในทุกข้อความของชั้นพยากรณ์ — ดู catalog.test.ts */
   "badge.forecast": "พยากรณ์จากแบบจำลอง TMD",
   "badge.forecast.title":
-    "ค่าจากแบบจำลองเชิงตัวเลขของกรมอุตุนิยมวิทยา (TMD) เป็นผลพยากรณ์ของหน่วยงานภายนอก ไม่ใช่ค่าที่ตรวจวัดมา และไม่ใช่การคำนวณของโครงการนี้",
+    "ตัวเลขจากแบบจำลองสภาพอากาศเชิงตัวเลขของกรมอุตุนิยมวิทยา (TMD) เป็นผลพยากรณ์ของ TMD เอง ไม่ใช่ค่าที่วัดได้จริง และเราไม่ได้คำนวณเอง",
   "badge.unknown": "ไม่ทราบชนิดข้อมูล",
-  "badge.unknown.title": "แอปรุ่นนี้ยังไม่รู้จักชนิดของชั้นข้อมูลนี้",
+  "badge.unknown.title": "แอปเวอร์ชันนี้ยังไม่รู้จักชั้นข้อมูลประเภทนี้",
 
   // ── ความสดของชั้นข้อมูล (lib/layerFreshness.ts) ───────────────────────
-  "freshness.observedAt": "ตรวจวัด {time}",
-  "freshness.fetchedAt": "ดึงข้อมูล {age}",
+  "freshness.observedAt": "ตรวจวัดเมื่อ {time}",
+  "freshness.fetchedAt": "ดึงข้อมูลล่าสุด {age}",
   "freshness.missing.observed": "ยังไม่เคยได้รับข้อมูล",
-  "freshness.missing.staticReference": "ไม่ได้บันทึกเวลาที่ดึงข้อมูล",
-  "freshness.missing.illustrative": "คำนวณจากภูมิประเทศ ไม่มีการดึงข้อมูลรายครั้ง",
+  "freshness.missing.staticReference": "ไม่ได้บันทึกไว้ว่าดึงข้อมูลเมื่อไร",
+  "freshness.missing.illustrative": "คำนวณจากภูมิประเทศ ไม่ได้ดึงข้อมูลใหม่เป็นรอบ ๆ",
   "freshness.missing.probabilistic": "ยังไม่เคยได้รับผลจากแบบจำลอง",
   "freshness.missing.forecast": "ยังไม่เคยได้รับผลพยากรณ์จาก TMD",
-  "freshness.missing.unknown": "ไม่ทราบเวลาที่ดึงข้อมูล",
+  "freshness.missing.unknown": "ไม่ทราบว่าดึงข้อมูลเมื่อไร",
   "freshness.status.unknown": "ยังไม่ทราบสถานะแหล่งข้อมูล",
   /** เวลาที่ *ต้นทาง* ประกาศว่าเผยแพร่ข้อมูลชุดนี้ — คนละเรื่องกับเวลาที่เราดึง */
-  "freshness.publishedAt": "ต้นทางเผยแพร่ {time}",
+  "freshness.publishedAt": "ต้นทางเผยแพร่เมื่อ {time}",
   "freshness.methodology": "วิธีคำนวณ",
 
   // ── สถานะแหล่งข้อมูล (/api/v1/health) ─────────────────────────────────
@@ -104,19 +104,19 @@ export const th = {
   "health.degraded": "บางแหล่งล้มเหลว",
   "health.down": "ดึงข้อมูลไม่ได้",
   "health.unknown": "ยังไม่ทราบ",
-  "health.downNeverFetched": "ต้นทางไม่ตอบสนอง (ยังไม่เคยได้ข้อมูล)",
+  "health.downNeverFetched": "ต้นทางไม่ตอบ และยังไม่เคยได้ข้อมูลเลย",
   "health.delayedWithAge": "{label} (ค่าล่าสุด {age})",
   /**
    * แหล่งที่ "เราคำนวณเอง" (`exposure-illustrative`) — `latestObservedAt` ของมันคือ
    * เวลาที่เราคำนวณ run ล่าสุด ไม่ใช่เวลาที่สถานีไหนถูกอ่านค่า เรียกมันว่า
    * "ค่าล่าสุด" จะทำให้อายุของค่าตรวจวัดจริงดูใหม่กว่าความเป็นจริง
    */
-  "health.delayedNoRun": "ยังไม่มีรอบคำนวณใหม่",
+  "health.delayedNoRun": "ยังไม่มีผลคำนวณรอบใหม่",
   "health.delayedWithRunAge": "{label} (รอบล่าสุด {age})",
-  "health.tooltip.fetched": " · ดึงข้อมูลสำเร็จ {age}",
+  "health.tooltip.fetched": " · ดึงสำเร็จล่าสุด {age}",
   "health.tooltip.line": "{source}: {status}{fetched}",
   "status.apiDown": "เชื่อมต่อ API ไม่ได้",
-  "status.apiDown.detail": "— แผนที่ยังใช้ได้ แต่ไม่มีข้อมูลตรวจวัดสด",
+  "status.apiDown.detail": "— ยังดูแผนที่ได้ แต่ไม่มีค่าตรวจวัดสด",
   "status.sources": "แหล่งข้อมูล",
   "status.updated": "อัปเดต {age}",
   "status.lastSuccess": " · ล่าสุด {age}",
@@ -133,7 +133,7 @@ export const th = {
   "topbar.shareTitle": "คัดลอกลิงก์มุมมองนี้",
   "topbar.snapshotTitle": "บันทึกภาพแผนที่",
   "topbar.sources": "แหล่งข้อมูล",
-  "topbar.repoTitle": "ซอร์สโค้ดบน GitHub (โอเพนซอร์ส)",
+  "topbar.repoTitle": "ดูซอร์สโค้ดบน GitHub (โอเพนซอร์ส)",
 
   // ── ตัวเลือกจังหวัด ───────────────────────────────────────────────────
   "province.select": "เลือกจังหวัด",
@@ -150,9 +150,9 @@ export const th = {
   "legend.layer.imagery": "ภาพดาวเทียม",
   "legend.layer.imagery.note": "พื้นผิวจริงจากภาพถ่ายดาวเทียม",
   "legend.layer.radar": "เรดาร์ฝน (กรมอุตุนิยมวิทยา)",
-  "legend.layer.radar.note": "ภาพสะท้อนเรดาร์ 3 ชม. ล่าสุด เล่นวนซ้ำ · ตรวจวัดจริง",
+  "legend.layer.radar.note": "ภาพเรดาร์ย้อนหลัง 3 ชั่วโมง เล่นวนซ้ำ เป็นค่าที่ตรวจวัดจริง",
   "legend.layer.floodExtent": "น้ำท่วมจากภาพดาวเทียม (GISTDA)",
-  "legend.layer.floodExtent.note": "ตรวจพบจากภาพถ่ายดาวเทียมชุดล่าสุด · ไม่ใช่การพยากรณ์",
+  "legend.layer.floodExtent.note": "พื้นที่ที่ตรวจพบจากภาพดาวเทียมชุดล่าสุด ไม่ใช่การพยากรณ์",
   "legend.layer.lowland": "พื้นที่ลุ่มต่ำ",
   "legend.layer.lowland.note": "ประมาณจากความสูงภูมิประเทศ ไม่ใช่การพยากรณ์น้ำท่วม",
 
@@ -163,29 +163,29 @@ export const th = {
    * เพราะมันไม่ใช่ 0 ม. และ `likelihood` ของ GFM ถ้าจะพูดถึงต้องเรียกว่า
    * "ความเชื่อมั่นของการจำแนกภาพ" เท่านั้น (ยังไม่แสดงใน F4)
    */
-  "legend.layer.floodGfm": "น้ำท่วมจากภาพดาวเทียม Sentinel-1 (Copernicus GFM)",
-  "legend.layer.floodGfm.note": "จำแนกจากภาพเรดาร์ Sentinel-1 หนึ่งรอบบิน · ตรวจวัดจริง ไม่ใช่การพยากรณ์",
+  "legend.layer.floodGfm": "น้ำท่วมจากดาวเทียม Sentinel-1 (Copernicus GFM)",
+  "legend.layer.floodGfm.note": "แยกพื้นที่น้ำท่วมจากภาพเรดาร์ Sentinel-1 ทีละภาพตามรอบที่ดาวเทียมโคจรผ่าน เป็นข้อมูลที่ตรวจวัดจริง ไม่ใช่การพยากรณ์",
   "legend.layer.floodDepth": "ความลึกน้ำโดยประมาณ (ภาพประกอบ, FwDET)",
   "legend.layer.floodDepth.note":
-    "คำนวณเองด้วย FwDET จากขอบน้ำในภาพ + ความสูงภูมิประเทศ ไม่ใช่การตรวจวัด ไม่ใช่การพยากรณ์",
-  "legend.floodGfm.scene": "ฉาก {id} · บันทึกภาพ {time}",
-  "legend.floodGfm.area": "พื้นที่ท่วมในภาพ {km2} ตร.กม. (บนตาราง overview ของจังหวัด)",
-  "legend.floodGfm.dry": "ฉากนี้ไม่พบน้ำท่วม — เป็นภาพที่สังเกตแล้ว ไม่ใช่ไม่มีภาพ",
+    "เราคำนวณเองด้วยวิธี FwDET จากขอบน้ำในภาพและความสูงของพื้นที่ ไม่ได้วัดจริง และไม่ใช่การพยากรณ์",
+  "legend.floodGfm.scene": "ภาพ {id} · ถ่ายเมื่อ {time}",
+  "legend.floodGfm.area": "พื้นที่น้ำท่วมในภาพ {km2} ตร.กม. (คิดบนกริดภาพรวมของจังหวัด)",
+  "legend.floodGfm.dry": "ภาพนี้ไม่พบน้ำท่วม — ดาวเทียมถ่ายภาพแล้วจริง ไม่ใช่ว่าไม่มีภาพ",
   /** {days} = หน้าต่างย้อนหลัง (FLOOD_SCENE_MAX_AGE_MS) — ไม่มีภาพ ≠ ไม่มีน้ำท่วม */
   "legend.floodGfm.noSceneInWindow": "ไม่มีภาพในช่วง {days} วันก่อนเวลาที่เลือก — ไม่ได้แปลว่าไม่มีน้ำท่วม",
-  "legend.floodGfm.latestBefore": "ภาพล่าสุดก่อนหน้านั้น: {time}",
-  "legend.floodGfm.noScenesForProvince": "ยังไม่มีฉากของจังหวัดนี้ในระบบ — ไม่ได้แปลว่าไม่มีน้ำท่วม",
+  "legend.floodGfm.latestBefore": "ภาพล่าสุดก่อนหน้านั้นถ่ายเมื่อ {time}",
+  "legend.floodGfm.noScenesForProvince": "ยังไม่มีภาพของจังหวัดนี้ในระบบ — ไม่ได้แปลว่าไม่มีน้ำท่วม",
   /** "ถามไม่ได้" — ห้ามอ่านเป็น "ไม่มีฉาก" */
-  "legend.floodGfm.indexError": "โหลดรายการฉากไม่ได้: {error}",
-  "legend.floodGfm.fieldError": "โหลดฉากไม่ได้: {error}",
-  "legend.floodGfm.loading": "กำลังโหลดฉาก...",
+  "legend.floodGfm.indexError": "โหลดรายการภาพไม่ได้: {error}",
+  "legend.floodGfm.fieldError": "โหลดภาพไม่ได้: {error}",
+  "legend.floodGfm.loading": "กำลังโหลดภาพ...",
   "legend.floodDepth.scale": "ความลึกโดยประมาณ (ม.)",
-  "legend.floodDepth.notEstimated": "ไม่ได้ประมาณ",
+  "legend.floodDepth.notEstimated": "ประมาณไม่ได้",
   "legend.floodDepth.notEstimated.why":
-    "สิ่งปลูกสร้าง/ต้นไม้ — DSM วัดถึงยอดสิ่งปกคลุม จึงไม่ให้ตัวเลข (ไม่ใช่ 0 ม.)",
-  "legend.floodDepth.estimated": "มีค่าความลึก {pct}% ของเซลล์ที่ท่วม · ลึกสุด {max} ม.",
-  "legend.floodDepth.noneEstimated": "ฉากนี้ท่วมเฉพาะบริเวณที่ไม่ประมาณความลึก",
-  "legend.floodDepth.needsExtent": "แสดงร่วมกับชั้น Sentinel-1 เท่านั้น — ความลึกไม่ถูกแสดงโดยไม่มีฉากที่มันมาจาก",
+    "บริเวณที่มีอาคารหรือต้นไม้ ข้อมูลความสูงวัดถึงหลังคาหรือยอดไม้ จึงประมาณความลึกไม่ได้ (ไม่ได้แปลว่าลึก 0 ม.)",
+  "legend.floodDepth.estimated": "ประมาณความลึกได้ {pct}% ของพื้นที่ที่ท่วม ลึกสุด {max} ม.",
+  "legend.floodDepth.noneEstimated": "น้ำท่วมในภาพนี้อยู่เฉพาะบริเวณที่ประมาณความลึกไม่ได้",
+  "legend.floodDepth.needsExtent": "ต้องเปิดชั้น Sentinel-1 ด้วย เพราะความลึกคำนวณจากภาพนั้น จึงแสดงแยกเดี่ยว ๆ ไม่ได้",
 
   /**
    * E10.4 — ชั้น "ระดับการเผชิญน้ำ (ภาพประกอบ)"
@@ -199,80 +199,80 @@ export const th = {
   "legend.layer.exposure.note":
     "คำนวณเองจากภูมิประเทศ + ค่าตรวจวัดจริง ไม่ใช่การพยากรณ์ ไม่ใช่ความน่าจะเป็น",
   "legend.layer.exposure.inputs":
-    "ใช้ค่าตรวจวัดจาก ThaiWater: ฝน 1 ชม. · ฝน 24 ชม. · ระยะต่ำกว่าตลิ่ง · การเปลี่ยนแปลงของระยะต่ำกว่าตลิ่ง · ระดับสถานการณ์ที่ ThaiWater ประกาศเอง — ซ้อนกับพื้นที่ลุ่มต่ำที่คำนวณจากภูมิประเทศ (DEM)",
+    "ใช้ค่าตรวจวัดจาก ThaiWater ได้แก่ ฝน 1 ชม., ฝน 24 ชม., ระยะที่น้ำต่ำกว่าตลิ่งและการเปลี่ยนแปลงของระยะนี้ และระดับสถานการณ์ที่ ThaiWater ประกาศ แล้วนำไปซ้อนกับพื้นที่ลุ่มต่ำที่คำนวณจากความสูงของพื้นที่ (DEM)",
   /** {h} มาจาก `inputs.historyWindowH` ของ run เอง ไม่ใช่ค่าที่ฝั่งเว็บตั้งไว้ */
-  "legend.exposure.historyWindow": "การเปลี่ยนแปลงวัดจากช่วงย้อนหลัง {h} ชม. เป็นอัตราที่เกิดไปแล้ว",
-  "legend.exposure.computedAt": "คำนวณรอบล่าสุด {age}",
+  "legend.exposure.historyWindow": "การเปลี่ยนแปลงคิดจากข้อมูลย้อนหลัง {h} ชม. ที่เกิดขึ้นไปแล้ว",
+  "legend.exposure.computedAt": "คำนวณล่าสุด {age}",
   /** ต้องบอก "ตั้งแต่เมื่อไหร่" เสมอ ห้ามแค่บอกว่าใช้ไม่ได้ */
-  "legend.exposure.noRunSince": "ไม่มีผลคำนวณรอบใหม่ตั้งแต่ {time} — ที่เห็นคือรอบเก่า",
+  "legend.exposure.noRunSince": "ยังไม่มีผลคำนวณใหม่ตั้งแต่ {time} — ที่เห็นอยู่เป็นผลรอบเก่า",
   "legend.exposure.staleInputs":
-    "ที่เห็นคือรอบเมื่อ {time} — แต่ ThaiWater เองผิดปกติอยู่ตอนนี้ อินพุตของรอบนี้อาจไม่ครบหรือเป็นค่าเก่าบางส่วน",
+    "ที่เห็นเป็นผลรอบ {time} แต่ตอนนี้ ThaiWater ขัดข้องอยู่ ข้อมูลที่ใช้คำนวณรอบนี้อาจไม่ครบหรือเก่าไปบางส่วน",
   /**
    * ใช้ได้เฉพาะตอนที่ "ถามไปแล้ว" เท่านั้น — ชั้นปิดอยู่คือยังไม่มีใครถาม จึงใช้
    * `legend.exposure.layerOff` แทน (ห้ามพูดถึงสถานะของแหล่งข้อมูลที่ไม่เคยถูกตรวจ)
    */
-  "legend.exposure.noRunEver": "ยังไม่เคยได้รับผลคำนวณสักรอบ (จึงไม่มีอะไรวาดบนแผนที่)",
+  "legend.exposure.noRunEver": "ยังไม่เคยได้ผลคำนวณเลยสักรอบ แผนที่จึงยังไม่มีอะไรให้แสดง",
   /**
    * ต่างจาก `noRunEver`: กรณีนี้เซิร์ฟเวอร์เคยเผยแพร่ run จริง (หรือไม่รู้ว่าเคยไหม)
    * แต่ตอนนี้ตอบค่าที่ขอไม่ได้ — ห้ามใช้ `noRunEver` เพราะเป็นการยืนยันเท็จว่า
    * "ไม่เคยมี" และไม่ใช่ `apiDown*` เพราะเซิร์ฟเวอร์ตอบมาแล้วจริง ๆ (ดู
    * `reason: "missing" | "error"` ใน apps/api/src/routes/exposure.ts)
    */
-  "legend.exposure.runUnavailable": "ผลคำนวณอาจเคยเผยแพร่แล้ว แต่ตอนนี้ดึงมาแสดงไม่ได้",
-  "legend.exposure.layerOff": "ชั้นนี้ปิดอยู่ — ยังไม่ได้ขอผลคำนวณจากเซิร์ฟเวอร์",
+  "legend.exposure.runUnavailable": "ผลคำนวณอาจมีอยู่แล้ว แต่ตอนนี้ดึงมาแสดงไม่ได้",
+  "legend.exposure.layerOff": "ชั้นนี้ปิดอยู่ จึงยังไม่ได้ขอผลคำนวณจากเซิร์ฟเวอร์",
   /*
    * "ติดต่อไม่ได้" ไม่ใช่ "เซิร์ฟเวอร์ไม่ได้คำนวณ" — สองข้อความข้างบนพูดถึงสิ่งที่
    * ฝั่งเซิร์ฟเวอร์ทำหรือไม่ได้ทำ ซึ่งจะพูดได้ก็ต่อเมื่อถามไปแล้วและได้คำตอบกลับมา
    * ถ้าเรียก API ไม่สำเร็จ สิ่งเดียวที่รู้คือ "เราไม่ได้คำตอบ" จะเอาไปแปลว่าไม่มี
    * รอบใหม่ไม่ได้ (AGENTS.md: ห้ามแสดงสถานะที่ไม่เคยถูกตรวจว่าเป็นข้อเท็จจริง)
    */
-  "legend.exposure.apiDownSince": "ติดต่อ API ไม่ได้ — ที่เห็นคือรอบเมื่อ {time} มีรอบใหม่กว่านี้หรือไม่ ยังไม่ทราบ",
-  "legend.exposure.apiDownNoRun": "ติดต่อ API ไม่ได้ — จึงยังไม่ได้รับผลคำนวณสักรอบ",
-  "legend.exposure.scale": "ลำดับของค่าที่วัดได้",
-  "legend.exposure.level.low": "อยู่ในแถบต่ำสุด (วัดได้แล้ว)",
-  "legend.exposure.level.elevated": "สูงกว่าแถบต่ำสุด",
+  "legend.exposure.apiDownSince": "ติดต่อ API ไม่ได้ — ที่เห็นอยู่เป็นผลรอบ {time} และยังไม่รู้ว่ามีรอบใหม่กว่านี้หรือไม่",
+  "legend.exposure.apiDownNoRun": "ติดต่อ API ไม่ได้ จึงยังไม่ได้รับผลคำนวณเลย",
+  "legend.exposure.scale": "ระดับของค่าที่วัดได้",
+  "legend.exposure.level.low": "ต่ำสุด (วัดได้จริง)",
+  "legend.exposure.level.elevated": "สูงกว่าระดับต่ำสุด",
   "legend.exposure.level.high": "สูง",
-  "legend.exposure.level.severe": "สูงที่สุดในตารางเกณฑ์",
-  "legend.exposure.level.noData": "ไม่มีปัจจัยใดวัดได้ — จัดลำดับไม่ได้ ไม่ได้แปลว่าปลอดภัย",
+  "legend.exposure.level.severe": "สูงสุดตามเกณฑ์",
+  "legend.exposure.level.noData": "ไม่มีค่าที่วัดได้ จึงจัดระดับไม่ได้ (ไม่ได้แปลว่าปลอดภัย)",
   "legend.exposure.stationCount": "{n} สถานี",
   /** ภาษาไทยไม่ต่างรูปพหูพจน์ แต่คีย์ต้องมีครบทั้งสองภาษา (ฝั่ง en ต้องใช้จริง) */
   "legend.exposure.stationCount.one": "1 สถานี",
   "legend.exposure.integrity.mismatch":
-    "ตรวจสอบความถูกต้องของภูมิประเทศไม่ผ่าน — ชั้นนี้ถูกปิด เพราะวางอยู่บนพื้นที่ลุ่มต่ำที่คำนวณจากภูมิประเทศก้อนเดียวกัน",
+    "ข้อมูลภูมิประเทศไม่ผ่านการตรวจสอบ ชั้นนี้จึงถูกปิด เพราะอาศัยพื้นที่ลุ่มต่ำที่คำนวณจากข้อมูลชุดเดียวกัน",
   /** ป้ายบนแผนที่ของสถานีที่ไม่มีปัจจัยใดวัดได้ (scene/ExposureMarkers.ts) */
-  "exposure.noData.label": "ไม่มีข้อมูลจัดลำดับ",
+  "exposure.noData.label": "ไม่มีข้อมูลให้จัดระดับ",
   "exposure.noData.sub": "สถานีนี้ไม่ได้ส่งค่าใดมาเลย ไม่ได้แปลว่าปลอดภัย",
   /**
    * E9.1 — ผลตรวจ sha256 ของ terrain.bin เทียบกับลายเซ็นใน manifest
    * `unknown` = ยังไม่ได้ตรวจ (manifest ไม่มีลายเซ็น) ห้ามอ่านว่า "ตรวจแล้วไม่ผ่าน"
    * และห้ามปิดชั้นข้อมูลใด ๆ; มีแต่ `mismatch` เท่านั้นที่ปิดชั้นพื้นที่ลุ่มต่ำ
    */
-  "legend.integrity.mismatch": "ตรวจสอบความถูกต้องของภูมิประเทศไม่ผ่าน — ชั้นพื้นที่ลุ่มต่ำใช้งานไม่ได้",
-  "legend.integrity.unknown": "ยังตรวจความถูกต้องของภูมิประเทศไม่ได้ (manifest ไม่มีลายเซ็น)",
+  "legend.integrity.mismatch": "ข้อมูลภูมิประเทศไม่ผ่านการตรวจสอบ จึงใช้ชั้นพื้นที่ลุ่มต่ำไม่ได้",
+  "legend.integrity.unknown": "ยังตรวจสอบข้อมูลภูมิประเทศไม่ได้ เพราะ manifest ไม่มีค่า checksum ให้เทียบ",
   "legend.layer.hazard": "บริเวณสถานีเตือนภัย",
-  "legend.layer.hazard.note": "รัศมีรอบสถานีที่ตรวจพบฝนหนัก/น้ำมาก (ตรวจวัดจริง)",
+  "legend.layer.hazard.note": "วงรอบสถานีที่วัดฝนหนักหรือน้ำสูงได้จริง",
   "legend.layer.stations": "สถานีตรวจวัด",
-  "legend.layer.stations.note": "จุดกลม = ระดับน้ำ · ข้าวหลามตัด = น้ำฝน",
+  "legend.layer.stations.note": "จุดกลมคือสถานีวัดระดับน้ำ ข้าวหลามตัดคือสถานีวัดฝน",
   "legend.layer.water": "แม่น้ำ / คลอง / แหล่งน้ำ (OSM)",
-  "legend.layer.water.note": "ผิวน้ำ 3 มิติ วางตามระดับภูมิประเทศ · ปิดเองเมื่อกล้องสูงเกิน {km} กม.",
+  "legend.layer.water.note": "ผิวน้ำ 3 มิติตามความสูงของพื้นที่ ซ่อนเองเมื่อกล้องสูงเกิน {km} กม.",
   "legend.layer.roads": "ถนนสายหลัก (OSM)",
-  "legend.layer.roads.note": "มอเตอร์เวย์ / ทางหลวง / ถนนสายรอง · ปิดเองเมื่อกล้องสูงเกิน {km} กม.",
+  "legend.layer.roads.note": "มอเตอร์เวย์ ทางหลวง และถนนสายรอง ซ่อนเองเมื่อกล้องสูงเกิน {km} กม.",
   "legend.layer.dams": "เขื่อน / อ่างเก็บน้ำ",
-  "legend.layer.dams.note": "% ความจุที่รายงาน (ThaiWater)",
+  "legend.layer.dams.note": "% ความจุตามที่ ThaiWater รายงาน",
   "legend.layer.cctv": "ภาพกล้อง CCTV (กรมทรัพยากรน้ำ)",
   "legend.layer.cctv.note":
-    "ภาพนิ่งจากกล้องของสถานีโทรมาตร DWR อัปเดตราวทุก 15 นาที · เวลาที่แสดงคือเวลาถ่าย · ขอภาพจาก DWR เมื่อคลิกหมุดเท่านั้น",
-  "legend.layer.cctv.error": "โหลดรายการกล้องไม่สำเร็จ ({error}) — จึงไม่มีหมุดกล้องบนแผนที่",
+    "ภาพนิ่งจากกล้องที่สถานีโทรมาตรของกรมทรัพยากรน้ำ อัปเดตราว 15 นาทีครั้ง เวลาที่แสดงคือเวลาถ่ายภาพ และจะขอภาพจาก DWR ก็ต่อเมื่อคลิกหมุดเท่านั้น",
+  "legend.layer.cctv.error": "โหลดรายการกล้องไม่สำเร็จ ({error}) บนแผนที่จึงไม่มีหมุดกล้อง",
   "legend.layer.sunlight": "แสงอาทิตย์ตามเวลาจริง",
-  "legend.layer.sunlight.note": "ตำแหน่งดวงอาทิตย์/ท้องฟ้าตามเวลาปัจจุบันหรือเวลาบนไทม์ไลน์",
+  "legend.layer.sunlight.note": "ตำแหน่งดวงอาทิตย์และสีท้องฟ้าตามเวลาปัจจุบัน หรือตามเวลาที่เลือกบนไทม์ไลน์",
   "legend.layer.trees": "ต้นไม้ (ESA WorldCover)",
-  "legend.layer.trees.note": "ป่า/สวนจากแผนที่สิ่งปกคลุมดิน 10 ม. แสดงเมื่อซูมใกล้",
+  "legend.layer.trees.note": "ป่าและสวนจากแผนที่สิ่งปกคลุมดินความละเอียด 10 ม. แสดงเมื่อซูมเข้าใกล้",
   "legend.layer.buildings": "อาคาร 3 มิติ (OSM)",
-  "legend.layer.buildings.note": "ทั้งจังหวัด · มองไกลแสดงเฉพาะอาคารใหญ่/สูง · ปิดเองเมื่อกล้องสูงเกิน {km} กม.",
-  "legend.layer.buildings.error": "โหลดอาคารของพื้นที่นี้ไม่สำเร็จ — สวิตช์ยังเปิดอยู่แต่ไม่มีอะไรวาดบนแผนที่",
+  "legend.layer.buildings.note": "ครบทั้งจังหวัด มองจากไกลจะเห็นเฉพาะอาคารใหญ่หรือสูง ซ่อนเองเมื่อกล้องสูงเกิน {km} กม.",
+  "legend.layer.buildings.error": "โหลดอาคารของพื้นที่นี้ไม่สำเร็จ สวิตช์ยังเปิดอยู่แต่แผนที่ไม่มีอาคารให้แสดง",
   "legend.layer.localAuthorities": "ขอบเขต อปท. (OpenStreetMap)",
   "legend.layer.localAuthorities.note":
-    "เฉพาะที่ OSM มีขอบเขตแม็ปไว้จริง — เทศบาลนครครบทุกแห่ง เทศบาลเมือง/ตำบล/อบต. บางส่วนเท่านั้น ไม่ใช่ทั้ง 7,849 อปท.",
+    "แสดงเฉพาะ อปท. ที่มีขอบเขตใน OSM ซึ่งมีเทศบาลนครครบทุกแห่ง แต่เทศบาลเมือง เทศบาลตำบล และ อบต. มีเพียงบางส่วน ไม่ครบทั้ง 7,849 แห่ง",
   "legend.waterlevelScale": "สถานีวัดระดับน้ำ (เกณฑ์ ThaiWater)",
   "legend.rainScale": "ฝนสะสม 24 ชม.",
   "legend.rain.band1": "< 10 มม.",
@@ -300,7 +300,7 @@ export const th = {
   // ── มาตราส่วนแนวดิ่ง ──────────────────────────────────────────────────
   "exaggeration.label": "ขยายแนวดิ่ง",
   "exaggeration.real": "ความสูงจริง 1:1",
-  "exaggeration.factor": "ขยายความสูง {n} เท่า (ไม่ใช่สัดส่วนจริง)",
+  "exaggeration.factor": "ขยายความสูง {n} เท่า (ไม่ใช่ขนาดจริง)",
 
   // ── ไทม์ไลน์ ──────────────────────────────────────────────────────────
   "timeline.title": "ระดับน้ำย้อนหลัง",
@@ -309,20 +309,20 @@ export const th = {
   "timeline.range.7d": "7 วัน",
   "timeline.range.30d": "30 วัน",
   "timeline.notForecast": "ค่าตรวจวัดจริง · ไม่ใช่พยากรณ์",
-  "timeline.fromArchive": "จากคลังถาวร · รายชั่วโมง",
+  "timeline.fromArchive": "จากคลังข้อมูล · รายชั่วโมง",
   "timeline.live": "ปัจจุบัน · ค่าล่าสุด",
   "timeline.play": "เล่นย้อนหลัง",
   "timeline.pause": "หยุด",
-  "timeline.backToLive": "กลับสู่ปัจจุบัน",
+  "timeline.backToLive": "กลับไปเวลาปัจจุบัน",
   "timeline.slider": "เลื่อนเวลา",
   "timeline.tick.now": "ตอนนี้",
   "timeline.tick.days": "-{n} วัน",
   "timeline.tick.hours": "-{n} ชม.",
   /** E14.F5 — เวลาที่เลือกเก่ากว่าช่วงของแถบ: หัวเลื่อนที่ชิดซ้ายไม่ใช่ "30 วันที่แล้ว" */
   "timeline.outOfRange": "นอกช่วงของแถบเลื่อน",
-  "timeline.marks": "รอบบินของ Sentinel-1",
-  "timeline.mark.flooded": "รอบบิน Sentinel-1 {time} · ท่วม {km2} ตร.กม.",
-  "timeline.mark.dry": "รอบบิน Sentinel-1 {time} · ไม่พบน้ำท่วมในภาพ",
+  "timeline.marks": "ภาพจาก Sentinel-1",
+  "timeline.mark.flooded": "ภาพ Sentinel-1 {time} · ท่วม {km2} ตร.กม.",
+  "timeline.mark.dry": "ภาพ Sentinel-1 {time} · ไม่พบน้ำท่วม",
 
   // ── แถบตัวเลขสรุป ─────────────────────────────────────────────────────
   "stats.none": "ไม่มีข้อมูลตรวจวัด",
@@ -333,7 +333,7 @@ export const th = {
 
   // ── เครดิตใต้แผนที่ ───────────────────────────────────────────────────
   "attribution.terrain": "ภูมิประเทศ Copernicus GLO-30 ({demType}) · {cell}",
-  "attribution.cellLod": "{m} ม./เซลล์ (LOD ตามระยะกล้อง)",
+  "attribution.cellLod": "{m} ม./เซลล์ (ละเอียดขึ้นเมื่อซูมเข้า)",
   "attribution.cell": "{m} ม./เซลล์",
   "attribution.verticalScale": "มาตราส่วนแนวดิ่ง {scale}",
   "attribution.scaleReal": "1:1 (จริง)",
@@ -345,9 +345,9 @@ export const th = {
   /** E9.1 — รุ่นของชุดข้อมูล ETL ที่จังหวัดนี้ใช้อยู่ (ค่าคือวันที่ build) */
   "attribution.dataset": "ชุดข้อมูล {version}",
   "attribution.sources": "แหล่งข้อมูล:",
-  "attribution.noEndorsement": "หน่วยงานข้างต้นเป็นผู้เผยแพร่ข้อมูล ไม่ได้รับรองโครงการนี้",
+  "attribution.noEndorsement": "หน่วยงานเหล่านี้เป็นผู้เผยแพร่ข้อมูล แต่ไม่ได้รับรองโครงการนี้",
   "attribution.imageryEsri": "ภาพดาวเทียม Esri",
-  "attribution.snapshotHistorical": "ค่าย้อนหลัง {time}",
+  "attribution.snapshotHistorical": "ข้อมูลย้อนหลัง ณ {time}",
 
   // ── สถานะข้อมูลใต้แผงซ้าย ─────────────────────────────────────────────
   "footer.dataStatus": "สถานะข้อมูล",
@@ -357,7 +357,7 @@ export const th = {
 
   // ── ปุ่มควบคุมมุมมอง ──────────────────────────────────────────────────
   "viewport.province": "จังหวัด{name}",
-  "viewport.subtitle": "มุมมอง 3 มิติ · ภูมิประเทศจริง",
+  "viewport.subtitle": "มุมมอง 3 มิติจากภูมิประเทศจริง",
   "viewport.radarFrame": "เรดาร์ฝน TMD {time} น.",
   "viewport.north": "หันกลับทิศเหนือ",
   "viewport.orbit": "หมุน/เอียงมุมมอง",
@@ -367,7 +367,7 @@ export const th = {
   "viewport.fullscreen": "เต็มหน้าจอ",
   "viewport.exitFullscreen": "ออกจากเต็มหน้าจอ",
   /** ป้ายข้างชื่อจังหวัดเมื่อไทม์ไลน์ถูกเลื่อนย้อนหลัง — ต้องบอกเสมอว่าไม่ใช่ค่าปัจจุบัน */
-  "viewport.historical": "มุมมองย้อนหลัง {time}",
+  "viewport.historical": "ดูย้อนหลัง {time}",
 
   // ── แผงข้อมูล (rail + drawer บนจอกว้าง / แท็บของแผ่นเลื่อนบนมือถือ) ─────
   "rail.aria": "แผงข้อมูล",
@@ -397,100 +397,100 @@ export const th = {
   "status.degradedCount": "{n} แหล่งผิดปกติ",
 
   // ── เครดิตแบบย่อ/ขยาย ─────────────────────────────────────────────────
-  "attribution.expand": "แสดงรายละเอียดภูมิประเทศ มาตราส่วน และชุดข้อมูล",
+  "attribution.expand": "ดูรายละเอียดภูมิประเทศ มาตราส่วน และชุดข้อมูล",
   "attribution.collapse": "ซ่อนรายละเอียดภูมิประเทศ",
   /** มือถือ: ปุ่มที่กางรายการลิงก์แหล่งข้อมูลทั้ง {n} แห่ง (บรรทัดย่อมีที่ไม่พอสำหรับลิงก์ทั้งหมด) */
   "attribution.sourcesCount": "แหล่งข้อมูล ({n})",
 
   // ── toast / badge แจ้งเตือน อปท. (lib/alertSummary.ts) ─────────────────
-  "alert.toast.active": "แจ้งเตือน อปท. {n} รายการ active",
+  "alert.toast.active": "มีแจ้งเตือน อปท. {n} รายการ",
   "alert.toast.unreachable": "ติดต่อระบบแจ้งเตือน อปท. ไม่ได้",
-  "alert.toast.degraded": "ระบบแจ้งเตือน อปท. ดึงรอบล่าสุดไม่สำเร็จ — รายการอาจไม่ทันปัจจุบัน",
+  "alert.toast.degraded": "ดึงข้อมูลแจ้งเตือน อปท. รอบล่าสุดไม่สำเร็จ รายการอาจยังไม่อัปเดต",
   "alert.toast.open": "เปิดดู",
-  "alert.badge.neverEvaluated": "ระบบแจ้งเตือนยังไม่เคยประมวลผล",
+  "alert.badge.neverEvaluated": "ระบบแจ้งเตือนยังไม่เคยทำงานสักรอบ",
 
   // ── การ์ดน้ำท่วมจากภาพดาวเทียม ────────────────────────────────────────
   "flood.title": "น้ำท่วมจากภาพดาวเทียม",
-  "flood.observedChip": "สังเกตการณ์จริง",
+  "flood.observedChip": "ตรวจพบจริง",
   "flood.loadError": "โหลดชั้นน้ำท่วมไม่ได้: {error}",
-  "flood.noScene": "ยังไม่ได้ภาพชุดล่าสุดจาก GISTDA (กำลังลองดึง) — ไม่ได้แปลว่าไม่มีน้ำท่วม",
-  "flood.none": "ไม่พบพื้นที่น้ำท่วมในจังหวัดนี้จากภาพชุดล่าสุด",
+  "flood.noScene": "ยังไม่ได้ภาพชุดล่าสุดจาก GISTDA (กำลังลองดึงอยู่) — ไม่ได้แปลว่าไม่มีน้ำท่วม",
+  "flood.none": "ภาพชุดล่าสุดไม่พบพื้นที่น้ำท่วมในจังหวัดนี้",
   "flood.noneFetched": " (ดึงเมื่อ {age})",
-  "flood.historicalScene": "ภาพ ณ {time} — ฉากที่ GISTDA ดึงไว้ครอบเวลาที่เลือก ไม่ใช่ฉากล่าสุด",
+  "flood.historicalScene": "ภาพ ณ {time} เป็นชุดที่ GISTDA มีในช่วงเวลาที่เลือก ไม่ใช่ชุดล่าสุด",
   "flood.noArchivedScene":
-    "ไม่มีฉากที่เก็บไว้ ณ เวลานั้น ({time}) — ระบบเริ่มบันทึกขอบเขตน้ำท่วมตั้งแต่ชั้นนี้เปิดใช้ ไม่ได้แปลว่าไม่มีน้ำท่วม",
-  "flood.noneHistorical": "ไม่พบพื้นที่น้ำท่วมในจังหวัดนี้จากฉากที่ครอบเวลาที่เลือก",
+    "ไม่มีภาพที่เก็บไว้ ณ {time} เพราะเราเริ่มเก็บขอบเขตน้ำท่วมตั้งแต่เปิดใช้ชั้นนี้ — ไม่ได้แปลว่าไม่มีน้ำท่วม",
+  "flood.noneHistorical": "ภาพในช่วงเวลาที่เลือกไม่พบพื้นที่น้ำท่วมในจังหวัดนี้",
   "flood.tambonCount": "ตำบลที่ท่วม",
   "flood.areaRai": "พื้นที่ (ไร่)",
   "flood.households": "บ้านเรือน",
   "flood.unknownTambon": "ไม่ระบุตำบล",
   "flood.firstSeen": "พบครั้งแรก {time}",
   "flood.note":
-    "ขอบเขตน้ำท่วมแปลจากภาพดาวเทียมโดย GISTDA (ชุดข้อมูล flooding_vis) — เป็นสิ่งที่ตรวจพบแล้ว ไม่ใช่การพยากรณ์ · ภาพชุดนี้ไม่ระบุวันที่ถ่าย ระบบจึงแสดงเวลาที่ดึงข้อมูล",
-  "flood.noteEarliest": " และเวลาที่พบพื้นที่แต่ละแห่งครั้งแรก (เก่าสุด {time})",
+    "GISTDA แปลขอบเขตน้ำท่วมจากภาพดาวเทียม (ชุดข้อมูล flooding_vis) เป็นพื้นที่ที่ตรวจพบแล้ว ไม่ใช่การพยากรณ์ ภาพชุดนี้ไม่ระบุวันที่ถ่าย เราจึงแสดงเวลาที่ดึงข้อมูลแทน",
+  "flood.noteEarliest": " พร้อมเวลาที่พบแต่ละพื้นที่ครั้งแรก (เก่าสุด {time})",
 
   // ── การ์ดฉาก Sentinel-1 / Copernicus GFM (E14.F5) ───────────────────
-  "floodScenes.section.shown": "ฉากที่กำลังแสดง · Sentinel-1 (Copernicus GFM)",
-  "floodScenes.section.passes": "รอบบินของ Sentinel-1",
-  "floodScenes.section.events": "เหตุการณ์น้ำท่วมที่เห็นจากดาวเทียม",
+  "floodScenes.section.shown": "ภาพที่แสดงอยู่ · Sentinel-1 (Copernicus GFM)",
+  "floodScenes.section.passes": "ภาพทั้งหมดจาก Sentinel-1",
+  "floodScenes.section.events": "ช่วงน้ำท่วมที่เห็นจากดาวเทียม",
   "floodScenes.section.gistda": "ขอบเขตน้ำท่วมจาก GISTDA",
-  "floodScenes.sceneId": "ฉาก",
-  "floodScenes.observedAt": "บันทึกภาพ",
-  "floodScenes.publishedAt": "GFM เผยแพร่",
-  "floodScenes.publishedAt.unknown": "ต้นทางไม่ระบุ",
+  "floodScenes.sceneId": "รหัสภาพ",
+  "floodScenes.observedAt": "ถ่ายเมื่อ",
+  "floodScenes.publishedAt": "GFM เผยแพร่เมื่อ",
+  "floodScenes.publishedAt.unknown": "ต้นทางไม่ได้ระบุ",
   "floodScenes.area": "พื้นที่ท่วมในภาพ",
-  "floodScenes.area.value": "{km2} ตร.กม. (บนตาราง overview)",
-  "floodScenes.depthShare": "เซลล์ท่วมที่มีค่าความลึก",
+  "floodScenes.area.value": "{km2} ตร.กม. (คิดบนกริดภาพรวม)",
+  "floodScenes.depthShare": "สัดส่วนที่ประมาณความลึกได้",
   "floodScenes.maxDepth": "ลึกสุด (ภาพประกอบ)",
-  "floodScenes.medianDepth": "มัธยฐาน (ภาพประกอบ)",
+  "floodScenes.medianDepth": "ค่ากลาง (ภาพประกอบ)",
   /** ระยะจากภาพถึงเวลาที่เลือก — บอกแค่ว่าภาพเก่ากว่าเท่าไร ห้ามอ่านเป็นสภาพ ณ เวลาที่เลือก */
   "floodScenes.gap": "ภาพล่าสุดก่อนเวลาที่เลือก: {duration}",
-  "floodScenes.gap.why": "ภาพบอกสภาพ ณ เวลาบันทึกภาพเท่านั้น — ไม่ใช่ ณ เวลาที่เลือก",
+  "floodScenes.gap.why": "ภาพบอกสภาพตอนที่ถ่ายเท่านั้น ไม่ใช่สภาพ ณ เวลาที่เลือก",
   "floodScenes.gap.days": "{d} วัน {h} ชม.",
   "floodScenes.gap.hours": "{h} ชม. {m} นาที",
   "floodScenes.gap.minutes": "{m} นาที",
-  "floodScenes.jumpToLatest": "ไปที่ภาพล่าสุดก่อนหน้านั้น",
+  "floodScenes.jumpToLatest": "ไปที่ภาพล่าสุดก่อนเวลานั้น",
   "floodScenes.selectedTime": "เวลาที่เลือก: {time}",
-  "floodScenes.dry": "แห้ง",
+  "floodScenes.dry": "ไม่ท่วม",
   "floodScenes.km2": "{km2} ตร.กม.",
-  "floodScenes.shownMarker": "ฉากที่กำลังแสดง",
-  "floodScenes.selectScene": "แสดงฉากนี้",
-  "floodScenes.more": "…และอีก {n} รอบบิน",
-  "floodScenes.event.peak": "สูงสุด {km2} ตร.กม. เมื่อ {time}",
-  "floodScenes.event.scenes": "{n} รอบบิน",
-  "floodScenes.event.scenes.one": "1 รอบบิน",
-  "floodScenes.event.select": "แสดงฉากที่ท่วมมากที่สุดของเหตุการณ์นี้",
-  "floodScenes.events.none": "ไม่มีรอบบินในรายการนี้ที่จำแนกว่าท่วม — ตามภาพที่มีเท่านั้น",
+  "floodScenes.shownMarker": "กำลังแสดง",
+  "floodScenes.selectScene": "แสดงภาพนี้",
+  "floodScenes.more": "…และอีก {n} ภาพ",
+  "floodScenes.event.peak": "ท่วมมากสุด {km2} ตร.กม. เมื่อ {time}",
+  "floodScenes.event.scenes": "{n} ภาพ",
+  "floodScenes.event.scenes.one": "1 ภาพ",
+  "floodScenes.event.select": "แสดงภาพที่ท่วมมากที่สุดของช่วงนี้",
+  "floodScenes.events.none": "ไม่มีภาพไหนในรายการนี้ที่พบน้ำท่วม",
   "floodScenes.events.note":
-    "เหตุการณ์ = รอบบินที่เห็นน้ำท่วมซึ่งห่างกันไม่เกิน 7 วัน · ระหว่างรอบบินไม่มีภาพ จึงไม่รู้สภาพในช่วงนั้น",
-  "floodScenes.passes.note": "หนึ่งรายการ = หนึ่งรอบบิน · ฉากที่แห้งก็เป็นข้อมูล ไม่ใช่ความเงียบ",
+    "ภาพที่พบน้ำท่วมและถ่ายห่างกันไม่เกิน 7 วันจะนับเป็นช่วงน้ำท่วมเดียวกัน ระหว่างภาพสองภาพไม่มีข้อมูล จึงไม่รู้ว่าช่วงนั้นเป็นอย่างไร",
+  "floodScenes.passes.note": "แต่ละรายการคือภาพหนึ่งภาพจากการที่ดาวเทียมโคจรผ่านหนึ่งครั้ง ภาพที่ไม่พบน้ำท่วมก็นับเป็นข้อมูล เพราะดาวเทียมถ่ายแล้วจริง",
 
   // ── การ์ดระดับน้ำ ─────────────────────────────────────────────────────
   "water.title": "ระดับน้ำที่ตรวจวัดได้",
   "water.historicalNote":
-    "กำลังดูค่าย้อนหลัง — สีจุดบนแผนที่คิดจากระยะต่ำกว่าตลิ่ง (ThaiWater ไม่เผยแพร่ระดับสถานการณ์ย้อนหลัง)",
+    "กำลังดูข้อมูลย้อนหลัง สีจุดบนแผนที่จึงคิดจากระยะที่น้ำต่ำกว่าตลิ่ง เพราะ ThaiWater ไม่เผยแพร่ระดับสถานการณ์ย้อนหลัง",
   "water.overflowing": "มี {n} สถานีอยู่ในเกณฑ์น้ำมากหรือล้นตลิ่ง",
   "water.none": "ไม่มีสถานีวัดระดับน้ำในจังหวัดนี้",
-  "water.note": "ค่าที่แสดงเป็นการตรวจวัดจริงจากสถานีโทรมาตร ไม่ใช่การพยากรณ์",
-  "water.observedAt": " · ข้อมูล {time}",
+  "water.note": "ค่าที่วัดจริงจากสถานีโทรมาตร ไม่ใช่การพยากรณ์",
+  "water.observedAt": " · ข้อมูลเมื่อ {time}",
   "water.stationFallback": "สถานี {id}",
   "water.aboveBank": "สูงกว่าตลิ่ง {n} {unit}",
   "water.belowBank": "ต่ำกว่าตลิ่ง {n} {unit}",
-  "water.historicalChip": "ค่าย้อนหลัง",
+  "water.historicalChip": "ข้อมูลย้อนหลัง",
   "water.sparkline.aria": "กราฟระดับน้ำ 72 ชั่วโมง",
   "water.sparkline.bank": "ตลิ่งต่ำสุด",
-  "water.sparkline.none": "ไม่มีข้อมูลย้อนหลังเพียงพอ",
-  "water.history.caption": "72 ชม. ล่าสุด · {datum} · ค่าตรวจวัดจริง 10 นาที/จุด",
+  "water.sparkline.none": "ข้อมูลย้อนหลังไม่พอให้วาดกราฟ",
+  "water.history.caption": "72 ชม. ล่าสุด · {datum} · วัดจริงทุก 10 นาที",
   "water.datum.msl": "ม.รทก.",
-  "water.datum.local": "ม. (ระดับอ้างอิงสถานี)",
+  "water.datum.local": "ม. (เทียบระดับอ้างอิงของสถานี)",
   "water.datum.unknown": "ม.",
 
   // ── การ์ดฝน ───────────────────────────────────────────────────────────
   "rain.title": "ปริมาณฝน 24 ชั่วโมง",
   "rain.reporting": "{n} สถานี",
-  "rain.wetSummary": "มีฝนตก {wet} สถานี จาก {total} สถานีที่รายงาน",
+  "rain.wetSummary": "ฝนตก {wet} จาก {total} สถานีที่รายงาน",
   "rain.none": "ไม่มีสถานีวัดน้ำฝนในจังหวัดนี้",
-  "rain.note": "ปริมาณฝนสะสมที่ตรวจวัดจริงจากสถานีโทรมาตร ไม่ใช่การพยากรณ์",
+  "rain.note": "ปริมาณฝนสะสมที่วัดจริงจากสถานีโทรมาตร ไม่ใช่การพยากรณ์",
 
   // ── การ์ดพยากรณ์ TMD (E12.3) ─────────────────────────────────────────
   // ทุกคีย์ที่พูดคำว่า "พยากรณ์" ต้องมีคำว่า "TMD" อยู่ในสตริงเดียวกันเสมอ
@@ -498,15 +498,15 @@ export const th = {
   "forecast.title": "พยากรณ์อากาศ TMD",
   "forecast.headerCount": "{n} ชม. ข้างหน้า",
   "forecast.none": "ยังไม่เคยได้รับผลพยากรณ์จาก TMD สำหรับจังหวัดนี้",
-  "forecast.staleNote": "TMD ยังไม่ส่งผลพยากรณ์ชุดใหม่ตามรอบปกติ ตัวเลขด้านล่างเป็นชุดล่าสุดที่มี",
-  "forecast.note": "ค่าจากแบบจำลองเชิงตัวเลขของ TMD (NWP) เป็นค่ากำหนดแน่นอนของอนาคต ไม่ใช่ความน่าจะเป็น",
+  "forecast.staleNote": "TMD ยังไม่ส่งผลพยากรณ์ชุดใหม่ตามกำหนด ตัวเลขด้านล่างเป็นชุดล่าสุดที่มี",
+  "forecast.note": "ตัวเลขจากแบบจำลองสภาพอากาศเชิงตัวเลขของ TMD (NWP) เป็นค่าที่แบบจำลองคำนวณออกมาค่าเดียว ไม่ใช่ความน่าจะเป็น",
   "forecast.hourly.title": "รายชั่วโมง",
   "forecast.hourly.unit": "มม./ชม.",
-  "forecast.hourly.none": "TMD ไม่ได้ส่งค่าปริมาณฝนรายชั่วโมงมาในชุดนี้",
+  "forecast.hourly.none": "ชุดนี้ TMD ไม่ได้ส่งปริมาณฝนรายชั่วโมงมา",
   "forecast.hourly.chartAria": "กราฟปริมาณฝนรายชั่วโมง 48 ชั่วโมงข้างหน้า",
   "forecast.daily.title": "รายวัน",
   "forecast.daily.unit": "มม./24 ชม.",
-  "forecast.daily.none": "TMD ไม่ได้ส่งค่าปริมาณฝนรายวันมาในชุดนี้",
+  "forecast.daily.none": "ชุดนี้ TMD ไม่ได้ส่งปริมาณฝนรายวันมา",
 
   // ── แถบเวลาพยากรณ์ (ForecastStrip, E12.4a) ────────────────────────────
   "forecast.strip.clear": "ล้างการเลือก",
@@ -515,68 +515,68 @@ export const th = {
   "forecast.strip.prompt": "ลากเพื่อดูตัวเลขของชั่วโมงนั้น",
   "forecast.strip.rain": "ฝน",
   "forecast.strip.temp": "อุณหภูมิ",
-  "forecast.strip.cond": "รหัสสภาพอากาศ",
+  "forecast.strip.cond": "สภาพอากาศ (รหัส)",
   "forecast.strip.notSent": "TMD ไม่ได้ส่งค่านี้มา",
   "forecast.strip.tickHours": "+{n} ชม.",
-  "forecast.strip.noSteps": "TMD ไม่ได้ส่งขั้นรายชั่วโมงมาในชุดนี้เลย",
+  "forecast.strip.noSteps": "ชุดนี้ TMD ไม่ได้ส่งข้อมูลรายชั่วโมงมาเลย",
 
   // ── แถบฝนพยากรณ์รายวันบนแผนที่ 3 มิติ (E12.4b) ────────────────────────
   "forecast.band.label": "ฝนพยากรณ์ 24 ชม. จาก TMD",
   // TMD ส่งค่ามาจริง และค่านั้นต่ำกว่าเกณฑ์ที่ต้องเน้นสี — ข้อเท็จจริงที่แบบจำลอง
   // ยืนยัน ต้องไม่ใช้ข้อความเดียวกับ noValue (ซึ่งคือ "เราไม่รู้")
-  "forecast.band.belowThreshold": "TMD พยากรณ์ฝนของวันนี้ไว้ต่ำกว่าเกณฑ์ที่ต้องเน้นสีบนแผนที่",
+  "forecast.band.belowThreshold": "TMD พยากรณ์ฝนวันนี้ไว้ต่ำกว่าเกณฑ์ที่จะแสดงสีบนแผนที่",
   // ไม่มีขั้นรายวันของวันนี้เลย หรือมีขั้นแต่ค่าฝนเป็น null — สองกรณีนี้คือ
   // "ไม่มีค่าให้อ่าน" เหมือนกันจากมุมของผู้ใช้ ต้องแยกจาก belowThreshold ข้างบน
-  "forecast.band.noValue": "TMD ไม่มีค่าฝนพยากรณ์รายวันของวันนี้ให้แสดง",
+  "forecast.band.noValue": "TMD ไม่มีค่าฝนพยากรณ์ของวันนี้",
 
   // ── การ์ดเขื่อน ───────────────────────────────────────────────────────
   "dam.title": "เขื่อนและอ่างเก็บน้ำ",
   "dam.count": "{n} แห่ง",
-  "dam.none": "ไม่มีเขื่อน/อ่างเก็บน้ำที่รายงานในจังหวัดนี้",
+  "dam.none": "ไม่มีเขื่อนหรืออ่างเก็บน้ำที่รายงานข้อมูลในจังหวัดนี้",
   "dam.prefix": "เขื่อน",
   "dam.reservoir": "อ่างเก็บน้ำ",
   "dam.inflow": " · น้ำไหลเข้า {n}",
   "dam.released": " · ระบาย {n}",
   "dam.note":
-    "ปริมาณน้ำเก็บกักตามที่กรมชลประทาน/กฟผ. รายงานผ่าน ThaiWater (สสน.) — เฉพาะค่าที่รายงานภายใน 48 ชม.",
+    "ปริมาณน้ำตามที่กรมชลประทานและ กฟผ. รายงานผ่าน ThaiWater (สสน.) แสดงเฉพาะค่าที่รายงานภายใน 48 ชม.",
 
   // ── การ์ดแผ่นดินไหว ───────────────────────────────────────────────────
   "quake.title": "แผ่นดินไหวที่ตรวจวัดได้",
   "quake.conn.connecting": "กำลังเชื่อมต่อ",
   "quake.conn.live": "เรียลไทม์",
-  "quake.conn.polling": "ดึงข้อมูลเป็นช่วง",
-  "quake.conn.reconnecting": "สายหลุด กำลังต่อใหม่",
+  "quake.conn.polling": "ดึงข้อมูลเป็นระยะ",
+  "quake.conn.reconnecting": "หลุดการเชื่อมต่อ กำลังต่อใหม่",
   "quake.conn.error": "เชื่อมต่อไม่ได้",
   "quake.events30d": "เหตุการณ์ 30 วันล่าสุด",
   "quake.maxMag": "ขนาดสูงสุด",
-  "quake.parseErrors": "ข้อความจากฟีดอ่านไม่ได้ {n} รายการ — อาจมีเหตุการณ์ที่ยังไม่ได้แสดง",
-  "quake.none": "ไม่พบเหตุการณ์ในพื้นที่เฝ้าระวังช่วงเวลานี้",
+  "quake.parseErrors": "อ่านข้อมูลจากฟีดไม่ได้ {n} รายการ อาจมีเหตุการณ์ที่ยังไม่แสดง",
+  "quake.none": "ช่วงนี้ไม่พบแผ่นดินไหวในพื้นที่ที่เฝ้าดู",
   "quake.unknownPlace": "ไม่ระบุตำแหน่ง",
-  "quake.unknownMagType": "ไม่ระบุมาตรา",
+  "quake.unknownMagType": "ไม่ระบุชนิดขนาด",
   "quake.depth": "ลึก {n} {unit}",
   "quake.unreviewed": "ยังไม่ตรวจสอบ",
   "quake.reviewed": "ตรวจสอบแล้ว",
   "quake.note":
-    "ข้อมูลตรวจวัดจริงจาก USGS และ EMSC — เป็นเหตุการณ์ที่ตรวจพบแล้ว ไม่ใช่การพยากรณ์",
+    "ข้อมูลตรวจวัดจริงจาก USGS และ EMSC เป็นเหตุการณ์ที่เกิดขึ้นแล้ว ไม่ใช่การพยากรณ์",
   "quake.asOf": " · ข้อมูล ณ {time}",
   "quake.nearest.inside": "ในเขต{province}",
   "quake.nearest.distance": "ห่างจาก{province} ≈ {n} กม.",
-  "quake.nearest.unknown": "ยังไม่ได้คำนวณจังหวัดใกล้เคียง",
-  "quake.nearest.note": "ระยะเชิงเรขาคณิตถึงขอบเขตจังหวัด (ขอบเขตจาก OpenStreetMap ซึ่งครอบคลุมพื้นที่ทะเลอาณาเขตด้วย จุดกลางทะเลจึงอาจอยู่ \"ในเขต\" จังหวัดชายฝั่งได้) ไม่ใช่แบบจำลองแรงสั่นสะเทือน",
-  "quake.eventPage": "หน้าเหตุการณ์ที่ต้นทาง",
+  "quake.nearest.unknown": "ยังไม่ได้คำนวณจังหวัดที่ใกล้ที่สุด",
+  "quake.nearest.note": "เป็นระยะทางตรงถึงขอบเขตจังหวัด ไม่ได้บอกระดับแรงสั่นสะเทือน ขอบเขตจาก OpenStreetMap รวมทะเลอาณาเขตด้วย จุดกลางทะเลจึงอาจนับว่าอยู่ \"ในเขต\" จังหวัดชายฝั่งได้",
+  "quake.eventPage": "ดูรายละเอียดที่เว็บต้นทาง",
   "quake.asOfWithAge": "{time} ({age})",
 
   // ── กล่องข้อมูลบนแผนที่ ───────────────────────────────────────────────
   "popup.situationThaiwater": "สถานการณ์ (ThaiWater)",
   "popup.situation": "สถานการณ์",
-  "popup.situationHistorical": "ค่าย้อนหลัง — ไม่ระบุ",
+  "popup.situationHistorical": "ข้อมูลย้อนหลัง ไม่มีระดับสถานการณ์",
   "popup.waterlevel": "ระดับน้ำ",
   "popup.minBank": "ตลิ่งต่ำสุด",
   "popup.aboveBank": "สูงกว่าตลิ่ง",
   "popup.belowBank": "ต่ำกว่าตลิ่ง",
   "popup.observedAt": "เวลาตรวจวัด",
   "popup.realObserved": "ค่าตรวจวัดจริง",
-  "popup.partlyArchive": " · บางส่วนจากคลังถาวร",
+  "popup.partlyArchive": " · บางส่วนมาจากคลังข้อมูล",
   "popup.noHistory": "ไม่มีข้อมูลย้อนหลัง",
   "popup.rain24h": "ฝนสะสม 24 ชม.",
   "popup.rain1h": "ฝน 1 ชม.",
@@ -595,22 +595,22 @@ export const th = {
   "popup.cctv.loading": "กำลังขอภาพล่าสุดจาก DWR…",
   "popup.cctv.alt": "ภาพล่าสุดจากกล้อง {name}",
   "popup.cctv.takenAt": "ถ่ายเมื่อ",
-  "popup.cctv.takenAtUnknown": "ไม่ทราบ (DWR ไม่ได้ระบุในรูปแบบที่อ่านได้)",
+  "popup.cctv.takenAtUnknown": "ไม่ทราบ (DWR ไม่ได้ระบุเวลาในรูปแบบที่อ่านได้)",
   "popup.cctv.fetchedAt": "ดึงภาพเมื่อ",
   "popup.cctv.age": "อายุภาพ",
-  "popup.cctv.stale": "ภาพไม่ใช่ปัจจุบัน",
+  "popup.cctv.stale": "ภาพนี้ไม่ใช่ภาพปัจจุบัน",
   "popup.cctv.old": "ภาพเก่ากว่า 24 ชม.",
   "popup.cctv.unreachable":
-    "ติดต่อ DWR ไม่ได้ ({detail}) — เราขอภาพไม่สำเร็จ จึงบอกอะไรเกี่ยวกับกล้องหรือพื้นที่นี้ไม่ได้",
-  "popup.cctv.noImage": "DWR ตอบแล้วแต่ไม่มีภาพจากกล้องนี้ให้ — ไม่ได้บอกอะไรเกี่ยวกับสภาพพื้นที่",
+    "ติดต่อ DWR ไม่ได้ ({detail}) เราจึงขอภาพไม่สำเร็จ และบอกอะไรเกี่ยวกับกล้องหรือพื้นที่นี้ไม่ได้",
+  "popup.cctv.noImage": "DWR ตอบกลับมาแล้ว แต่ไม่มีภาพจากกล้องนี้ ซึ่งไม่ได้บอกอะไรเกี่ยวกับสภาพพื้นที่",
   "popup.cctv.refresh": "ขอภาพใหม่",
   "popup.cctv.credit": "ภาพ: กรมทรัพยากรน้ำ (DWR)",
-  "popup.cctv.rights": "© กรมทรัพยากรน้ำ — ไม่ได้รับรองหรือเกี่ยวข้องกับโครงการนี้",
+  "popup.cctv.rights": "© กรมทรัพยากรน้ำ ซึ่งไม่ได้รับรองหรือเกี่ยวข้องกับโครงการนี้",
   "popup.cctv.nearest": "กล้องใกล้เคียง ({km} กม.)",
   "popup.cctv.open": "ดูภาพ",
   "popup.cctv.back": "กลับไปที่สถานี",
   "popup.status": "สถานะ",
-  "popup.statusAutomatic": "ตรวจพบอัตโนมัติ ยังไม่ตรวจสอบ",
+  "popup.statusAutomatic": "ตรวจพบโดยอัตโนมัติ ยังไม่มีคนตรวจสอบ",
   "popup.statusReviewed": "ตรวจสอบแล้ว",
   "popup.floodTitle": "ต.{tambon} — พื้นที่น้ำท่วม",
   "popup.mapPoint": "ตำแหน่งบนแผนที่",
@@ -620,20 +620,20 @@ export const th = {
   "popup.floodArea": "พื้นที่น้ำท่วม",
   "popup.firstSeen": "พบครั้งแรก",
   "popup.lastSeen": "พบล่าสุด",
-  "popup.floodNote": "แปลจากภาพดาวเทียม (GISTDA) — สิ่งที่ตรวจพบแล้ว ไม่ใช่การพยากรณ์",
+  "popup.floodNote": "GISTDA แปลจากภาพดาวเทียม เป็นพื้นที่ที่ตรวจพบแล้ว ไม่ใช่การพยากรณ์",
   /** E14.F5 — เซลล์ของฉาก Copernicus GFM ใต้จุดที่คลิก: หกคลาส หกประโยค ห้ามพับรวม */
   "popup.gfm.title": "ภาพ Sentinel-1 (Copernicus GFM)",
   "popup.gfm.flooded": "ท่วม · ความลึกโดยประมาณ {m} ม. (ภาพประกอบ)",
-  "popup.gfm.floodedNoDepth": "ท่วม · เซลล์นี้ไม่มีค่าความลึก",
+  "popup.gfm.floodedNoDepth": "ท่วม · จุดนี้ไม่มีค่าความลึก",
   /** ความเชื่อมั่นของ ensemble ของ GFM ว่าจำแนกถูก — ไม่ใช่ความน่าจะเป็นของอะไรที่ยังไม่เกิด */
-  "popup.gfm.confidence": "ความเชื่อมั่นของการจำแนกภาพ {n}/100",
-  "popup.gfm.notEstimated": "ท่วม · ไม่ได้ประมาณความลึก (สิ่งปลูกสร้าง/ต้นไม้)",
+  "popup.gfm.confidence": "ความมั่นใจในการจำแนกภาพ {n}/100",
+  "popup.gfm.notEstimated": "ท่วม · ประมาณความลึกไม่ได้ (มีอาคารหรือต้นไม้)",
   "popup.gfm.referenceWater": "แหล่งน้ำถาวร",
-  "popup.gfm.excluded": "ไม่มีการจำแนก (SAR มองไม่เห็น)",
-  "popup.gfm.noObservation": "ไม่มีภาพ ณ จุดนี้ในฉากนั้น",
+  "popup.gfm.excluded": "จำแนกไม่ได้ (เรดาร์มองไม่เห็นจุดนี้)",
+  "popup.gfm.noObservation": "ภาพนี้ไม่ครอบคลุมจุดนี้",
   "popup.gfm.dry": "ไม่พบน้ำท่วมในภาพ",
-  "popup.gfm.unknownClass": "รหัสคลาสไม่รู้จัก ({cls})",
-  "popup.gfm.acquired": "บันทึกภาพ {time} · ฉาก {id}",
+  "popup.gfm.unknownClass": "ไม่รู้จักรหัสประเภท ({cls})",
+  "popup.gfm.acquired": "ถ่ายเมื่อ {time} · ภาพ {id}",
 
   // ── ป้ายกำกับบนฉาก 3 มิติ ─────────────────────────────────────────────
   "scene.loadingTerrain": "กำลังโหลดข้อมูลภูมิประเทศ...",
@@ -641,8 +641,8 @@ export const th = {
   "scene.loadingHiRes": "กำลังโหลดภูมิประเทศความละเอียดสูง...",
   "scene.loadError": "โหลดแผนที่ 3 มิติไม่สำเร็จ",
   "scene.loadingImagery": "กำลังโหลดภาพดาวเทียม",
-  "scene.notBuiltTitle": "ยังไม่ได้ประมวลผลภูมิประเทศของจังหวัดนี้",
-  "scene.notBuiltBody": "ข้อมูลตรวจวัดยังแสดงตามปกติในแผงด้านข้าง",
+  "scene.notBuiltTitle": "ยังไม่ได้เตรียมข้อมูลภูมิประเทศของจังหวัดนี้",
+  "scene.notBuiltBody": "ค่าตรวจวัดยังดูได้ตามปกติในแผงข้าง",
   "scene.station": "สถานี {id}",
   "scene.aboveBankHistorical": "สูงกว่าตลิ่ง {n} ม. (ค่าย้อนหลัง)",
   "scene.belowBankHistorical": "ต่ำกว่าตลิ่ง {n} ม. (ค่าย้อนหลัง)",
@@ -653,9 +653,9 @@ export const th = {
   "scene.floodAreaRai": "น้ำท่วม {n} ไร่ (ภาพดาวเทียม)",
   "scene.floodPlain": "น้ำท่วม (ภาพดาวเทียม)",
   "scene.quakeLabel": "แผ่นดินไหว M{mag}",
-  "scene.quakeAutomatic": "ตรวจพบ · ยังไม่ตรวจสอบ",
+  "scene.quakeAutomatic": "ตรวจพบอัตโนมัติ · ยังไม่ตรวจสอบ",
   "scene.quakeReviewed": "ตรวจพบ · ตรวจสอบแล้ว",
-  "scene.damCapacity": "ความจุ {n}% (ตรวจวัดจริง)",
+  "scene.damCapacity": "น้ำ {n}% ของความจุ (ตรวจวัดจริง)",
   "scene.damNoCapacity": "ไม่มีข้อมูลความจุ",
 
   // ── ข้อความผิดพลาดของ hooks ───────────────────────────────────────────
@@ -663,7 +663,7 @@ export const th = {
   "error.observationsFailed": "โหลดข้อมูลตรวจวัดไม่สำเร็จ",
   "error.apiUnreachable": "เชื่อมต่อ API ไม่ได้ — ตรวจสอบว่าเซิร์ฟเวอร์ API ทำงานอยู่ (npm run dev)",
   "error.networkUnreachable": "เชื่อมต่อเครือข่ายไม่ได้ กำลังลองใหม่...",
-  "error.earthquakeFeed": "ไม่สามารถเชื่อมต่อข้อมูลแผ่นดินไหว",
+  "error.earthquakeFeed": "เชื่อมต่อข้อมูลแผ่นดินไหวไม่ได้",
 
   // ── หน้าวิธีคำนวณ ─────────────────────────────────────────────────────
   "methodology.loading": "กำลังโหลดเอกสาร...",
@@ -694,44 +694,44 @@ export const th = {
   "impact.card.title": "สรุปผลกระทบ อปท.",
   "impact.card.selectPrompt": "เลือก อปท. จากรายการด้านล่างเพื่อดูรายละเอียด",
   "impact.card.noCoverage":
-    "อปท. รายนี้ยังไม่มีขอบเขตหรือเส้นฐานข้อมูลจริงให้คำนวณผลกระทบ",
+    "อปท. นี้ยังไม่มีขอบเขตหรือข้อมูลพื้นฐานจริงให้คำนวณผลกระทบ",
   "impact.card.loadError": "โหลดข้อมูลผลกระทบไม่สำเร็จ: {error}",
-  "impact.section.baseline": "ข้อมูลพื้นฐาน (คงที่)",
+  "impact.section.baseline": "ข้อมูลพื้นฐาน (ไม่เปลี่ยนตามสถานการณ์)",
   "impact.section.flood": "ผลกระทบจากน้ำท่วมปัจจุบัน",
   "impact.population.label": "ประชากร",
-  "impact.population.estimateNote": "ประมาณการ WorldPop 2020 — ไม่ใช่ตัวเลขนับจริง",
-  "impact.buildings.label": "อาคาร (เส้นฐาน)",
+  "impact.population.estimateNote": "ค่าประมาณจาก WorldPop 2020 ไม่ใช่ตัวเลขจากการนับจริง",
+  "impact.buildings.label": "อาคาร (ข้อมูลพื้นฐาน)",
   "impact.floodedArea.label": "พื้นที่น้ำท่วม",
-  "impact.floodedFraction.label": "สัดส่วนพื้นที่ท่วม",
-  "impact.floodedFraction.neverFetched": "GISTDA ยังไม่เคยดึงฉากน้ำท่วมสำเร็จเลย",
+  "impact.floodedFraction.label": "สัดส่วนที่ถูกน้ำท่วม",
+  "impact.floodedFraction.neverFetched": "ยังไม่เคยดึงภาพน้ำท่วมจาก GISTDA สำเร็จเลย",
   "impact.facilitiesExposed.label": "สถานที่สำคัญในพื้นที่น้ำท่วม",
   "impact.facilitiesExposed.hospitals": "โรงพยาบาล {n}",
   "impact.facilitiesExposed.schools": "โรงเรียน {n}",
   "impact.facilitiesExposed.fireStations": "สถานีดับเพลิง {n}",
-  "impact.facilitiesExposed.none": "ไม่มีสถานที่สำคัญในพื้นที่น้ำท่วมขณะนี้",
-  "impact.populationExposed.label": "ประชากรที่อาจเผชิญน้ำท่วม (คำนวณจากสัดส่วนพื้นที่)",
-  "impact.buildingsExposed.label": "อาคารที่อาจเผชิญน้ำท่วม (คำนวณจากสัดส่วนพื้นที่)",
+  "impact.facilitiesExposed.none": "ตอนนี้ไม่มีสถานที่สำคัญอยู่ในพื้นที่น้ำท่วม",
+  "impact.populationExposed.label": "ประชากรที่อาจได้รับผลกระทบ (ประมาณตามสัดส่วนพื้นที่ท่วม)",
+  "impact.buildingsExposed.label": "อาคารที่อาจได้รับผลกระทบ (ประมาณตามสัดส่วนพื้นที่ท่วม)",
   "impact.method.areaWeighted":
-    "คำนวณจากสัดส่วนพื้นที่ที่ถูกน้ำท่วมทับเส้นฐาน ไม่ใช่การนับทีละหลัง ไม่ใช่การพยากรณ์",
+    "ประมาณตามสัดส่วนพื้นที่ที่ถูกน้ำท่วม ไม่ได้นับทีละหลัง และไม่ใช่การพยากรณ์",
 
   // ── แถบแจ้งเตือน อปท. (E11.6) ─────────────────────────────────────────
   "alert.banner.title": "การแจ้งเตือน อปท.",
-  "alert.banner.neverEvaluated": "ระบบแจ้งเตือนยังไม่เคยประมวลผลเลยตั้งแต่เริ่มทำงาน",
+  "alert.banner.neverEvaluated": "ระบบแจ้งเตือนยังไม่เคยทำงานเลยสักรอบ",
   "alert.banner.unreachable": "ติดต่อระบบแจ้งเตือนไม่ได้ในขณะนี้",
-  "alert.banner.none": "ประเมินแล้ว — ไม่มีการแจ้งเตือนที่ active อยู่ในขณะนี้",
-  "alert.banner.degraded": "เชื่อมต่อระบบแจ้งเตือนไม่ได้ในรอบล่าสุด — รายการด้านล่างอาจไม่ทันปัจจุบัน",
-  "alert.banner.evaluatedAge": "ประเมินล่าสุด {age}",
-  "alert.banner.stale": "ค้าง — สถานีขาดข้อมูลในรอบล่าสุด",
+  "alert.banner.none": "ตรวจแล้ว ตอนนี้ไม่มีการแจ้งเตือน",
+  "alert.banner.degraded": "รอบล่าสุดเชื่อมต่อระบบแจ้งเตือนไม่ได้ รายการด้านล่างอาจยังไม่อัปเดต",
+  "alert.banner.evaluatedAge": "ตรวจล่าสุด {age}",
+  "alert.banner.stale": "ข้อมูลค้าง เพราะรอบล่าสุดไม่ได้ข้อมูลจากสถานี",
   "alert.banner.triggeredAt": "เริ่มเมื่อ {time}",
-  "alert.banner.count": "{n} รายการ active",
+  "alert.banner.count": "กำลังแจ้งเตือน {n} รายการ",
 
   // ── รายชื่อ อปท. ที่ได้รับผลกระทบ (E11.6) ───────────────────────────────
   "authorityList.title": "อปท. ที่ได้รับผลกระทบ",
   "authorityList.empty.noCoverage":
-    "จังหวัดนี้ยังไม่มี อปท. รายใดมีขอบเขต E11.2 จริงให้คำนวณ",
+    "จังหวัดนี้ยังไม่มี อปท. ที่มีขอบเขตให้คำนวณ",
   "authorityList.loadError": "โหลดรายชื่อ อปท. ไม่สำเร็จ: {error}",
   "authorityList.floodedFraction": "ท่วม {pct}%",
-  "authorityList.neverFetched": "GISTDA ยังไม่เคยดึงข้อมูลสำเร็จ",
-  "authorityList.unavailable": "ตรวจสอบผลกระทบของรายนี้ไม่สำเร็จ",
-  "authorityList.facilitiesCount": "{n} สถานที่สำคัญในพื้นที่ท่วม",
+  "authorityList.neverFetched": "ยังไม่เคยดึงข้อมูลจาก GISTDA สำเร็จ",
+  "authorityList.unavailable": "ตรวจผลกระทบของ อปท. นี้ไม่สำเร็จ",
+  "authorityList.facilitiesCount": "สถานที่สำคัญในพื้นที่ท่วม {n} แห่ง",
 } as const;
