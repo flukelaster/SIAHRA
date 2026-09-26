@@ -68,7 +68,7 @@ export function AppShell(props: AppShellProps) {
   const bellRef = useRef<HTMLButtonElement | null>(null);
   // อ่านครั้งเดียวตอน mount; เขียนเฉพาะตอนกด "อ่านทั้งหมดแล้ว" — การเปิดศูนย์ไม่นับว่าอ่าน
   const [seen, setSeen] = useState<string[]>(() => readSeen(getLocalStorage));
-  const { activeAlerts, forecast, affectedAuthorities, province } = ctx;
+  const { activeAlerts, forecast, storms, affectedAuthorities, province } = ctx;
   // ApiHealthState เต็ม (มี apiDown/checkedAt) — ctx.apiHealth เป็นแค่ HealthResponse
   const apiHealth = props.apiHealth;
   const notifications = useMemo(
@@ -83,10 +83,12 @@ export function AppShell(props: AppShellProps) {
           forecast,
           apiHealth,
           authorityNames: new Map(affectedAuthorities.entries.map((e) => [e.id, e.nameTh])),
+          storms,
+          provinceName: lang === "th" ? province.nameTh : province.nameEn,
         },
         lang,
       ),
-    [province.code, activeAlerts, forecast, apiHealth, affectedAuthorities.entries, lang],
+    [province, activeAlerts, forecast, storms, apiHealth, affectedAuthorities.entries, lang],
   );
   const unread = useMemo(() => unreadCount(notifications, seen), [notifications, seen]);
   const closeNotifications = useCallback(() => setNotifOpen(false), []);

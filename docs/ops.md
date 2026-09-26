@@ -126,7 +126,7 @@ well** — a failure that only exists in the log is a silent failure.
 
 ## 4. Alarm cadence
 
-Cron (`* * * * *`, `apps/api/wrangler.jsonc`) runs all six refresh jobs every minute, each with its
+Cron (`* * * * *`, `apps/api/wrangler.jsonc`) runs all seven refresh jobs every minute, each with its
 own ~25 s budget, concurrently and in isolation. On top of that **every Durable Object schedules its
 own alarm**, so a missed cron tick does not freeze a source. Both paths share the same in-flight
 refresh, so they cannot double-fetch.
@@ -138,6 +138,7 @@ refresh, so they cannot double-fetch.
 | `FloodExtentDO` | `gistda-flood` | 30 min, **alarm only** (the cron's `ensureFresh()` only arms the alarm, it never pulls) | 5 → 10 → 20 → 30 min (±15 % jitter on the alarm; the in-round fetch retry uses ±25 %) | 10800 (3 h) | `null` (irregular satellite revisit) | none — `flood_province_scenes` and `archive/flood-v2/` are kept indefinitely |
 | `EarthquakeFeedDO` | `earthquakes` | 1 min | next tick (1 min) | 300 (5 min) | `null` (quakes have no cadence) | events 30 days |
 | `ForecastNwpDO` | `tmd-nwp` | 1 h | 5 min | 10800 (3 h) | `null` (a forecast has no observation to be late about) | none — latest round only, one row per province, overwritten in place |
+| `StormTrackDO` | `jma-typhoon`, `gdacs-tc` | 30 min | 5 min only when both upstreams failed (one failing waits the normal 30 min); cron gated on `lastAttemptAt` like `ForecastNwpDO` | 10800 (3 h) | `null` (storms have no cadence) | none — one `latest` row, overwritten on every successful round; per-source meta |
 | `ObservationCacheDO` (exposure) | `exposure-illustrative` | on every ThaiWater refresh (~5 min) | with that refresh | 3600 (1 h) | 1800 (30 min) | runs kept indefinitely (see §6) |
 
 Side cadences inside `ObservationCacheDO`: dams every 30 min (5 min pause after a failure so a broken
@@ -397,7 +398,8 @@ it → full scan, × 24 stations per province view) and five `COUNT`/`MAX` aggre
 anything an order of magnitude above that is a regression. **DO requests are the one dimension that
 is no longer comfortable**: E12.2 made `/api/v1/health` fan out to 7 DO calls instead of 6 (six
 distinct instances — `ObservationCacheDO` is asked twice), so DO requests rise ~17% and the worst
-case lands around 1.2M against the 1M included, i.e. ~$0.03–0.10/month. The lever if it matters is
+case lands around 1.2M against the 1M included, i.e. ~$0.03–0.10/month; the storm layer v1 made it 8
+calls (seven instances, `StormTrackDO`), ~1.37M worst case. The lever if it matters is
 the `/health` cache (`public, max-age=15`), not removing a source from the endpoint.
 
 **`ForecastNwpDO` (E12.2) is the worked example of designing for this from the start**: one table,

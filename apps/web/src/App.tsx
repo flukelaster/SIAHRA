@@ -21,6 +21,7 @@ import { useAffectedAuthorities } from "./hooks/useAffectedAuthorities";
 import { useActiveAlerts } from "./hooks/useActiveAlerts";
 import { useLocalAuthorityImpact } from "./hooks/useLocalAuthorityImpact";
 import { useProvinceForecast } from "./hooks/useProvinceForecast";
+import { useStorms } from "./hooks/useStorms";
 import { useRadar } from "./hooks/useRadar";
 import { useObservations } from "./hooks/useObservations";
 import { readPermalink, usePermalinkSync } from "./hooks/usePermalink";
@@ -221,6 +222,9 @@ export default function App() {
   // E12.3 — พยากรณ์ TMD ของจังหวัดที่กำลังเลือกอยู่เท่านั้น (ไม่วนทั้ง 77 จังหวัด —
   // ข้อบังคับต้นทุนจาก devops cost gate PR #58 ดู useProvinceForecast.ts)
   const forecast = useProvinceForecast(provinceCode);
+  // ชั้นพายุ v1 — คำขอเดียวระดับประเทศ ไม่ขึ้นกับจังหวัด (ระยะถึงทุกจังหวัดอยู่ในคำตอบแล้ว)
+  // มีตัวเดียวที่นี่ แผง/badge/ศูนย์การแจ้งเตือนอ่านผ่าน ctx.storms
+  const storms = useStorms();
   // E12.4b — จุดคำนวณเดียวของ "แถบฝนพยากรณ์รายวัน (TMD)": หาขั้นรายวันของวัน
   // ปฏิทินกรุงเทพฯ เดียวกับ forecastAtIso แล้วจัดแถบ ครั้งเดียวตรงนี้ ไม่ใช่ใน
   // Map3DCanvas.tsx และ MapLegend.tsx แยกกัน (ทั้งสองที่รับผลลัพธ์สำเร็จรูปนี้
@@ -504,6 +508,7 @@ export default function App() {
     dams,
     earthquakes,
     forecast,
+    storms,
     activeAlerts,
     affectedAuthorities,
     localAuthorityImpact,

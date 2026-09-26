@@ -1485,6 +1485,59 @@ nothing in E16 turns rain into a water level or computes when water will arrive.
 - Depends: E16.PR1, E12
 - Issue: _(not yet filed)_
 
+### E17 — Storm track layer v1 (JMA + GDACS NIO) — *done* (2026-09-26)
+
+PR #99's notification center left storm tracks out because no source was known. Probing on
+2026-09-26: TMD publishes warning text only, no machine-readable track; JMA's bosai JSON (CORS `*`,
+no key, undocumented schema) covers the western North Pacific + South China Sea with past track,
+forecast positions and a 70 % probability circle, under the Public Data License v1.0 (CC BY 4.0
+compatible, mandatory citation "Source: Japan Meteorological Agency website (URL)"); GDACS serves
+track and cone GeoJSON for every basin including the Bay of Bengal and Andaman Sea, with no reuse
+licence, only a disclaimer. The 3D scene covers one province and drops anything outside its grid,
+so an offshore storm could never render there.
+
+Owner decisions (2026-09-26):
+- **Display:** a 2D regional map inside a new Storm panel; no 3D drawing in v1.
+- **Sources:** JMA primary for the WNP / South China Sea, GDACS for the North Indian Ocean only —
+  GDACS is never substituted for JMA in the WNP; a JMA outage shows in `/api/v1/health`.
+- **Circle:** JMA's 70 % probability circle is shown as `probabilistic` (the class's first use),
+  labelled as JMA's.
+
+- Touches: `packages/shared-types/src/{storm,sources,hazard-layer,index}.ts` (`StormTrack`,
+  `StormsResponse`, `SourceId`s `jma-typhoon` / `gdacs-tc`, `disclaimerText`); api
+  `ingestion/{jmaTyphoon,gdacsTc}.ts` + `ingestion/schemas/storm.ts`, `geo/stormDistance.ts`,
+  `durable-objects/storm-track.ts` (`StormTrackDO`), `routes/storms.ts`, `routes/health.ts`,
+  `cachePolicy.ts` (`storms`), `index.ts` (route + cron task `storm`), `wrangler.jsonc` (binding
+  `STORM_TRACK`, migration v9), tests + real-capture fixtures in `test/fixtures/storm/`; etl
+  `src/build-region-outline.ts` (+ test, + README) → tracked `apps/web/public/geo/region-outline.json`;
+  web `hooks/useStorms.ts`, `lib/{storms,stormMap}.ts` (+ tests), `components/hazard/{StormPanel,
+  StormMap}.tsx`, `panelRegistry.ts`, `panelViews.tsx`, `PanelBadge.tsx`, `shellPrefs.ts`,
+  `NotificationCenter.tsx`, `lib/notifications.ts`, `useLayerDescriptors.ts`, `layerFreshness.ts`,
+  `i18n/{th,en}.ts`, `i18n/catalog.test.ts`
+- Depends: E12 (NWP DO pattern), PR #99 (notification center)
+- Size: L
+- Cost: `devops` pre + verify — one row rewritten per 30-min round, PK-only reads, no scan, no R2;
+  `/health` fans out to 8 DO calls; +~$0.03/month expected, ~$0.48 worst (`docs/deploy.md`)
+- Risk: JMA's bosai schema is undocumented — a drift throws a named schema error, keeps the last good
+  copy and shows `jma-typhoon` failing in `/api/v1/health`; GDACS grants no reuse licence (disclaimer only)
+- Issue: _(not yet filed)_
+
+1. `GET /api/v1/storms` returns every active storm from both sources in one national request, each
+   with `nearestKmByProvince` for all 77 provinces, computed once per ingest round.
+2. `advisoryIssuedAt` comes only from the upstream issue time (JMA `issue`); GDACS publishes none, so
+   it is `null` — never `fetchedAt`, never GDACS `datemodified`.
+3. One upstream failing leaves the other's storms and health intact; `/api/v1/health` has a row for
+   each, and the panel keeps "no storm reported", "could not reach" and "never fetched" apart.
+4. The Storm panel (lazy chunk) draws the region in 2D SVG with past track, dashed forecast,
+   JMA circles and the GDACS cone, and carries JMA's mandatory citation and GDACS's disclaimer.
+5. The notification center has a Storm tab; a storm row appears within `STORM_NOTIFY_KM` = 300 km of
+   the selected province, a stated distance rule the row text spells out.
+6. The i18n forecast-wording ban is relaxed only for `storm.*`, and "probability" / "%" only for
+   `storm.circle.*`. Entry + vendor 356.88 kB gz on the branch alone; 379.42 kB gz (over the 360 kB warning guard) after merging E16.
+
+Deferred (not in v1): drawing storms in the 3D scene; a national view; a JTWC fallback when JMA is
+down; following several provinces at once; Web Push notifications.
+
 ## 3. Suggested first two weeks
 
 - **Week 1** (all independent, can run in any order): E1.1, E1.2, E2.1, E2.2, E2.3 (once the secrets

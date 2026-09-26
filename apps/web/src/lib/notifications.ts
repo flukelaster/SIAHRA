@@ -1,6 +1,6 @@
 /**
  * ศูนย์การแจ้งเตือน (ฝั่งเบราว์เซอร์ล้วน) — แปลง state ของ hook ที่รันอยู่แล้ว
- * (`useActiveAlerts`, `useProvinceForecast`, `useApiHealth`) เป็นรายการแถวเดียว
+ * (`useActiveAlerts`, `useProvinceForecast`, `useStorms`, `useApiHealth`) เป็นรายการแถวเดียว
  * ที่ `NotificationCenter` วาด **ไม่มีคำขอเครือข่ายใหม่เลย** ไม่มี Web Push
  *
  * ความซื่อสัตย์ต่อข้อมูล (AGENTS.md):
@@ -30,6 +30,7 @@ import {
   type HealthResponse,
   type ProvinceForecastResponse,
   type SourceId,
+  type StormsResponse,
 } from "@siahra/shared-types";
 import { translator, type Lang, type MessageKey } from "../i18n";
 import type { ErrorMessage } from "./errorMessage";
@@ -38,8 +39,9 @@ import { ALERT_SEVERITY_STYLE } from "./alertSeverityStyle";
 import { sourceLabel, statusLabel } from "../components/layout/sourceStatusText";
 import { bangkokDateKey, formatDateTime, formatDayMonth, formatWeekday } from "./time";
 import type { PanelKey } from "./shellPrefs";
+import { isOldFix, stormRevision, STORM_NOTIFY_KM, STORM_SOURCES, stormDistanceKm, stormSourceConditions, stormsWithin } from "./storms";
 
-export type NotificationCategory = "rain" | "alerts" | "system";
+export type NotificationCategory = "rain" | "alerts" | "storm" | "system";
 export type NotificationKind = "forecast" | "observed" | "source-status";
 
 /**
@@ -49,8 +51,9 @@ export type NotificationKind = "forecast" | "observed" | "source-status";
  *   - `evaluatedAt` : เวลาที่เอนจินแจ้งเตือนประเมินรอบล่าสุด · null = ยังไม่ได้รับผลการประเมิน
  *   - `checkedAt`   : เวลาที่เบราว์เซอร์ถาม `/api/v1/health` ครั้งล่าสุด (ไม่ใช่เวลาดึงข้อมูล)
  *   - `received`    : เบราว์เซอร์ยังไม่ได้รับคำตอบใดเลยในหน้านี้ · null เสมอ
+ *   - `issuedAt`    : เวลาที่ต้นทาง **ออก** ประกาศ (advisory ของ JMA) — ไม่เคยเติมจาก fetchedAt
  */
-export type NotificationTimeKind = "fetchedAt" | "triggeredAt" | "evaluatedAt" | "checkedAt" | "received";
+export type NotificationTimeKind = "fetchedAt" | "triggeredAt" | "evaluatedAt" | "checkedAt" | "received" | "issuedAt";
 
 export interface NotificationTime {
   kind: NotificationTimeKind;
@@ -88,6 +91,12 @@ export interface NotificationInputs {
   apiHealth: { health: HealthResponse | null; apiDown: boolean; checkedAt: string | null };
   /** id → ชื่อ อปท. (มาจาก `affectedAuthorities.entries`) — ไม่มีใน map ก็แสดง id ดิบ */
   authorityNames?: ReadonlyMap<string, string>;
+  /** ชั้นพายุ v1 — state ของ `useStorms` ตัวเดียวของ App.tsx (ไม่มี = ไม่มีแถวพายุ) */
+  storms?: { data: StormsResponse | null; loading: boolean; error: ErrorMessage | null };
+  /** ชื่อจังหวัด (ภาษาที่แสดง) สำหรับข้อความแถวพายุ — ไม่มีก็ใช้รหัสจังหวัด */
+  provinceName?: string;
+  /** นาฬิกาสำหรับ "จุดล่าสุดเก่ากว่า 24 ชม." (ค่าเริ่ม Date.now()) — เทสส่งค่าคงที่ */
+  nowMs?: number;
 }
 
 const sourceName = (id: SourceId, lang: Lang): string => {
@@ -96,6 +105,7 @@ const sourceName = (id: SourceId, lang: Lang): string => {
 };
 
 const OPEN_IMPACT: NotificationAction = { kind: "open-panel", panel: "impact", labelKey: "notifications.action.openImpact" };
+const OPEN_STORM: NotificationAction = { kind: "open-panel", panel: "storm", labelKey: "storm.notif.open" };
 const OPEN_FORECAST: NotificationAction = {
   kind: "open-panel",
   panel: "forecast",
@@ -298,6 +308,73 @@ function healthTitleKey(health: string, fetchedAt: string | null): MessageKey {
   }
 }
 
+const STORM_HEALTH_IDS = new Set<string>(STORM_SOURCES);
+
+/**
+ * แถวพายุ (ชั้นพายุ v1) — กติกาที่ประกาศไว้: พายุที่ `nearestKmByProvince[จังหวัด]`
+ * ≤ `STORM_NOTIFY_KM` (ระยะจากขอบจังหวัดถึงจุดล่าสุด/จุดพยากรณ์/ขอบวงกลม 70 % ของ JMA
+ * ตามที่ API คำนวณ) ข้อความบอกเกณฑ์นี้ตรง ๆ และบอกว่าเป็นระยะ ไม่ใช่การประเมินภัย
+ *
+ * id = `storm:<id>:<stormRevision>` (ดู `stormRevision` ใน storms.ts) — เปลี่ยนเฉพาะเมื่อข้อมูลของพายุ
+ * เปลี่ยน (ประกาศใหม่ / จุดใหม่) **ไม่ใช้ fetchedAt** ไม่งั้น GDACS (ไม่มีเวลาออกประกาศ) จะได้แถว
+ * ยังไม่อ่านใหม่ทุกรอบดึง 30 นาทีทั้งที่ข้อมูลเดิม
+ * เวลาในแถว: เวลาออกประกาศเมื่อต้นทางให้มา ไม่งั้น "เราดึงมาเมื่อ" พร้อมป้ายของมันเอง
+ */
+function stormItems(input: NotificationInputs, lang: Lang): NotificationItem[] {
+  const state = input.storms;
+  if (!state) return [];
+  const t = translator(lang);
+  const code = input.provinceCode;
+  const out: NotificationItem[] = [];
+  if (state.error && !state.data) {
+    out.push({
+      id: "storm:unreachable",
+      category: "storm",
+      kind: "source-status",
+      source: t("notifications.source.api"),
+      title: t("storm.notif.unreachable"),
+      body: null,
+      time: { kind: "received", iso: null },
+      dim: true,
+      tone: "danger",
+      action: OPEN_STORM,
+    });
+    return out;
+  }
+  const data = state.data;
+  if (!data) return out; // ยังโหลดอยู่ — ไม่พูดแทนต้นทาง
+  const conds = stormSourceConditions(data);
+  const nowMs = input.nowMs ?? Date.now();
+  const province = input.provinceName ?? code;
+  for (const s of stormsWithin(data, code)) {
+    const km = stormDistanceKm(s, code);
+    const cond = conds.find((c) => c.id === s.source);
+    const name = s.name ?? t("storm.unnamed");
+    const old = isOldFix(s, nowMs);
+    out.push({
+      id: `storm:${s.id}:${stormRevision(s)}`,
+      category: "storm",
+      kind: "forecast",
+      source: sourceName(s.source, lang),
+      // ข้อความตามวิธีคำนวณ nearestKmByProvince: จุดล่าสุด + จุดพยากรณ์ (+ ขอบวงกลมเมื่อ JMA ให้มา)
+      title: t(s.forecast.some((f) => f.circleRadiusKm !== null) ? "storm.notif.withinCircle" : "storm.notif.within", {
+        name,
+        limit: String(STORM_NOTIFY_KM),
+        province,
+      }),
+      body: `${t("storm.notif.distance", { km: String(km), limit: String(STORM_NOTIFY_KM) })}${old ? ` · ${t("storm.notif.oldFix")}` : ""}`,
+      time: s.advisoryIssuedAt
+        ? { kind: "issuedAt", iso: s.advisoryIssuedAt }
+        : { kind: "fetchedAt", iso: s.fetchedAt },
+      // หรี่เมื่อสิ่งที่ถืออยู่อาจไม่ทันปัจจุบัน: รอบล่าสุดของเว็บพลาด / แหล่งนั้นล้มเหลว / จุดล่าสุดเก่า
+      dim: state.error !== null || cond?.kind !== "ok" || old,
+      tone: "high",
+      action: OPEN_STORM,
+    });
+  }
+  return out;
+}
+
 function healthItems(input: NotificationInputs, lang: Lang): NotificationItem[] {
   const t = translator(lang);
   const { health, apiDown, checkedAt } = input.apiHealth;
@@ -322,7 +399,9 @@ function healthItems(input: NotificationInputs, lang: Lang): NotificationItem[] 
     const body = s.lastError ? `${status} · ${s.lastError}` : status;
     out.push({
       id: `health:${s.id}:${s.health}`,
-      category: "system",
+      // แหล่งพายุสองแหล่งอยู่ในแท็บพายุ **ที่เดียว** (ไม่ซ้ำในแท็บระบบ) — คนที่เปิดแท็บพายุ
+      // ต้องเห็นว่าแหล่งไหนถามไม่ได้ในที่เดียวกับรายการพายุ; แท็บ "ทั้งหมด" ยังเห็นแถวเดียวกันนี้
+      category: STORM_HEALTH_IDS.has(s.id) ? "storm" : "system",
       kind: "source-status",
       source: sourceLabel(s, lang),
       title: t(healthTitleKey(s.health, s.fetchedAt), { source: sourceLabel(s, lang) }),
@@ -336,11 +415,16 @@ function healthItems(input: NotificationInputs, lang: Lang): NotificationItem[] 
 }
 
 /**
- * รายการทั้งหมด เรียง: แจ้งเตือน อปท. → ฝนหนัก (ตามวันที่ TMD ส่งมา) → สถานะระบบ
+ * รายการทั้งหมด เรียง: แจ้งเตือน อปท. → ฝนหนัก (ตามวันที่ TMD ส่งมา) → พายุ → สถานะระบบ
  * id ซ้ำ (ไม่ควรเกิด แต่ถ้า backend ส่งซ้ำ) เก็บตัวแรก — React key ต้องไม่ชนกัน
  */
 export function buildNotifications(input: NotificationInputs, lang: Lang): NotificationItem[] {
-  const all = [...alertItems(input, lang), ...rainItems(input, lang), ...healthItems(input, lang)];
+  const all = [
+    ...alertItems(input, lang),
+    ...rainItems(input, lang),
+    ...stormItems(input, lang),
+    ...healthItems(input, lang),
+  ];
   const seen = new Set<string>();
   return all.filter((i) => (seen.has(i.id) ? false : (seen.add(i.id), true)));
 }
@@ -364,13 +448,15 @@ export function notificationTimeText(time: NotificationTime, lang: Lang): string
       return t("notifications.time.evaluatedAt", { time: at });
     case "checkedAt":
       return t("notifications.time.checkedAt", { time: at });
+    case "issuedAt":
+      return t("storm.notif.issuedAt", { time: at });
   }
 }
 
 // ── แท็บ ──────────────────────────────────────────────────────────────────
 
 export type NotificationTab = "all" | NotificationCategory;
-export const NOTIFICATION_TABS: readonly NotificationTab[] = ["all", "rain", "alerts", "system"];
+export const NOTIFICATION_TABS: readonly NotificationTab[] = ["all", "rain", "alerts", "storm", "system"];
 
 export function itemsForTab(items: readonly NotificationItem[], tab: NotificationTab): NotificationItem[] {
   return tab === "all" ? [...items] : items.filter((i) => i.category === tab);
@@ -378,7 +464,7 @@ export function itemsForTab(items: readonly NotificationItem[], tab: Notificatio
 
 /** จำนวนต่อแท็บ — แท็บที่ไม่มีรายการได้ 0 (ยังแสดงแท็บเสมอ) */
 export function tabCounts(items: readonly NotificationItem[]): Record<NotificationTab, number> {
-  const c: Record<NotificationTab, number> = { all: items.length, rain: 0, alerts: 0, system: 0 };
+  const c: Record<NotificationTab, number> = { all: items.length, rain: 0, alerts: 0, storm: 0, system: 0 };
   for (const i of items) c[i.category] += 1;
   return c;
 }

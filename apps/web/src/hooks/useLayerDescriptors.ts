@@ -8,6 +8,7 @@ import type {
   HealthResponse,
   SourceHealth,
   SourceId,
+  StormsResponse,
 } from "@siahra/shared-types";
 import type { MapLayers } from "../components/layout/Map3DCanvas";
 import { STATIC_LAYER_DESCRIPTORS } from "../data/staticLayerDescriptors";
@@ -129,6 +130,28 @@ export function worstHealth(ids: readonly SourceId[], health: HealthResponse | n
     if (worst === null || rank > HEALTH_ORDER.indexOf(worst)) worst = s.health;
   }
   return worst;
+}
+
+/**
+ * ชั้นพายุ v1 — descriptor สามตัวที่ `/api/v1/storms` ประกาศ (`layers.track` forecast,
+ * `layers.circle` probabilistic, `layers.past` observed) จับคู่กับสถานะใน /health
+ *
+ * แยกออกจาก `useLayerDescriptors` โดยตั้งใจ: `LayerDescriptors` มีคีย์เป็น `keyof MapLayers`
+ * (ชั้นบนฉาก 3 มิติ + ปุ่มเปิดปิดใน legend) แต่ชั้นพายุ v1 **ไม่มีอะไรบนฉาก 3 มิติ** — การเพิ่ม
+ * คีย์ใน MapLayers จะสร้างปุ่มเปิดปิดที่ไม่ทำอะไร และหลุดเข้า permalink `?layers=` ด้วย
+ * legend ของสามชั้นนี้อยู่ในแผงพายุเอง (`StormPanel.tsx`) ห้ามประกอบ descriptor ฝั่งเว็บ
+ * — เวลาต้องเป็นของ backend
+ */
+export function stormLayerDescriptors(
+  data: StormsResponse | null,
+  health: HealthResponse | null,
+): { track: LayerDescriptorEntry; circle: LayerDescriptorEntry; past: LayerDescriptorEntry } | null {
+  if (!data) return null;
+  const entry = (descriptor: HazardLayerDescriptor): LayerDescriptorEntry => ({
+    descriptor,
+    health: worstHealth(descriptor.sourceIds, health),
+  });
+  return { track: entry(data.layers.track), circle: entry(data.layers.circle), past: entry(data.layers.past) };
 }
 
 /**

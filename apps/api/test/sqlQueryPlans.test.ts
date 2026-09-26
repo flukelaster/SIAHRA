@@ -8,6 +8,7 @@ import floodSrc from "../src/durable-objects/flood-extent.ts?raw";
 import forecastNwpSrc from "../src/durable-objects/forecast-nwp.ts?raw";
 import observationSrc from "../src/durable-objects/observation-cache.ts?raw";
 import radarSrc from "../src/durable-objects/radar.ts?raw";
+import stormTrackSrc from "../src/durable-objects/storm-track.ts?raw";
 
 /**
  * กันบิล Durable Objects แบบ 2026-08-18..23 (72B rows read บนสตอเรจ 64 MB) ไม่ให้
@@ -43,6 +44,9 @@ const SOURCES: DoSource[] = [
   // E12.2 — ตารางเดียว หนึ่งแถวต่อจังหวัด อ่านด้วย PK เท่านั้น จึงไม่มีรายการใน
   // ALLOWED_SCANS เลย ถ้าวันหน้ามีคนเพิ่มคำสั่งที่สแกน เทสนี้จะแดงทันที
   { label: "ForecastNwpDO", source: forecastNwpSrc, stub: () => appEnv.FORECAST_NWP.getByName("plan-test") },
+  // เส้นทางพายุ — แถวเดียว `latest(id)` อ่านด้วย PK, meta ผ่าน readMeta (PK) จึงไม่มี
+  // รายการใน ALLOWED_SCANS เลย: ถ้าวันหน้ามีคำสั่งที่สแกนโผล่มา เทสนี้แดงทันที
+  { label: "StormTrackDO", source: stormTrackSrc, stub: () => appEnv.STORM_TRACK.getByName("plan-test") },
 ];
 
 /**

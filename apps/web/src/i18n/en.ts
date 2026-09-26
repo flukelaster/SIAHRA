@@ -13,12 +13,15 @@ import type { th } from "./th";
  *   จาก `health.stale` ที่แปลว่าฝั่งเราดึงไม่สำเร็จมานาน
  * - "ไม่ใช่การพยากรณ์" → "not a forecast" ทุกจุด และห้ามมีคำว่า probability /
  *   chance / risk score ที่ไม่ได้อยู่ในประโยคปฏิเสธ
- * - ข้อยกเว้นเดียว (E12): คีย์ตระกูล `badge.forecast*` / `freshness.missing.forecast`
+ * - ข้อยกเว้นที่หนึ่ง (E12): คีย์ตระกูล `badge.forecast*` / `freshness.missing.forecast`
  *   / `forecast.*` พูดคำว่า forecast ตรง ๆ ได้ เพราะเป็นผลจากแบบจำลองเชิงตัวเลข
  *   ของ TMD ที่อ้างอิงได้ — แต่ทุกประโยคต้องมีคำว่า "TMD" อยู่ในประโยคเดียวกัน
  *   และยังห้ามคำตระกูลความน่าจะเป็น (probability / chance / likelihood / likely /
  *   risk score) เด็ดขาด เพราะแบบจำลองนี้เป็น deterministic ไม่ใช่ความน่าจะเป็น
  *   (บังคับด้วยเทสใน `catalog.test.ts`)
+ * - ข้อยกเว้นที่สอง (ชั้นพายุ v1): `storm.*` พูดคำว่า forecast ได้ (JMA / JTWC ไม่ต้องมี "TMD")
+ *   และ **เฉพาะ** `storm.circle.*` พูด probability / "%" ได้ (วงกลม 70% ของ JMA) — chance /
+ *   likelihood / likely ยังห้ามแม้บนคีย์นั้น และ `storm.*` อื่นที่มี "%" แดงทันที
  *
  * ข้อความที่ **ไม่แปล** โดยตั้งใจ: `attributionText` / `licenseName` / `agency`
  * ใน `SOURCES` (เป็นข้อความเครดิตตามเงื่อนไขของต้นทาง ไม่ใช่ข้อความ UI),
@@ -379,6 +382,7 @@ export const en: Record<keyof typeof th, string> = {
   "panel.forecast": "TMD",
   "panel.dams": "Dams",
   "panel.quake": "Earthquakes",
+  "panel.storm": "Storms",
 
   // ── Mobile sheet ──────────────────────────────────────────────────────
   "sheet.collapse": "Collapse panel",
@@ -409,10 +413,11 @@ export const en: Record<keyof typeof th, string> = {
   "notifications.close": "Close notifications",
   "notifications.markAllRead": "Mark all read",
   "notifications.unread": "Unread",
-  "notifications.scope": "Water alerts and heavy rain for {province} only · system status covers every source",
+  "notifications.scope": "Water alerts and heavy rain for {province} only · storms whose track comes within {limit} km of {province} · system status covers every source",
   "notifications.tab.all": "All",
   "notifications.tab.rain": "Heavy rain",
   "notifications.tab.alerts": "Water alerts",
+  "notifications.tab.storm": "Storms",
   "notifications.tab.system": "System",
   "notifications.empty": "Nothing to report from the sources we could reach — this is not an all-clear",
   "notifications.kind.sourceStatus": "Source status",
@@ -870,6 +875,82 @@ export const en: Record<keyof typeof th, string> = {
   "authorityList.neverFetched": "GISTDA has never been fetched successfully",
   "authorityList.unavailable": "Could not check this one's impact",
   "authorityList.facilitiesCount": "{n} key facilities in the flooded area",
+
+  // ── Tropical cyclones (storm layer v1) — `storm.*` may use forecast wording (JMA/JTWC tracks);
+  // ONLY `storm.circle.*` may speak of probability / % (JMA's 70% circle) — see catalog.test.ts
+  "storm.title": "Tropical cyclones",
+  "storm.intro": "Tropical cyclone positions and forecast tracks as the agencies published them: JMA (RSMC Tokyo) for the western North Pacific and South China Sea, GDACS (JTWC data) for the North Indian Ocean. Re-plotted by SIAHRA, not computed by it.",
+  "storm.unnamed": "Unnamed system",
+  "storm.badge.count": "{n} in the latest response",
+  "storm.badge.past": "Analysed positions",
+  "storm.badge.past.title": "Positions the agency (JMA / JTWC) analysed from observations — not a forecast",
+  "storm.badge.track": "Agency forecast track",
+  "storm.badge.track.title": "A deterministic forecast track published by JMA or JTWC (via GDACS) — not computed by this project, and not a TMD product",
+  "storm.circle.badge": "JMA probability circle",
+  "storm.circle.badge.title": "JMA's own 70% probability circle: the area JMA says the storm centre will be inside at that time with 70% probability — JMA's number, not computed by this project",
+  "storm.circle.legend": "JMA's published 70% probability circle",
+  "storm.circle.column": "70% circle (km)",
+  "storm.circle.distanceBasis": "Includes the edge of JMA's 70% probability circles.",
+  "storm.legend.past": "Past track (solid) — analysed positions",
+  "storm.legend.track": "Forecast track (dashed) — numbered points, each with its own valid time",
+  "storm.legend.cone": "GDACS uncertainty cone, as GDACS published it",
+  "storm.legend.province": "{province} (selected province)",
+  "storm.state.apiUnreachable": "Could not reach the SIAHRA API for storm tracks — so we cannot say whether any storm exists",
+  "storm.state.never": "No storm source has been fetched successfully yet — no information, which is not the same as no storm",
+  "storm.state.unchecked": "No source gave a complete answer on its latest attempt — we could not check for storms; this is not an all-clear",
+  "storm.state.noneReported": "No active storm reported by the sources we could reach ({sources}).",
+  "storm.state.notAllClear": "This is not an all-clear — follow the Thai Meteorological Department's official warnings.",
+  "storm.state.held": "Showing the previous response — it may be out of date",
+  "storm.state.neverShort": "Never fetched",
+  "storm.source.ok": "{source}: fetched {time} · storms reported: {n}",
+  "storm.source.failing": "{source}: could not reach it on the latest attempt ({attempt}) — showing what was fetched {time}",
+  "storm.source.partial": "{source}: reached {time} · storms loaded: {n} — some storms failed to load",
+  "storm.source.never": "{source}: never fetched successfully",
+  "storm.source.neverAttempted": "{source}: never fetched successfully (last attempt {attempt})",
+  "storm.basin.wnp": "Western North Pacific / South China Sea",
+  "storm.basin.nio": "North Indian Ocean",
+  "storm.card.issued": "Advisory issued",
+  "storm.card.noIssueTime": "The source published no issue time",
+  "storm.card.fetched": "Fetched",
+  "storm.card.lastFix": "Latest position",
+  "storm.card.noFixTime": "The source published no time for it",
+  "storm.card.distance": "Distance to {province}",
+  "storm.card.km": "{km} km",
+  "storm.card.distanceBasis": "Closest distance from the province boundary to the latest position and the forecast positions — geometry only, not a statement that the storm will reach it.",
+  "storm.card.oldFix": "The latest position is {age} old — this is where the storm was then, not where it is now",
+  "storm.card.sourcePartial": "{source} was reached on the latest attempt, but some storms failed to load — this card may be incomplete",
+  "storm.card.sourceFailing": "{source} could not be reached on the latest attempt — this card shows data fetched {time}",
+  "storm.gdacs.alert": "GDACS alert level: {level}",
+  "storm.gdacs.alertNote": "GDACS's own humanitarian-impact estimate — not a wind scale",
+  "storm.gdacs.report": "GDACS event report",
+  "storm.wind.10min": "Wind = maximum sustained wind, 10-minute mean (JMA), in knots",
+  "storm.wind.1min": "Wind = maximum sustained wind, 1-minute mean (JTWC), in knots — reads higher than a 10-minute mean for the same storm",
+  "storm.wind.none": "The track data carries no wind value per position",
+  "storm.table.time": "Time",
+  "storm.table.position": "Position",
+  "storm.table.category": "Class",
+  "storm.table.wind": "Wind (kt)",
+  "storm.table.pressure": "hPa",
+  "storm.table.latest": "Latest",
+  "storm.table.passed": "valid time has passed",
+  "storm.table.note": "Times are Thailand time (UTC+7) · “—” = the source sent no value",
+  "storm.past.summary": "Past track: {n} positions",
+  "storm.past.untimed": "The source gives no time for {n} of these positions (JMA times only the latest one), so they show “—”",
+  "storm.map.aria": "Regional map of tropical cyclone tracks, with {province} marked",
+  "storm.map.beyondBasemap": "Part of a track lies outside the basemap (80–150°E, 5°S–35°N) — it is still drawn, but there are no coastlines there",
+  "storm.map.outlineFailed": "The basemap could not be loaded — positions are drawn on the latitude/longitude grid only",
+  "storm.map.provinceFailed": "The {province} boundary could not be loaded, so it is not drawn",
+  "storm.map.basemapCredit": "Basemap: Natural Earth (public domain)",
+  "storm.footer.terms": "Terms",
+  "storm.footer.notOfficial": "This panel is not an official warning. For Thailand, follow the Thai Meteorological Department:",
+  "storm.footer.tmdLink": "TMD storm warnings",
+  "storm.notif.open": "Open the storm panel",
+  "storm.notif.within": "{name}: track (latest or forecast position) comes within {limit} km of {province}",
+  "storm.notif.withinCircle": "{name}: track or JMA's circle comes within {limit} km of {province}",
+  "storm.notif.distance": "Closest {km} km from the province boundary — rule: listed when ≤ {limit} km (a distance, not an impact assessment)",
+  "storm.notif.oldFix": "latest position is more than 24 h old",
+  "storm.notif.unreachable": "Could not reach the storm-track service",
+  "storm.notif.issuedAt": "issued {time}",
   // ── Northern-water route (E16) ───────────────────────────────────────
   "panel.north": "Northern water",
   "unit.m3s": "m³/s",

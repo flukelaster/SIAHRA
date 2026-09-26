@@ -294,12 +294,15 @@ fallback — loader จะได้ HTML มาแทน binary แล้วพ�
 - `ALLOWED_ORIGINS`: ว่าง = same-origin เท่านั้น — ไม่ต้องตั้ง เพราะ route ของสอง Worker อยู่บน host
   เดียวกัน (`siahra-radar.co`) ตามหัวข้อ 0.1 ; ถ้าวันหน้าย้าย SPA ไปคนละ host ต้องใส่ origin ของ SPA ที่นี่
   **และ** เติม CORS header ใน `apps/api/src/router.ts` ด้วย ไม่ใช่ตั้งค่านี้ตัวเดียว
-- migrations v1–v8 (DO SQLite) มีครบ, cron `* * * * *` มีแล้ว — v5 สร้าง `AlertEngineDO` ตัวเก่า
+- migrations v1–v9 (DO SQLite) มีครบ, cron `* * * * *` มีแล้ว — v5 สร้าง `AlertEngineDO` ตัวเก่า
   (ทะเบียนสถานีปลอม, E11.5 revert), v6 ลบคลาสทิ้ง, v7 สร้าง `AlertEngineDO` ใหม่ทั้งหมด (E11.5 จริง —
   สถานีจริง, ระดับจาก `computeExposure()`, ไม่มี write route), v8 สร้าง `ForecastNwpDO` (E12.2, binding
   `FORECAST_NWP`) เป็นคลาสใหม่ล้วน ๆ **ไม่ได้** นำ `ForecastPointerDO` มาใช้ซ้ำทั้งที่ชื่อคล้ายกัน — ตัวนั้นคือ
   ตัวชี้ exposure run (E10.3) และการนำมาใช้ซ้ำต้องลบคลาสก่อน ซึ่งทำลายข้อมูลที่เก็บอยู่ tag ที่ apply ไปแล้วห้ามลบออกจาก
-  `wrangler.jsonc` เพราะ Cloudflare เทียบ migrations กับ tag ล่าสุดที่ apply บน production
+  `wrangler.jsonc` เพราะ Cloudflare เทียบ migrations กับ tag ล่าสุดที่ apply บน production. v9 creates
+  `StormTrackDO` (storm layer v1, binding `STORM_TRACK`) as a brand-new class; the tag is free because the 2026-08-24
+  v9/v10 `ForecastNwpDO` pair (PR #60) was rejected by Cloudflare before activation and removed in PR #61, so the
+  account's last applied tag is v8
 - โดเมน: `wrangler deploy` สร้าง/อัปเดต Custom Domain + route ให้เองจาก `routes` ในแต่ละ config
   แต่ zone `siahra-radar.co` ต้องอยู่ใน account เดียวกันก่อน — deploy **web ก่อน api** ในครั้งแรก
   เพราะ Custom Domain ของ web เป็นตัวสร้าง DNS record ที่ proxied ให้ apex (route ของ api ต้องมี
@@ -374,7 +377,14 @@ Workers Logs ต้องผ่าน agent `devops` (`.claude/agents/devops.md`
 (หก instance — `ObservationCacheDO` ถูกถามสองครั้ง) จำนวน DO requests จึงเพิ่มราว 17% กรณีแย่สุดประมาณ 1.2M
 เทียบกับโควตาที่รวมมา 1M ต่อรอบบิล = ราว **$0.03–0.10/เดือน** ส่วนตัว `ForecastNwpDO` เองเขียนราว 66k–130k
 แถว/รอบบิล (0.13–0.26% ของ 50M) เพราะเก็บหนึ่งแถวต่อจังหวัด ไม่มีตารางประวัติ และไม่มี `DELETE` ตามอายุ
-(ดู `docs/ops.md` §9)
+(ดู `docs/ops.md` §9). The storm layer v1 raised the fan-out to **8 DO calls per `/health` compute** (seven
+instances; one `StormTrackDO.status()` call returns both `jma-typhoon` and `gdacs-tc`), ~1.37M DO requests per cycle
+worst case.
+
+Storm layer v1 (`StormTrackDO`, `GET /api/v1/storms`): alarm / cron every 30 min, one `latest` row overwritten ≤ 48
+times a day (plus a few per-source meta rows per round), no history table, no retention, no R2, no `ALLOWED_SCANS` entry; the
+per-request path is a single-row PK read under a 5-min `caches.default` entry keyed on origin + pathname only —
+`devops` verify 2026-09-26: **+~$0.03/month expected, ~$0.48 worst case**
 
 E14.F1 (`/api/v1/provinces/{NN}/flood-extent?at=`) เพิ่มเส้นทางย้อนหลังโดยไม่เพิ่ม DO write ต่อคำขอ: ตาราง `flood_scenes`
 เขียนหนึ่งแถวต่อฉากที่ archive (ไม่กี่ร้อยแถว/ปี) บนเส้นทาง refresh เท่านั้น คำขอ `at` ภายใน 30 วันอ่านตาราง hot ผ่านดัชนี
@@ -412,7 +422,12 @@ change); Workers Logs ≤ 3 events per refresh. Watch `archivedGzBytes` in the `
 The api Worker bakes its static artefacts (`apps/api/src/data/*.json`) into its script bundle. After Bangkok's 50
 districts were added to the local-authority registry, boundaries, exposure and alert rules (2026-09-26), the
 `siahra-api` bundle is 5,599,221 B — the 5.6 MB growth budget `devops` passed is **used up**, so any further growth of
-`apps/api/src/data/*.json` needs a new `devops` pre pass before it is written
+`apps/api/src/data/*.json` needs a new `devops` pre pass before it is written. The storm layer v1 (2026-09-26) added
+code only, no `data/*.json`: merged with E16 the bundle is 5536.05 KiB upload / 869.60 KiB gzip (wrangler dry-run). On the
+web side the storm branch alone measured 356.88 kB gz entry + vendor (the Storm panel is a lazy chunk outside it); merged
+with E16 (north route, station sheet) it is **379.42 kB gz, over** the 360 kB warning guard in
+`scripts/check-bundle-budget.mjs` — a warning, not a CI gate, and the next change to the entry chunk should lazy-load
+something before adding more
 
 **รายการที่สี่ที่ประมาณการข้างบนไม่ได้นับ และเป็นตัวที่ทำให้บิลบานจริง: Durable Objects SQL rows read**
 — คิดตามแถวที่ถูก *สแกน* ไม่ใช่แถวที่ถูกคืนหรือถูกลบ (Workers Paid รวมมาให้ 25B แถว/รอบบิล)

@@ -81,6 +81,11 @@ export async function handleHealth(request: Request, env: AppEnv, _params: strin
     // flood/gfm/health.json ลง R2 ทุก 6 ชม. อ่านใบเดียว (หนึ่ง get ไม่มี list/head) ใต้แคช
     // 15 วิของ endpoint นี้ = ≤ 4 Class B ops/นาที/colo
     gfmStatus(env).then((s) => [s]).catch((err: unknown) => [unknownStatus("copernicus-gfm", String(err))]),
+    // เส้นทางพายุ — DO เดียวรายงานสองแถว (JMA, GDACS) แยกกัน: ต้นทางหนึ่งล่มต้องไม่ทำให้
+    // อีกต้นทางดูล่ม status() อ่าน meta ด้วย PK ล้วน (สองคีย์) ไม่ดึงต้นทาง
+    env.STORM_TRACK.getByName("primary")
+      .status()
+      .catch((err: unknown) => [unknownStatus("jma-typhoon", String(err)), unknownStatus("gdacs-tc", String(err))]),
   ];
   const sources = (await Promise.all(collectors)).flat();
   const body: HealthResponse = {

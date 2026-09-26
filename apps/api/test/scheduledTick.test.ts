@@ -104,4 +104,22 @@ describe("runScheduledTick", () => {
     expect(lines[0]).toMatchObject({ source: "earthquakes", outcome: "ok" });
     expect(lines[0]?.durationMs).not.toBe(-1);
   });
+
+  /**
+   * งาน "storm" (StormTrackDO: JMA + GDACS ขนานกัน ต่อคำขอ ≤ 10 วิ) เป็นงานเดียวในตาราง
+   * ที่รอต้นทางต่างประเทศสองแห่ง — ถ้ามันค้าง งานอื่นต้องรีเฟรชครบ และมันต้องได้บรรทัด
+   * log ของตัวเองหนึ่งบรรทัด (ตาราง cron จริงถูกพิสูจน์ใน stormTrackDurableObject.test.ts
+   * ด้วย `scheduled()` ของ entrypoint)
+   */
+  it("งาน storm ค้าง: งานที่เหลือของ tick ยัง ok ครบ และ storm ได้ log หนึ่งบรรทัด", async () => {
+    const lines: Record<string, unknown>[] = [];
+    const ids = ["earthquakes", "thaiwater", "gistda-flood", "tmd-radar", "tmd-nwp", "alert-engine"];
+    const results = await runScheduledTick(
+      [...ids.map((id) => task(id, async () => {})), task("storm", () => new Promise<void>(() => {}))],
+      { log: (l) => lines.push(l), timeoutMs: 10 },
+    );
+    expect(results.filter((r) => r.outcome === "ok").map((r) => r.id)).toEqual(ids);
+    expect(results.at(-1)).toMatchObject({ id: "storm", outcome: "timeout" });
+    expect(lines.filter((l) => l.source === "storm")).toHaveLength(1);
+  });
 });

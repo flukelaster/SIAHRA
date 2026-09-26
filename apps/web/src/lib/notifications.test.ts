@@ -6,6 +6,8 @@ import type {
   HealthResponse,
   ProvinceForecastResponse,
   SourceStatus,
+  StormsResponse,
+  StormTrack,
 } from "@siahra/shared-types";
 import {
   buildNotifications,
@@ -297,6 +299,205 @@ describe("notifications — สถานะแหล่งข้อมูล (/a
   });
 });
 
+// ── ชั้นพายุ v1 ──────────────────────────────────────────────────────────────
+const NOW = Date.parse("2026-09-26T11:00:00Z");
+const stormTrack = (over: Partial<StormTrack> = {}): StormTrack => ({
+  id: "jma:TC2632",
+  source: "jma-typhoon",
+  name: "Surigae",
+  basin: "WNP",
+  category: "STS",
+  advisoryIssuedAt: "2026-09-26T09:45:00Z",
+  windAveraging: "10-min",
+  past: [{ observedAt: "2026-09-26T09:00:00Z", lat: 23.2, lon: 126.9, windKt: 55, pressureHpa: 990 }],
+  forecast: [],
+  nearestKmByProvince: { "57": 250, "10": 900 },
+  fetchedAt: "2026-09-26T10:51:00Z",
+  ...over,
+});
+const stormsData = (storms: StormTrack[], sources?: StormsResponse["sources"]): StormsResponse => ({
+  storms,
+  layers: { track: layer, circle: layer, past: layer },
+  sources: sources ?? [
+    { id: "jma-typhoon", lastSuccessAt: "2026-09-26T10:51:00Z", lastAttemptAt: "2026-09-26T10:51:00Z", lastError: null },
+    { id: "gdacs-tc", lastSuccessAt: "2026-09-26T10:51:00Z", lastAttemptAt: "2026-09-26T10:51:00Z", lastError: null },
+  ],
+});
+
+describe("notifications — พายุ (STORM_NOTIFY_KM = 300)", () => {
+  const withStorms = (storms: StormTrack[], over: Partial<NotificationInputs> = {}) =>
+    buildNotifications(
+      base({
+        storms: { data: stormsData(storms), loading: false, error: null },
+        provinceName: "Chiang Rai",
+        nowMs: NOW,
+        ...over,
+      }),
+      "en",
+    );
+
+  it("≤ 300 กม. → แถว forecast หนึ่งแถว ข้อความบอกเกณฑ์ เวลา = เวลาออกประกาศ ปุ่มเปิดแผงพายุ", () => {
+    const items = withStorms([stormTrack()]);
+    expect(items).toHaveLength(1);
+    const [row] = items;
+    expect(row.id).toBe("storm:jma:TC2632:2026-09-26T09:45:00Z");
+    expect(row.category).toBe("storm");
+    expect(row.kind).toBe("forecast");
+    expect(row.title).toBe("Surigae: track (latest or forecast position) comes within 300 km of Chiang Rai");
+    // มีวงกลมของ JMA → ข้อความรวมวงกลมด้วย (ตรงกับวิธีคำนวณระยะ)
+    const [withCircle] = withStorms([
+      stormTrack({
+        forecast: [
+          { validAt: "2026-09-27T00:00:00Z", lat: 24, lon: 127, windKt: 60, pressureHpa: 985, category: "STS", circleRadiusKm: 65 },
+        ],
+      }),
+    ]);
+    expect(withCircle.title).toBe("Surigae: track or JMA's circle comes within 300 km of Chiang Rai");
+    expect(row.body).toMatch(/250 km/);
+    expect(row.body).toMatch(/≤ 300 km/);
+    expect(row.time).toEqual({ kind: "issuedAt", iso: "2026-09-26T09:45:00Z" });
+    expect(notificationTimeText(row.time, "en")).toMatch(/^issued /);
+    expect(row.action).toEqual({ kind: "open-panel", panel: "storm", labelKey: "storm.notif.open" });
+    expect(row.dim).toBe(false);
+    // ระยะเป็นเรขาคณิต ไม่ใช่ความน่าจะเป็น — ไม่มีคำตระกูลนั้นในแถว
+    expect(`${row.title} ${row.body}`).not.toMatch(PCT);
+  });
+
+  it("ขอบเกณฑ์: 300 เข้า, 301 ไม่เข้า, ไม่มีค่าของจังหวัด = ไม่เข้า (ไม่ใช่ 0)", () => {
+    expect(withStorms([stormTrack({ nearestKmByProvince: { "57": 300 } })])).toHaveLength(1);
+    expect(withStorms([stormTrack({ nearestKmByProvince: { "57": 301 } })])).toEqual([]);
+    expect(withStorms([stormTrack({ nearestKmByProvince: {} })])).toEqual([]);
+  });
+
+  it("ไม่มีเวลาออกประกาศ (GDACS) → id ใช้เวลาจุดล่าสุด (ไม่ใช่ fetchedAt); เวลาที่แสดงคือ fetchedAt พร้อมป้าย", () => {
+    const [row] = withStorms([
+      stormTrack({ id: "gdacs:1001326", source: "gdacs-tc", advisoryIssuedAt: null, windAveraging: null }),
+    ]);
+    expect(row.id).toBe("storm:gdacs:1001326:2026-09-26T09:00:00Z");
+    expect(row.time).toEqual({ kind: "fetchedAt", iso: "2026-09-26T10:51:00Z" });
+    expect(notificationTimeText(row.time, "en")).not.toMatch(/issued/);
+  });
+
+  it("GDACS: ดึงใหม่ (fetchedAt ต่าง) แต่เส้นทางเดิม → id เดิม ไม่เกิดแถวยังไม่อ่านใหม่ทุกรอบ", () => {
+    const gdacs = (fetchedAt: string) =>
+      stormTrack({ id: "gdacs:1001326", source: "gdacs-tc", advisoryIssuedAt: null, windAveraging: null, fetchedAt });
+    const [a] = withStorms([gdacs("2026-09-26T10:21:00Z")]);
+    const [b] = withStorms([gdacs("2026-09-26T10:51:00Z")]);
+    expect(a.id).toBe(b.id);
+    // จุดใหม่ = ข้อมูลเปลี่ยน = id ใหม่
+    const [c] = withStorms([
+      stormTrack({
+        id: "gdacs:1001326",
+        source: "gdacs-tc",
+        advisoryIssuedAt: null,
+        past: [{ observedAt: "2026-09-26T12:00:00Z", lat: 18.5, lon: 83.5, windKt: null, pressureHpa: null }],
+      }),
+    ]);
+    expect(c.id).not.toBe(a.id);
+    // ไม่มีเวลาจุดใดเลย → validAt สุดท้าย แล้วค่อย "nofix"
+    const [d] = withStorms([
+      stormTrack({
+        id: "gdacs:1",
+        source: "gdacs-tc",
+        advisoryIssuedAt: null,
+        past: [{ observedAt: null, lat: 18, lon: 84, windKt: null, pressureHpa: null }],
+        forecast: [
+          { validAt: "2026-09-27T00:00:00Z", lat: 19, lon: 84, windKt: null, pressureHpa: null, category: null, circleRadiusKm: null },
+        ],
+      }),
+    ]);
+    expect(d.id).toBe("storm:gdacs:1:2026-09-27T00:00:00Z");
+    const [e] = withStorms([
+      stormTrack({ id: "gdacs:2", source: "gdacs-tc", advisoryIssuedAt: null, past: [], forecast: [] }),
+    ]);
+    expect(e.id).toBe("storm:gdacs:2:nofix");
+  });
+
+  it("จุดล่าสุดเก่ากว่า 24 ชม. → หรี่ + บอกในเนื้อความ", () => {
+    const [row] = withStorms([
+      stormTrack({ past: [{ observedAt: "2026-09-24T00:00:00Z", lat: 18, lon: 84, windKt: null, pressureHpa: null }] }),
+    ]);
+    expect(row.dim).toBe(true);
+    expect(row.body).toMatch(/more than 24 h old/);
+  });
+
+  it("รอบล่าสุดได้ไม่ครบ (partial) → แถวยังอยู่ หรี่ และไม่มีถ้อยคำ 'ติดต่อไม่ได้'", () => {
+    const items = buildNotifications(
+      base({
+        storms: {
+          data: stormsData([stormTrack()], [
+            { id: "jma-typhoon", lastSuccessAt: "2026-09-26T10:51:00Z", lastAttemptAt: "2026-09-26T10:51:00Z", lastError: "jma-typhoon: TC2633 specifications.json HTTP 500" },
+            { id: "gdacs-tc", lastSuccessAt: "2026-09-26T10:51:00Z", lastAttemptAt: "2026-09-26T10:51:00Z", lastError: null },
+          ]),
+          loading: false,
+          error: null,
+        },
+        nowMs: NOW,
+      }),
+      "en",
+    );
+    expect(items).toHaveLength(1);
+    expect(items[0].dim).toBe(true);
+    expect(`${items[0].title} ${items[0].body}`).not.toMatch(/could not reach/i);
+  });
+
+  it("แหล่งล้มเหลวหรือคำขอรอบล่าสุดของเว็บพลาด → แถวยังอยู่ แต่หรี่", () => {
+    const failing = buildNotifications(
+      base({
+        storms: {
+          data: stormsData([stormTrack()], [
+            { id: "jma-typhoon", lastSuccessAt: "2026-09-26T08:00:00Z", lastAttemptAt: "2026-09-26T10:51:00Z", lastError: "HTTP 503" },
+            { id: "gdacs-tc", lastSuccessAt: "2026-09-26T10:51:00Z", lastAttemptAt: "2026-09-26T10:51:00Z", lastError: null },
+          ]),
+          loading: false,
+          error: null,
+        },
+        nowMs: NOW,
+      }),
+      "en",
+    );
+    expect(failing[0].dim).toBe(true);
+    const held = withStorms([stormTrack()], {
+      storms: { data: stormsData([stormTrack()]), loading: false, error: err },
+    });
+    expect(held[0].dim).toBe(true);
+  });
+
+  it("ติดต่อ API พายุไม่ได้เลย → แถวสถานะในแท็บพายุ ไม่ใช่ 'ไม่มีพายุ'", () => {
+    const items = withStorms([], { storms: { data: null, loading: false, error: err } });
+    expect(items.map((i) => i.id)).toEqual(["storm:unreachable"]);
+    expect(items[0].category).toBe("storm");
+    expect(items[0].kind).toBe("source-status");
+    expect(notificationTimeText(items[0].time, "en")).not.toMatch(/\d/);
+  });
+
+  it("ไม่มีพายุตามแหล่งที่ติดต่อได้ → ไม่มีแถว (แท็บพายุว่าง ไม่มีแถว 'ปลอดภัย')", () => {
+    expect(withStorms([])).toEqual([]);
+  });
+
+  it("สถานะ /health ของ jma-typhoon/gdacs-tc อยู่แท็บพายุที่เดียว ไม่ซ้ำในแท็บระบบ", () => {
+    const items = buildNotifications(
+      base({
+        apiHealth: {
+          health: healthOf([
+            source({ id: "jma-typhoon", health: "down", lastError: "HTTP 500" }),
+            source({ id: "gdacs-tc", health: "stale" }),
+            source({ id: "tmd-radar", health: "down" }),
+          ]),
+          apiDown: false,
+          checkedAt: "2026-09-25T03:00:00Z",
+        },
+      }),
+      "en",
+    );
+    const storm = itemsForTab(items, "storm").map((i) => i.id);
+    const system = itemsForTab(items, "system").map((i) => i.id);
+    expect(storm).toEqual(["health:jma-typhoon:down", "health:gdacs-tc:stale"]);
+    expect(system).toEqual(["health:tmd-radar:down"]);
+    expect(tabCounts(items)).toEqual({ all: 3, rain: 0, alerts: 0, storm: 2, system: 1 });
+  });
+});
+
 describe("notifications — แท็บ", () => {
   const items = buildNotifications(
     base({
@@ -310,7 +511,7 @@ describe("notifications — แท็บ", () => {
     "en",
   );
   it("นับทุกแท็บ แท็บว่างได้ 0", () => {
-    expect(tabCounts(items)).toEqual({ all: 2, rain: 0, alerts: 1, system: 1 });
+    expect(tabCounts(items)).toEqual({ all: 2, rain: 0, alerts: 1, storm: 0, system: 1 });
     expect(itemsForTab(items, "rain")).toEqual([]);
     expect(itemsForTab(items, "all")).toHaveLength(2);
   });

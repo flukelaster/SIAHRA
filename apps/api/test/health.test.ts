@@ -29,7 +29,7 @@ const workerFetch = (url: string, init: RequestInit = {}) =>
   workerExports.default.fetch(new Request(url, init));
 
 /** E10.3 จะเพิ่มแหล่งที่ห้า — เทียบเป็น "เซตย่อยที่ต้องมี" ไม่ใช่จำนวนที่ต้องเท่ากัน */
-const REQUIRED: SourceId[] = ["thaiwater", "earthquakes", "gistda-flood", "tmd-radar"];
+const REQUIRED: SourceId[] = ["thaiwater", "earthquakes", "gistda-flood", "tmd-radar", "jma-typhoon", "gdacs-tc"];
 
 beforeEach(() => {
   vi.spyOn(globalThis, "fetch").mockImplementation(async () => {

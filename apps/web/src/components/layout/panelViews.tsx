@@ -16,6 +16,7 @@ import type { NorthRouteState } from "../../hooks/useNorthRoute";
 import type { FloodSourceAgeInput } from "../../lib/floodSourceAge";
 import type { ObservationsState } from "../../hooks/useObservations";
 import type { ProvinceForecastState } from "../../hooks/useProvinceForecast";
+import type { StormsState } from "../../hooks/useStorms";
 import { resolveError } from "../../lib/errorMessage";
 import type { QualityLevel, QualityMode } from "../../scene/quality";
 import { ActiveAlertBanner } from "../hazard/ActiveAlertBanner";
@@ -71,6 +72,11 @@ export interface PanelContext {
   dams: DamsState;
   earthquakes: EarthquakeFeedState;
   forecast: ProvinceForecastState;
+  /**
+   * ชั้นพายุ v1 — `useStorms` ตัวเดียวของ App.tsx (คำขอเดียวระดับประเทศ) ใช้ร่วมกันทั้ง
+   * แผงพายุ badge บน rail และศูนย์การแจ้งเตือน
+   */
+  storms: StormsState;
   /** E11.5/E11.6 — แจ้งเตือน อปท. ทั้งจังหวัดที่กำลังดู */
   activeAlerts: ActiveAlertsState;
   /** E11.6 — รายชื่อ อปท. ที่ได้รับผลกระทบ เรียงลำดับแล้ว */

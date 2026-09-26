@@ -49,6 +49,7 @@ edit in that table.
 | `/api/v1/provinces/{NN}/exposure/latest` | GET | 300 | default | per route | The current flood-exposure run scoped to one province; same reasoning as flood-extent |
 | `/api/v1/provinces/{NN}/forecast` | GET | 300 | default | per route | E12.2 TMD NWP forecast for one province; one primary-key row read, and the request path never fetches upstream (the hourly cron does) |
 | `/api/v1/forecast/availability` | GET | 300 | default | per route | The date window TMD says it has daily data for, read from `meta` only |
+| `/api/v1/storms` | GET | 300 | default | per route | Storm layer v1: one national request, one primary-key row read of `StormTrackDO`; the request path never fetches upstream (the 30-min alarm/cron does) |
 | `/api/v1/exposure/runs/{runId}` | GET | 120 | default | shared `exposure-run` | Reads one immutable R2 object per call; one shared bucket across all run ids |
 | `/api/v1/radar/frames` | GET | 300 | default | per route | Frame index for the last N hours |
 | `/api/v1/radar/frame/{tsMs}.png` | GET | 600 | default | shared `radar-frame` | An animation loop pulls one image per frame; one shared bucket across all frames |
@@ -92,6 +93,7 @@ Two rules are enforced by `json()` in `apps/api/src/router.ts` rather than by ea
 | `/api/v1/provinces/{NN}/exposure/latest` | `observations` | `public, max-age=60, s-maxage=120` |
 | `/api/v1/provinces/{NN}/forecast` | `observations` | `public, max-age=60, s-maxage=120` |
 | `/api/v1/forecast/availability` | `observations` | `public, max-age=60, s-maxage=120` |
+| `/api/v1/storms` | `storms` | `public, max-age=60, s-maxage=300`, or `no-store` while no source has ever succeeded — see [Storm tracks](#storm-tracks-storm-layer-v1) |
 | `/api/v1/exposure/runs/{runId}` | `frozenArtifact(key)` | `public, max-age=31536000, immutable` — the key contains the run's content hash, so it can never change |
 | `/api/v1/radar/frames` | `radarFrames` | `public, max-age=60` |
 | `/api/v1/radar/frame/{tsMs}.png` | `radarFrame` | `public, max-age=86400, immutable` |
@@ -137,6 +139,36 @@ TMD's API publishes neither a grid resolution nor a model run time, and neither 
 - `GET /api/v1/forecast/availability` answers `ForecastAvailabilityResponse`: `daily: {min, max}` is
   the date window TMD declares it holds daily data for, and `daily: null` with `fetchedAt: null`
   means we have never read that window successfully — not that TMD has no data.
+
+### Storm tracks (storm layer v1)
+
+`GET /api/v1/storms` answers `StormsResponse` (`packages/shared-types/src/storm.ts`) for the whole
+region in one request — never one per province:
+
+- `storms[]`: one `StormTrack` per active tropical cyclone, `id` `jma:TC…` or `gdacs:<eventId>`, from
+  two upstreams split by basin and never substituted for each other — `jma-typhoon` (JMA bosai JSON,
+  basin `WNP`: western North Pacific + South China Sea) and `gdacs-tc` (GDACS, JTWC data, basin `NIO`
+  only). Each carries `past[]` (analysed fixes; JMA's older fixes have `observedAt: null` because JMA
+  publishes bare `[lat, lon]` pairs), `forecast[]` (`validAt`, position, wind, pressure, category,
+  `circleRadiusKm` = JMA's 70 % probability circle, `null` for GDACS), `gdacsCone` for GDACS events,
+  `advisoryIssuedAt` (JMA's `issue` time; `null` for GDACS, which publishes none — never `fetchedAt`),
+  `windAveraging` (`10-min` JMA vs `1-min` JTWC), `nearestKmByProvince` for all 77 provinces (plain
+  geometry computed once per ingest round, not a probability) and `fetchedAt`. A value the upstream
+  did not send is `null`, never `0`.
+- `layers`: `track` (`forecast`), `circle` (`probabilistic` — JMA's own published probability, the
+  first layer of that class) and `past` (`observed`). A descriptor fed by both upstreams takes the
+  **older** of their `lastSuccessAt`; `track.forecast.issuedAt` is set only when every storm shares
+  one issue time.
+- `sources[]`: `{id, lastSuccessAt, lastAttemptAt, lastError}` per upstream. `storms: []` with a
+  `lastSuccessAt` means "no active storm reported by the sources we reached"; with
+  `lastSuccessAt: null` it means "never fetched" — neither is an all-clear.
+
+The route is one `SELECT body FROM latest WHERE id = ?` on the `"primary"` instance and never wakes
+a fetch. It sits behind `caches.default` keyed on **origin + pathname only** (the route takes no
+query, so `?x=<random>` cannot bypass the edge copy), and a `200` is put there only once at least
+one source has a `lastSuccessAt`: the cold "never fetched" answer after a deploy is `no-store`, as
+`floodExtent(null)` is, so it cannot pin itself at the edge for 5 minutes after the data arrived.
+A DO failure answers `503 {"error":"Storm tracks unavailable"}`.
 
 ### North route responses (E16)
 
@@ -286,6 +318,7 @@ decided for it at all and never fires.
 | `tmd-nwp` | `null` | A forecast observes nothing: every value it carries is a **valid time in the future**, so there is no observation to be late about. `latestObservedAt` is `null` by design — filling it from a forecast step would claim we measured the future, and setting a lag without an observation would pin the source at `degraded` for ever. This source is judged on `fetchedAt` and `lastError` alone. |
 | `gistda-flood` | `null` | Since E16.PR0 every cell names the satellite passes it came from (`file_name`, read at +07:00), so `latestObservedAt` is the newest acquisition — but Sentinel-1 and RADARSAT-2 revisit irregularly, so there is no cadence to compare it against. Guessing one would be a fabricated threshold. |
 | `alert-engine` | `null` | Not an upstream feed: it is `AlertEngineDO`'s own evaluation cadence (E11.5), reusing the same ThaiWater observations `exposure-illustrative` reads. `latestObservedAt` is the newest `last_observed_at` actually held across rule state, not the time of the last evaluation tick. There is no separate publication cadence to be `delayed` about — a stalled engine just means the tick has not run, which `staleAfterSeconds` already covers. |
+| `jma-typhoon`, `gdacs-tc` | `null` | Tropical cyclones have no cadence: a basin with no active storm is a normal state, not a stalled feed. Both rows come from **one** `StormTrackDO.status()` call that reads per-source meta by primary key (`src:jma-typhoon`, `src:gdacs-tc`), so one dead upstream never marks the other dead; `latestObservedAt` is the newest analysed fix of that source's storms, `detail = {storms}`. |
 | `copernicus-gfm` | `null` | The only source with no Durable Object (E14.F3): `.github/workflows/gfm-ingest.yml` runs the Python pipeline every 6 h and uploads `flood/gfm/health.json` to R2; `routes/health.ts` reads that one object (one `HAZARD_BUCKET.get` per `/health` compute, under the 15 s edge cache) and maps `fetchedAt = lastSuccessAt` (the last run with **no** error — a failed run is an attempt, not a fetch), `lastAttemptAt = lastRunAt`, `latestObservedAt = lastSceneObservedAt`, `detail = {itemsProcessed, scenesWritten}`. Sentinel-1 revisits a province every 6–12 days, so acquisition age cannot decide `delayed` — "no new image this week" is not a broken feed. A missing or unparsable object is `unknown` with `fetchedAt: null` and a `lastError` naming the key (before the first run, or after a bad upload) — "no report" is not "reported failure". |
 
 `staleAfterSeconds` is the separate fetch-side budget: thaiwater 900 s (refresh every 5 min),
@@ -294,7 +327,8 @@ every 30 min), earthquakes 300 s (cron every minute), tmd-nwp 10800 s (refresh h
 three missed rounds), alert-engine 1800 s (evaluated every 5 min; 30 min without a successful tick
 means the evaluation loop itself stopped), copernicus-gfm 43200 s (cron `17 */6 * * *`; 12 h with no
 successful run = two missed rounds → `stale` if the cron went silent, `down` if runs keep failing —
-the ladder above judges `lastError` first).
+the ladder above judges `lastError` first), jma-typhoon and gdacs-tc 10800 s (refresh every 30 min, retry
+5 min only when both upstreams failed → six missed rounds).
 
 ### `down`, `ok` and `worst`
 
@@ -329,8 +363,8 @@ the ladder above judges `lastError` first).
 
 ## Scheduled refresh (not an endpoint)
 
-The cron tick runs six refresh jobs — `earthquakes`, `thaiwater`, `gistda-flood`, `tmd-radar`,
-`tmd-nwp` and `alert-engine` — concurrently and in isolation (`apps/api/src/scheduledTick.ts`), each
+The cron tick runs seven refresh jobs — `earthquakes`, `thaiwater`, `gistda-flood`, `tmd-radar`,
+`tmd-nwp`, `alert-engine` and `storm` (`StormTrackDO`, both storm upstreams) — concurrently and in isolation (`apps/api/src/scheduledTick.ts`), each
 with its own ~25 s budget. One job failing or hanging does not stop the others, and each emits exactly one
 structured log line per tick with `source`, `outcome` (`ok` / `error` / `timeout`) and `durationMs`.
 Each source's own freshness and last error stay visible in `/api/v1/health` — a failed refresh

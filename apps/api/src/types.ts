@@ -5,6 +5,7 @@ import type { ForecastNwpDO } from "./durable-objects/forecast-nwp.js";
 import type { ForecastPointerDO } from "./durable-objects/forecast-pointer.js";
 import type { ObservationCacheDO } from "./durable-objects/observation-cache.js";
 import type { RadarDO } from "./durable-objects/radar.js";
+import type { StormTrackDO } from "./durable-objects/storm-track.js";
 
 /**
  * `wrangler types` leaves DurableObjectNamespace bindings untyped (see the
@@ -23,6 +24,7 @@ export interface AppEnv
     | "FLOOD_EXTENT"
     | "RADAR"
     | "ALERT_ENGINE"
+    | "STORM_TRACK"
   > {
   RADAR: DurableObjectNamespace<RadarDO>;
   EARTHQUAKE_FEED: DurableObjectNamespace<EarthquakeFeedDO>;
@@ -31,4 +33,5 @@ export interface AppEnv
   FORECAST_NWP: DurableObjectNamespace<ForecastNwpDO>;
   OBSERVATION_CACHE: DurableObjectNamespace<ObservationCacheDO>;
   ALERT_ENGINE: DurableObjectNamespace<AlertEngineDO>;
+  STORM_TRACK: DurableObjectNamespace<StormTrackDO>;
 }
