@@ -6,7 +6,9 @@ import {
   type LocalAuthorityDetailResponse,
   type LocalAuthorityExposureResponse,
   type LocalAuthorityImpactResponse,
+  type FloodExtentResponse,
 } from "@siahra/shared-types";
+import { gunzip } from "../archive.js";
 import * as cachePolicy from "../cachePolicy.js";
 import { getBoundaryGeometryById } from "../data/localAuthorityBoundaries.js";
 import {
@@ -100,7 +102,12 @@ export function handleLocalAuthorityExposure(id: string): Response {
  * static registry/exposure artefacts above), so it uses the flood-extent
  * cache policy, not `slowMoving`.
  */
-export async function handleLocalAuthorityImpact(id: string, env: AppEnv): Promise<Response> {
+export async function handleLocalAuthorityImpact(
+  id: string,
+  request: Request,
+  env: AppEnv,
+  ctx: ExecutionContext,
+): Promise<Response> {
   const localAuthority = getLocalAuthorityById(id);
   if (!localAuthority) return json({ error: `No such local authority: ${id}` }, { status: 404 });
 
@@ -115,9 +122,17 @@ export async function handleLocalAuthorityImpact(id: string, env: AppEnv): Promi
     );
   }
 
+  // E16.PR0 (devops constraint 11): ผลคำนวณขึ้นกับคำตอบ live ของ FloodExtentDO เท่านั้น
+  // จึงแคชที่ขอบ ≤ 300 วิ คีย์ URL เต็ม เฉพาะเมื่อ GISTDA เคยดึงสำเร็จ (retrievedAt ไม่ null)
+  const cache = caches.default;
+  const cacheKey = new Request(new URL(request.url).toString(), { method: "GET" });
+  const cached = await cache.match(cacheKey);
+  if (cached) return cached;
+
   const stub = env.FLOOD_EXTENT.getByName("gistda");
   try {
-    const flood = await stub.getProvince(localAuthority.provinceCode);
+    const { gz } = await stub.getProvinceBody(localAuthority.provinceCode);
+    const flood = JSON.parse(await gunzip(new Response(gz).body!)) as FloodExtentResponse;
     const impact = computeLocalAuthorityImpact({
       authorityId: localAuthority.id,
       authorityGeometry: boundary,
@@ -127,7 +142,9 @@ export async function handleLocalAuthorityImpact(id: string, env: AppEnv): Promi
       computedAt: new Date().toISOString(),
     });
     const body: LocalAuthorityImpactResponse = { impact };
-    return json(body, { cache: cachePolicy.floodExtent(flood.retrievedAt) });
+    const res = json(body, { cache: cachePolicy.floodExtent(flood.retrievedAt) });
+    if (flood.retrievedAt) ctx.waitUntil(cache.put(cacheKey, res.clone()));
+    return res;
   } catch (err) {
     logError("local authority impact request failed", { error: errorText(err), id: localAuthority.id });
     return json({ error: "Flood impact unavailable" }, { status: 503 });

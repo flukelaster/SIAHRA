@@ -106,7 +106,7 @@ you add one.
 | `thaiwater-analyst-dam.json` | ThaiWater dams | 2026-08-19 | `…/analyst/dam` |
 | `tmdNwp/hourly-region-S.json` | TMD NWP hourly, one region | 2026-08-23 | `https://data.tmd.go.th/nwpapi/v1/forecast/location/hourly/region?region=S&fields=tc,rain,cond&duration=48` (Bearer token — **never store it here**) — ตัดเหลือ 5 จังหวัด (90–94) ให้อยู่ในเพดาน 50 KB, คงครบทุกขั้นเวลา |
 | `tmdNwp/daily-region-S.json` | TMD NWP daily, one region | 2026-08-23 | `…/forecast/location/daily/region?region=S&fields=rain,cond&duration=7` — ตัดเหลือ 5 จังหวัด (90–94) ให้อยู่ในเพดาน 50 KB, คงครบทุกขั้นเวลา |
-| `gistda-wfs.json` | GISTDA flood extent (WFS) | 2026-08-19 | `https://flood-innotech.gistda.or.th/flooding_vis_public?service=WFS&version=2.0.0&request=GetFeature&typeNames=flooding_vis:FloodArea_Poly&outputFormat=application/json` |
+| `gistda-api-page.json` | GISTDA flood extent (API gateway, H3 cells) | 2026-09-26 | `https://api-gateway.gistda.or.th/api/2.0/resources/features/flood/3days?pv_idn=NN&limit=1000&offset=M` (`API-Key` header — **never store the key here**; upstream echoes it into `links[]`, so the fixture's `links[].href` carries the placeholder `FIXTURE-ECHOED-KEY`) |
 
 Rules for every fixture:
 

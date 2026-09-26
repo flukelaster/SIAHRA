@@ -1,0 +1,196 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "geometry": {
+    "coordinates": [
+     [
+      [
+       [
+        100.62795399213408,
+        14.19875595843653
+       ],
+       [
+        100.62795399213407,
+        14.198531379615488
+       ],
+       [
+        100.62817857095504,
+        14.198531379615474
+       ],
+       [
+        100.62817857095503,
+        14.197633064331358
+       ],
+       [
+        100.62795399213408,
+        14.197633064331363
+       ],
+       [
+        100.62795399213407,
+        14.197408485510326
+       ],
+       [
+        100.6274577774573,
+        14.197408485694401
+       ],
+       [
+        100.62728025567006,
+        14.198097547107032
+       ],
+       [
+        100.62728025567085,
+        14.19830680079444
+       ],
+       [
+        100.62750483449209,
+        14.198306800794422
+       ],
+       [
+        100.62750483449207,
+        14.198755958436523
+       ],
+       [
+        100.62795399213408,
+        14.19875595843653
+       ]
+      ]
+     ]
+    ],
+    "type": "MultiPolygon"
+   },
+   "id": "6ab76b6941ad79e69d9b0076",
+   "properties": {
+    "_area": 11315.895302718884,
+    "_createdAt": "2026-09-26T06:51:21.687Z",
+    "_createdBy": "66b07c8034c2963abcdb9bb8",
+    "_id": "6ab76b6941ad79e69d9b0076",
+    "_updatedAt": "2026-09-26T06:51:21.687Z",
+    "_updatedBy": "66b07c8034c2963abcdb9bb8",
+    "ap_en": "AMPHOE WANG NOI",
+    "ap_idn": 1411,
+    "ap_tn": "อ.วังน้อย",
+    "building": 0,
+    "cassava_area": 0,
+    "f_area": 11315.895302718884,
+    "file_name": "rd2_20260926_0613, rd2_20260924_1815",
+    "h3_address": "8964a400203ffff",
+    "h3_area": 124455.28475108047,
+    "hospital": 0,
+    "length_road": 0,
+    "maize_area": 0,
+    "mongo_id": "6ab765da8e5c8d8f9689fbd2",
+    "population": 0,
+    "pv_en": "Changwat Phra Nakhon Si Ayudhya",
+    "pv_idn": 14,
+    "pv_tn": "จ.พระนครศรีอยุธยา",
+    "re_royin": "Central",
+    "re_royin_2": "Central",
+    "rice_area": 1028.8794480283962,
+    "school": 0,
+    "sugarcane_area": 0,
+    "tb_en": "LAM SAI",
+    "tb_idn": 141104,
+    "tb_tn": "ต.ลำไทร"
+   },
+   "type": "Feature"
+  },
+  {
+   "geometry": {
+    "coordinates": [
+     [
+      [
+       [
+        100.6274577774573,
+        14.197408485694401
+       ],
+       [
+        100.62728025567084,
+        14.19740848551032
+       ],
+       [
+        100.62728025567084,
+        14.19763306433137
+       ],
+       [
+        100.62705567684989,
+        14.197633064331367
+       ],
+       [
+        100.62705567684988,
+        14.197857643152416
+       ],
+       [
+        100.62593278274471,
+        14.197857643152412
+       ],
+       [
+        100.62593278274471,
+        14.198082221973458
+       ],
+       [
+        100.62728025567084,
+        14.198082221973458
+       ],
+       [
+        100.62728025567006,
+        14.198097547107032
+       ],
+       [
+        100.6274577774573,
+        14.197408485694401
+       ]
+      ]
+     ]
+    ],
+    "type": "MultiPolygon"
+   },
+   "id": "6ab76b6941ad79e69d9b0077",
+   "properties": {
+    "_area": 4946.619794783017,
+    "_createdAt": "2026-09-26T06:51:21.687Z",
+    "_createdBy": "66b07c8034c2963abcdb9bb8",
+    "_id": "6ab76b6941ad79e69d9b0077",
+    "_updatedAt": "2026-09-26T06:51:21.687Z",
+    "_updatedBy": "66b07c8034c2963abcdb9bb8",
+    "ap_en": "AMPHOE WANG NOI",
+    "ap_idn": 1411,
+    "ap_tn": "อ.วังน้อย",
+    "building": 0,
+    "cassava_area": 0,
+    "f_area": 4946.619794783017,
+    "file_name": "rd2_20260926_0613, rd2_20260924_1815",
+    "h3_address": "8964a400207ffff",
+    "h3_area": 124456.93911066985,
+    "hospital": 0,
+    "length_road": 0,
+    "maize_area": 0,
+    "mongo_id": "6ab765da8e5c8d8f9689fbd3",
+    "population": 0,
+    "pv_en": "Changwat Phra Nakhon Si Ayudhya",
+    "pv_idn": 14,
+    "pv_tn": "จ.พระนครศรีอยุธยา",
+    "re_royin": "Central",
+    "re_royin_2": "Central",
+    "rice_area": 192.9061514529831,
+    "school": 0,
+    "sugarcane_area": 0,
+    "tb_en": "LAM SAI",
+    "tb_idn": 141104,
+    "tb_tn": "ต.ลำไทร"
+   },
+   "type": "Feature"
+  }
+ ],
+ "links": [
+  {
+   "href": "https://api-gateway.gistda.or.th/api/2.0/resources/features/flood/3days?pv_idn=14&limit=1000&offset=0&api_key=FIXTURE-ECHOED-KEY",
+   "rel": "self",
+   "type": "application/geo+json",
+   "title": "This document"
+  }
+ ],
+ "numberMatched": 2,
+ "numberReturned": 2,
+ "timeStamp": "2026-09-26T08:20:08.316Z"
+}

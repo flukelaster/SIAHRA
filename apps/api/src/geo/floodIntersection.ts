@@ -40,22 +40,61 @@ export function areaKm2(geometry: Polygon | MultiPolygon): number {
   return turfArea(toTurfFeature(geometry)) / 1_000_000;
 }
 
+type Bbox = [minX: number, minY: number, maxX: number, maxY: number];
+
+/**
+ * Bounding box of a `Polygon`/`MultiPolygon` — outer rings only (a hole never
+ * extends the box). Null for an empty geometry (a GISTDA cell whose sliver
+ * collapsed under coordinate rounding keeps `coordinates: []`).
+ */
+export function geometryBbox(geometry: Polygon | MultiPolygon): Bbox | null {
+  const polys = geometry.type === "Polygon" ? [geometry.coordinates] : geometry.coordinates;
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const poly of polys) {
+    const outer = poly[0];
+    if (!outer) continue;
+    for (const pt of outer) {
+      const x = pt[0]!;
+      const y = pt[1]!;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+  }
+  return minX <= maxX ? [minX, minY, maxX, maxY] : null;
+}
+
+const bboxOverlaps = (a: Bbox, b: Bbox): boolean => a[0] <= b[2] && b[0] <= a[2] && a[1] <= b[3] && b[1] <= a[3];
+
 /**
  * Real intersection geometries between one authority polygon and every flood
- * feature that overlaps it — `turf.intersect()` per pair (GISTDA's tambon
- * polygons are not expected to overlap each other, so no union is needed to
- * get the per-facility "is this point in the flooded area" test right: a
- * point inside *any* one of these polygons is inside the flooded area).
+ * feature that overlaps it — `turf.intersect()` per pair (GISTDA's H3 cells do
+ * not overlap each other, so no union is needed to get the per-facility "is
+ * this point in the flooded area" test right: a point inside *any* one of these
+ * polygons is inside the flooded area).
+ *
+ * E16.PR0 (devops constraint 12): a province now carries thousands of cells, so
+ * each one is bbox-tested against the authority first and only the overlapping
+ * ones reach `turf.intersect` — per-request CPU scales with the cells that touch
+ * the authority, not with every cell in the province.
  */
 export function intersectFloodFeatures(
   authorityGeometry: Polygon | MultiPolygon,
   floodFeatures: readonly Pick<FloodExtentFeature, "geometry">[],
 ): Feature<Polygon | MultiPolygon>[] {
   const authorityFeature = toTurfFeature(authorityGeometry);
+  const authorityBox = geometryBbox(authorityGeometry);
   const results: Feature<Polygon | MultiPolygon>[] = [];
+  if (!authorityBox) return results;
   for (const f of floodFeatures) {
-    const floodFeature = toTurfFeature(f.geometry as Polygon | MultiPolygon);
-    const intersection = turfIntersect(turfFeatureCollection([authorityFeature, floodFeature]));
+    const geometry = f.geometry as Polygon | MultiPolygon;
+    const box = geometryBbox(geometry);
+    if (!box || !bboxOverlaps(authorityBox, box)) continue;
+    const intersection = turfIntersect(turfFeatureCollection([authorityFeature, toTurfFeature(geometry)]));
     if (intersection) results.push(intersection);
   }
   return results;

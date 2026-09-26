@@ -1395,6 +1395,7 @@ Tracked as one pinned `needs-user` checklist issue, not as tasks.
 |---|---|---|
 | Workers Paid active (the DO-backed endpoints return 500 on the Free tier — already documented) | any api change deployed | **open** — user action, deploy-time only |
 | **blocker: TMD secrets** — `wrangler secret put TMD_UID` / `TMD_UKEY` (a registered key is preferable) | E2.3 | **open** — user action; the code degrades honestly without them, but the TMD feed stays `degraded` in production until they are set |
+| **GISTDA API key** — the open WFS answers 401 since 2026-09-10; the API gateway needs `GISTDA_API_KEY` (`npx wrangler secret put GISTDA_API_KEY` from an interactive terminal, `docs/deploy.md` §3) | E16.PR0 (GISTDA flood extent) | **resolved for dev 2026-09-26** (`apps/api/.dev.vars`); **open for prod** — the owner sets the secret, then checks `gistda-flood` is `ok` in `/api/v1/health` |
 | **blocker: licence choice** — MIT / Apache-2.0 / other | E2.4 | **resolved 2026-08-18: MIT** |
 | Make `Test` a required check (`.github/rulesets/main.json` + `scripts/apply-branch-rules.sh`) once E1.3 is stable | after M1 | **open** — user action |
 | HSTS `includeSubDomains`/`preload`: yes or no | E4.2 | **resolved 2026-08-18: `max-age` only** — no `includeSubDomains`, no `preload` |

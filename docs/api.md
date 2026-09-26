@@ -44,7 +44,7 @@ edit in that table.
 | `/api/v1/earthquakes/recent` | GET | 300 | default | per route | Cheap DO SQL query |
 | `/api/v1/earthquakes/live` | GET (WS) | 10 | 5 | per route | WebSocket upgrades: a handful per session at most, so a reconnect storm is capped |
 | `/api/v1/flood-extent/summary` | GET | 300 | default | per route | Nationwide totals, cached |
-| `/api/v1/provinces/{NN}/flood-extent[?at=]` | GET | 300 | default | per route | Called for the selected province; kept high so a user browsing provinces quickly is never rate-limited into an empty layer. `at` (E14.F1) answers from the scene that covered that instant — a hot-table read inside 30 days, one R2 get (cached in DO memory for 1 h, at most 8 scenes) beyond it; the web snaps `at` to 10 minutes and debounces the timeline, so one gesture is one request |
+| `/api/v1/provinces/{NN}/flood-extent[?at=]` | GET | 300 | default | per route | Called for the selected province; kept high so a user browsing provinces quickly is never rate-limited into an empty layer. `at` (E14.F1) answers from the pull that covered that instant — one primary-key row of `flood_province_scenes` (legacy `flood_scenes` before the E16.PR0 cutover) and one R2 get (cached in DO memory for 1 h, at most 256 entries / 32 MB); live answers sit in `caches.default` for ≤ 300 s; the web snaps `at` to 10 minutes and debounces the timeline, so one gesture is one request |
 | `/api/v1/provinces/{NN}/exposure/latest` | GET | 300 | default | per route | The current flood-exposure run scoped to one province; same reasoning as flood-extent |
 | `/api/v1/provinces/{NN}/forecast` | GET | 300 | default | per route | E12.2 TMD NWP forecast for one province; one primary-key row read, and the request path never fetches upstream (the hourly cron does) |
 | `/api/v1/forecast/availability` | GET | 300 | default | per route | The date window TMD says it has daily data for, read from `meta` only |
@@ -85,8 +85,8 @@ Two rules are enforced by `json()` in `apps/api/src/router.ts` rather than by ea
 | `/api/v1/archive/snapshot` | `archivedSnapshot` | `public, max-age=3600` |
 | `/api/v1/earthquakes/recent` | `realtime` | `public, max-age=10, s-maxage=20` |
 | `/api/v1/earthquakes/live` | — | WebSocket upgrade; no cache headers |
-| `/api/v1/flood-extent/summary` | `floodExtent(retrievedAt)` | `public, max-age=300, s-maxage=600`, or `no-store` when nothing has ever been retrieved |
-| `/api/v1/provinces/{NN}/flood-extent` | `floodExtent(retrievedAt, historical)` | as above without `at`; with `at` and a scene found → `floodExtentArchived` = `public, max-age=3600, s-maxage=86400` (an archived scene's bytes never change, and `at` is 10-minute-snapped upstream); with `at` and no archived scene (`retrievedAt: null`, `reason: "no-archived-scene"`) → `no-store` |
+| `/api/v1/flood-extent/summary` | `floodExtent(retrievedAt)` | `public, max-age=300` (also stored in `caches.default`, query stripped from the key), or `no-store` — never cached — when nothing has ever been retrieved |
+| `/api/v1/provinces/{NN}/flood-extent` | `floodExtent(retrievedAt, historical)` | as above without `at` (`caches.default` keyed by the full URL); with `at` and a scene found → `floodExtentArchived` = `public, max-age=3600, s-maxage=86400` (an archived scene's bytes never change, and `at` is 10-minute-snapped upstream); with `at` and no archived scene (`retrievedAt: null`, `reason: "no-archived-scene"`) → `no-store` |
 | `/api/v1/provinces/{NN}/exposure/latest` | `observations` | `public, max-age=60, s-maxage=120` |
 | `/api/v1/provinces/{NN}/forecast` | `observations` | `public, max-age=60, s-maxage=120` |
 | `/api/v1/forecast/availability` | `observations` | `public, max-age=60, s-maxage=120` |
@@ -96,7 +96,7 @@ Two rules are enforced by `json()` in `apps/api/src/router.ts` rather than by ea
 | `/api/v1/local-authorities` | `slowMoving` | `public, max-age=300` |
 | `/api/v1/local-authorities/{id}` | `slowMoving` | `public, max-age=300` |
 | `/api/v1/local-authorities/{id}/exposure` | `slowMoving` | `public, max-age=300` |
-| `/api/v1/local-authorities/{id}/impact` | `floodExtent(retrievedAt)` | as above — depends on live flood data, not the static exposure artefact |
+| `/api/v1/local-authorities/{id}/impact` | `floodExtent(retrievedAt)` | `public, max-age=300` (stored in `caches.default` by full URL) or `no-store` when GISTDA was never retrieved — depends on live flood data, not the static exposure artefact |
 | `/api/v1/alerts/active` | `observations` | `public, max-age=60, s-maxage=120` — reflects live evaluation state (`AlertEngineDO.alarm()` re-evaluates every 5 min), so it gets the same short cache as the observations it is derived from |
 | `/api/v1/alerts/rules` | `slowMoving` | `public, max-age=300` — the baked rule table changes only on redeploy |
 | any 4xx / 5xx | `noStore` | `no-store` |
@@ -162,7 +162,9 @@ Notes:
   `[0-9]+`, a radar frame id is `[0-9]+`. A path that does not match is a `404`, not a `400`.
 - `at` on `/api/v1/archive/snapshot` is **required**; a missing `at` answers `400`. On
   `/api/v1/observations` and `/api/v1/provinces/{NN}/flood-extent` it is optional (absent = latest). For
-  flood-extent, an `at` before the first scene the Durable Object recorded (`flood_scenes` starts at deploy
+  flood-extent, an `at` before the E16.PR0 cutover is answered from the legacy WFS archive (`flood_scenes`,
+  `granularity: "tambon"`, its original `retrievedAt`, so the 2026-09-10..cutover outage stays visible as a
+  gap), and an `at` before the first scene the Durable Object ever recorded (`flood_scenes` started at deploy
   time — a bootstrap row, no backfill) answers `200` with `features: []`, `retrievedAt: null` and
   `reason: "no-archived-scene"`: nothing was observed, which is not the same as nothing was flooded.
 
@@ -263,7 +265,7 @@ decided for it at all and never fires.
 | `earthquakes` | `null` | `latestObservedAt` is when an earthquake *happened*. A quiet day is a normal day, not a stalled feed — marking it `delayed` would be inventing a failure that no observation supports. |
 | `exposure-illustrative` | `1800` (30 min) | Not an upstream feed: it is the run this API computes from ThaiWater after every refresh. `latestObservedAt` is **`run.computedAt` of the latest published run — when we computed it, not when any station was read.** A run is published on *every* successful refresh (`inputs.thaiwaterFetchedAt` is inside the hashed content, so the content always differs), so 30 minutes without a new one means **our** refresh loop stopped producing runs — a missed alarm or cron tick — not that the upstream went quiet. The newest station observation actually inside that run is reported separately as `detail.runObservedAt`, and it is normally 17–77 min older than `latestObservedAt`; read that one, not this one, for observation age. A *failed* publish is a different state and shows as `lastError` (`degraded`/`down`). `staleAfterSeconds` is deliberately **larger** (3600) than this: the health ladder checks `stale` before `delayed`, so equal budgets would make `delayed` unreachable — silence for 30 min reads as "the run loop slipped", silence past an hour as "our side stopped fetching altogether". |
 | `tmd-nwp` | `null` | A forecast observes nothing: every value it carries is a **valid time in the future**, so there is no observation to be late about. `latestObservedAt` is `null` by design — filling it from a forecast step would claim we measured the future, and setting a lag without an observation would pin the source at `degraded` for ever. This source is judged on `fetchedAt` and `lastError` alone. |
-| `gistda-flood` | `null` | GISTDA publishes no acquisition or observation time with the flood scene (E3.2), so there is no cadence to compare against. Guessing one would be a fabricated timestamp. |
+| `gistda-flood` | `null` | Since E16.PR0 every cell names the satellite passes it came from (`file_name`, read at +07:00), so `latestObservedAt` is the newest acquisition — but Sentinel-1 and RADARSAT-2 revisit irregularly, so there is no cadence to compare it against. Guessing one would be a fabricated threshold. |
 | `alert-engine` | `null` | Not an upstream feed: it is `AlertEngineDO`'s own evaluation cadence (E11.5), reusing the same ThaiWater observations `exposure-illustrative` reads. `latestObservedAt` is the newest `last_observed_at` actually held across rule state, not the time of the last evaluation tick. There is no separate publication cadence to be `delayed` about — a stalled engine just means the tick has not run, which `staleAfterSeconds` already covers. |
 | `copernicus-gfm` | `null` | The only source with no Durable Object (E14.F3): `.github/workflows/gfm-ingest.yml` runs the Python pipeline every 6 h and uploads `flood/gfm/health.json` to R2; `routes/health.ts` reads that one object (one `HAZARD_BUCKET.get` per `/health` compute, under the 15 s edge cache) and maps `fetchedAt = lastSuccessAt` (the last run with **no** error — a failed run is an attempt, not a fetch), `lastAttemptAt = lastRunAt`, `latestObservedAt = lastSceneObservedAt`, `detail = {itemsProcessed, scenesWritten}`. Sentinel-1 revisits a province every 6–12 days, so acquisition age cannot decide `delayed` — "no new image this week" is not a broken feed. A missing or unparsable object is `unknown` with `fetchedAt: null` and a `lastError` naming the key (before the first run, or after a bad upload) — "no report" is not "reported failure". |
 

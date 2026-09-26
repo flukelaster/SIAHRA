@@ -1,4 +1,5 @@
 import { Camera, ExternalLink, RefreshCw, Video, X } from "lucide-react";
+import { m2ToRai, sensorLabel } from "../../lib/gistdaFlood";
 import { useEffect, useRef, useState } from "react";
 import { FloodFieldClass, type CctvCamera, type ItiCCamera } from "@siahra/shared-types";
 import { gfmConfidence } from "../../scene/floodField";
@@ -1237,16 +1238,29 @@ export function InfoPopup({
             {pick.flood ? (
               <>
                 <Row k={t("popup.amphoe")} v={pick.flood.properties.amphoeTh ?? "—"} />
+                {pick.flood.properties.h3 ? <Row k={t("popup.h3Cell")} v={pick.flood.properties.h3} /> : null}
                 <Row
                   k={t("popup.floodArea")}
                   v={
-                    pick.flood.properties.floodAreaRai !== null
-                      ? `${formatNumber(lang, Math.round(pick.flood.properties.floodAreaRai))} ${t("unit.rai")}`
+                    pick.flood.properties.floodAreaM2 !== null
+                      ? `${formatNumber(lang, Math.round(m2ToRai(pick.flood.properties.floodAreaM2) * 10) / 10)} ${t("unit.rai")}`
+                      : "—"
+                  }
+                />
+                {/* เวลาภาพ = ภาพใหม่สุดที่ GISTDA ระบุไว้สำหรับเซลล์นี้ — null (ฉาก WFS เดิม) แสดง "—" ไม่ใช่ "ตอนนี้" */}
+                <Row
+                  k={t("popup.imageTime")}
+                  v={
+                    pick.flood.properties.observedAt
+                      ? `${fmtTime(lang, pick.flood.properties.observedAt)}${
+                          pick.flood.properties.acquisitions?.[0]
+                            ? ` · ${sensorLabel(pick.flood.properties.acquisitions[0].sensor)}`
+                            : ""
+                        }`
                       : "—"
                   }
                 />
                 <Row k={t("popup.firstSeen")} v={fmtTime(lang, pick.flood.properties.firstSeenAt)} />
-                <Row k={t("popup.lastSeen")} v={fmtTime(lang, pick.flood.properties.lastSeenAt)} />
               </>
             ) : null}
           </div>

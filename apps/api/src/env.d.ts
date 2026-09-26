@@ -23,4 +23,10 @@ interface __BaseEnv_Env {
    * รายงาน `lastError: "TMD NWP token not configured"` แหล่งอื่นไม่กระทบ
    */
   TMD_NWP_TOKEN?: string;
+  /**
+   * GISTDA API-gateway key — `wrangler secret put GISTDA_API_KEY` (E16.PR0) ส่งไปทาง
+   * header `API-Key` เท่านั้น ไม่มี = FloodExtentDO ไม่ยิงต้นทางเลย และรายงาน
+   * `lastError: "GISTDA_API_KEY not configured — …"` (ไม่ใช่ "ไม่มีน้ำท่วม")
+   */
+  GISTDA_API_KEY?: string;
 }

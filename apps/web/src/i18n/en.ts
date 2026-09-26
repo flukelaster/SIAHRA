@@ -424,20 +424,27 @@ export const en: Record<keyof typeof th, string> = {
   "flood.loadError": "Could not load the flood layer: {error}",
   "flood.noScene":
     "The latest GISTDA scene has not been retrieved yet (retrying) — this does not mean there is no flooding",
-  "flood.none": "No flooded area found in this province in the latest scene",
-  "flood.noneFetched": " (retrieved {age})",
+  "flood.noneDetected":
+    "GISTDA detected no flooded area in this province in this round of imagery (satellite radar can miss water in built-up areas)",
   "flood.historicalScene": "Scene as of {time} — the GISTDA pull that covered the selected time, not the latest one",
   "flood.noArchivedScene":
     "No archived scene for {time} — flood outlines have only been recorded since this layer went live; this does not mean there was no flooding",
-  "flood.noneHistorical": "No flooded area was detected in this province in the scene that covered the selected time",
+  "flood.noneHistorical":
+    "GISTDA detected no flooded area in this province in the pull that covered the selected time (satellite radar can miss water in built-up areas)",
+  "flood.legacyScene":
+    "This pull comes from GISTDA's former WFS service (before the 2026-09 source change) — per subdistrict, with no acquisition time",
   "flood.tambonCount": "Flooded subdistricts",
   "flood.areaRai": "Area (rai)",
-  "flood.households": "Households",
+  "flood.cellCount": "Flooded cells",
+  "flood.tambonCells": "{n} cells",
+  "flood.acquisitions": "Satellite images GISTDA used for this province",
+  "flood.acquisitionsNone": "The source named no images",
+  "flood.imageTime": "image {time}",
   "flood.unknownTambon": "Subdistrict not stated",
   "flood.firstSeen": "first seen {time}",
   "flood.note":
-    "Flood outlines are interpreted from satellite imagery by GISTDA (flooding_vis dataset) — they are what has already been detected, not a forecast · the scene carries no acquisition date, so the retrieval time is shown instead",
-  "flood.noteEarliest": " and when each area was first seen (earliest {time})",
+    "GISTDA interprets flooding from satellite radar imagery as H3 cells of about 0.1 km² — already detected, not a forecast · image times are read from GISTDA's image file names (taken as Thai time) · last retrieved",
+  "flood.noteEarliest": " · our system first saw a cell here at {time}",
 
   // ── Sentinel-1 / Copernicus GFM scenes card (E14.F5) ─────────────────
   "floodScenes.section.shown": "Shown scene · Sentinel-1 (Copernicus GFM)",
@@ -682,14 +689,15 @@ export const en: Record<keyof typeof th, string> = {
   "popup.status": "Status",
   "popup.statusAutomatic": "Detected automatically, not reviewed",
   "popup.statusReviewed": "Reviewed",
-  "popup.floodTitle": "Tambon {tambon} — flooded area",
+  "popup.floodTitle": "{tambon} — flooded area",
   "popup.mapPoint": "Point on the map",
   "popup.coords": "Coordinates",
   "popup.elevation": "Terrain elevation (DSM)",
   "popup.amphoe": "District",
   "popup.floodArea": "Flooded area",
   "popup.firstSeen": "First seen",
-  "popup.lastSeen": "Last seen",
+  "popup.h3Cell": "H3 cell",
+  "popup.imageTime": "Image time",
   "popup.floodNote":
     "Interpreted from satellite imagery (GISTDA) — already detected, not a forecast",
   "popup.gfm.title": "Sentinel-1 image (Copernicus GFM)",

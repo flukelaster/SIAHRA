@@ -16,11 +16,14 @@ R2 bucket `siahra-geodata` ตรวจแล้วว่า `/api/v1/health` �
   npx wrangler secret put TMD_UID     # ลงทะเบียนที่ data.tmd.go.th
   npx wrangler secret put TMD_UKEY
   npx wrangler secret put TMD_NWP_TOKEN   # คนละระบบกับสองตัวบน — ดู §3
+  npx wrangler secret put GISTDA_API_KEY  # E16.PR0 — รันจาก terminal แบบ interactive เท่านั้น ดู §3
   ```
   ยังไม่ตั้งก็ deploy ผ่าน แต่จะเสื่อมให้เห็นทีละแหล่ง: ไม่มี `TMD_UID`/`TMD_UKEY` เฉพาะฟีดแผ่นดินไหวจะรายงานที่
   `/api/v1/health` ว่า source `earthquakes` เป็น `degraded` พร้อม `lastError: "TMD credentials not configured"`
   ส่วนไม่มี `TMD_NWP_TOKEN` จะทำให้ source `tmd-nwp` เป็น `degraded` พร้อม `lastError: "TMD NWP token not
   configured"` (USGS/EMSC และแหล่งที่เหลือทำงานตามปกติในทั้งสองกรณี) — ตั้งใจให้เห็นชัดแทนที่จะแอบใช้คีย์สาธารณะร่วมกับคนอื่น
+  ส่วนไม่มี `GISTDA_API_KEY` ชั้นน้ำท่วม GISTDA จะไม่ยิงต้นทางเลย และ source `gistda-flood` เป็น **`down`** (ไม่ใช่
+  `degraded`) พร้อม `lastError: "GISTDA_API_KEY not configured — no request sent to GISTDA"`
   เครื่อง dev ใช้ `apps/api/.dev.vars` (gitignored) โดยคัดลอกจาก `apps/api/.dev.vars.example`
 
 ## 0.1 สอง Worker แยก deploy กัน
@@ -277,6 +280,15 @@ fallback — loader จะได้ HTML มาแทน binary แล้วพ�
   `set -a && . ./.dev.vars && set +a && printf '%s' "$TMD_NWP_TOKEN" | npx wrangler secret put
   TMD_NWP_TOKEN` และยืนยันว่าใช้ได้จริงด้วยการดูแหล่งฟื้นตัวจริง (`/api/v1/health` ขึ้น `ok` พร้อม
   จำนวน province ที่ดึงได้) ไม่ใช่ดูแค่ข้อความ success หรือ `wrangler secret list`/`versions view`
+- **`GISTDA_API_KEY`** (E16.PR0) — กุญแจของ GISTDA API gateway (ขอที่ `https://api-gateway.gistda.or.th/`)
+  WFS เดิม `flooding_vis_public` ตอบ 401 มาตั้งแต่ 2026-09-10 ชั้นน้ำท่วม GISTDA จึงย้ายไปดึง
+  `https://api-gateway.gistda.or.th/api/2.0/resources/features/flood/3days?pv_idn=NN&limit=1000&offset=M`
+  กุญแจถูกส่ง**ทาง header `API-Key` เท่านั้น** (ห้ามใส่เป็น `?api_key=`) และต้นทางสะท้อนกุญแจกลับมาใน `links[]`
+  ของคำตอบ — โค้ดจึงไม่อ่านและไม่เก็บ `links[]` เลย ห้ามแปะคำตอบดิบของ gateway ลง issue/PR/log
+  ตั้งด้วย `npx wrangler secret put GISTDA_API_KEY` **จาก terminal แบบ interactive** (เชลล์ non-interactive
+  อัปโหลดค่าว่างได้เงียบ ๆ ตามย่อหน้าข้างบน — ถ้าต้อง pipe ให้ใช้แพตเทิร์น `printf '%s' "$GISTDA_API_KEY" |`
+  จาก `.dev.vars` แบบเดียวกัน) เครื่อง dev อ่านจาก `apps/api/.dev.vars`; ไม่ต้องแก้ `wrangler.jsonc`
+  ยืนยันผลด้วย §6 ไม่ใช่ `wrangler secret list`
 - เรดาร์ฝน (`apps/api/src/ingestion/tmdRadar.ts`) ดึงจาก `weather.tmd.go.th/composite/` ซึ่ง**ไม่ต้อง
   ยืนยันตัวตน** — ไม่เกี่ยวกับ secret คู่บน
 - `ALLOWED_ORIGINS`: ว่าง = same-origin เท่านั้น — ไม่ต้องตั้ง เพราะ route ของสอง Worker อยู่บน host
@@ -326,6 +338,11 @@ Worker มี token-bucket ต่อ IP อยู่แล้ว (`apps/api/src/
 - `curl https://siahra-radar.co/api/v1/health` → ทุก source ที่มี DO เป็น `ok` ภายใน 5 นาที (alarm ของ DO เริ่มเอง) —
   ยกเว้น `copernicus-gfm` ซึ่งเป็น `unknown` จนกว่า `gfm-ingest.yml` จะรันสำเร็จครั้งแรก (ข้อสุดท้ายของหัวข้อนี้)
   ตอบ 200 = route `/api/*` ชี้ไป siahra-api ถูกแล้ว; ถ้าได้ HTML ของ SPA แทน = route ไม่ทำงาน
+- `gistda-flood` (E16.PR0) ต้องตั้ง `GISTDA_API_KEY` ก่อน (§3) แล้ว
+  `curl -s https://siahra-radar.co/api/v1/health | jq '.sources[]|select(.id=="gistda-flood")'` → `ok` พร้อม
+  `detail.window: "3days"` และ `detail.provincesFailed: 0` ภายใน ≤ 30 นาทีหลัง deploy (alarm รอบแรกยิงหลัง cron
+  tick แรกราว 1 วินาที หนึ่งรอบ 77 จังหวัดใช้ราว 48 วินาที; ถ้ารอบแรกล้ม backoff 5 → 30 นาที) — ถ้าเป็น `down`
+  พร้อม `lastError` ที่เอ่ยชื่อ `GISTDA_API_KEY` = secret ยังไม่ถูกตั้งหรือถูกตั้งเป็นค่าว่าง
 - `curl -I https://siahra-radar.co/` → HTML จาก siahra-web (deploy คนละครั้งกับ api ได้)
 - เปิดเว็บ → tile โหลดจาก `/aoi/...` (Network tab: `cf-cache-status: HIT` ในรอบสอง)
 - `curl -sk -I https://siahra-radar.co/og-image.jpg` → `200 image/jpeg` แล้วลองวางลิงก์ใน LINE/Facebook ให้เห็นการ์ดพรีวิว
@@ -382,6 +399,15 @@ every province has an index.json); Class B ≈ 12k–90k from the runner + ≤ 0
 under its 15 s edge cache + ≤ 0.7M from flood files served by siahra-web under caches.default — all inside the free tiers
 (1M A / 10M B); storage +≈$0.0125/month per accumulated year of scenes; no DO change, no new log line; devops verify
 2026-09-02: **+$0.01/month expected, +$0.70 worst case**; GitHub Actions minutes free (public repo)
+
+E16.PR0 (GISTDA API gateway, `FloodExtentDO` rewritten — supersedes the E14.F1 `flood_scenes` hot-table paragraph above
+for new data): one alarm-only pull every 30 min of all 77 provinces (measured 2026-09-26: 45,549 cells, 4.30 MB gzip
+nationwide, ~48 s per round). `archive/flood-v2/{iso}/{NN}.json.gz` is written only for a province whose content hash
+changed, with **no retention** — ≈ 1.6 GB/year (≈ **+$0.024/month per accumulated year**), worst case ≈ 6 GB/month if
+every province re-archives every round. DO duration ≈ 10.8k GB-s/month (108k worst); R2 Class A puts ≈ 2.3k expected /
+111k worst per month; `flood_features` is dropped and `flood_province_scenes` gets ≤ 77 rows per round (only on a hash
+change); Workers Logs ≤ 3 events per refresh. Watch `archivedGzBytes` in the `gistda flood refreshed` log line; once
+`archive/flood-v2/` passes **10 GB**, decide on retention or dedup (a new `devops` pass)
 
 The api Worker bakes its static artefacts (`apps/api/src/data/*.json`) into its script bundle. After Bangkok's 50
 districts were added to the local-authority registry, boundaries, exposure and alert rules (2026-09-26), the

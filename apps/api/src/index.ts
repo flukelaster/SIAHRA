@@ -63,7 +63,7 @@ export const routes: Route[] = [
     // เข้า bundle — จำกัดอัตราเท่ากับเส้นทางอื่นที่พึ่งพา flood extent
     method: "GET",
     pattern: /^\/api\/v1\/local-authorities\/([A-Za-z0-9-]+)\/impact$/,
-    handler: (_req, env, [id]) => handleLocalAuthorityImpact(id, env),
+    handler: (req, env, [id], ctx) => handleLocalAuthorityImpact(id, req, env, ctx),
     limit: { perMinute: 300 },
   },
   { method: "GET", pattern: /^\/api\/v1\/archive\/days$/, handler: handleArchiveDays, limit: { perMinute: 300 } },
@@ -86,7 +86,7 @@ export const routes: Route[] = [
   {
     method: "GET",
     pattern: /^\/api\/v1\/provinces\/([0-9]{2})\/flood-extent$/,
-    handler: (req, env, [province]) => handleProvinceFloodExtent(province, req, env),
+    handler: (req, env, [province], ctx) => handleProvinceFloodExtent(province, req, env, ctx),
     limit: { perMinute: 300 },
   },
   {

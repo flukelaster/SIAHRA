@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { UpstreamShapeError } from "../src/ingestion/errors";
 import { fetchEmscEvents } from "../src/ingestion/emsc";
-import { fetchGistdaFloodExtent } from "../src/ingestion/gistda";
+import { fetchGistdaProvince } from "../src/ingestion/gistda";
 import { fetchDams, fetchRainfall, fetchWaterLevel, fetchWaterLevelHistory } from "../src/ingestion/thaiwater";
 import { fetchTmdEvents } from "../src/ingestion/tmd";
 import { fetchRadarFrame, fetchRadarIndex } from "../src/ingestion/tmdRadar";
 import { fetchUsgsEvents } from "../src/ingestion/usgs";
 import emscFixture from "./fixtures/emsc-query.json";
-import gistdaFixture from "./fixtures/gistda-wfs.json";
+import gistdaFixture from "./fixtures/gistda-api-page.json";
 import damFixture from "./fixtures/thaiwater-analyst-dam.json";
 import rainFixture from "./fixtures/thaiwater-rain24h.json";
 import graphFixture from "./fixtures/thaiwater-waterlevel-graph.json";
@@ -91,12 +91,11 @@ describe("fixture ของทั้งหกต้นทางผ่านก�
     expect(dams.map((d) => d.id).sort()).toEqual([3, 91]);
   });
 
-  it("GISTDA: แปลง fixture ได้ และคืนภาษาไทยที่แก้ mojibake แล้ว", async () => {
+  it("GISTDA: แปลง fixture (ของจริงจาก pv_idn=14) ได้ครบ", async () => {
     respondJson(gistdaFixture);
-    const scene = await fetchGistdaFloodExtent({ attempts: 1 });
-    expect(scene.features).toHaveLength(2);
-    expect(scene.features[0].props.provinceTh).toBe("ลพบุรี");
-    expect(scene.publishedAt).toBeNull();
+    const pull = await fetchGistdaProvince("14", "k", { attempts: 1 });
+    expect(pull.features).toHaveLength(2);
+    expect(pull.features[0]!.properties.provinceTh).toBe("จ.พระนครศรีอยุธยา");
   });
 
   it("เรดาร์ TMD: ดัชนีและเฟรม PNG ที่สมบูรณ์ผ่านการตรวจ", async () => {
@@ -174,16 +173,16 @@ describe("payload ที่ผิดรูปโยน UpstreamShapeError พร
 
   it("GISTDA: {} ต้องไม่กลายเป็นฉากว่าง", async () => {
     respondJson({});
-    await expectShapeError(() => fetchGistdaFloodExtent({ attempts: 1 }), "features");
+    await expectShapeError(() => fetchGistdaProvince("14", "k", { attempts: 1 }), "features");
     respondText(truncatedJson(gistdaFixture));
-    await expectShapeError(() => fetchGistdaFloodExtent({ attempts: 1 }), "<body>");
+    await expectShapeError(() => fetchGistdaProvince("14", "k", { attempts: 1 }), "<body>");
   });
 
   it("GISTDA: payload ผิดรูปต้องไม่ถูกยิงซ้ำ (ลองใหม่กี่ครั้งก็ได้รูปเดิม)", async () => {
     const spy = vi.spyOn(globalThis, "fetch").mockImplementation(
       async () => new Response("{}", { headers: { "Content-Type": "application/json" } }),
     );
-    await expect(fetchGistdaFloodExtent({ attempts: 3 })).rejects.toBeInstanceOf(UpstreamShapeError);
+    await expect(fetchGistdaProvince("14", "k", { attempts: 3 })).rejects.toBeInstanceOf(UpstreamShapeError);
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
@@ -214,9 +213,10 @@ describe("ต้นทางที่ 'ว่างอย่างถูกต�
   });
 
   it("GISTDA: หน้าแล้งที่ไม่มีพื้นที่น้ำท่วมเลยยังถูกต้อง", async () => {
-    respondJson({ type: "FeatureCollection", features: [] });
-    const scene = await fetchGistdaFloodExtent({ attempts: 1 });
-    expect(scene.features).toEqual([]);
+    respondJson({ type: "FeatureCollection", features: [], numberMatched: 0, numberReturned: 0 });
+    const pull = await fetchGistdaProvince("10", "k", { attempts: 1 });
+    expect(pull.features).toEqual([]);
+    expect(pull.matched).toBe(0);
   });
 
   it("ThaiWater waterlevel_graph: สถานีที่ยังไม่มีอนุกรมเวลาคืนอาเรย์ว่างได้", async () => {

@@ -2,6 +2,7 @@ import { exports as workerExports } from "cloudflare:workers";
 import type { LocalAuthorityImpactResponse } from "@siahra/shared-types";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getExposureByLocalAuthorityId } from "../src/data/localAuthorityExposure.js";
+import { TEST_GISTDA_KEY, gistdaCell, runFloodAlarm, serveGistda, setGistdaKey } from "./helpers/gistdaApi";
 
 /**
  * Bangkok districts (`bma_district`, owner decision 2026-09-26) run through
@@ -19,20 +20,13 @@ const call = (path: string) => workerExports.default.fetch(new Request(`https://
 
 /** Covers TH-BMA-osm92053 (เขตพระนคร) whole — its real bbox is
  *  100.4875804–100.5092356, 13.7386948–13.7728868 in the baked boundary. */
-const WFS_SCENE = {
-  type: "FeatureCollection",
-  timeStamp: "2999-01-01T00:00:00.000Z",
-  totalFeatures: 1,
-  features: [
-    {
-      type: "Feature",
-      id: "FloodArea_Poly.1",
-      properties: { PV_IDN: 10, TB_IDN: 1, flood_area: 100, house: 1, lat: 13.75, long: 100.5 },
-      geometry: {
-        type: "Polygon",
-        coordinates: [[[100.48, 13.73], [100.52, 13.73], [100.52, 13.78], [100.48, 13.78], [100.48, 13.73]]],
-      },
-    },
+const FLOOD_CELLS = {
+  "10": [
+    gistdaCell({
+      h3: "89641000000ffff",
+      province: "10",
+      coordinates: [[[[100.48, 13.73], [100.52, 13.73], [100.52, 13.78], [100.48, 13.78], [100.48, 13.73]]]],
+    }),
   ],
 };
 
@@ -40,9 +34,10 @@ describe("GET /api/v1/local-authorities/:id/impact — Bangkok district", () => 
   it("TH-BMA-osm92053: fully covered → fraction ~1, every baseline facility exposed, estimates bounded by baseline", async () => {
     const baseline = getExposureByLocalAuthorityId("TH-BMA-osm92053");
     expect(baseline).not.toBeNull();
-    vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
-      new Response(JSON.stringify(WFS_SCENE), { headers: { "Content-Type": "application/json" } }),
-    );
+    setGistdaKey(TEST_GISTDA_KEY);
+    serveGistda(FLOOD_CELLS);
+    await runFloodAlarm();
+    setGistdaKey(undefined);
 
     const res = await call("/api/v1/local-authorities/TH-BMA-osm92053/impact");
     expect(res.status).toBe(200);
