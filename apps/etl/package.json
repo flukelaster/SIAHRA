@@ -22,12 +22,14 @@
     "build:cctv:itic": "tsx src/build-itic-cctv.ts",
     "build:cctv": "npm run build:cctv:dwr && npm run build:cctv:itic",
     "probe:cameras": "tsx src/probe-cameras.ts",
+    "build:region-outline": "tsx src/build-region-outline.ts",
     "refresh:manifests": "tsx src/refreshManifests.ts",
     "gfm:test": "uv run --frozen --directory gfm pytest",
     "gfm:run": "uv run --frozen --directory gfm python -m gfm run",
     "gfm:backfill": "uv run --frozen --directory gfm python -m gfm backfill",
     "gfm:check-grid": "uv run --frozen --directory gfm python -m gfm check-grid",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:north-route": "tsx src/build-north-route.ts"
   },
   "dependencies": {
     "@siahra/shared-types": "*",

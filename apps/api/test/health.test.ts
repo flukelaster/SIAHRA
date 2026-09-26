@@ -1,5 +1,9 @@
 import { env, exports as workerExports } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+// โหลดกราฟโมดูลของ Worker (src/index.ts + JSON ใน src/data ~4 MB) ตั้งแต่ตอน collect ไฟล์ —
+// `exports.default` import มันแบบ lazy ตอนถูกเรียกครั้งแรก ซึ่งกินเวลา 5 วิของเทสแรกไป
+// 2–4.6 วิเมื่อไฟล์เทสรันขนานกัน (CI เคย timeout ที่นี่) แบบเดียวกับ routeTable.test.ts
+import "../src/index";
 import type { HealthResponse, SourceId, SourceStatus } from "@siahra/shared-types";
 import type { AppEnv } from "../src/types";
 
@@ -25,7 +29,7 @@ const workerFetch = (url: string, init: RequestInit = {}) =>
   workerExports.default.fetch(new Request(url, init));
 
 /** E10.3 จะเพิ่มแหล่งที่ห้า — เทียบเป็น "เซตย่อยที่ต้องมี" ไม่ใช่จำนวนที่ต้องเท่ากัน */
-const REQUIRED: SourceId[] = ["thaiwater", "earthquakes", "gistda-flood", "tmd-radar"];
+const REQUIRED: SourceId[] = ["thaiwater", "earthquakes", "gistda-flood", "tmd-radar", "jma-typhoon", "gdacs-tc"];
 
 beforeEach(() => {
   vi.spyOn(globalThis, "fetch").mockImplementation(async () => {

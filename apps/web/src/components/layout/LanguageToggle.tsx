@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useLang } from "../../i18n/context";
 import { DEFAULT_LANG, LANGS, type Lang } from "../../i18n";
 
@@ -30,13 +31,25 @@ function syncLangInUrl(next: Lang): void {
  *
  * แยกออกจาก `TopBar` เพราะ `/methodology` ไม่มีแถบบน แต่ต้องสลับภาษาได้เหมือนกัน
  * — สองหน้าใช้ปุ่มตัวเดียวกัน ไม่ใช่คนละสำเนา
+ *
+ * แคตตาล็อกอังกฤษเป็น chunk แยก: URL เปลี่ยนตามก็ต่อเมื่อภาษาเปลี่ยนจริงแล้ว (ไม่มี
+ * `?lang=en` ค้างบนหน้าที่ยังเป็นภาษาไทย) และถ้าโหลดพลาด ปุ่มขึ้นกรอบแดง + title
+ * "โหลดภาษาอังกฤษไม่สำเร็จ" (Chromium จำ import ที่ล้มไว้ — กดซ้ำไม่ช่วย ต้องโหลดหน้าใหม่ ดู `lib/lazyModule.ts`)
  */
 export function LanguageToggle({ compact = false }: { compact?: boolean }) {
   const { lang, setLang: setLangState, t } = useLang();
+  const [failed, setFailed] = useState(false);
   const setLang = (next: Lang) => {
-    setLangState(next);
-    syncLangInUrl(next);
+    setFailed(false);
+    Promise.resolve(setLangState(next)).then(
+      (applied) => {
+        if (applied !== false) syncLangInUrl(next);
+      },
+      () => setFailed(true),
+    );
   };
+  const failBorder = failed ? " border-[var(--color-risk-high)]" : " border-white/10";
+  const failTitle = failed ? `${t("lang.loadFailed")} · ` : "";
   /** ภาษาที่ปุ่มบนจอแคบจะสลับไป */
   const other: Lang = lang === "th" ? "en" : "th";
   if (compact) {
@@ -45,9 +58,9 @@ export function LanguageToggle({ compact = false }: { compact?: boolean }) {
         type="button"
         onClick={() => setLang(other)}
         lang={other}
-        title={t(other === "th" ? "lang.name.th" : "lang.name.en")}
-        aria-label={`${t("lang.switch")}: ${t(other === "th" ? "lang.name.th" : "lang.name.en")}`}
-        className="flex h-8 shrink-0 items-center rounded-lg border border-white/10 px-2 text-xs text-[var(--color-fg-muted)] transition-colors hover:border-white/25 hover:text-[var(--color-fg)]"
+        title={failTitle + t(other === "th" ? "lang.name.th" : "lang.name.en")}
+        aria-label={`${failTitle}${t("lang.switch")}: ${t(other === "th" ? "lang.name.th" : "lang.name.en")}`}
+        className={`flex h-8 shrink-0 items-center rounded-lg border${failBorder} px-2 text-xs text-[var(--color-fg-muted)] transition-colors hover:border-white/25 hover:text-[var(--color-fg)]`}
       >
         {t(other === "th" ? "lang.option.th" : "lang.option.en")}
       </button>
@@ -55,9 +68,10 @@ export function LanguageToggle({ compact = false }: { compact?: boolean }) {
   }
   return (
     <div
-      className="flex shrink-0 rounded-lg border border-white/10 p-0.5"
+      className={`flex shrink-0 rounded-lg border${failBorder} p-0.5`}
       role="group"
-      aria-label={t("lang.switch")}
+      aria-label={failTitle + t("lang.switch")}
+      title={failed ? t("lang.loadFailed") : undefined}
     >
       {LANGS.map((l) => (
         <button

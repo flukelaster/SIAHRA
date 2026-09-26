@@ -7,6 +7,10 @@ import {
   type HealthResponse,
 } from "@siahra/shared-types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+// โหลดกราฟโมดูลของ Worker (src/index.ts + JSON ใน src/data ~4 MB) ตั้งแต่ตอน collect ไฟล์ —
+// `exports.default` import มันแบบ lazy ตอนถูกเรียกครั้งแรก ซึ่งกินเวลา 5 วิของเทสแรกไป
+// 2–4.6 วิเมื่อไฟล์เทสรันขนานกัน (CI เคย timeout ที่นี่) แบบเดียวกับ routeTable.test.ts
+import "../src/index";
 
 /**
  * สัญญาข้อมูล (E3.1/E3.2): ทุก route ที่ส่งข้อมูลภัยพิบัติต้องมี
@@ -51,6 +55,9 @@ const DATA_ROUTES: { path: string; mayFail503?: boolean }[] = [
   // พยากรณ์ NWP: DO ที่ยังเย็นตอบ 200 พร้อม `batch: null` และ fetchedAt เป็น null
   // ทั้งสอง descriptor — ไม่ใช่ 503 เพราะจังหวัดนั้นมีอยู่จริง
   { path: "/api/v1/provinces/50/forecast" },
+  // เส้นทางพายุ: DO เย็นตอบ 200 พร้อม storms ว่างและ fetchedAt null ทั้งสามชั้น
+  // (ไม่ใช่ "ไม่มีพายุ" — sources.*.lastSuccessAt null บอกว่ายังไม่เคยดึง)
+  { path: "/api/v1/storms" },
   { path: "/api/v1/stations/1/history?hours=24", mayFail503: true },
   { path: "/api/v1/earthquakes/recent?limit=5" },
 ];

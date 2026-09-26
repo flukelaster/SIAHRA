@@ -25,10 +25,10 @@ export function snapAtIso(atIso: string): string | null {
 }
 
 /**
- * GISTDA satellite flood-extent polygons for the selected province. This is
- * an observed layer (interpreted satellite scene) with no upstream timestamp,
- * so consumers must display `retrievedAt` / per-feature first/last-seen and
- * never present it as a live "now" picture.
+ * GISTDA satellite flood-extent cells (H3 res-9, E16.PR0) for the selected
+ * province. An observed layer: each cell names the satellite passes it came
+ * from (`observedAt`/`acquisitions`), and consumers must show those plus
+ * `retrievedAt` — never present it as a live "now" picture.
  *
  * `atIso` (E14.F1): null = the live scene, polled every 10 minutes; set = the
  * scene that covered that instant (`?at=`), fetched once — the past does not

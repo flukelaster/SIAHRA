@@ -3,6 +3,7 @@ import { AppShell } from "./components/layout/AppShell";
 import type { MapApi, MapInfo, MapLayers } from "./components/layout/Map3DCanvas";
 import { MapViewport } from "./components/layout/MapViewport";
 import type { PanelContext } from "./components/layout/panelRegistry";
+import type { StationFocus } from "./components/layout/panelViews";
 import { PROVINCES } from "./data/provinces";
 import { aoiIdForProvince } from "./data/types";
 import { useApiHealth, sourceStatus } from "./hooks/useApiHealth";
@@ -14,10 +15,13 @@ import { useFloodExposure } from "./hooks/useFloodExposure";
 import { useFloodExtent } from "./hooks/useFloodExtent";
 import { useFloodScene } from "./hooks/useFloodScene";
 import { useFloodScenes } from "./hooks/useFloodScenes";
+import { useNorthRoute } from "./hooks/useNorthRoute";
+import type { FloodSourceAgeInput } from "./lib/floodSourceAge";
 import { useAffectedAuthorities } from "./hooks/useAffectedAuthorities";
 import { useActiveAlerts } from "./hooks/useActiveAlerts";
 import { useLocalAuthorityImpact } from "./hooks/useLocalAuthorityImpact";
 import { useProvinceForecast } from "./hooks/useProvinceForecast";
+import { useStorms } from "./hooks/useStorms";
 import { useRadar } from "./hooks/useRadar";
 import { useObservations } from "./hooks/useObservations";
 import { readPermalink, usePermalinkSync } from "./hooks/usePermalink";
@@ -26,7 +30,9 @@ import { BRAND, DATA_ATTRIBUTION_TH } from "./branding";
 import type { CameraPose } from "./scene/setupScene";
 import type { QualityLevel, QualityMode } from "./scene/quality";
 import { summarizeFloodField } from "./scene/floodField";
-import type { FloodGfmLegendState } from "./components/layout/MapLegend";
+import type { FloodGfmLegendState, GistdaDepthLegendState } from "./components/layout/MapLegend";
+import { deriveGistdaImpactFreshness } from "./lib/gistdaImpactFreshness";
+import { gistdaExtentState } from "./lib/gistdaFlood";
 import type { TimelineMark } from "./components/layout/TimelineBar";
 import { formatFullDateTime } from "./lib/time";
 import { exposureInputsAreDegraded } from "./lib/exposureInputHealth";
@@ -79,6 +85,14 @@ const DEFAULT_LAYERS: MapLayers = {
   // เสื่อมคุณภาพที่ต้องซ่อนไว้ก่อน — เปิดเป็นค่าเริ่มต้นได้ ตราบใดที่ legend บอก
   // caveat ความไม่ครบทุกครั้งที่ชั้นนี้แสดงอยู่ (ดู MapLegend.tsx)
   localAuthorities: true,
+  // E16 B-1 — "ล้นตลิ่งตอนนี้" ใน 3 มิติ: GISTDA ไม่ได้ข้อมูลตั้งแต่ 2026-09-10 และ Sentinel-1 ผ่าน
+  // ทุก 6–12 วัน ระดับน้ำเทียบตลิ่งจึงเป็นสัญญาณที่สดที่สุดที่มี — แผ่นน้ำจำลอง (illustrative) เปิด
+  // เป็นค่าเริ่มต้นได้ตราบใดที่ legend บอก caveat ทุกครั้งที่แสดง (แบบเดียวกับ localAuthorities)
+  stationSheet: true,
+  // E16 B-2 — แผ่นน้ำ 3 มิติบนขอบเขต GISTDA: ขอบเขตเป็นของที่ดาวเทียมเห็น ความลึกเป็นภาพประกอบ
+  // (legend บอกชนิด + ข้อสมมติทุกครั้ง) มีผลเฉพาะเมื่อ floodExtent เปิดอยู่ — แบบเดียวกับ floodDepth
+  gistdaDepth: true,
+  northRoute: true,
 };
 
 /**
@@ -183,6 +197,34 @@ export default function App() {
     summary: floodSummary,
     dimmed: floodFieldDim,
   };
+  // E16 B-1 — ชิปอายุแหล่งน้ำท่วมจากดาวเทียมบนแผนที่ (แสดงเมื่อชั้นน้ำท่วมจากดาวเทียมชั้นใดเปิดอยู่)
+  const gistdaSource = sourceStatus(apiHealth.health, "gistda-flood");
+  // E16 B-2 — แผ่นน้ำ GISTDA หรี่ด้วยกฎเดียวกับตัวเลข % ท่วม (`deriveGistdaImpactFreshness`: เก่ากว่า
+  // staleAfterSeconds หรือ /health ไม่ ok) + API ล่ม — เฉพาะตอนดูสด: ฉากย้อนหลัง (`?at=`) คือภาพ ณ เวลานั้น
+  // อายุเทียบกับ "ตอนนี้" ไม่ได้บอกอะไรเกี่ยวกับมัน (หรี่ ไม่ใช่ซ่อน; legend บอกเหตุผล)
+  // (อายุคิดใหม่เมื่อคำตอบ GISTDA หรือ /health เปลี่ยน — ทั้งคู่ poll อยู่แล้ว แบบเดียวกับ floodIndexStale)
+  const gistdaLayer = floodExtent.data?.layer ?? null;
+  const gistdaStale = useMemo(
+    () => deriveGistdaImpactFreshness(gistdaLayer, gistdaSource, Date.now()).dim,
+    [gistdaLayer, gistdaSource],
+  );
+  const gistdaDim = atIso === null && (apiHealth.apiDown || gistdaStale);
+  const floodAge: FloodSourceAgeInput | null =
+    layers.floodExtent || layers.floodGfm
+      ? {
+          apiDown: apiHealth.apiDown,
+          gistda: gistdaSource,
+          gfm: {
+            sceneObservedAt: floodScene.scene?.observedAt ?? null,
+            noSceneInWindow: floodScene.reason === "no-scene-in-window",
+            missing: floodScenes.missing,
+            error: floodScenes.error !== null || floodScene.error !== null,
+            loading: floodScenes.loading || floodScene.loading,
+            health: gfmSource,
+          },
+          atIso,
+        }
+      : null;
   // ชั้นปิดอยู่ = ไม่ยิงคำขอเลยแม้แต่ครั้งเดียว (รูปแบบเดียวกับ useRadar)
   const exposure = useFloodExposure(provinceCode, layers.exposure);
   // E11.6 — แดชบอร์ดผลกระทบ อปท.: รายชื่อจัดอันดับ + แจ้งเตือนทั้งจังหวัด + ราย
@@ -195,6 +237,9 @@ export default function App() {
   // E12.3 — พยากรณ์ TMD ของจังหวัดที่กำลังเลือกอยู่เท่านั้น (ไม่วนทั้ง 77 จังหวัด —
   // ข้อบังคับต้นทุนจาก devops cost gate PR #58 ดู useProvinceForecast.ts)
   const forecast = useProvinceForecast(provinceCode);
+  // ชั้นพายุ v1 — คำขอเดียวระดับประเทศ ไม่ขึ้นกับจังหวัด (ระยะถึงทุกจังหวัดอยู่ในคำตอบแล้ว)
+  // มีตัวเดียวที่นี่ แผง/badge/ศูนย์การแจ้งเตือนอ่านผ่าน ctx.storms
+  const storms = useStorms();
   // E12.4b — จุดคำนวณเดียวของ "แถบฝนพยากรณ์รายวัน (TMD)": หาขั้นรายวันของวัน
   // ปฏิทินกรุงเทพฯ เดียวกับ forecastAtIso แล้วจัดแถบ ครั้งเดียวตรงนี้ ไม่ใช่ใน
   // Map3DCanvas.tsx และ MapLegend.tsx แยกกัน (ทั้งสองที่รับผลลัพธ์สำเร็จรูปนี้
@@ -268,6 +313,20 @@ export default function App() {
     // ที่ backend แยกไว้ (ดูคำอธิบายที่ useFloodExposure.ts)
     noRunReason: exposure.noRunReason,
   };
+  // เปลือกหน้าต่าง: tier / drawer / แผ่นเลื่อน / ความสูง dock → safe area (lib/shellLayout.ts)
+  // ไม่มีการ re-frame กล้องตอนเปิด-ปิด drawer — `frameTerrain` ยังถูกเรียกเฉพาะตอน
+  // AOI โหลด (Map3DCanvas) เหมือนเดิม การเปลี่ยนจังหวัดจึงจัดกรอบตามสถานะ drawer ขณะนั้น
+  // (ถูกเรียกก่อน useLayerDescriptors เพราะ hook เส้นทางน้ำเหนือต้องรู้ว่าแผงไหนถูกเลือก)
+  const shell = useShellState();
+  // E16 — hook เส้นทางน้ำเหนือตัวเดียว ใช้ร่วมกันระหว่างแผง north กับชั้นเส้นลำน้ำ 3 มิติ
+  // ยิงคำขอเฉพาะเมื่อชั้นเปิดหรือแผง north ถูกเลือกอยู่ (ไม่งั้นไม่ poll เลย)
+  // แผง north "เปิดอยู่" = ถูกเรนเดอร์จริง: drawer เปิด (≥ tablet) หรือแผ่นเลื่อนไม่อยู่ที่ peek (มือถือ)
+  // — เงื่อนไขเดียวกับที่การ์ดเคยถูก mount ก่อน B-1
+  const northPanel =
+    shell.panel === "north" && (shell.tier === "phone" ? shell.sheetSnap !== "peek" : shell.drawerOpen);
+  const northRoute = useNorthRoute(layers.northRoute || northPanel, northPanel);
+  const northTopology = layers.northRoute ? northRoute.topology : null;
+  const northStations = layers.northRoute ? (northRoute.route?.stations ?? null) : null;
   const aoiId = aoiIdForProvince(provinceCode);
   // ป้ายชนิดความรู้ + เวลาของแต่ละชั้นใน legend มาจาก descriptor ที่ backend ประกาศ
   // (หรือจาก data/staticLayerDescriptors.ts สำหรับชั้นคงที่) — อายุคำนวณตอนเรนเดอร์
@@ -279,6 +338,7 @@ export default function App() {
     exposure,
     floodScenes,
     floodScene,
+    northRoute,
     cctvCatalogue: CCTV_ENABLED ? cctvCatalogue.data : null,
     iticCatalogue: ITIC_ENABLED ? iticCatalogue.data : null,
     health: apiHealth.health,
@@ -396,14 +456,47 @@ export default function App() {
     window.setTimeout(() => URL.revokeObjectURL(url), 5000);
   }, [province, provinceName, atIso, lang, t]);
 
-  // เปลือกหน้าต่าง: tier / drawer / แผ่นเลื่อน / ความสูง dock → safe area (lib/shellLayout.ts)
-  // ไม่มีการ re-frame กล้องตอนเปิด-ปิด drawer — `frameTerrain` ยังถูกเรียกเฉพาะตอน
-  // AOI โหลด (Map3DCanvas) เหมือนเดิม การเปลี่ยนจังหวัดจึงจัดกรอบตามสถานะ drawer ขณะนั้น
-  const shell = useShellState();
   // ปุ่ม "ชั้นข้อมูล" บนคอลัมน์เครื่องมือของมือถือ — identity คงที่เพื่อไม่ให้
   // MapViewport (และ Map3DCanvas ใต้มัน) re-render ทุกครั้งที่ App เรนเดอร์ใหม่
   const openPanel = shell.openPanel;
   const openLayersPanel = useCallback(() => openPanel("layers"), [openPanel]);
+
+  // E16 — แผงเส้นทางน้ำเหนือขอ "ไปที่สถานีนี้": สลับจังหวัดก่อน (ถ้าต่าง) แล้วรอจนฉากของ
+  // จังหวัดนั้นพร้อม (MapApi ถูกตั้งใหม่ + mapInfo) และ observations ของจังหวัดนั้นมาถึง
+  // จึงบินไปแล้วเปิด popup ด้วยค่าชุดเดียวกับหมุดบนแผนที่ — ไม่มีค่าของสถานีในชุดนั้น
+  // (เช่นเลื่อนเวลาไปช่วงที่สถานีไม่มีค่า) = บินไปที่พิกัดเฉย ๆ ไม่แต่ง popup ขึ้นเอง
+  const [stationFocus, setStationFocus] = useState<StationFocus | null>(null);
+  const setSheetSnap = shell.setSheetSnap;
+  const shellTier = shell.tier;
+  const focusStation = useCallback(
+    (target: StationFocus) => {
+      if (target.provinceCode && target.provinceCode !== provinceCode) selectProvince(target.provinceCode);
+      // มือถือ: ลดแผ่นเลื่อนลงเหลือ peek ไม่งั้น popup ที่เพิ่งเปิดจะอยู่ใต้แผ่นเลื่อน
+      if (shellTier === "phone") setSheetSnap("peek");
+      setStationFocus(target);
+    },
+    [provinceCode, selectProvince, shellTier, setSheetSnap],
+  );
+  useEffect(() => {
+    if (!stationFocus) return;
+    const want = stationFocus.provinceCode ?? provinceCode;
+    if (want !== provinceCode) return;
+    const api = mapApiRef.current;
+    if (!api || !mapInfo) return;
+    const data = observations.data;
+    const dataForProvince = data !== null && (data.summary.provinceCode === null || data.summary.provinceCode === want);
+    // observations ล้มเหลว: ยังบินไปที่สถานีได้ (พิกัดมาจากผัง) แต่ไม่มีค่าให้เปิด popup
+    if (!dataForProvince && !observations.error) return;
+    api.flyToLonLat(stationFocus.lon, stationFocus.lat, 6000);
+    if (!dataForProvince || !data) {
+      setStationFocus(null);
+      return;
+    }
+    const obs = data.waterlevel.find((w) => w.station.id === stationFocus.stationId);
+    if (obs) api.selectWaterlevel(obs);
+    setStationFocus(null);
+  }, [stationFocus, provinceCode, mapInfo, observations.data, observations.error]);
+
 
   // ทุกอย่างที่แผงใดแผงหนึ่งอาจต้องใช้ — ก้อนเดียว ส่งให้ drawer/แผ่นเลื่อนเรนเดอร์
   // เฉพาะแผงที่เปิดอยู่ (components/layout/panels.tsx)
@@ -421,6 +514,12 @@ export default function App() {
     exposureLegend,
     forecastLegend,
     floodGfmLegend,
+    gistdaDepthLegend: {
+      extent: gistdaExtentState(floodExtent.data),
+      dimmed: gistdaDim,
+      forecastHidden: forecastAtIso !== null,
+      sheet: mapInfo?.gistdaSheet ?? null,
+    } satisfies GistdaDepthLegendState,
     cctvCatalogue,
     iticCatalogue,
     observations,
@@ -430,6 +529,7 @@ export default function App() {
     dams,
     earthquakes,
     forecast,
+    storms,
     activeAlerts,
     affectedAuthorities,
     localAuthorityImpact,
@@ -440,6 +540,9 @@ export default function App() {
     // ตัวตั้งเดียวกับที่ TimelineBar ใช้ (ผ่าน AppShell → onAtIsoChange) — แผงฉาก GFM
     // เลือกเวลาแล้วมาตรวัดน้ำ/ดวงอาทิตย์/GISTDA ?at=/เรดาร์ จึงเดินตามพร้อมกัน
     setAtIso: handleAtIsoChange,
+    focusStation,
+    northRoute,
+    floodAge,
   };
 
   return (
@@ -461,6 +564,7 @@ export default function App() {
         floodSceneId={floodScene.scene?.sceneId ?? null}
         floodSceneObservedAt={floodScene.scene?.observedAt ?? null}
         floodFieldDim={floodFieldDim}
+        gistdaDim={gistdaDim}
         dams={dams.data?.dams ?? []}
         cctvCameras={cctvOn ? cctvCatalogue.data?.cameras : undefined}
         iticCameras={iticOn ? iticCatalogue.data?.cameras : undefined}
@@ -473,6 +577,9 @@ export default function App() {
         layers={layers}
         safeArea={shell.safeArea}
         observationsStale={observationsStale}
+        northRouteTopology={northTopology}
+        northRouteStations={northStations}
+        floodAge={floodAge}
         initialPose={initialPoseRef.current}
         exaggeration={exaggeration}
         quality={quality}

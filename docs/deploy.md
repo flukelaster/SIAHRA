@@ -16,11 +16,14 @@ R2 bucket `siahra-geodata` ตรวจแล้วว่า `/api/v1/health` �
   npx wrangler secret put TMD_UID     # ลงทะเบียนที่ data.tmd.go.th
   npx wrangler secret put TMD_UKEY
   npx wrangler secret put TMD_NWP_TOKEN   # คนละระบบกับสองตัวบน — ดู §3
+  npx wrangler secret put GISTDA_API_KEY  # E16.PR0 — รันจาก terminal แบบ interactive เท่านั้น ดู §3
   ```
   ยังไม่ตั้งก็ deploy ผ่าน แต่จะเสื่อมให้เห็นทีละแหล่ง: ไม่มี `TMD_UID`/`TMD_UKEY` เฉพาะฟีดแผ่นดินไหวจะรายงานที่
   `/api/v1/health` ว่า source `earthquakes` เป็น `degraded` พร้อม `lastError: "TMD credentials not configured"`
   ส่วนไม่มี `TMD_NWP_TOKEN` จะทำให้ source `tmd-nwp` เป็น `degraded` พร้อม `lastError: "TMD NWP token not
   configured"` (USGS/EMSC และแหล่งที่เหลือทำงานตามปกติในทั้งสองกรณี) — ตั้งใจให้เห็นชัดแทนที่จะแอบใช้คีย์สาธารณะร่วมกับคนอื่น
+  ส่วนไม่มี `GISTDA_API_KEY` ชั้นน้ำท่วม GISTDA จะไม่ยิงต้นทางเลย และ source `gistda-flood` เป็น **`down`** (ไม่ใช่
+  `degraded`) พร้อม `lastError: "GISTDA_API_KEY not configured — no request sent to GISTDA"`
   เครื่อง dev ใช้ `apps/api/.dev.vars` (gitignored) โดยคัดลอกจาก `apps/api/.dev.vars.example`
 
 ## 0.1 สอง Worker แยก deploy กัน
@@ -277,17 +280,29 @@ fallback — loader จะได้ HTML มาแทน binary แล้วพ�
   `set -a && . ./.dev.vars && set +a && printf '%s' "$TMD_NWP_TOKEN" | npx wrangler secret put
   TMD_NWP_TOKEN` และยืนยันว่าใช้ได้จริงด้วยการดูแหล่งฟื้นตัวจริง (`/api/v1/health` ขึ้น `ok` พร้อม
   จำนวน province ที่ดึงได้) ไม่ใช่ดูแค่ข้อความ success หรือ `wrangler secret list`/`versions view`
+- **`GISTDA_API_KEY`** (E16.PR0) — กุญแจของ GISTDA API gateway (ขอที่ `https://api-gateway.gistda.or.th/`)
+  WFS เดิม `flooding_vis_public` ตอบ 401 มาตั้งแต่ 2026-09-10 ชั้นน้ำท่วม GISTDA จึงย้ายไปดึง
+  `https://api-gateway.gistda.or.th/api/2.0/resources/features/flood/3days?pv_idn=NN&limit=1000&offset=M`
+  กุญแจถูกส่ง**ทาง header `API-Key` เท่านั้น** (ห้ามใส่เป็น `?api_key=`) และต้นทางสะท้อนกุญแจกลับมาใน `links[]`
+  ของคำตอบ — โค้ดจึงไม่อ่านและไม่เก็บ `links[]` เลย ห้ามแปะคำตอบดิบของ gateway ลง issue/PR/log
+  ตั้งด้วย `npx wrangler secret put GISTDA_API_KEY` **จาก terminal แบบ interactive** (เชลล์ non-interactive
+  อัปโหลดค่าว่างได้เงียบ ๆ ตามย่อหน้าข้างบน — ถ้าต้อง pipe ให้ใช้แพตเทิร์น `printf '%s' "$GISTDA_API_KEY" |`
+  จาก `.dev.vars` แบบเดียวกัน) เครื่อง dev อ่านจาก `apps/api/.dev.vars`; ไม่ต้องแก้ `wrangler.jsonc`
+  ยืนยันผลด้วย §6 ไม่ใช่ `wrangler secret list`
 - เรดาร์ฝน (`apps/api/src/ingestion/tmdRadar.ts`) ดึงจาก `weather.tmd.go.th/composite/` ซึ่ง**ไม่ต้อง
   ยืนยันตัวตน** — ไม่เกี่ยวกับ secret คู่บน
 - `ALLOWED_ORIGINS`: ว่าง = same-origin เท่านั้น — ไม่ต้องตั้ง เพราะ route ของสอง Worker อยู่บน host
   เดียวกัน (`siahra-radar.co`) ตามหัวข้อ 0.1 ; ถ้าวันหน้าย้าย SPA ไปคนละ host ต้องใส่ origin ของ SPA ที่นี่
   **และ** เติม CORS header ใน `apps/api/src/router.ts` ด้วย ไม่ใช่ตั้งค่านี้ตัวเดียว
-- migrations v1–v8 (DO SQLite) มีครบ, cron `* * * * *` มีแล้ว — v5 สร้าง `AlertEngineDO` ตัวเก่า
+- migrations v1–v9 (DO SQLite) มีครบ, cron `* * * * *` มีแล้ว — v5 สร้าง `AlertEngineDO` ตัวเก่า
   (ทะเบียนสถานีปลอม, E11.5 revert), v6 ลบคลาสทิ้ง, v7 สร้าง `AlertEngineDO` ใหม่ทั้งหมด (E11.5 จริง —
   สถานีจริง, ระดับจาก `computeExposure()`, ไม่มี write route), v8 สร้าง `ForecastNwpDO` (E12.2, binding
   `FORECAST_NWP`) เป็นคลาสใหม่ล้วน ๆ **ไม่ได้** นำ `ForecastPointerDO` มาใช้ซ้ำทั้งที่ชื่อคล้ายกัน — ตัวนั้นคือ
   ตัวชี้ exposure run (E10.3) และการนำมาใช้ซ้ำต้องลบคลาสก่อน ซึ่งทำลายข้อมูลที่เก็บอยู่ tag ที่ apply ไปแล้วห้ามลบออกจาก
-  `wrangler.jsonc` เพราะ Cloudflare เทียบ migrations กับ tag ล่าสุดที่ apply บน production
+  `wrangler.jsonc` เพราะ Cloudflare เทียบ migrations กับ tag ล่าสุดที่ apply บน production. v9 creates
+  `StormTrackDO` (storm layer v1, binding `STORM_TRACK`) as a brand-new class; the tag is free because the 2026-08-24
+  v9/v10 `ForecastNwpDO` pair (PR #60) was rejected by Cloudflare before activation and removed in PR #61, so the
+  account's last applied tag is v8
 - โดเมน: `wrangler deploy` สร้าง/อัปเดต Custom Domain + route ให้เองจาก `routes` ในแต่ละ config
   แต่ zone `siahra-radar.co` ต้องอยู่ใน account เดียวกันก่อน — deploy **web ก่อน api** ในครั้งแรก
   เพราะ Custom Domain ของ web เป็นตัวสร้าง DNS record ที่ proxied ให้ apex (route ของ api ต้องมี
@@ -354,6 +369,11 @@ Worker มี token-bucket ต่อ IP อยู่แล้ว (`apps/api/src/
 - `curl https://siahra-radar.co/api/v1/health` → ทุก source ที่มี DO เป็น `ok` ภายใน 5 นาที (alarm ของ DO เริ่มเอง) —
   ยกเว้น `copernicus-gfm` ซึ่งเป็น `unknown` จนกว่า `gfm-ingest.yml` จะรันสำเร็จครั้งแรก (ข้อสุดท้ายของหัวข้อนี้)
   ตอบ 200 = route `/api/*` ชี้ไป siahra-api ถูกแล้ว; ถ้าได้ HTML ของ SPA แทน = route ไม่ทำงาน
+- `gistda-flood` (E16.PR0) ต้องตั้ง `GISTDA_API_KEY` ก่อน (§3) แล้ว
+  `curl -s https://siahra-radar.co/api/v1/health | jq '.sources[]|select(.id=="gistda-flood")'` → `ok` พร้อม
+  `detail.window: "3days"` และ `detail.provincesFailed: 0` ภายใน ≤ 30 นาทีหลัง deploy (alarm รอบแรกยิงหลัง cron
+  tick แรกราว 1 วินาที หนึ่งรอบ 77 จังหวัดใช้ราว 48 วินาที; ถ้ารอบแรกล้ม backoff 5 → 30 นาที) — ถ้าเป็น `down`
+  พร้อม `lastError` ที่เอ่ยชื่อ `GISTDA_API_KEY` = secret ยังไม่ถูกตั้งหรือถูกตั้งเป็นค่าว่าง
 - `curl -I https://siahra-radar.co/` → HTML จาก siahra-web (deploy คนละครั้งกับ api ได้)
 - เปิดเว็บ → tile โหลดจาก `/aoi/...` (Network tab: `cf-cache-status: HIT` ในรอบสอง)
 - `curl -sk -I https://siahra-radar.co/og-image.jpg` → `200 image/jpeg` แล้วลองวางลิงก์ใน LINE/Facebook ให้เห็นการ์ดพรีวิว
@@ -385,7 +405,14 @@ Workers Logs ต้องผ่าน agent `devops` (`.claude/agents/devops.md`
 (หก instance — `ObservationCacheDO` ถูกถามสองครั้ง) จำนวน DO requests จึงเพิ่มราว 17% กรณีแย่สุดประมาณ 1.2M
 เทียบกับโควตาที่รวมมา 1M ต่อรอบบิล = ราว **$0.03–0.10/เดือน** ส่วนตัว `ForecastNwpDO` เองเขียนราว 66k–130k
 แถว/รอบบิล (0.13–0.26% ของ 50M) เพราะเก็บหนึ่งแถวต่อจังหวัด ไม่มีตารางประวัติ และไม่มี `DELETE` ตามอายุ
-(ดู `docs/ops.md` §9)
+(ดู `docs/ops.md` §9). The storm layer v1 raised the fan-out to **8 DO calls per `/health` compute** (seven
+instances; one `StormTrackDO.status()` call returns both `jma-typhoon` and `gdacs-tc`), ~1.37M DO requests per cycle
+worst case.
+
+Storm layer v1 (`StormTrackDO`, `GET /api/v1/storms`): alarm / cron every 30 min, one `latest` row overwritten ≤ 48
+times a day (plus a few per-source meta rows per round), no history table, no retention, no R2, no `ALLOWED_SCANS` entry; the
+per-request path is a single-row PK read under a 5-min `caches.default` entry keyed on origin + pathname only —
+`devops` verify 2026-09-26: **+~$0.03/month expected, ~$0.48 worst case**
 
 E14.F1 (`/api/v1/provinces/{NN}/flood-extent?at=`) เพิ่มเส้นทางย้อนหลังโดยไม่เพิ่ม DO write ต่อคำขอ: ตาราง `flood_scenes`
 เขียนหนึ่งแถวต่อฉากที่ archive (ไม่กี่ร้อยแถว/ปี) บนเส้นทาง refresh เท่านั้น คำขอ `at` ภายใน 30 วันอ่านตาราง hot ผ่านดัชนี
@@ -411,10 +438,24 @@ under its 15 s edge cache + ≤ 0.7M from flood files served by siahra-web under
 (1M A / 10M B); storage +≈$0.0125/month per accumulated year of scenes; no DO change, no new log line; devops verify
 2026-09-02: **+$0.01/month expected, +$0.70 worst case**; GitHub Actions minutes free (public repo)
 
+E16.PR0 (GISTDA API gateway, `FloodExtentDO` rewritten — supersedes the E14.F1 `flood_scenes` hot-table paragraph above
+for new data): one alarm-only pull every 30 min of all 77 provinces (measured 2026-09-26: 45,549 cells, 4.30 MB gzip
+nationwide, ~48 s per round). `archive/flood-v2/{iso}/{NN}.json.gz` is written only for a province whose content hash
+changed, with **no retention** — ≈ 1.6 GB/year (≈ **+$0.024/month per accumulated year**), worst case ≈ 6 GB/month if
+every province re-archives every round. DO duration ≈ 10.8k GB-s/month (108k worst); R2 Class A puts ≈ 2.3k expected /
+111k worst per month; `flood_features` is dropped and `flood_province_scenes` gets ≤ 77 rows per round (only on a hash
+change); Workers Logs ≤ 3 events per refresh. Watch `archivedGzBytes` in the `gistda flood refreshed` log line; once
+`archive/flood-v2/` passes **10 GB**, decide on retention or dedup (a new `devops` pass)
+
 The api Worker bakes its static artefacts (`apps/api/src/data/*.json`) into its script bundle. After Bangkok's 50
 districts were added to the local-authority registry, boundaries, exposure and alert rules (2026-09-26), the
 `siahra-api` bundle is 5,599,221 B — the 5.6 MB growth budget `devops` passed is **used up**, so any further growth of
-`apps/api/src/data/*.json` needs a new `devops` pre pass before it is written
+`apps/api/src/data/*.json` needs a new `devops` pre pass before it is written. The storm layer v1 (2026-09-26) added
+code only, no `data/*.json`: merged with E16 the bundle is 5536.05 KiB upload / 869.60 KiB gzip (wrangler dry-run). On the
+web side the storm branch alone measured 356.88 kB gz entry + vendor (the Storm panel is a lazy chunk outside it); merged
+with E16 (north route, station sheet) it is **379.42 kB gz, over** the 360 kB warning guard in
+`scripts/check-bundle-budget.mjs` — a warning, not a CI gate, and the next change to the entry chunk should lazy-load
+something before adding more
 
 **รายการที่สี่ที่ประมาณการข้างบนไม่ได้นับ และเป็นตัวที่ทำให้บิลบานจริง: Durable Objects SQL rows read**
 — คิดตามแถวที่ถูก *สแกน* ไม่ใช่แถวที่ถูกคืนหรือถูกลบ (Workers Paid รวมมาให้ 25B แถว/รอบบิล)

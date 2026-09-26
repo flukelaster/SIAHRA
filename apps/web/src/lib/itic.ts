@@ -23,8 +23,7 @@ import type HlsType from "hls.js";
 export const ITIC_HLS_PREFIX = "https://camerai1.iticfoundation.org/";
 export const ITIC_HOME = "https://iticfoundation.org/";
 export const LONGDO_CAMERA_HOME = "https://camera.longdo.com/";
-/** บัญชีกล้อง (static asset จาก `npm run build:itic-cctv -w apps/etl`) */
-export const ITIC_CATALOGUE_URL = "/cctv/itic-cameras.json";
+export { ITIC_CATALOGUE_URL } from "./cameraCatalogues";
 
 /** URL ที่ยอมส่งให้ตัวเล่น — prefix + origin ตรง, ไม่มี userinfo, ไม่ใช่ป้าย `tempsus` */
 export function isPlayableHlsUrl(url: string): boolean {

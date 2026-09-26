@@ -8,6 +8,7 @@ import type {
   HealthResponse,
   SourceHealth,
   SourceId,
+  StormsResponse,
 } from "@siahra/shared-types";
 import type { MapLayers } from "../components/layout/Map3DCanvas";
 import { STATIC_LAYER_DESCRIPTORS } from "../data/staticLayerDescriptors";
@@ -16,6 +17,7 @@ import type { FloodExposureState } from "./useFloodExposure";
 import type { FloodExtentState } from "./useFloodExtent";
 import type { FloodSceneState } from "./useFloodScene";
 import type { FloodScenesState } from "./useFloodScenes";
+import type { NorthRouteState } from "./useNorthRoute";
 import type { ObservationsState } from "./useObservations";
 import type { RadarState } from "./useRadar";
 
@@ -26,6 +28,12 @@ export interface LayerDescriptorEntry {
    * null = ชั้นนี้ไม่ได้ผูกกับแหล่งข้อมูลสดใด ๆ หรือยังไม่ได้ค่า health มา
    */
   health: SourceHealth | null;
+  /**
+   * descriptor ที่สองของชั้นที่ประกอบจากสองชนิดความรู้ (E16 B-1: เส้นทางน้ำเหนือ = แนวลำน้ำ
+   * static-reference จาก ETL + สี/ลายไหลจากค่าตรวจวัด observed) — legend แสดงทั้งสองบรรทัด
+   * ไม่ยุบรวมเป็น descriptor เดียวที่ไม่มีใครประกาศ
+   */
+  secondary?: { descriptor: HazardLayerDescriptor; health: SourceHealth | null };
 }
 
 export type LayerDescriptors = Partial<Record<keyof MapLayers, LayerDescriptorEntry>>;
@@ -125,6 +133,67 @@ export function worstHealth(ids: readonly SourceId[], health: HealthResponse | n
 }
 
 /**
+ * ชั้นพายุ v1 — descriptor สามตัวที่ `/api/v1/storms` ประกาศ (`layers.track` forecast,
+ * `layers.circle` probabilistic, `layers.past` observed) จับคู่กับสถานะใน /health
+ *
+ * แยกออกจาก `useLayerDescriptors` โดยตั้งใจ: `LayerDescriptors` มีคีย์เป็น `keyof MapLayers`
+ * (ชั้นบนฉาก 3 มิติ + ปุ่มเปิดปิดใน legend) แต่ชั้นพายุ v1 **ไม่มีอะไรบนฉาก 3 มิติ** — การเพิ่ม
+ * คีย์ใน MapLayers จะสร้างปุ่มเปิดปิดที่ไม่ทำอะไร และหลุดเข้า permalink `?layers=` ด้วย
+ * legend ของสามชั้นนี้อยู่ในแผงพายุเอง (`StormPanel.tsx`) ห้ามประกอบ descriptor ฝั่งเว็บ
+ * — เวลาต้องเป็นของ backend
+ */
+export function stormLayerDescriptors(
+  data: StormsResponse | null,
+  health: HealthResponse | null,
+): { track: LayerDescriptorEntry; circle: LayerDescriptorEntry; past: LayerDescriptorEntry } | null {
+  if (!data) return null;
+  const entry = (descriptor: HazardLayerDescriptor): LayerDescriptorEntry => ({
+    descriptor,
+    health: worstHealth(descriptor.sourceIds, health),
+  });
+  return { track: entry(data.layers.track), circle: entry(data.layers.circle), past: entry(data.layers.past) };
+}
+
+/**
+ * descriptor ของแผ่นน้ำจำลองจากระดับน้ำที่สถานี (E16 B-1, `scene/StationSheet.ts`) — ชนิด
+ * `illustrative`: ค่าตรวจวัดของ ThaiWater (observed) + ความสูงพื้นจาก Copernicus DEM แต่พื้นที่และ
+ * ความลึกเป็นสิ่งที่เราคำนวณเอง ไม่ใช่สิ่งที่ใครวัดได้ เวลาทุกตัว (`observedAt`, `fetchedAt`,
+ * `staleAfterSeconds`) มาจาก descriptor ของ observations ที่ backend ประกาศ — ไม่มีการเติมเวลาเอง
+ */
+export function stationSheetDescriptor(obs: HazardLayerDescriptor): HazardLayerDescriptor {
+  return {
+    id: "station-level-sheet-illustrative",
+    epistemicClass: "illustrative",
+    liveOrStatic: "live",
+    ...(obs.observedAt !== undefined ? { observedAt: obs.observedAt } : {}),
+    publishedAt: null,
+    fetchedAt: obs.fetchedAt,
+    ...(obs.staleAfterSeconds !== undefined ? { staleAfterSeconds: obs.staleAfterSeconds } : {}),
+    sourceIds: ["thaiwater", "copernicus-dem"],
+  };
+}
+
+/**
+ * descriptor ของแผ่นน้ำ 3 มิติบนขอบเขต GISTDA (E16 B-2, `scene/GistdaSheet.ts`) — ชนิด
+ * `illustrative`: ขอบเขตเป็นของที่ GISTDA แปลจากภาพดาวเทียม (observed) แต่ความลึกเป็นสิ่งที่เราคำนวณเอง
+ * (FwDET จาก Copernicus DEM) เวลาทุกตัว (`observedAt`, `fetchedAt`, `staleAfterSeconds`) คัดลอกจาก
+ * descriptor ของชั้น GISTDA ที่ backend ประกาศ — `fetchedAt: null` ยังเป็น null, ไม่มี `observedAt` ก็ไม่มี
+ * (ไม่สังเคราะห์จาก feature) และ `publishedAt: null` เพราะไม่มีใครเผยแพร่ความลึกนี้
+ */
+export function gistdaDepthDescriptor(flood: HazardLayerDescriptor): HazardLayerDescriptor {
+  return {
+    id: "gistda-flood-depth-illustrative",
+    epistemicClass: "illustrative",
+    liveOrStatic: "live",
+    ...(flood.observedAt !== undefined ? { observedAt: flood.observedAt } : {}),
+    publishedAt: null,
+    fetchedAt: flood.fetchedAt,
+    ...(flood.staleAfterSeconds !== undefined ? { staleAfterSeconds: flood.staleAfterSeconds } : {}),
+    sourceIds: ["gistda-flood", "copernicus-dem"],
+  };
+}
+
+/**
  * รวม `HazardLayerDescriptor` ของทุกชั้นที่ legend แสดง ไว้ที่เดียว
  *
  * - ชั้นที่มาจาก API อ่าน `.layer` ที่ backend ประกาศไว้ตรง ๆ (ห้ามประกอบเอง
@@ -144,6 +213,8 @@ export function useLayerDescriptors(input: {
   floodScenes: FloodScenesState;
   /** ฉาก GFM ที่กำลังแสดง — ตัวกำหนด `observedAt` ที่ legend เห็น (ดู withShownScene) */
   floodScene: FloodSceneState;
+  /** เส้นทางน้ำเหนือ (E16) — `route.layer` (observed) + `topology.layer` (static-reference) */
+  northRoute?: Pick<NorthRouteState, "topology" | "route"> | null;
   /**
    * บัญชีกล้อง CCTV ของ DWR (E15) — null = แฟล็กปิด/ชั้นไม่เคยเปิด/โหลดไม่สำเร็จ
    * (แล้วแถวใน legend ไม่มีบรรทัดเวลา ไม่ใช่เวลาที่เดาขึ้น)
@@ -170,6 +241,8 @@ export function useLayerDescriptors(input: {
   // ฝั่งเว็บเช่นกัน: `methodologyUrl`, `staleAfterSeconds`, `fetchedAt` ถูกประกาศโดย job
   const floodIndexLayers = floodScenes.index?.layers;
   const shownScene = floodScene.scene;
+  const routeLayer = input.northRoute?.route?.layer;
+  const topologyLayer = input.northRoute?.topology?.layer;
   const noSceneInWindow = floodScene.reason === "no-scene-in-window";
 
   return useMemo(() => {
@@ -187,8 +260,24 @@ export function useLayerDescriptors(input: {
     put("hazard", obsLayer);
     put("radar", radarLayer);
     put("floodExtent", floodLayer);
+    // E16 B-2 — แผ่นน้ำ 3 มิติบนขอบเขต GISTDA: **illustrative** (ความลึก FwDET เป็นของเรา) เวลาคัดลอกจาก
+    // descriptor ของ GISTDA ที่ backend ประกาศ
+    put("gistdaDepth", floodLayer ? gistdaDepthDescriptor(floodLayer) : undefined);
     put("dams", damsLayer);
     put("exposure", exposureLayer);
+    // E16 B-1 — แผ่นน้ำจำลองจากระดับน้ำที่สถานี: **illustrative** (เราเติมระดับน้ำลง DEM เอง)
+    // เวลาทุกตัวคัดลอกจาก descriptor ของ observations ที่ backend ประกาศ — fetchedAt null ยังเป็น null
+    put("stationSheet", obsLayer ? stationSheetDescriptor(obsLayer) : undefined);
+    // เส้นทางน้ำเหนือ: บรรทัดหลัก = ค่าตรวจวัด (สี/ลายไหล) บรรทัดรอง = แนวลำน้ำ (ETL) — ยังไม่มีค่า
+    // ตรวจวัด = แสดงแนวลำน้ำเป็นบรรทัดหลัก (เส้นยังวาดอยู่ สีเทานิ่ง)
+    const main = routeLayer ?? topologyLayer;
+    if (main) {
+      put("northRoute", main);
+      const entry = out.northRoute;
+      if (entry && routeLayer && topologyLayer) {
+        entry.secondary = { descriptor: topologyLayer, health: worstHealth(topologyLayer.sourceIds, health) };
+      }
+    }
     if (floodIndexLayers) {
       put("floodGfm", withShownScene(floodIndexLayers.extent, shownScene, noSceneInWindow, true));
       put("floodDepth", withShownScene(floodIndexLayers.depth, shownScene, noSceneInWindow, false));
@@ -225,6 +314,8 @@ export function useLayerDescriptors(input: {
     damsLayer,
     exposureLayer,
     floodIndexLayers,
+    routeLayer,
+    topologyLayer,
     shownScene,
     noSceneInWindow,
     cctvBuiltAt,

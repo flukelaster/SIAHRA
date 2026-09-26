@@ -12,3 +12,5 @@ export * from "./local-authority.js";
 export * from "./threshold.js";
 export * from "./forecast.js";
 export * from "./cctv.js";
+export * from "./storm.js";
+export * from "./rivers.js";

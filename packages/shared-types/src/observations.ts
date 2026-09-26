@@ -17,6 +17,16 @@ export interface StationRef {
   amphoeNameTh: string | null;
   basinNameTh: string | null;
   agencyShortTh: string | null;
+  /**
+   * รหัสสถานีแบบกรมชลประทาน (RID) ตามที่ ThaiWater ส่งมาใน `station.tele_station_oldcode`
+   * เช่น "C.2", "P.17" — null เมื่อต้นทางไม่ได้ให้ไว้ ใช้เป็นกุญแจเชื่อมกับเส้นทางน้ำเหนือ
+   * (`/rivers/north-route.json`) แบบตรงตัว ไม่มีการเดาจากพิกัด
+   */
+  ridCode: string | null;
+  /** ลุ่มน้ำย่อยตาม ThaiWater (`station.sub_basin_id`) — null เมื่อไม่มี */
+  subBasinId: number | null;
+  /** ThaiWater ระบุว่าเป็นสถานีหลัก (`station.is_key_station`) — ไม่มีค่า = false */
+  isKeyStation: boolean;
 }
 
 export interface RainfallObservation {
@@ -47,6 +57,19 @@ export interface WaterLevelObservation {
   freeboardM: number | null;
   situationLevel: SituationLevel | null;
   storagePercent: number | null;
+  /**
+   * อัตราการไหล (ลบ.ม./วินาที) ของค่าตรวจวัดเดียวกันนี้ ตามที่ ThaiWater ส่งมา (`discharge`)
+   * — มีเฉพาะสถานีที่มีโค้งความสัมพันธ์ระดับ-ปริมาณน้ำ (ส่วนใหญ่เป็นสถานี RID) ค่าติดลบ
+   * ถือว่าไม่มีข้อมูล (null) ส่วน 0 คือค่าที่รายงานจริง
+   */
+  dischargeM3s: number | null;
+  /**
+   * ความจุลำน้ำที่ต้นทางเผยแพร่ (`station.qmax`, ลบ.ม./วินาที) — ≤ 0 ถือว่าไม่มีข้อมูล
+   * ใช้คู่กับ `dischargeM3s` เพื่อบอก "% ของความจุลำน้ำ" เท่านั้น ไม่ใช่เกณฑ์ที่เราคิดเอง
+   */
+  qmaxM3s: number | null;
+  /** ระดับวิกฤตที่ต้นทางเผยแพร่ (`station.critical_level_msl`, ม.รทก.) — ≤ 0 ถือว่าไม่มีข้อมูล */
+  criticalLevelMsl: number | null;
   observedAt: string | null;
 }
 

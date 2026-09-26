@@ -56,3 +56,14 @@ describe("input validation (E4.5)", () => {
     for (const r of routes) expect(r.limit?.perMinute).toBeGreaterThan(0);
   });
 });
+
+describe("/api/v1/storms อยู่ในตาราง", () => {
+  it("เป็น GET ที่ประกาศ rate limit ของตัวเอง เท่ากับเส้นทางพยากรณ์รายจังหวัด", () => {
+    const storms = routes.find((r) => r.method === "GET" && r.pattern.test("/api/v1/storms"));
+    const forecast = routes.find((r) => r.method === "GET" && r.pattern.test("/api/v1/provinces/10/forecast"));
+    expect(storms).toBeDefined();
+    expect(storms!.limit).toEqual(forecast!.limit);
+    // ไม่มีเส้นทางย่อยรายพายุ/รายจังหวัด — คำขอเดียวทั้งภูมิภาค
+    expect(storms!.pattern.test("/api/v1/storms/jma:TC2632")).toBe(false);
+  });
+});

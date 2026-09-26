@@ -8,10 +8,13 @@ import type {
   DamObservation,
   EarthquakeEvent,
   FloodExtentResponse,
+  NorthRouteStationState,
+  NorthRouteTopology,
   ObservationsResponse,
   ProvinceExposureResponse,
   RadarFramesResponse,
   SourceId,
+  WaterLevelObservation,
 } from "@siahra/shared-types";
 import { buildBoundaryOutline, type BoundaryOutlineResult } from "../../scene/BoundaryOutline";
 import {
@@ -25,6 +28,7 @@ import { BuildingTileLayer } from "../../scene/BuildingTiles";
 import { FeatureTileLayer } from "../../scene/FeatureTiles";
 import { VegetationTiles } from "../../scene/VegetationTiles";
 import { buildFloodMask, type FloodMask } from "../../scene/floodMask";
+import { groupByTambon, m2ToRai } from "../../lib/gistdaFlood";
 import {
   buildFloodFieldTexture,
   summarizeFloodField,
@@ -35,8 +39,7 @@ import { createFloodSurface, type FloodSurface } from "../../scene/FloodSurface"
 import { RadarOverlay } from "../../scene/RadarOverlay";
 import { pickAt, type PickResult } from "../../scene/picking";
 import { QualityManager, type QualityLevel, type QualityMode } from "../../scene/quality";
-import { InfoPopup } from "../map/InfoPopup";
-import { CameraSheet } from "../map/CameraSheet";
+import { LazyCameraSheet as CameraSheet, LazyInfoPopup as InfoPopup } from "../map/lazyMapViews";
 import { isClickRelease, type CameraSelection } from "../../lib/cameraSheet";
 import { buildEarthquakeMarkers, type EarthquakeMarkerResult } from "../../scene/EarthquakeMarkers";
 import { buildExposureMarkers, type ExposureMarkerResult } from "../../scene/ExposureMarkers";
@@ -52,12 +55,16 @@ import {
   type SceneHandles,
 } from "../../scene/setupScene";
 import { buildStationMarkers, type StationMarkerResult } from "../../scene/StationMarkers";
+import type { StationSheetInfo, StationSheetLayer } from "../../scene/StationSheet";
+import type { GistdaSheetInfo, GistdaSheetLayer } from "../../scene/GistdaSheet";
+import type { NorthRouteRiversResult } from "../../scene/NorthRouteRivers";
+import { lazyModule } from "../../lib/lazyModule";
 import { buildTerrainMesh, type TerrainField } from "../../scene/TerrainMesh";
 import { createTerrainSharedUniforms } from "../../scene/terrainMaterial";
 import { disposedTreeCounters, TerrainTileTree, type TerrainTileStats } from "../../scene/TerrainTiles";
 import { formatNumber } from "../../lib/number";
 import { CCTV_ENABLED, ITIC_ENABLED } from "../../lib/featureFlags";
-import { SnapshotCache } from "../../lib/cctv";
+import { SnapshotCache } from "../../lib/snapshotCache";
 import { useLang } from "../../i18n/context";
 import type { MessageKey } from "../../i18n";
 import { errorMessage, resolveError, type ErrorMessage } from "../../lib/errorMessage";
@@ -109,6 +116,23 @@ export interface MapLayers {
    * ข้อมูลจริงที่ครอบคลุมบางส่วน ไม่ใช่ข้อมูลที่เสื่อมคุณภาพซึ่งต้องซ่อนไว้ก่อน
    */
   localAuthorities: boolean;
+  /**
+   * แผ่นน้ำจำลองจากระดับน้ำที่สถานี (E16 B-1, `scene/StationSheet.ts`) — **illustrative**:
+   * ระดับน้ำที่วัดได้ของสถานีที่เกินตลิ่ง เติมลงพื้นที่ต่ำกว่าระดับนั้นบน DEM ในรัศมีจำกัด
+   * เปิดเป็นค่าเริ่มต้น; legend บอก caveat ทุกครั้งที่ชั้นนี้แสดงอยู่
+   */
+  stationSheet: boolean;
+  /**
+   * แผ่นน้ำ 3 มิติจากขอบเขต GISTDA (E16 B-2, `scene/GistdaSheet.ts`) — ขอบเขต = ตรวจวัดจริง,
+   * ความลึก = **illustrative** (FwDET จาก DEM) มีผลเฉพาะเมื่อ `floodExtent` เปิดอยู่ (ความลึกไม่ถูก
+   * แสดงโดยไม่มีขอบเขตที่มันมาจาก — แบบเดียวกับ `floodDepth` กับ `floodGfm`)
+   */
+  gistdaDepth: boolean;
+  /**
+   * เส้นทางน้ำเหนือบนแผนที่ (E16 B-1) — แนวลำน้ำ OSM (static-reference) ระบายสี/ลายไหลจาก
+   * ค่าตรวจวัดของสถานีบนเส้นทาง (observed) ใช้ข้อมูลชุดเดียวกับแผงเส้นทางน้ำเหนือ
+   */
+  northRoute: boolean;
 }
 
 export interface MapInfo {
@@ -144,11 +168,28 @@ export interface MapInfo {
    * เพราะผู้ใช้ทั่วไปไม่เปิด console — legend ต้องบอกว่าชั้นนี้หายไปเพราะโหลดพลาด
    */
   buildingsError: string | null;
+  /**
+   * แผ่นน้ำจำลองจากสถานี (E16 B-1 รอบ 3) — กี่สถานีคำนวณบนกริด 30 ม. กี่สถานีบนกริดภาพรวมและ
+   * เพราะอะไร (ข้อจำกัด C3: การลดความละเอียดต้องมองเห็น) — ไม่มี/null = ชั้นยังไม่ทำงาน
+   */
+  stationSheet?: StationSheetInfo | null;
+  /** แผ่นน้ำ GISTDA 3 มิติ (E16 B-2) — ไม่มี/null = ชั้นยังไม่ทำงาน (ปิด/ไม่มีเซลล์ GISTDA) */
+  gistdaSheet?: GistdaSheetInfo | null;
+  /**
+   * โหลดโค้ดของชั้นฉากแบบ lazy ไม่สำเร็จ (ชั้นจึงไม่ถูกวาด) — legend บอกใต้แถวของชั้นนั้น
+   * ไม่มีกุญแจ = ไม่ได้ล้ม (ยังไม่เคยโหลด หรือโหลดสำเร็จแล้ว)
+   */
+  layerLoadErrors?: Partial<Record<LazySceneLayer, ErrorMessage>>;
 }
 
 /** Imperative map controls exposed to the shell (search fly-to, permalink, capture). */
 export interface MapApi {
   flyToLonLat: (lon: number, lat: number, distanceM?: number) => void;
+  /**
+   * E16 — เปิด popup ของสถานีระดับน้ำจากภายนอก (แผงเส้นทางน้ำเหนือ) เหมือนผู้ใช้คลิกหมุดเอง
+   * `obs` ต้องเป็นค่าจาก observations ของจังหวัดที่แสดงอยู่ — popup ใช้ข้อมูลชุดเดียวกับหมุด
+   */
+  selectWaterlevel: (obs: WaterLevelObservation) => void;
   getPose: () => CameraPose | null;
   setPose: (pose: CameraPose) => void;
   captureImage: (footer: string) => Promise<Blob | null>;
@@ -166,6 +207,33 @@ type LoadState =
 
 const MAX_STATION_LABELS = 10;
 
+/**
+ * ชั้นฉากที่แยกเป็น chunk ของตัวเอง (ลดโค้ดบนเส้นทาง entry ก่อนแผนที่วาดได้) — ทั้งสองชั้นต้องรอ
+ * ข้อมูลจากเครือข่ายอยู่แล้ว (ค่าตรวจวัด / ผังเส้นทางน้ำเหนือ) จึงเริ่มโหลดโค้ดเมื่อชั้นเปิดและฉาก
+ * พร้อม ขนานไปกับการรอข้อมูล ไม่ใช่ตอนเปิดหน้า
+ *
+ * โหลดโค้ดไม่สำเร็จ = ชั้นไม่ถูกวาด แต่ **ไม่หายเงียบ**: ข้อความไปอยู่ใต้แถวของชั้นใน legend
+ * (`MapInfo.layerLoadErrors`) — `lazyModule` ลืม promise ที่ล้ม เอฟเฟกต์รอบถัดไป (poll ค่า
+ * ตรวจวัด / เลื่อนเวลา / ปิด-เปิดชั้น) จึงขอ chunk ใหม่เอง แต่ Chromium จำ import ที่ล้มไว้ใน
+ * module map (ดู `chunkErrorActions`) ข้อความจึงบอกให้โหลดหน้าใหม่ ไม่สัญญาว่าจะหายเอง
+ */
+const stationSheetModule = lazyModule(() => import("../../scene/StationSheet"));
+const northRiversModule = lazyModule(() =>
+  Promise.all([import("../../scene/NorthRouteRivers"), import("../../lib/northRoute")]).then(([rivers, route]) => ({
+    buildNorthRouteRivers: rivers.buildNorthRouteRivers,
+    routeReadings: route.routeReadings,
+    routeView: route.routeView,
+  })),
+);
+/**
+ * E16 B-2 — แผ่นน้ำ GISTDA (class + การแปลงผล; FwDET เองอยู่ใน worker) — เริ่มโหลดเมื่อชั้นเปิดครั้งแรก
+ * และมีขอบเขต GISTDA ให้คำนวณ ไม่ใช่ตอนเปิดหน้า
+ */
+const gistdaSheetModule = lazyModule(() => import("../../scene/GistdaSheet"));
+
+/** ชั้นที่โค้ดโหลดแบบ lazy — กุญแจของ `MapInfo.layerLoadErrors` (= กุญแจของ `MapLayers`) */
+export type LazySceneLayer = "stationSheet" | "northRoute" | "gistdaDepth";
+
 /** ค่าเริ่มต้นที่ identity คงที่ — `[]` ใน default parameter จะสร้างใหม่ทุกเรนเดอร์แล้วสร้างหมุดใหม่ทุกครั้ง */
 const NO_CAMERAS: readonly CctvCamera[] = [];
 const NO_ITIC_CAMERAS: readonly ItiCCamera[] = [];
@@ -179,6 +247,7 @@ export function Map3DCanvas({
   floodSceneId = null,
   floodSceneObservedAt = null,
   floodFieldDim = false,
+  gistdaDim = false,
   dams,
   cctvCameras = NO_CAMERAS,
   iticCameras = NO_ITIC_CAMERAS,
@@ -193,6 +262,8 @@ export function Map3DCanvas({
   tool,
   safeArea,
   observationsStale = false,
+  northRouteTopology = null,
+  northRouteStations = null,
   initialPose,
   quality,
   onQualityLevel,
@@ -215,6 +286,11 @@ export function Map3DCanvas({
   floodSceneObservedAt?: string | null;
   /** true = แหล่ง GFM ค้าง/ไม่ปกติ → ชั้นหรี่ลง ไม่หายไป */
   floodFieldDim?: boolean;
+  /**
+   * true = แหล่ง GISTDA ค้าง/ติดต่อไม่ได้ (กฎเดียวกับตัวเลข % ท่วม, `deriveGistdaImpactFreshness`)
+   * → แผ่นน้ำ GISTDA หรี่ลง ไม่หายไป
+   */
+  gistdaDim?: boolean;
   dams: DamObservation[];
   /**
    * บัญชีกล้อง CCTV ของ DWR (E15) — ว่าง = แฟล็กปิด / ชั้นปิด / ยังไม่โหลด ใช้ทั้งวาดหมุด
@@ -258,6 +334,10 @@ export function Map3DCanvas({
   safeArea: SafeArea;
   /** Dim station markers/halos when the source is stale or unreachable. */
   observationsStale?: boolean;
+  /** ผังเส้นทางน้ำเหนือ (`/rivers/north-route.json`) — null = ยังไม่โหลด/ชั้นปิด */
+  northRouteTopology?: NorthRouteTopology | null;
+  /** ค่าตรวจวัด + 48 ชม. ของสถานีบนเส้นทาง (`/api/v1/rivers/north`) — null = ยังไม่มี */
+  northRouteStations?: readonly NorthRouteStationState[] | null;
   onSceneReady?: (handles: SceneHandles | null) => void;
   onInfo?: (info: MapInfo | null) => void;
 }) {
@@ -286,6 +366,22 @@ export function Map3DCanvas({
   const boundaryRef = useRef<BoundaryOutlineResult | null>(null);
   const localAuthoritiesRef = useRef<LocalAuthorityOutlineResult | null>(null);
   const markersRef = useRef<StationMarkerResult | null>(null);
+  /** แผ่นน้ำจำลองจากสถานี (E16 B-1) + ตัวถอนตัวนับดีบัก — ถูกทิ้งพร้อมกันเสมอ (worker ด้วย) */
+  const sheetRef = useRef<{ layer: StationSheetLayer; unregister: (() => void) | null } | null>(null);
+  /** แผ่นน้ำ GISTDA 3 มิติ (E16 B-2) + ตัวถอนตัวนับดีบัก — ถูกทิ้งพร้อมกันเสมอ (worker ด้วย) */
+  const gistdaRef = useRef<{ layer: GistdaSheetLayer; unregister: (() => void) | null } | null>(null);
+  /**
+   * ค่าล่าสุดที่ชั้นใหม่ต้องได้ตอนสร้าง — โมดูล `scene/GistdaSheet.ts` โหลดแบบ lazy (ไม่อยู่ใน entry) จึง
+   * สร้างชั้นในรอบที่ `gistdaModReady` พลิก ซึ่งช้ากว่าเอฟเฟกต์ของฉาก GFM/การหรี่ที่รันไปแล้ว (และไม่รันซ้ำ)
+   */
+  const gistdaPropsRef = useRef({ gfm: null as FloodField | null, dim: false, hidden: false });
+  gistdaPropsRef.current = {
+    gfm: layers.floodGfm ? floodField : null,
+    dim: gistdaDim,
+    hidden: forecastAtIso !== null,
+  };
+  /** เส้นทางน้ำเหนือ (E16 B-1) — geometry ต่อจังหวัด; ค่าตรวจวัดเขียนทับผ่าน setReadings */
+  const riversRef = useRef<{ result: NorthRouteRiversResult; unregister: (() => void) | null } | null>(null);
   const labelsRef = useRef<THREE.Group | null>(null);
   const quakesRef = useRef<EarthquakeMarkerResult | null>(null);
   const floodMaskRef = useRef<FloodMask | null>(null);
@@ -308,6 +404,10 @@ export function Map3DCanvas({
    * และเมื่อแผนที่ถูกถอด (สลับจังหวัด = remount ด้วย key={aoiId})
    */
   const [snapshotCache] = useState(() => new SnapshotCache());
+  /** โค้ดของชั้นแบบ lazy พร้อมแล้ว — เปลี่ยนเป็น true ครั้งเดียว ให้เอฟเฟกต์ของชั้นนั้นรันใหม่ */
+  const [sheetModReady, setSheetModReady] = useState(() => stationSheetModule.peek() !== undefined);
+  const [riversModReady, setRiversModReady] = useState(() => northRiversModule.peek() !== undefined);
+  const [gistdaModReady, setGistdaModReady] = useState(() => gistdaSheetModule.peek() !== undefined);
   const cctvOn = CCTV_ENABLED && layers.cctv;
   const cctvOnRef = useRef(cctvOn);
   cctvOnRef.current = cctvOn;
@@ -355,6 +455,37 @@ export function Map3DCanvas({
     onInfo?.(infoRef.current);
   };
 
+  /** บันทึก/ล้างความล้มเหลวของการโหลดโค้ดชั้นแบบ lazy — ไม่ publish ซ้ำเมื่อไม่มีอะไรเปลี่ยน */
+  const setLayerLoadError = (key: LazySceneLayer, err: ErrorMessage | null) => {
+    const prev = infoRef.current?.layerLoadErrors ?? {};
+    if (err === null && !(key in prev)) return;
+    const next = { ...prev };
+    if (err) next[key] = err;
+    else delete next[key];
+    publishInfo({ layerLoadErrors: next });
+  };
+
+  /**
+   * เริ่ม/รอโหลดโค้ดของชั้นแบบ lazy จากในเอฟเฟกต์ — คืนฟังก์ชัน cleanup ของเอฟเฟกต์ (กันการ
+   * setState หลังเอฟเฟกต์รอบนั้นถูกยกเลิก หรือหลังแผนที่ถูกถอดตอนสลับจังหวัด)
+   */
+  const awaitLayerModule = (key: LazySceneLayer, mod: { load(): Promise<unknown> }, onReady: () => void) => {
+    let alive = true;
+    mod.load().then(
+      () => {
+        if (!alive) return;
+        setLayerLoadError(key, null);
+        onReady();
+      },
+      (err: unknown) => {
+        if (alive) setLayerLoadError(key, errorMessage(err, "common.chunkFailed"));
+      },
+    );
+    return () => {
+      alive = false;
+    };
+  };
+
   /** ทิ้งฉาก GFM ปัจจุบันทั้งก้อน (geometry, วัสดุ, สอง texture, ตัวนับดีบัก) — idempotent */
   const disposeFloodField = () => {
     const cur = floodFieldRef.current;
@@ -366,6 +497,30 @@ export function Map3DCanvas({
       cur.surface.dispose();
     }
     cur.texture.dispose();
+  };
+
+  /** ทิ้งแผ่นน้ำจำลองทั้งก้อน (worker, geometry, วัสดุ, texture, ตัวนับดีบัก) — idempotent */
+  const disposeSheet = () => {
+    const cur = sheetRef.current;
+    if (!cur) return;
+    sheetRef.current = null;
+    cur.unregister?.();
+    cur.layer.dispose();
+  };
+  /** ทิ้งแผ่นน้ำ GISTDA ทั้งก้อน (worker, geometry, วัสดุ, texture, ตัวนับดีบัก) — idempotent */
+  const disposeGistda = () => {
+    const cur = gistdaRef.current;
+    if (!cur) return;
+    gistdaRef.current = null;
+    cur.unregister?.();
+    cur.layer.dispose();
+  };
+  const disposeRivers = () => {
+    const cur = riversRef.current;
+    if (!cur) return;
+    riversRef.current = null;
+    cur.unregister?.();
+    cur.result.dispose();
   };
 
   useEffect(() => {
@@ -434,6 +589,8 @@ export function Map3DCanvas({
             terrainObjects,
             quakeGroup: quakesRef.current?.group ?? null,
             floodFeatures: floodFeaturesRef.current,
+            stationSheet: sheetRef.current?.layer ?? null,
+            gistdaSheet: gistdaRef.current?.layer ?? null,
             floodField: fp
               ? {
                   field: fp.field,
@@ -574,6 +731,11 @@ export function Map3DCanvas({
             const [x, z] = proj.lonLatToLocal(lon, lat);
             const y = terrain.sample(x, z) * h0.world.scale.y;
             h0.flyTo(new THREE.Vector3(x, y, z), distanceM);
+          },
+          selectWaterlevel: (obs) => {
+            const [x, z] = proj.lonLatToLocal(obs.station.lon, obs.station.lat);
+            // anchor อยู่ในพิกัดโลกที่ยังไม่คูณ exaggeration (ตัว ticker ของ popup คูณให้เอง)
+            setPick({ kind: "waterlevel", obs, anchor: new THREE.Vector3(x, terrain.sample(x, z), z) });
           },
           getPose: () => h0.getPose(),
           setPose: (pose) => h0.setPose(pose),
@@ -780,6 +942,9 @@ export function Map3DCanvas({
       localAuthoritiesRef.current = null;
       markersRef.current?.dispose();
       markersRef.current = null;
+      disposeSheet();
+      disposeGistda();
+      disposeRivers();
       if (labelsRef.current) disposeLabels(labelsRef.current);
       labelsRef.current = null;
       quakesRef.current?.dispose();
@@ -956,6 +1121,90 @@ export function Map3DCanvas({
     publishInfo({ stationCount: result.visibleCount, hazardCount: haloCount });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [observations, state.status, lang, t]);
+
+  // แผ่นน้ำจำลองจากระดับน้ำที่สถานี (E16 B-1) — คำนวณใหม่ใน worker เฉพาะเมื่อค่าตรวจวัด (poll สด
+  // หรือเลื่อนเส้นเวลา: useObservations ดึงค่า ณ atIso ให้แล้ว) / เวลาที่เลือก / จังหวัดเปลี่ยน ไม่ใช่ต่อเฟรม
+  // ชั้นปิด = ไม่คำนวณ (ไม่ปลุก worker) — เปิดกลับมาเอฟเฟกต์นี้รันใหม่เพราะ deps เปลี่ยน
+  // เลื่อนไปช่วงที่ไม่มีข้อมูล = API ไม่ส่งสถานีมา → ไม่มีแผ่น
+  useEffect(() => {
+    const handles = sceneRef.current;
+    const loaded = terrainRef.current;
+    if (!handles || !loaded || !layers.stationSheet) return;
+    const mod = stationSheetModule.peek();
+    if (!mod) return awaitLayerModule("stationSheet", stationSheetModule, () => setSheetModReady(true));
+    let cur = sheetRef.current;
+    if (!cur) {
+      const layer = new mod.StationSheetLayer(
+        handles.world,
+        loaded.terrain,
+        loaded.manifest,
+        loaded.terrain.material.uniforms.uTime,
+        (info) => publishInfo({ stationSheet: info }),
+      );
+      // ดาวเทียมที่เห็นจริงมาก่อน (เอฟเฟกต์ข้างล่างเขียนซ้ำเมื่อฉาก/ชั้น GFM เปลี่ยน)
+      layer.setObserved(layers.floodGfm ? floodField : null);
+      // E16 B-2 — เซลล์ที่ GISTDA ว่าท่วมก็มาก่อนเช่นกัน (เอฟเฟกต์ของแผ่น GISTDA เขียนซ้ำเมื่อข้อมูลเปลี่ยน)
+      layer.setGistdaObserved(layers.floodExtent ? (floodMaskRef.current?.raw ?? null) : null);
+      // กฎการหรี่เดียวกับหมุด (เอฟเฟกต์ observationsStale/forecastAtIso ข้างล่างเขียนซ้ำเมื่อเปลี่ยน)
+      layer.setDimmed(observationsStale || forecastAtIso !== null);
+      const unregister = import.meta.env.DEV ? handles.debug.register("stationSheet", () => layer.debug()) : null;
+      cur = { layer, unregister };
+      sheetRef.current = cur;
+    }
+    cur.layer.update(observations?.waterlevel ?? null, atIso ? Date.parse(atIso) : Date.now());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [observations, atIso, layers.stationSheet, state.status, sheetModReady]);
+
+  // ฉาก GFM ที่ *แสดงอยู่* (ในหน้าต่าง 14 วัน + ชั้นเปิด) มาก่อนแผ่นจำลอง: เซลล์ที่ดาวเทียมสังเกตแล้ว
+  // (ท่วม/แห้ง) ไม่ถูกแผ่นจำลองวาดทับ — worker ส่งผลเดิมกลับมาใหม่ ไม่วางแผน/ไม่ขอไทล์
+  useEffect(() => {
+    sheetRef.current?.layer.setObserved(layers.floodGfm ? floodField : null);
+  }, [floodField, layers.floodGfm, layers.stationSheet, state.status]);
+
+  // เส้นทางน้ำเหนือ (E16 B-1): geometry ต่อจังหวัด + ผัง — ค่าตรวจวัดเขียนทับในเอฟเฟกต์ถัดไป
+  useEffect(() => {
+    const handles = sceneRef.current;
+    const loaded = terrainRef.current;
+    disposeRivers();
+    if (!handles || !loaded || !northRouteTopology) return;
+    const mod = northRiversModule.peek();
+    if (!mod) return awaitLayerModule("northRoute", northRiversModule, () => setRiversModReady(true));
+    const result = mod.buildNorthRouteRivers(
+      loaded.manifest,
+      northRouteTopology,
+      loaded.terrain.insideMask,
+      loaded.terrain.sample,
+      loaded.terrain.material.uniforms.uTime,
+    );
+    if (!result) return; // ไม่มีลำน้ำบนเส้นทางผ่านจังหวัดนี้
+    result.group.visible = layers.northRoute;
+    handles.world.add(result.group);
+    let last = { animated: 0, still: 0 };
+    const apply = result.setReadings;
+    result.setReadings = (r) => (last = apply(r));
+    let unregister: (() => void) | null = null;
+    if (import.meta.env.DEV) {
+      unregister = handles.debug.register("northRoute", () => ({
+        reaches: result.reachIds,
+        vertices: result.vertexCount,
+        ...last,
+        visible: result.group.visible,
+      }));
+    }
+    riversRef.current = { result, unregister };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [northRouteTopology, state.status, riversModReady]);
+
+  useEffect(() => {
+    const rivers = riversRef.current?.result;
+    const mod = northRiversModule.peek();
+    if (!rivers || !mod) return;
+    // คิดครั้งเดียวต่อการเปลี่ยนของข้อมูล/เวลา (ไม่ใช่ต่อเฟรม) — สถานะ "ค้าง" จึงขยับตามรอบ poll
+    const nowMs = Date.now();
+    rivers.setReadings(
+      mod.routeReadings(northRouteTopology, northRouteStations, mod.routeView(atIso, nowMs), nowMs),
+    );
+  }, [northRouteTopology, northRouteStations, atIso, state.status, riversModReady]);
 
   // Earthquake epicentres inside the province.
   useEffect(() => {
@@ -1213,23 +1462,23 @@ export function Map3DCanvas({
     labels.name = "flood-labels";
     const proj = loaded.terrain.projection;
     // Label the largest flooded tambons; the rest are visible as the tint.
-    const top = [...features]
-      .sort((a, b) => (b.properties.floodAreaRai ?? 0) - (a.properties.floodAreaRai ?? 0))
-      .slice(0, 10);
-    for (const f of top) {
-      const { lat, lon, tambonTh, floodAreaRai } = f.properties;
+    // E16.PR0: GISTDA ส่งเป็นเซลล์ H3 หลายพันเซลล์ — รวมเป็นรายตำบลก่อน (จุดกึ่งกลางถ่วงพื้นที่)
+    const top = groupByTambon(features).slice(0, 10);
+    for (const g of top) {
+      const { lat, lon, tambonTh } = g;
+      const floodAreaRai = m2ToRai(g.areaM2);
       if (lat === null || lon === null) continue;
       const [x, z] = proj.lonLatToLocal(lon, lat);
       if (!proj.insideGrid(x, z)) continue;
       labels.add(
         makeLabel(
           tambonTh ?? t("scene.floodArea"),
-          floodAreaRai !== null
+          floodAreaRai > 0
             ? t("scene.floodAreaRai", { n: formatNumber(lang, Math.round(floodAreaRai)) })
             : t("scene.floodPlain"),
           "info",
           new THREE.Vector3(x, loaded.terrain.sample(x, z) + 30, z),
-          40 + (floodAreaRai ?? 0) / 1000,
+          40 + floodAreaRai / 1000,
         ),
       );
     }
@@ -1238,6 +1487,60 @@ export function Map3DCanvas({
     floodLabelsRef.current = labels;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [floodExtent, state.status, lang, t]);
+
+  // E16 B-2 — แผ่นน้ำ GISTDA 3 มิติ (FwDET ใน worker) จากมาสก์ไม่เบลอที่เอฟเฟกต์ข้างบนเพิ่งสร้าง
+  // (เอฟเฟกต์รันตามลำดับที่ประกาศ) คำนวณใหม่เฉพาะเมื่อข้อมูล GISTDA เปลี่ยน — สด (poll 10 นาที) หรือ
+  // เลื่อนเส้นเวลา (useFloodExtent ดึง `?at=` ให้แล้ว) — ไม่ใช่เมื่อสลับภาษา (มาสก์ถูกสร้างใหม่แต่
+  // เนื้อหาเดิม: `update()` เทียบเนื้อหาก่อน) ชั้นปิด = ทิ้ง layer + worker ทั้งก้อน
+  // เซลล์ที่ GISTDA ว่าท่วมยังเป็น "สังเกตแล้ว" ของแผ่นจำลองจากสถานีตราบใดที่ชั้น GISTDA เปิด
+  // (มันถูกวาดเป็นสีบนภูมิประเทศอยู่ แม้ชั้นความลึกจะปิด)
+  useEffect(() => {
+    const handles = sceneRef.current;
+    const loaded = terrainRef.current;
+    const raw = (floodExtent?.features.length ?? 0) > 0 ? (floodMaskRef.current?.raw ?? null) : null;
+    sheetRef.current?.layer.setGistdaObserved(layers.floodExtent ? raw : null);
+    if (!handles || !loaded || !layers.floodExtent || !layers.gistdaDepth) {
+      disposeGistda();
+      return;
+    }
+    // โมดูลของชั้นนี้ (class + การแปลงผล) โหลดแบบ lazy เมื่อชั้นเปิดครั้งแรก — การคำนวณอยู่ใน worker
+    // อยู่แล้ว ส่วนนี้จึงไม่ต้องอยู่ใน entry; โหลดไม่สำเร็จ = ไม่มีแผ่น และ legend แถว gistdaDepth บอกเหตุ
+    // (`MapInfo.layerLoadErrors`) ไม่ใช่หายเงียบ
+    const mod = gistdaSheetModule.peek();
+    if (!mod) return awaitLayerModule("gistdaDepth", gistdaSheetModule, () => setGistdaModReady(true));
+    let cur = gistdaRef.current;
+    if (!cur) {
+      const layer = new mod.GistdaSheetLayer(
+        handles.world,
+        loaded.terrain,
+        loaded.manifest,
+        loaded.terrain.material.uniforms.uTime,
+        (info) => publishInfo({ gistdaSheet: info }),
+      );
+      const latest = gistdaPropsRef.current;
+      layer.setGfmField(latest.gfm);
+      layer.setDimmed(latest.dim);
+      layer.setVisible(!latest.hidden);
+      const unregister = import.meta.env.DEV ? handles.debug.register("gistdaSheet", () => layer.debug()) : null;
+      cur = { layer, unregister };
+      gistdaRef.current = cur;
+    }
+    cur.layer.update(raw);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [floodExtent, layers.floodExtent, layers.gistdaDepth, layers.stationSheet, state.status, gistdaModReady]);
+
+  // GFM มาก่อน GISTDA (lib/gistdaDepthField.ts): เซลล์ที่ฉาก GFM ที่แสดงอยู่ว่าท่วมถูกตัดออกจากแผ่น
+  // GISTDA — สร้างแผ่นใหม่จากผลเดิม ไม่ปลุก worker
+  useEffect(() => {
+    gistdaRef.current?.layer.setGfmField(layers.floodGfm ? floodField : null);
+  }, [floodField, layers.floodGfm, layers.floodExtent, layers.gistdaDepth, state.status]);
+
+  // หรี่เมื่อแหล่ง GISTDA ค้าง/ติดต่อไม่ได้; ซ่อนเมื่อกำลังดูขั้นพยากรณ์ (แผ่นนี้มาจากภาพที่ถ่ายแล้ว
+  // ไม่ใช่ของชั่วโมงที่พยากรณ์ — กฎเดียวกับชั้นที่มาจากค่าตรวจวัด)
+  useEffect(() => {
+    gistdaRef.current?.layer.setDimmed(gistdaDim);
+    gistdaRef.current?.layer.setVisible(forecastAtIso === null);
+  }, [gistdaDim, forecastAtIso, layers.floodExtent, layers.gistdaDepth, state.status]);
 
   // Copernicus GFM scene (E14.F4) -> `uFloodField` on every terrain material +
   // the 3D water sheet. Rebuilt whenever the decoded field changes (scene
@@ -1320,6 +1623,7 @@ export function Map3DCanvas({
     // ที่กำลังแสดงบนภูมิประเทศ (สีมาจากแบบจำลอง ไม่ใช่จากหมุด)
     const dim = observationsStale || forecastAtIso !== null;
     markersRef.current?.setDimmed(dim);
+    sheetRef.current?.layer.setDimmed(dim);
     const u = terrainRef.current?.terrain.material.uniforms;
     if (u) u.uHazardStale.value = observationsStale ? 1 : 0;
     if (labelsRef.current) labelsRef.current.visible = layers.stations && !observationsStale;
@@ -1379,6 +1683,8 @@ export function Map3DCanvas({
     if (localAuthoritiesRef.current) {
       localAuthoritiesRef.current.group.visible = layers.localAuthorities;
     }
+    sheetRef.current?.layer.setVisible(layers.stationSheet);
+    if (riversRef.current) riversRef.current.result.group.visible = layers.northRoute;
     if (markersRef.current) {
       markersRef.current.dots.visible = layers.stations;
       markersRef.current.rings.visible = layers.stations;

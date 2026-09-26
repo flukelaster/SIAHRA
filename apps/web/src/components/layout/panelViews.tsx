@@ -12,8 +12,11 @@ import type { FloodSceneState } from "../../hooks/useFloodScene";
 import type { FloodScenesState } from "../../hooks/useFloodScenes";
 import type { LayerDescriptors } from "../../hooks/useLayerDescriptors";
 import type { LocalAuthorityImpactState } from "../../hooks/useLocalAuthorityImpact";
+import type { NorthRouteState } from "../../hooks/useNorthRoute";
+import type { FloodSourceAgeInput } from "../../lib/floodSourceAge";
 import type { ObservationsState } from "../../hooks/useObservations";
 import type { ProvinceForecastState } from "../../hooks/useProvinceForecast";
+import type { StormsState } from "../../hooks/useStorms";
 import { resolveError } from "../../lib/errorMessage";
 import type { QualityLevel, QualityMode } from "../../scene/quality";
 import { ActiveAlertBanner } from "../hazard/ActiveAlertBanner";
@@ -27,13 +30,14 @@ import {
   MapLegend,
   type ExposureLegendState,
   type FloodGfmLegendState,
+  type GistdaDepthLegendState,
   type ForecastLegendState,
 } from "./MapLegend";
 
 /**
  * ทุกอย่างที่แผงใดแผงหนึ่งอาจต้องใช้ — App.tsx ประกอบก้อนนี้ก้อนเดียวแล้วส่งให้
  * `SideDrawer` (จอกว้าง) หรือ `MobileSheet` (มือถือ) ซึ่งเรนเดอร์ **เฉพาะแผงที่
- * เปิดอยู่** ผ่าน `PANELS[i].render(ctx)` (`panelRegistry.ts`) — สองเปลือกใช้
+ * เปิดอยู่** ผ่าน `<PanelSlot>` + `PANELS[i].view` (`panelRegistry.ts`) — สองเปลือกใช้
  * ทะเบียนเดียวกัน จึงไม่มีวันที่แผงหนึ่งหายไปจากมือถือแต่ยังอยู่บนเดสก์ท็อป
  * (หรือกลับกัน)
  *
@@ -57,6 +61,8 @@ export interface PanelContext {
   forecastLegend: ForecastLegendState;
   /** E14.F4 — ฉาก Copernicus GFM ที่กำลังแสดง + เหตุผลเมื่อไม่มี (legend สองแถว) */
   floodGfmLegend: FloodGfmLegendState;
+  /** E16 B-2 — แผ่นน้ำ GISTDA 3 มิติ: สถานะข้อมูล + ผลคำนวณ (legend แถว gistdaDepth) */
+  gistdaDepthLegend: GistdaDepthLegendState;
   /** E15 — บัญชีกล้อง CCTV ของ DWR (โหลดเฉพาะเมื่อแฟล็ก + ชั้นเปิด) legend บอกเมื่อโหลดไม่ได้ */
   cctvCatalogue: CctvCatalogueState;
   /** E15.2 — บัญชีกล้องถนนของ iTIC (โหลดเฉพาะเมื่อแฟล็ก + ชั้นเปิด) */
@@ -69,6 +75,11 @@ export interface PanelContext {
   dams: DamsState;
   earthquakes: EarthquakeFeedState;
   forecast: ProvinceForecastState;
+  /**
+   * ชั้นพายุ v1 — `useStorms` ตัวเดียวของ App.tsx (คำขอเดียวระดับประเทศ) ใช้ร่วมกันทั้ง
+   * แผงพายุ badge บน rail และศูนย์การแจ้งเตือน
+   */
+  storms: StormsState;
   /** E11.5/E11.6 — แจ้งเตือน อปท. ทั้งจังหวัดที่กำลังดู */
   activeAlerts: ActiveAlertsState;
   /** E11.6 — รายชื่อ อปท. ที่ได้รับผลกระทบ เรียงลำดับแล้ว */
@@ -84,6 +95,23 @@ export interface PanelContext {
    * App.tsx): แผงฉาก GFM เลือกเวลาผ่านทางนี้ ทุกชั้นที่เดินตามเส้นเวลาจึงตามไปด้วยกัน
    */
   setAtIso: (atIso: string | null) => void;
+  /**
+   * E16 — แผงเส้นทางน้ำเหนือ: สลับไปจังหวัดของสถานี บินไปที่หมุด แล้วเปิด popup ของมัน
+   * (กลไกเดียวกับการคลิกหมุดเอง — `MapApi.selectWaterlevel`)
+   */
+  focusStation: (target: StationFocus) => void;
+  /** E16 — ข้อมูลเส้นทางน้ำเหนือจาก hook ตัวเดียวใน App.tsx (แผง north + ชั้นเส้นลำน้ำ 3 มิติ) */
+  northRoute: NorthRouteState;
+  /** E16 B-1 — ชิปอายุแหล่งน้ำท่วมจากดาวเทียม (แผ่นเลื่อนมือถือ) — null = ชั้นน้ำท่วมปิดทั้งคู่ */
+  floodAge: FloodSourceAgeInput | null;
+}
+
+/** เป้าหมายของ `focusStation` — พิกัด/จังหวัดมาจากผังเส้นทาง (ใช้ได้แม้ไม่มีค่าล่าสุด) */
+export interface StationFocus {
+  stationId: number;
+  provinceCode: string | null;
+  lat: number;
+  lon: number;
 }
 
 /** แผงชั้นข้อมูล: legend เดิมไม่แก้ + สถานะการดึงของ ThaiWater เป็น footer (ย้ายมาจาก Sidebar เดิม) */
@@ -103,8 +131,11 @@ export function LayersPanel({ ctx }: { ctx: PanelContext }) {
         exposure={ctx.exposureLegend}
         forecast={ctx.forecastLegend}
         floodGfm={ctx.floodGfmLegend}
+        stationSheet={ctx.mapInfo?.stationSheet ?? null}
+        gistdaDepth={ctx.gistdaDepthLegend}
         cctvError={ctx.cctvCatalogue.error}
         iticError={ctx.iticCatalogue.error}
+        layerLoadErrors={ctx.mapInfo?.layerLoadErrors}
       />
       <div className="glass-soft mt-auto shrink-0 rounded-2xl px-3.5 py-2.5">
         <ApiStatusFooter

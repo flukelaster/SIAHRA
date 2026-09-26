@@ -38,6 +38,13 @@ const station = z.optional(
       tele_station_long: numeric,
       min_bank: numeric,
       ground_level: numeric,
+      // E16 — ฟิลด์ที่เส้นทางน้ำเหนือใช้ หลวมทั้งหมด (ขาด/เป็น null ได้): สถานีส่วนใหญ่
+      // ไม่มีค่าเหล่านี้ และการขาดไม่ใช่เหตุผลที่จะตีทั้งฟีดว่าผิดรูป
+      // `tele_station_oldcode`/`is_key_station` ไม่ถูกประกาศเลยโดยตั้งใจ: mapper อ่านแบบ
+      // "เป็นสตริง/เป็น true เท่านั้น" อยู่แล้ว ชนิดอื่นกลายเป็น null/false ไม่ใช่ฟีดพังทั้งก้อน
+      sub_basin_id: numeric,
+      qmax: numeric,
+      critical_level_msl: numeric,
     }),
   ),
 );
@@ -74,6 +81,7 @@ const waterRecord = z.object({
   waterlevel_m: numeric,
   storage_percent: numeric,
   situation_level: numeric,
+  discharge: numeric,
 });
 
 const graphPoint = z.object({

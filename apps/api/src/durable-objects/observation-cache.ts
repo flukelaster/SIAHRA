@@ -4,6 +4,8 @@ import {
   type DamObservation,
   type DamsResponse,
   type HazardLayerDescriptor,
+  type NorthRouteResponse,
+  type NorthRouteStationState,
   type ObservationsResponse,
   type RainfallObservation,
   type SourceStatus,
@@ -41,6 +43,7 @@ import {
   type WaterlevelDayFile,
 } from "../archive.js";
 import { errorText, logError, logInfo, logWarn } from "../log.js";
+import { NORTH_ROUTE_STATIONS } from "../data/northRoute.js";
 
 /**
  * Upstream responses are 2-4 MB covering ~5,500 stations nationwide, so they
@@ -71,6 +74,25 @@ const HISTORY_RETENTION_MS = 8 * 24 * 60 * 60 * 1000;
 
 /** ระยะห่างขั้นต่ำระหว่างการกวาดแถวพ้นอายุสองครั้ง (ดู `pruneRetention`) */
 const PRUNE_INTERVAL_MS = 60 * 60 * 1000;
+/**
+ * E16 — ประวัติของสถานีบนเส้นทางน้ำเหนือถูกดึง **ชั่วโมงละครั้ง** (RID เผยแพร่รายชั่วโมง)
+ * บนเส้นทาง alarm เท่านั้น ดู `pullRouteHistory()`
+ */
+const ROUTE_PULL_INTERVAL_MS = 60 * 60 * 1000;
+/**
+ * ลำดับในคิวต้นทาง: เลขมาก = ไปทีหลัง — ต่ำกว่าทุกงานที่มีอยู่ (ฟีดหลัก 0, ผู้ใช้กดดู 1,
+ * warm จังหวัด 2/6) งานเบื้องหลังนี้จึงไม่มีวันแซงงานที่มีคนรออยู่
+ */
+const ROUTE_PULL_PRIORITY = 9;
+/**
+ * เพดานเวลาที่ `alarm()` รอรอบดึงเส้นทางน้ำเหนือ — alarm รอบถัดไปถูกตั้งไว้แล้ว (+5 นาที)
+ * แต่จะไม่ยิงจนกว่า handler นี้จะคืน และ fetch ของ ThaiWater ไม่มี timeout ของมันเอง
+ * ต้นทางที่ค้างจึงต้องไม่ลากจังหวะ refresh หลักไปด้วย: เกินเพดานนี้ alarm คืนก่อน
+ * ส่วนรอบดึงที่ยังค้างถูก `ctx.waitUntil` ถือไว้ (ปกติ 25 สถานี × 250 ms ≈ ไม่กี่วินาที)
+ */
+const ROUTE_PULL_AWAIT_MS = 90 * 1000;
+/** หน้าต่างของแผงเส้นทางน้ำเหนือ — ทั้งที่อ่าน (`northRoute`) และที่ UI แสดง */
+const ROUTE_WINDOW_MS = 48 * 60 * 60 * 1000;
 /** Hot window served from SQLite; older requests go to the R2 archive. */
 const HOT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_HISTORY_HOURS = 30 * 24;
@@ -304,6 +326,9 @@ export class ObservationCacheDO extends DurableObject<Env> {
     this.ctx.waitUntil(this.archiveTick().catch((err: unknown) => {
       this.writeMeta("archiveError", String(err).slice(0, 200));
     }));
+    // E16 — ไม่ดึงประวัติเส้นทางน้ำเหนือที่นี่: ensureFresh() ตั้ง alarm ไว้เสมอ (≤ 5 นาที)
+    // และ alarm() ดึงให้ชั่วโมงละครั้งอยู่แล้ว ส่วนการปล่อยมันเป็น waitUntil จากที่นี่
+    // (cron `scheduled()` ซึ่งไม่รอ waitUntil) ทำให้ fetch ของมันไปโผล่นอกช่วงชีวิตของผู้เรียก
   }
 
   private async armAlarm(): Promise<void> {
@@ -331,6 +356,75 @@ export class ObservationCacheDO extends DurableObject<Env> {
       this.writeMeta("archiveError", String(err).slice(0, 200));
       logError("archive tick failed", { error: errorText(err) });
     }));
+    // E16 — ประวัติรายชั่วโมงของสถานีบนเส้นทางน้ำเหนือ (ด่านชั่วโมงละครั้งอยู่ข้างใน)
+    // หลัง armAlarm() เสมอ และ **รอให้จบภายในช่วงชีวิตของ alarm** แทนการปล่อยเป็น
+    // waitUntil ลอย ๆ ที่ fetch ของมันไปโผล่หลัง handler คืนแล้ว — แต่รอไม่เกิน
+    // ROUTE_PULL_AWAIT_MS (ดูเหตุผลที่ค่าคงที่) ตัวมันเองไม่มีวัน reject
+    const routePull = this.pullRouteHistory(Date.now());
+    this.ctx.waitUntil(routePull);
+    let deadline: ReturnType<typeof setTimeout> | null = null;
+    await Promise.race([
+      routePull,
+      new Promise<void>((resolve) => {
+        deadline = setTimeout(resolve, ROUTE_PULL_AWAIT_MS);
+      }),
+    ]);
+    clearTimeout(deadline);
+  }
+
+  /**
+   * E16 — ดึงประวัติของสถานีบนเส้นทางน้ำเหนือ (`NORTH_ROUTE_STATIONS`, ~25 สถานี)
+   * **ชั่วโมงละครั้ง** รูปเดียวกับ `pruneRetention()`: ด่านเป็นคีย์ meta `lastRoutePullMs`
+   * ที่ถูกเขียน **ตอนเริ่ม** ไม่ใช่ตอนสำเร็จ — ต้นทางที่พังค้างจึงถูกลองใหม่ชั่วโมงละครั้ง
+   * ไม่ใช่ทุก 5 นาที
+   *
+   * เรียกจาก `alarm()` เท่านั้น หลัง `armAlarm()` และถูกรอภายในช่วงชีวิตของ alarm
+   * (ไม่เกิน `ROUTE_PULL_AWAIT_MS`)
+   * **ไม่เคยอยู่บนเส้นทาง HTTP** (`northRoute()` อ่านอย่างเดียว)
+   *
+   * แต่ละสถานีใช้ `pullHistory()` ตัวเดิม: หา MAX(ts_ms) ด้วย prefix ของ PK แล้วเขียนเฉพาะ
+   * จุดที่ใหม่กว่า รอบแรกของสถานีหนึ่งได้หน้าต่างเริ่มต้น (72 ชม.) ของมัน รอบถัดไปได้
+   * ~1 แถว/ชม. — ส่วนการกวาดของเก่าคือ `pruneRetention()` ตัวเดิม (8 วัน)
+   *
+   * ความล้มเหลวถูกกักไว้ในตัวเอง: ไม่แตะ `fetchedAt`/`lastError`/`consecutiveFailures`
+   * ของฟีดหลัก ไม่โยนออกไป และ **หยุดวนตั้งแต่สถานีแรกที่พัง** — คิวต้นทางตัดวงจรหลัง
+   * ล้มเหลวติดกัน 3 ครั้ง (`tripAfter: 3`) ซึ่งจะพักฟีดหลักไปด้วย งานรองนี้จึงห้ามเป็นคน
+   * ดันให้ถึงเกณฑ์ ความล้มเหลวถูกเก็บที่ `routePullError` ของมันเอง
+   */
+  private async pullRouteHistory(nowMs: number): Promise<void> {
+    try {
+      const last = Number(this.readMeta("lastRoutePullMs") ?? "0");
+      if (Number.isFinite(last) && nowMs - last < ROUTE_PULL_INTERVAL_MS) return;
+      this.writeMeta("lastRoutePullMs", String(nowMs));
+      let pulled = 0;
+      let skippedFresh = 0;
+      let failure: string | null = null;
+      for (const s of NORTH_ROUTE_STATIONS) {
+        // ประวัติที่เพิ่งถูกดึง (มีคนกดดูสถานีนี้ไม่ถึง 10 นาทีก่อน) ไม่ต้องถามต้นทางซ้ำ
+        if (this.historyFresh(s.thaiwaterId, nowMs)) {
+          skippedFresh++;
+          continue;
+        }
+        try {
+          await this.pullHistory(s.thaiwaterId, nowMs, ROUTE_PULL_PRIORITY);
+          pulled++;
+        } catch (err) {
+          failure = `${s.ridCode}: ${shortReason(err)}`.slice(0, 200);
+          logWarn("route history pull failed — stopping this run", { ridCode: s.ridCode, error: errorText(err) });
+          break;
+        }
+      }
+      this.writeMeta("routePullError", failure);
+      logInfo("route history pulled", {
+        stations: NORTH_ROUTE_STATIONS.length,
+        pulled,
+        skippedFresh,
+        stoppedOnFailure: failure !== null,
+      });
+    } catch (err) {
+      // ความล้มเหลวของ SQL/meta เอง — ไม่มีทางหลุดไปถึง alarm
+      logWarn("route history run failed", { error: errorText(err) });
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -1222,6 +1316,73 @@ export class ObservationCacheDO extends DurableObject<Env> {
   }
 
   /**
+   * E16 — Backs GET /api/v1/rivers/north: ค่าล่าสุด + 48 ชม. ของทุกสถานีบนเส้นทางน้ำเหนือ
+   * ในการเรียก RPC **ครั้งเดียว**
+   *
+   * **อ่านอย่างเดียว**: ไม่เรียก `getHistory()`/`pullHistory()`/`warmProvinceHistory()`/
+   * `refreshOnce()`/`ensureFresh()` ไม่ยิงต้นทาง ไม่เขียนอะไรเลย — ประวัติถูกเติมโดย
+   * `pullRouteHistory()` บน alarm เท่านั้น สถานีที่ยังไม่เคยถูกดึงจึงตอบ `history48h: []`
+   * กับ `historyFetchedAt: null` ตามจริง
+   *
+   * SQL ต่อสถานีเป็นสามคำสั่งที่ใช้ PK ทั้งหมด (literal เดียวกับที่ใช้อยู่แล้วใน DO นี้):
+   * `waterlevel` ด้วย station_id, `history_meta` ด้วย station_id และ `waterlevel_history`
+   * ด้วย (station_id, ts_ms ≥ ?) — ไม่มีการสแกนทั้งตาราง ไม่มี IN-list
+   */
+  async northRoute(): Promise<NorthRouteResponse> {
+    const nowMs = Date.now();
+    const fromMs = nowMs - ROUTE_WINDOW_MS;
+    const sql = this.ctx.storage.sql;
+    const stations: NorthRouteStationState[] = NORTH_ROUTE_STATIONS.map((s) => {
+      const row = sql.exec<StationRow>("SELECT payload FROM waterlevel WHERE station_id = ?", s.thaiwaterId).toArray()[0];
+      const meta = sql
+        .exec<{ fetched_ms: number; datum: string }>("SELECT fetched_ms, datum FROM history_meta WHERE station_id = ?", s.thaiwaterId)
+        .toArray()[0];
+      const history48h = sql
+        .exec<{ ts_ms: number; value: number | null; discharge: number | null }>(
+          "SELECT ts_ms, value, discharge FROM waterlevel_history WHERE station_id = ? AND ts_ms >= ? ORDER BY ts_ms ASC",
+          s.thaiwaterId,
+          fromMs,
+        )
+        .toArray()
+        .map((r) => ({
+          t: new Date(r.ts_ms).toISOString(),
+          value: r.value,
+          discharge: r.discharge !== null && r.discharge >= 0 ? r.discharge : null,
+        }));
+      return {
+        ridCode: s.ridCode,
+        thaiwaterId: s.thaiwaterId,
+        reachId: s.reachId,
+        latest: row ? withRouteFields(JSON.parse(row.payload) as WaterLevelObservation) : null,
+        datum: (meta?.datum as "msl" | "local" | "unknown" | undefined) ?? "unknown",
+        history48h,
+        historyFetchedAt: meta ? new Date(meta.fetched_ms).toISOString() : null,
+      };
+    });
+    const observed = stations
+      .map((s) => s.latest?.observedAt ?? null)
+      .filter((t): t is string => t !== null)
+      .sort();
+    // ความสดของฟีดระดับน้ำเอง (ไม่ใช่ fetchedAt รวมที่นับฝนด้วย) — ไม่มี = ยังไม่เคยสำเร็จ
+    const fetchedAt = this.readMeta("waterlevelFetchedAt");
+    return {
+      layer: {
+        id: "north-route-observations",
+        epistemicClass: "observed",
+        liveOrStatic: "live",
+        observedAt: observed.at(-1),
+        publishedAt: null,
+        fetchedAt,
+        staleAfterSeconds: STALE_AFTER_MS / 1000,
+        sourceIds: ["thaiwater"],
+      },
+      fetchedAt,
+      windowHours: ROUTE_WINDOW_MS / 3_600_000,
+      stations,
+    };
+  }
+
+  /**
    * Backs GET /api/v1/observations. `province` omitted = nationwide.
    * With `atIso`, water-level readings are replaced by the stored history
    * point at/before that time (rainfall has no history feed and is omitted);
@@ -1274,14 +1435,14 @@ export class ObservationCacheDO extends DurableObject<Env> {
       const files = province
         ? [await this.archivedDay(day, province), atMs - dayStartMs(day) < SNAPSHOT_TOLERANCE_MS ? await this.archivedDay(addDays(day, -1), province) : null]
         : [];
-      const latest = new Map<number, { t: number; v: number | null; datum: string }>();
+      const latest = new Map<number, { t: number; v: number | null; q: number | null; datum: string }>();
       for (const f of files) {
         if (!f) continue;
         for (const st of f.stations) {
-          for (const [t, v] of st.points) {
+          for (const [t, v, q] of st.points) {
             if (t <= atMs && t >= atMs - SNAPSHOT_TOLERANCE_MS) {
               const cur = latest.get(st.stationId);
-              if (!cur || t > cur.t) latest.set(st.stationId, { t, v, datum: st.datum });
+              if (!cur || t > cur.t) latest.set(st.stationId, { t, v, q, datum: st.datum });
             }
           }
         }
@@ -1298,6 +1459,8 @@ export class ObservationCacheDO extends DurableObject<Env> {
             freeboardM: msl !== null && w.minBankMsl !== null ? Math.round((w.minBankMsl - msl) * 1000) / 1000 : null,
             situationLevel: null,
             storagePercent: null,
+            // อัตราการไหลของเวลานั้นจากประวัติ ไม่ใช่ค่าสดที่ติดมากับ `...w`
+            dischargeM3s: p.q !== null && p.q >= 0 ? p.q : null,
             observedAt: new Date(p.t).toISOString(),
           },
         ];
@@ -1306,8 +1469,8 @@ export class ObservationCacheDO extends DurableObject<Env> {
       rainfall.length = 0;
       waterlevel = waterlevel.flatMap((w) => {
         const point = this.ctx.storage.sql
-          .exec<{ ts_ms: number; value: number | null }>(
-            "SELECT ts_ms, value FROM waterlevel_history WHERE station_id = ? AND ts_ms <= ? AND ts_ms >= ? ORDER BY ts_ms DESC LIMIT 1",
+          .exec<{ ts_ms: number; value: number | null; discharge: number | null }>(
+            "SELECT ts_ms, value, discharge FROM waterlevel_history WHERE station_id = ? AND ts_ms <= ? AND ts_ms >= ? ORDER BY ts_ms DESC LIMIT 1",
             w.station.id,
             atMs,
             atMs - SNAPSHOT_TOLERANCE_MS,
@@ -1329,6 +1492,8 @@ export class ObservationCacheDO extends DurableObject<Env> {
               msl !== null && w.minBankMsl !== null ? Math.round((w.minBankMsl - msl) * 1000) / 1000 : null,
             situationLevel: null,
             storagePercent: null,
+            // อัตราการไหลของจุดประวัติเดียวกัน — ไม่ใช่ค่าสดที่ติดมากับ `...w`
+            dischargeM3s: point.discharge !== null && point.discharge >= 0 ? point.discharge : null,
             observedAt: new Date(point.ts_ms).toISOString(),
           },
         ];
@@ -1378,4 +1543,23 @@ export class ObservationCacheDO extends DurableObject<Env> {
       waterlevel,
     };
   }
+}
+
+/**
+ * แถว `waterlevel` ที่เขียนก่อน E16 ไม่มีฟิลด์ใหม่ (แถวถูกเขียนใหม่เฉพาะเมื่อ observedAt
+ * เปลี่ยน) — เติมเป็น "ไม่มีข้อมูล" ให้ครบตามชนิด ไม่ใช่ปล่อย `undefined` หลุดออกไป
+ */
+function withRouteFields(w: WaterLevelObservation): WaterLevelObservation {
+  return {
+    ...w,
+    station: {
+      ...w.station,
+      ridCode: w.station.ridCode ?? null,
+      subBasinId: w.station.subBasinId ?? null,
+      isKeyStation: w.station.isKeyStation ?? false,
+    },
+    dischargeM3s: w.dischargeM3s ?? null,
+    qmaxM3s: w.qmaxM3s ?? null,
+    criticalLevelMsl: w.criticalLevelMsl ?? null,
+  };
 }

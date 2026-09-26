@@ -8,7 +8,9 @@ import type { SourceId } from "./sources.js";
  * - observed:         a sensor/network reported this directly (rain gauge, seismograph, tide station)
  * - static-reference:  a government-published hazard-zone/geology dataset; not live, not a forecast
  * - illustrative:      a topographic approximation we computed; explicitly not a calibrated model
- * - probabilistic:     a named, cited, third-party probabilistic model (e.g. USGS aftershock forecast)
+ * - probabilistic:     a named, cited, third-party probabilistic model (e.g. USGS aftershock forecast);
+ *                      first used by JMA's 70 % typhoon probability circle (`storm.ts` `layers.circle`),
+ *                      because that radius IS a probability statement JMA publishes — never one we compute
  * - forecast:          a named, cited, third-party DETERMINISTIC model forecast (e.g. TMD NWP);
  *                      never computed here, and never a probability — a value valid for a future
  *                      instant is still not a statement about how likely anything is

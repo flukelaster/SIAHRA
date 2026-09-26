@@ -47,7 +47,8 @@
       { "name": "OBSERVATION_CACHE", "class_name": "ObservationCacheDO" },
       { "name": "FLOOD_EXTENT", "class_name": "FloodExtentDO" },
       { "name": "RADAR", "class_name": "RadarDO" },
-      { "name": "ALERT_ENGINE", "class_name": "AlertEngineDO" }
+      { "name": "ALERT_ENGINE", "class_name": "AlertEngineDO" },
+      { "name": "STORM_TRACK", "class_name": "StormTrackDO" }
     ]
   },
   "migrations": [
@@ -69,21 +70,26 @@
     // **ไม่ได้** ไปใช้ ForecastPointerDO ซ้ำ ทั้งที่ชื่อชวนให้เข้าใจผิด: ตัวนั้นคือ
     // ตัวชี้ run ของ exposure (E10.3) การเปลี่ยนชื่อ/นำมาใช้ซ้ำต้องลบคลาสก่อน
     // ซึ่งจะทำลายข้อมูลที่เก็บอยู่
-    { "tag": "v8", "new_sqlite_classes": ["ForecastNwpDO"] }
-    // ไม่มี v9 — เคยลองเพิ่ม deleted_classes/new_sqlite_classes คู่หนึ่งโดยสงสัยว่า
-    // instance "tmd" ค้าง env เก่า แต่ Cloudflare ปฏิเสธตั้งแต่ขั้น deploy จริง:
-    // "Cannot apply --delete-class migration to class 'ForecastNwpDO' without also
-    // removing the binding that references it" — ต่างจาก AlertEngineDO's v6/v7
-    // ตรงที่ตอนนั้น binding ถูกถอดออกไปพร้อมกันในดีพลอยเดียวกัน (เป็นส่วนหนึ่งของ
-    // การ revert ทั้งฟีเจอร์) แล้วค่อยเพิ่มกลับในดีพลอยแยกต่างหากอีกวันหนึ่ง — ที่นี่
-    // ทำแบบนั้นไม่ได้เพราะจะทำให้ endpoint พยากรณ์ที่เพิ่ง ship (E12.2/E12.3) หายไป
-    // ชั่วคราว จึงลองเปลี่ยนชื่อ instance แทน (ดู `NWP_INSTANCE` ใน `forecast-nwp.ts`)
+    { "tag": "v8", "new_sqlite_classes": ["ForecastNwpDO"] },
+    // v9 = StormTrackDO (เส้นทางพายุ JMA + GDACS) — คลาสใหม่ล้วน ๆ ไม่แตะคลาสเดิม
     //
-    // **แต่ทั้งสองอย่างไม่ใช่ตัวแก้จริง**: instance ใหม่ที่ชื่อ "primary" ก็ยังพัง
-    // ด้วย error เดิม สาเหตุจริงคือ `TMD_NWP_TOKEN` ถูกอัปโหลดเป็นค่าว่างตั้งแต่แรก
-    // (`wrangler secret put` ในเชลล์ non-interactive รับ stdin ว่างได้เงียบ ๆ แล้ว
-    // ยังพิมพ์ "✨ Success!") — ไม่เกี่ยวกับ DO instance หรือ migration เลย ดูรายละเอียด
-    // เต็มที่ index.ts บรรทัด scheduled task ของ tmd-nwp และ docs/deploy.md §3
+    // tag "v9" ว่างอยู่จริง ทั้งที่เคยมีคนใช้ชื่อนี้มาก่อน: 2026-08-24 (PR #60, 0ceb2aa) เคยลอง
+    // v9/v10 คู่ deleted_classes/new_sqlite_classes ของ ForecastNwpDO โดยสงสัยว่า instance
+    // "tmd" ค้าง env เก่า แต่ Cloudflare ปฏิเสธดีพลอยนั้นทั้งก้อนก่อน activate:
+    // "Cannot apply --delete-class migration to class 'ForecastNwpDO' without also
+    // removing the binding that references it" [code: 10061] (ต่างจาก AlertEngineDO v6/v7
+    // ที่ binding ถูกถอดพร้อมกันในดีพลอยเดียวกันตอน revert ทั้งฟีเจอร์) — PR #61 (b9a2313)
+    // จึงถอด v9/v10 ออกจากไฟล์ก่อนมีดีพลอยใดสำเร็จ และทุกดีพลอยหลังจากนั้นมี v8 เป็น tag
+    // สุดท้าย Cloudflare บันทึกเฉพาะ tag ที่ apply สำเร็จ บัญชีจึงอยู่ที่ v8 และ v9 ใช้ได้
+    // (`wrangler deploy --dry-run` ตรวจได้แค่ไฟล์นี้ ไม่ได้ตรวจบัญชี migration ฝั่ง Cloudflare)
+    //
+    // ส่วนเรื่อง ForecastNwpDO เอง: ตัวแก้ที่ลองแทนคือเปลี่ยนชื่อ instance เป็น "primary"
+    // (`NWP_INSTANCE` ใน routes/forecast.ts) แต่ **ไม่ใช่ตัวแก้จริงทั้งคู่** — สาเหตุจริงคือ
+    // `TMD_NWP_TOKEN` ถูกอัปโหลดเป็นค่าว่างตั้งแต่แรก (`wrangler secret put` ในเชลล์
+    // non-interactive รับ stdin ว่างได้เงียบ ๆ แล้วยังพิมพ์ "✨ Success!") ไม่เกี่ยวกับ DO
+    // instance หรือ migration เลย ดูรายละเอียดเต็มที่ index.ts บรรทัด scheduled task ของ
+    // tmd-nwp และ docs/deploy.md §3
+    { "tag": "v9", "new_sqlite_classes": ["StormTrackDO"] }
   ],
 
   "triggers": { "crons": ["* * * * *"] },

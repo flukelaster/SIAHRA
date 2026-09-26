@@ -14,6 +14,8 @@ import {
 } from "./routes/localAuthorities.js";
 import { handleObservations } from "./routes/observations.js";
 import { handleRadarFrame, handleRadarFrames } from "./routes/radar.js";
+import { handleStorms } from "./routes/storms.js";
+import { handleNorthRoute } from "./routes/rivers.js";
 import { handleDams, handleStationHistory } from "./routes/stations.js";
 import { handleArchiveDays, handleArchiveSnapshot } from "./routes/archive.js";
 import type { AppEnv } from "./types.js";
@@ -25,6 +27,7 @@ export { ForecastNwpDO } from "./durable-objects/forecast-nwp.js";
 export { ForecastPointerDO } from "./durable-objects/forecast-pointer.js";
 export { ObservationCacheDO } from "./durable-objects/observation-cache.js";
 export { RadarDO } from "./durable-objects/radar.js";
+export { StormTrackDO } from "./durable-objects/storm-track.js";
 
 /**
  * Every route declares its own limit — no endpoint inherits the router's
@@ -39,6 +42,13 @@ export const routes: Route[] = [
   { method: "GET", pattern: /^\/api\/v1\/observations$/, handler: handleObservations, limit: { perMinute: 120 } },
   { method: "GET", pattern: /^\/api\/v1\/flood-extent\/summary$/, handler: handleFloodExtentSummary, limit: { perMinute: 300 } },
   { method: "GET", pattern: /^\/api\/v1\/dams$/, handler: handleDams, limit: { perMinute: 300 } },
+  {
+    // E16 — เส้นทางน้ำเหนือ: RPC เดียวต่อ cache miss และแคชที่ขอบ 120 วิ (ดู routes/rivers.ts)
+    method: "GET",
+    pattern: /^\/api\/v1\/rivers\/north$/,
+    handler: (req, env, _params, ctx) => handleNorthRoute(req, env, ctx),
+    limit: { perMinute: 120 },
+  },
   {
     method: "GET",
     pattern: /^\/api\/v1\/local-authorities$/,
@@ -63,7 +73,7 @@ export const routes: Route[] = [
     // เข้า bundle — จำกัดอัตราเท่ากับเส้นทางอื่นที่พึ่งพา flood extent
     method: "GET",
     pattern: /^\/api\/v1\/local-authorities\/([A-Za-z0-9-]+)\/impact$/,
-    handler: (_req, env, [id]) => handleLocalAuthorityImpact(id, env),
+    handler: (req, env, [id], ctx) => handleLocalAuthorityImpact(id, req, env, ctx),
     limit: { perMinute: 300 },
   },
   { method: "GET", pattern: /^\/api\/v1\/archive\/days$/, handler: handleArchiveDays, limit: { perMinute: 300 } },
@@ -86,7 +96,7 @@ export const routes: Route[] = [
   {
     method: "GET",
     pattern: /^\/api\/v1\/provinces\/([0-9]{2})\/flood-extent$/,
-    handler: (req, env, [province]) => handleProvinceFloodExtent(province, req, env),
+    handler: (req, env, [province], ctx) => handleProvinceFloodExtent(province, req, env, ctx),
     limit: { perMinute: 300 },
   },
   {
@@ -101,6 +111,14 @@ export const routes: Route[] = [
     method: "GET",
     pattern: /^\/api\/v1\/forecast\/availability$/,
     handler: (_req, env) => handleForecastAvailability(env),
+    limit: { perMinute: 300 },
+  },
+  {
+    // เส้นทางพายุทั้งภูมิภาค — DO call เดียว (PK lookup แถวเดียว) ใต้แคชขอบ 5 นาที
+    // ไม่ปลุกการดึงต้นทาง จึงตั้งงบเท่า `/provinces/{NN}/forecast`
+    method: "GET",
+    pattern: /^\/api\/v1\/storms$/,
+    handler: handleStorms,
     limit: { perMinute: 300 },
   },
   {
@@ -187,6 +205,9 @@ export default {
       // ไม่ใช่ตามลำดับ (ดู scheduledTick.ts) แต่ไม่เป็นปัญหา: evaluate() เรียก
       // ObservationCacheDO.getObservations() เอง ซึ่ง refresh ตัวเองถ้าของเก่าหมดอายุ
       { id: "alert-engine", run: () => env.ALERT_ENGINE.getByName("primary").ensureFresh() },
+      // เส้นทางพายุ (JMA + GDACS) รอบละ 30 นาที — ensureFresh() ข้ามรอบที่ยังสด และกั้นด้วย
+      // lastAttemptAt ไม่ให้ยิงต้นทางถี่กว่า RETRY_MS แม้ต้นทางจะล่ม (แบบเดียวกับ tmd-nwp)
+      { id: "storm", run: () => env.STORM_TRACK.getByName("primary").ensureFresh() },
     ]);
   },
 } satisfies ExportedHandler<AppEnv>;

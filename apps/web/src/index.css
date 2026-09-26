@@ -78,6 +78,28 @@ body {
   }
 }
 
+/* แผงเส้นทางน้ำเหนือ: เส้นประไหลตามทิศ path (ต้นน้ำ → ท้ายน้ำ) — ระยะเวลาต่อรอบมาจาก inline
+   style (flowDurationS ใน lib/northRoute.ts); ระยะ 10 ต้องเท่ากับ FLOW_DASH_PERIOD */
+@keyframes north-flow-dash {
+  from {
+    stroke-dashoffset: 10;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.north-flow {
+  animation: north-flow-dash 1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* เส้นประนิ่งไม่บอกอะไร — ซ่อนไปเลย เหลือเส้นลำน้ำ (หรี่ตามการมีค่า) */
+  .north-flow {
+    display: none;
+  }
+}
+
 /* ---------------------------------------------------------------------- */
 /* Map surface                                                              */
 /* ---------------------------------------------------------------------- */

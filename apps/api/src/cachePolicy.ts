@@ -46,6 +46,13 @@ export const slowMoving = policy("slowMoving", "public, max-age=300");
 /** สรุปสถานะแหล่งข้อมูล — สั้นพอที่แถบสถานะจะไม่โชว์ของค้าง */
 export const health = policy("health", "public, max-age=15");
 
+/**
+ * เส้นทางพายุ (`/api/v1/storms`) — รอบดึงของ StormTrackDO คือ 30 นาที และ JMA ออกประกาศ
+ * ทุก 3–6 ชม. CDN 5 นาทีจึงเล็กกว่าหนึ่งรอบมาก ส่วนเบราว์เซอร์ 60 วิ เหมือนค่าตรวจวัด
+ * (บอดี้มี `fetchedAt`/`lastSuccessAt` ของตัวเอง อายุที่แสดงจึงคิดจากค่าจริง ไม่ใช่จากแคช)
+ */
+export const storms = policy("storms", "public, max-age=60, s-maxage=300");
+
 /** เฟรมเรดาร์ล่าสุด (รายการเฟรม) */
 export const radarFrames = policy("radarFrames", "public, max-age=60");
 
@@ -62,14 +69,19 @@ export const archivedSnapshot = policy("archivedSnapshot", "public, max-age=3600
  */
 export function floodExtent(retrievedAt: string | null, historical = false): CachePolicy {
   if (!retrievedAt) return noStore;
-  return historical ? floodExtentArchived : policy("floodExtent", "public, max-age=300, s-maxage=600");
+  return historical ? floodExtentArchived : floodExtentLive;
 }
+
+/**
+ * คำตอบสด (E16.PR0): route เก็บลง `caches.default` ด้วยนโยบายนี้ — TTL ≤ 300 วิ
+ * (devops constraint 11) ทั้งเบราว์เซอร์และขอบ ไม่มี s-maxage ที่ยาวกว่า max-age อีกแล้ว
+ */
+const floodExtentLive = policy("floodExtent", "public, max-age=300");
 
 /**
  * ฉากย้อนหลัง (`?at=` แล้วหาฉากที่ครอบเวลานั้นได้): ไบต์ของฉากที่ archive แล้วไม่มีวันเปลี่ยน
  * และ `at` ถูกปัดเป็นช่วง 10 นาทีที่ฝั่งเว็บ จึงแคชได้ยาว — แต่ไม่ `immutable` เพราะ
- * ฉากใน hot window (≤30 วัน) ยังตอบจากตาราง ซึ่ง last_seen ขยับได้จน set ของ polygon
- * ที่ "ครอบ at" เปลี่ยนตามรอบ refresh ถัดไป
+ * `at` ที่ใกล้ปัจจุบันจะชี้ไปคนละไฟล์ทันทีที่รอบถัดไป archive เนื้อหาใหม่ของจังหวัดนั้น
  * ส่วน `retrievedAt: null` กับ `at` = ไม่มีฉากที่เก็บไว้ — ใช้ noStore เท่าเคส live
  * เพราะฉากถัดไปที่ archive อาจทำให้คำตอบเปลี่ยนภายในครึ่งชั่วโมง
  */

@@ -1,19 +1,32 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type { Province } from "../../data/types";
 import type { ApiHealthState } from "../../hooks/useApiHealth";
 import type { ShellState } from "../../hooks/useShellState";
+import { useLang } from "../../i18n/context";
+import {
+  buildNotifications,
+  markAllSeen,
+  readSeen,
+  unreadCount,
+  writeSeen,
+  type NotificationAction,
+} from "../../lib/notifications";
 import type { SearchPlace } from "../../lib/searchIndex";
+import { bangkokDateKey } from "../../lib/time";
 import { DRAWER_W, GUTTER, RAIL_W, TOPBAR_H } from "../../lib/shellLayout";
 import type { PanelKey } from "../../lib/shellPrefs";
 import { AlertToast } from "./AlertToast";
 import { BottomDock } from "./BottomDock";
 import type { MapInfo } from "./Map3DCanvas";
 import { MobileSheet } from "./MobileSheet";
+import { LazyNotificationCenter as NotificationCenter } from "./LazyNotificationCenter";
 import type { PanelContext } from "./panelRegistry";
 import { SideDrawer } from "./SideDrawer";
 import { SideRail } from "./SideRail";
 import type { TimelineMark } from "./TimelineBar";
 import { TopBar } from "./TopBar";
+
+const getLocalStorage = () => window.localStorage;
 
 export interface AppShellProps {
   ctx: PanelContext;
@@ -48,6 +61,68 @@ export function AppShell(props: AppShellProps) {
     railButtons.current[key]?.focus();
   }, []);
 
+  // ── ศูนย์การแจ้งเตือน: สร้างจาก state ของ hook ที่ App.tsx รันอยู่แล้ว (ผ่าน ctx)
+  // ไม่มี hook โพลตัวที่สอง ไม่มีคำขอเครือข่ายใหม่
+  const { lang } = useLang();
+  const [notifOpen, setNotifOpen] = useState(false);
+  const bellRef = useRef<HTMLButtonElement | null>(null);
+  // อ่านครั้งเดียวตอน mount; เขียนเฉพาะตอนกด "อ่านทั้งหมดแล้ว" — การเปิดศูนย์ไม่นับว่าอ่าน
+  const [seen, setSeen] = useState<string[]>(() => readSeen(getLocalStorage));
+  const { activeAlerts, forecast, storms, affectedAuthorities, province } = ctx;
+  // ApiHealthState เต็ม (มี apiDown/checkedAt) — ctx.apiHealth เป็นแค่ HealthResponse
+  const apiHealth = props.apiHealth;
+  const notifications = useMemo(
+    () =>
+      buildNotifications(
+        {
+          provinceCode: province.code,
+          // วันปฏิทินกรุงเทพฯ ของ "ตอนนี้" — ขั้นรายวันของวันที่ผ่านไปแล้วไม่ใช่เรื่องที่ต้องเตือน
+          // (อ่านนาฬิกาตรงนี้ ไม่ใช่ในโมดูล pure — memo คำนวณใหม่ทุกครั้งที่ข้อมูลเปลี่ยน)
+          todayKey: bangkokDateKey(new Date().toISOString()),
+          activeAlerts,
+          forecast,
+          apiHealth,
+          authorityNames: new Map(affectedAuthorities.entries.map((e) => [e.id, e.nameTh])),
+          storms,
+          provinceName: lang === "th" ? province.nameTh : province.nameEn,
+        },
+        lang,
+      ),
+    [province, activeAlerts, forecast, storms, apiHealth, affectedAuthorities.entries, lang],
+  );
+  const unread = useMemo(() => unreadCount(notifications, seen), [notifications, seen]);
+  const closeNotifications = useCallback(() => setNotifOpen(false), []);
+  const markAllRead = useCallback(() => {
+    setSeen((prev) => {
+      const next = markAllSeen(prev, notifications);
+      writeSeen(getLocalStorage, next);
+      return next;
+    });
+  }, [notifications]);
+  const onNotificationAction = useCallback(
+    (action: NotificationAction) => {
+      if (action.kind === "open-panel") {
+        shell.openPanel(action.panel);
+        setNotifOpen(false);
+      }
+    },
+    [shell],
+  );
+  const provinceName = lang === "th" ? province.nameTh : province.nameEn;
+  const notificationCenter = notifOpen ? (
+    <NotificationCenter
+      tier={shell.tier}
+      bottomInset={shell.safeArea.bottom}
+      items={notifications}
+      seen={seen}
+      provinceName={provinceName}
+      bellRef={bellRef}
+      onClose={closeNotifications}
+      onMarkAllRead={markAllRead}
+      onAction={onNotificationAction}
+    />
+  ) : null;
+
   const topBar = (
     <TopBar
       tier={shell.tier}
@@ -58,10 +133,15 @@ export function AppShell(props: AppShellProps) {
       onSelectPlace={props.onSelectPlace}
       onShare={props.onShare}
       onSnapshot={props.onSnapshot}
+      unreadCount={unread}
+      notificationsOpen={notifOpen}
+      onToggleNotifications={() => setNotifOpen((o) => !o)}
+      bellRef={bellRef}
     />
   );
   const toast = (
-    <AlertToast state={ctx.activeAlerts} safeArea={shell.safeArea} onOpen={() => shell.openPanel("impact")} />
+    // ปุ่มของ toast เปิดศูนย์การแจ้งเตือน — แผงผลกระทบยังเข้าได้จากปุ่มของแต่ละแถวแจ้งเตือน
+    <AlertToast state={ctx.activeAlerts} safeArea={shell.safeArea} onOpen={() => setNotifOpen(true)} />
   );
 
   if (shell.tier === "phone") {
@@ -84,6 +164,7 @@ export function AppShell(props: AppShellProps) {
           onForecastAtIsoChange={props.onForecastAtIsoChange}
         />
         {toast}
+        {notificationCenter}
       </>
     );
   }
@@ -136,6 +217,7 @@ export function AppShell(props: AppShellProps) {
         onHeight={shell.setDockHeight}
       />
       {toast}
+      {notificationCenter}
     </>
   );
 }

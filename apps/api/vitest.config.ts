@@ -25,6 +25,10 @@ export default defineConfig({
   plugins: [
     cloudflareTest({
       wrangler: { configPath: "./wrangler.jsonc" },
+      // E16.PR0: pool อ่าน `.dev.vars` ของเครื่อง dev ด้วย — กุญแจ GISTDA จริงจึงห้ามหลุดเข้า
+      // เทส (alarm ที่ cron ในเทสอื่นตั้งไว้จะยิงต้นทางจริง 77 จังหวัด) เทสที่ต้องการกุญแจ
+      // ใส่ค่าปลอมเองผ่าน test/helpers/gistdaApi.ts `setGistdaKey`
+      miniflare: { bindings: { GISTDA_API_KEY: "" } },
     }),
   ],
   test: {

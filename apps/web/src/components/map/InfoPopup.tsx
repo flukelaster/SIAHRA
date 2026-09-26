@@ -1,8 +1,11 @@
 import { Camera, ExternalLink, RefreshCw, Video, X } from "lucide-react";
+import { m2ToRai, sensorLabel } from "../../lib/gistdaFlood";
 import { useEffect, useRef, useState } from "react";
 import { FloodFieldClass, type CctvCamera, type ItiCCamera } from "@siahra/shared-types";
 import { gfmConfidence } from "../../scene/floodField";
 import type { FloodCellPick, PickResult } from "../../scene/picking";
+import type { StationSheetCellPick } from "../../scene/StationSheet";
+import type { GistdaDepthCellPick } from "../../lib/gistdaDepthField";
 import { useStationHistory } from "../../hooks/useStationHistory";
 import { useNow } from "../../hooks/useNow";
 import {
@@ -32,6 +35,7 @@ import {
 import { Sparkline } from "../hazard/Sparkline";
 import { floodDepthMaxLabel } from "../../lib/floodStyle";
 import { formatNumber } from "../../lib/number";
+import { percentOfQmax } from "../../lib/northRoute";
 import { formatDateTime, formatFullDateTime } from "../../lib/time";
 import { damDisplayName } from "../../lib/damName";
 import { nearestProvinceLabel } from "../../lib/nearestProvince";
@@ -121,6 +125,69 @@ export function GfmCellBlock({ cell, lang, t }: { cell: FloodCellPick; lang: Lan
         <ExternalLink size={10} aria-hidden="true" />
         {t("freshness.methodology")}
       </a>
+    </div>
+  );
+}
+
+/** ต่ำกว่านี้ (ซม.) ทศนิยมหนึ่งตำแหน่งจะออกมาเป็น "0.0" — แสดงเป็น "< 0.1 ม." แทน */
+const GISTDA_DEPTH_FLOOR_CM = 10;
+
+/**
+ * ความลึกของแผ่นน้ำ GISTDA (E16 B-2) ใต้จุดที่คลิก — export เพื่อให้เทสเรนเดอร์ตรง ๆ ได้
+ * ความลึก < 10 ซม. แสดง "< 0.1 ม.": พื้นเป็น DSM จำนวนเต็มเมตรบนกริดหยาบ ค่าต่ำกว่านี้คือพื้นของ
+ * ความละเอียด ไม่ใช่ค่าที่วัดได้ (และ "0.0 ม." จะอ่านเหมือน "แห้ง" ทั้งที่ GISTDA ว่าท่วม)
+ */
+export function GistdaDepthBlock({ cell, lang, t }: { cell: GistdaDepthCellPick; lang: Lang; t: TFunction }) {
+  return (
+    <div className="mt-1.5" data-gistda-depth={cell.depthCm ?? "not-estimated"}>
+      <p className="text-[11px] text-[#b3cce0]">
+        {cell.depthCm === null
+          ? t("popup.gistdaDepth.notEst")
+          : cell.depthCm < GISTDA_DEPTH_FLOOR_CM
+            ? t("popup.gistdaDepth.belowFloor", { m: formatNumber(lang, GISTDA_DEPTH_FLOOR_CM / 100, 1) })
+            : t("popup.gistdaDepth", { m: formatNumber(lang, cell.depthCm / 100, 1) })}
+      </p>
+      <p className="text-[10px] text-[var(--color-fg-subtle)]">
+        {t("popup.gistdaDepth.note", { m: formatNumber(lang, cell.cellSizeM, 0) })}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * เซลล์ของแผ่นน้ำจำลองจากระดับน้ำที่สถานี (E16 B-1) — ทุกบรรทัดบอกว่า "จำลอง" และชี้กลับไปที่
+ * ค่าตรวจวัดที่มันมาจาก (ชื่อสถานี, ระดับ ม.รทก., เวลาตรวจวัด) ไม่ใช่ความลึกที่ใครวัดได้ตรงนี้
+ */
+/** C3 — ความละเอียดที่สถานีนั้นถูกคำนวณจริง และเหตุที่ไม่ใช่กริดละเอียด */
+const SHEET_RESOLUTION_KEY: Record<StationSheetCellPick["resolution"], MessageKey> = {
+  leaf: "popup.sheet.resolution.leaf",
+  overview: "popup.sheet.resolution.overview",
+  pending: "popup.sheet.resolution.pending",
+  "overview-budget": "popup.sheet.resolution.budget",
+  "overview-failed": "popup.sheet.resolution.failed",
+};
+
+export function StationSheetBlock({ cell, lang, t }: { cell: StationSheetCellPick; lang: Lang; t: TFunction }) {
+  const name = pickName(cell.obs.station.nameTh, cell.obs.station.nameEn, lang) ?? `#${cell.obs.station.id}`;
+  return (
+    <div className="mt-2 border-t border-white/10 pt-1.5" data-station-sheet={cell.obs.station.id}>
+      <p className="text-[11px] text-[var(--color-fg-subtle)]">{t("popup.sheet.title")}</p>
+      <p className="mt-0.5 text-[11px] text-[#7fe0c8]">
+        {cell.depthCm === null
+          ? t("popup.sheet.notEst")
+          : t("popup.sheet.depth", { m: (cell.depthCm / 100).toFixed(1) })}
+      </p>
+      <p className="text-[11px] text-[var(--color-fg-muted)]">
+        {t("popup.sheet.source", {
+          station: name,
+          level: formatNumber(lang, cell.obs.waterlevelMsl, 2),
+          time: fmtTime(lang, cell.obs.observedAt),
+        })}
+      </p>
+      <p className="text-[10px] text-[var(--color-fg-muted)]" data-sheet-resolution={cell.resolution}>
+        {t(SHEET_RESOLUTION_KEY[cell.resolution], { m: formatNumber(lang, cell.cellSizeM, 0) })}
+      </p>
+      <p className="mt-0.5 text-[10px] text-[var(--color-fg-subtle)]">{t("popup.sheet.note")}</p>
     </div>
   );
 }
@@ -967,6 +1034,13 @@ function WaterLevelBody({
 }) {
   const { obs } = pick;
   const [hours, setHours] = useState(72);
+  // E16 — กราฟเดียวกันสลับได้ระหว่างระดับน้ำกับอัตราการไหล (คอลัมน์เดียวกันของประวัติ)
+  const [series, setSeries] = useState<"level" | "discharge">("level");
+  // แถว waterlevel ที่เขียนก่อน E16 ไม่มีฟิลด์ใหม่ — undefined = ไม่มีข้อมูล ไม่ใช่ 0
+  const dischargeM3s = obs.dischargeM3s ?? null;
+  const qmaxM3s = obs.qmaxM3s ?? null;
+  const criticalLevelMsl = obs.criticalLevelMsl ?? null;
+  const qmaxPct = percentOfQmax(dischargeM3s, qmaxM3s);
   const history = useStationHistory(obs.station.id, true, hours);
   // E15/E15.2 — กล้องที่ใกล้ที่สุดภายใน 3 กม. จากทั้งสองแหล่ง (DWR / iTIC) คิดจากบัญชีที่
   // โหลดไว้แล้ว ไม่ส่ง request ใด — ภาพ/สตรีมถูกขอเมื่อผู้ใช้กดปุ่มเท่านั้น
@@ -1016,6 +1090,16 @@ function WaterLevelBody({
             v={`${Math.abs(obs.freeboardM).toFixed(2)} ${t("unit.m")}`}
           />
         ) : null}
+        {criticalLevelMsl !== null ? (
+          <Row k={t("popup.criticalLevel")} v={`${criticalLevelMsl.toFixed(2)} ${t("unit.msl")}`} />
+        ) : null}
+        {dischargeM3s !== null ? (
+          <Row k={t("popup.discharge")} v={`${formatNumber(lang, dischargeM3s, 1)} ${t("unit.m3s")}`} />
+        ) : null}
+        {/* เฉพาะเมื่อมีทั้งอัตราการไหลและความจุลำน้ำที่ต้นทางเผยแพร่ — ไม่มีสัดส่วนที่เดาขึ้นเอง */}
+        {qmaxPct !== null ? (
+          <Row k={t("popup.qmaxPct")} v={`${formatNumber(lang, qmaxPct)}% (${formatNumber(lang, qmaxM3s)} ${t("unit.m3s")})`} />
+        ) : null}
         <Row k={t("popup.observedAt")} v={fmtTime(lang, obs.observedAt)} />
       </div>
       {nearest && onOpenCamera ? (
@@ -1053,7 +1137,26 @@ function WaterLevelBody({
           <div className="h-16 animate-pulse rounded bg-white/8" />
         ) : history.data ? (
           <>
-            <Sparkline points={history.data.points} bankMsl={history.data.datum === "msl" ? obs.minBankMsl : null} />
+            <Sparkline
+              points={history.data.points}
+              bankMsl={history.data.datum === "msl" ? obs.minBankMsl : null}
+              series={series}
+            />
+            {history.data.points.some((p) => p.discharge !== null) ? (
+              <span className="mb-0.5 flex w-fit rounded bg-white/5 p-0.5">
+                {(["level", "discharge"] as const).map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setSeries(k)}
+                    aria-pressed={series === k}
+                    className={`cursor-pointer rounded px-1.5 text-[10px] ${series === k ? "bg-[var(--color-accent)] text-white" : "text-[var(--color-fg-muted)]"}`}
+                  >
+                    {t(k === "level" ? "popup.series.level" : "popup.series.discharge")}
+                  </button>
+                ))}
+              </span>
+            ) : null}
             <div className="flex items-center justify-between">
               <p className="text-[10px] text-[var(--color-fg-subtle)]">
                 {t("popup.realObserved")}
@@ -1237,24 +1340,44 @@ export function InfoPopup({
             {pick.flood ? (
               <>
                 <Row k={t("popup.amphoe")} v={pick.flood.properties.amphoeTh ?? "—"} />
+                {pick.flood.properties.h3 ? <Row k={t("popup.h3Cell")} v={pick.flood.properties.h3} /> : null}
                 <Row
                   k={t("popup.floodArea")}
                   v={
-                    pick.flood.properties.floodAreaRai !== null
-                      ? `${formatNumber(lang, Math.round(pick.flood.properties.floodAreaRai))} ${t("unit.rai")}`
+                    pick.flood.properties.floodAreaM2 !== null
+                      ? `${formatNumber(lang, Math.round(m2ToRai(pick.flood.properties.floodAreaM2) * 10) / 10)} ${t("unit.rai")}`
+                      : "—"
+                  }
+                />
+                {/* เวลาภาพ = ภาพใหม่สุดที่ GISTDA ระบุไว้สำหรับเซลล์นี้ — null (ฉาก WFS เดิม) แสดง "—" ไม่ใช่ "ตอนนี้" */}
+                <Row
+                  k={t("popup.imageTime")}
+                  v={
+                    pick.flood.properties.observedAt
+                      ? `${fmtTime(lang, pick.flood.properties.observedAt)}${
+                          pick.flood.properties.acquisitions?.[0]
+                            ? ` · ${sensorLabel(pick.flood.properties.acquisitions[0].sensor)}`
+                            : ""
+                        }`
                       : "—"
                   }
                 />
                 <Row k={t("popup.firstSeen")} v={fmtTime(lang, pick.flood.properties.firstSeenAt)} />
-                <Row k={t("popup.lastSeen")} v={fmtTime(lang, pick.flood.properties.lastSeenAt)} />
               </>
             ) : null}
           </div>
+          {/* E16 B-2 — ความลึกของแผ่นน้ำ GISTDA ใต้จุดนี้: แสดงเฉพาะคู่กับเซลล์ GISTDA (`pick.flood`) เสมอ
+              เวลาภาพ + ดาวเทียมจึงอยู่เหนือบรรทัดนี้ทุกครั้ง; null = ไม่มีแผ่นตรงนี้ (ไม่ใช่ "ไม่ท่วม") */}
+          {pick.flood && pick.gistdaDepth ? (
+            <GistdaDepthBlock cell={pick.gistdaDepth} lang={lang} t={t} />
+          ) : null}
           {pick.flood ? (
             <p className="mt-1.5 text-[10px] text-[var(--color-fg-subtle)]">{t("popup.floodNote")}</p>
           ) : null}
           {/* เซลล์ GFM ใต้จุดนี้ (E14.F5) — null = ไม่มีฉากที่วาดอยู่ จึงไม่พูดถึงเลย ไม่ใช่ "แห้ง" */}
           {pick.floodCell ? <GfmCellBlock cell={pick.floodCell} lang={lang} t={t} /> : null}
+          {/* แผ่นน้ำจำลองจากสถานี (E16 B-1) — null = ชั้นซ่อน/ไม่มีแผ่นตรงนี้ จึงไม่พูดถึงเลย */}
+          {pick.stationSheet ? <StationSheetBlock cell={pick.stationSheet} lang={lang} t={t} /> : null}
         </>
       ) : null}
     </div>

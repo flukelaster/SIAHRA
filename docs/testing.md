@@ -24,7 +24,7 @@ lines above.
 ## How the API suite is arranged
 
 `apps/api` runs on **`@cloudflare/vitest-pool-workers`**, so tests execute in `workerd` through
-miniflare with the real bindings from `wrangler.jsonc` — R2 and all seven Durable Objects.
+miniflare with the real bindings from `wrangler.jsonc` — R2 and all eight Durable Objects.
 
 Version notes that cost time to rediscover (they are also in `apps/api/vitest.config.ts`):
 
@@ -84,7 +84,10 @@ Two rules that keep the suite honest:
 
 All seven upstreams share **one** fixture directory, `apps/api/test/fixtures/`. Do not create a second
 set beside it; extend these. (A per-upstream subdirectory *inside* it — `fixtures/tmdNwp/` — is not a
-second set and is fine when one upstream needs several whole documents.)
+second set and is fine when one upstream needs several whole documents.) The storm fixtures in
+`fixtures/storm/` are the exception to the next paragraph: every non-empty file there is an
+**unmodified `curl` capture** of JMA / GDACS taken 2026-09-26, and the two `*-empty.json` files are
+synthetic — `fixtures/storm/README.md` lists each URL.
 
 **These are hand-built, shape-faithful replicas, not raw captures.** Each one reproduces the structure,
 field names, encodings and quirks measured from the live upstream on the date below, with the record
@@ -106,7 +109,7 @@ you add one.
 | `thaiwater-analyst-dam.json` | ThaiWater dams | 2026-08-19 | `…/analyst/dam` |
 | `tmdNwp/hourly-region-S.json` | TMD NWP hourly, one region | 2026-08-23 | `https://data.tmd.go.th/nwpapi/v1/forecast/location/hourly/region?region=S&fields=tc,rain,cond&duration=48` (Bearer token — **never store it here**) — ตัดเหลือ 5 จังหวัด (90–94) ให้อยู่ในเพดาน 50 KB, คงครบทุกขั้นเวลา |
 | `tmdNwp/daily-region-S.json` | TMD NWP daily, one region | 2026-08-23 | `…/forecast/location/daily/region?region=S&fields=rain,cond&duration=7` — ตัดเหลือ 5 จังหวัด (90–94) ให้อยู่ในเพดาน 50 KB, คงครบทุกขั้นเวลา |
-| `gistda-wfs.json` | GISTDA flood extent (WFS) | 2026-08-19 | `https://flood-innotech.gistda.or.th/flooding_vis_public?service=WFS&version=2.0.0&request=GetFeature&typeNames=flooding_vis:FloodArea_Poly&outputFormat=application/json` |
+| `gistda-api-page.json` | GISTDA flood extent (API gateway, H3 cells) | 2026-09-26 | `https://api-gateway.gistda.or.th/api/2.0/resources/features/flood/3days?pv_idn=NN&limit=1000&offset=M` (`API-Key` header — **never store the key here**; upstream echoes it into `links[]`, so the fixture's `links[].href` carries the placeholder `FIXTURE-ECHOED-KEY`) |
 
 Rules for every fixture:
 
