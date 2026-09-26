@@ -173,6 +173,20 @@ export function MapAttribution({
             {t("attribution.sourcesCount", { n: credits.length })}
           </button>
         )}
+        {/* ลิงก์ซอร์สโค้ด — ย้ายมาจากปุ่มบน TopBar (ช่องนั้นเป็นกระดิ่งแจ้งเตือนแล้ว)
+            อยู่ในบรรทัดย่อที่ mount เสมอ จึงเห็นได้ทุก tier รวมมือถือ — วางก่อนประโยค ©
+            (ไม่ใช่ท้ายบรรทัด) เพราะบนจอ 360 คำสั้น ๆ นี้ต่อท้ายปุ่ม "แหล่งข้อมูล (n)" ได้
+            ในบรรทัดเดิม ถ้าวางท้ายสุดจะถูกห่อขึ้นบรรทัดใหม่ทั้งบรรทัด (+16px ของ peek) */}
+        {sep}
+        <a
+          href={BRAND.repoUrl}
+          target="_blank"
+          rel="noreferrer noopener"
+          title={t("topbar.repoTitle")}
+          className="underline decoration-white/25 underline-offset-2 hover:text-white/90"
+        >
+          {t("attribution.repo")}
+        </a>
         {exaggerationNote ? (
           <>
             {sep}
