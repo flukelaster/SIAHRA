@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import type { AoiManifest, CctvCamera, ItiCCamera } from "@siahra/shared-types";
+import { CAMERA_SOURCES, type AoiManifest, type Camera, type CameraStreamKind } from "@siahra/shared-types";
 import { createLocalProjection } from "./localProjection";
 
 /** Sprite size in CSS px (sizeAttenuation off) — เล็กกว่าหมุดเขื่อนใหญ่ ไม่แย่งสายตาจากค่าตรวจวัด */
@@ -13,21 +13,50 @@ export interface CctvMarkerResult {
   dispose: () => void;
 }
 
-let sharedTexture: THREE.CanvasTexture | null = null;
-let sharedIticTexture: THREE.CanvasTexture | null = null;
-let sharedIticSnapshotTexture: THREE.CanvasTexture | null = null;
+/** ไอคอนของหมุด: ชนิดของสตรีมหลัก (วิดีโอ/ภาพนิ่ง) × ตรวจแล้วตอน build (ok) หรือยังไม่ยืนยัน (หรี่) */
+export interface MarkerStyle {
+  kind: "video" | "still";
+  /** สตรีมใดสตรีมหนึ่งของกล้องมี `probe.result === "ok"` — `not-probed` นับว่า *ยังไม่ยืนยัน* เช่นกัน */
+  verified: boolean;
+}
+
+const VIDEO_KINDS: ReadonlySet<CameraStreamKind> = new Set(["hls", "mjpeg", "dwr-mjpeg"]);
 
 /**
- * ไอคอนกล้องสีเดียวทุกตัว (E15) — หมุดบอกแค่ "ตรงนี้มีกล้องของ DWR" ไม่ได้เข้ารหัสค่าใด ๆ
+ * หมุดบอกแค่ "ตรงนี้มีกล้อง ชนิดไหน ตรวจแล้วหรือยัง" (E15.3) — ไม่ได้เข้ารหัสค่าใด ๆ และไม่บอกแหล่ง
+ * (แหล่งอยู่ในแผงกล้อง/legend): ชนิด = สตรีมแรกของกล้อง (สตรีมค่าเริ่มต้นที่แผงเปิด) และ "ตรวจแล้ว"
+ * = อย่างน้อยหนึ่งสตรีมตอบตอน build — สตรีมที่ไม่ตอบหรือไม่ได้ probe ทำให้หมุดหรี่ ไม่หายไป
  * (ไม่มีสีตามความสด: ความสดรู้ได้ต่อเมื่อดึงภาพ ซึ่งเกิดเฉพาะตอนคลิก)
  */
-function cameraTexture(): THREE.CanvasTexture {
-  if (sharedTexture) return sharedTexture;
+export function markerStyle(camera: Pick<Camera, "streams">): MarkerStyle {
+  const first = camera.streams[0];
+  return {
+    kind: first && VIDEO_KINDS.has(first.kind) ? "video" : "still",
+    verified: camera.streams.some((s) => s.probe.result === "ok"),
+  };
+}
+
+const textures = new Map<string, THREE.CanvasTexture>();
+
+/** สี glyph — ฟ้า (ตรงกับ swatch ใน MapLegend) / เทาเมื่อยังไม่ยืนยัน */
+const GLYPH_VERIFIED = "#38bdf8";
+const GLYPH_DIMMED = "#94a3b8";
+
+/**
+ * วงกลมพื้นเข้มขอบขาวหนึ่งแบบสำหรับทุกแหล่ง สัญลักษณ์ในวง: สามเหลี่ยม "เล่น" = วิดีโอ, รูปกล้อง =
+ * ภาพนิ่ง; หมุดที่ยังไม่ยืนยันวาดจางลงทั้งหมุด (globalAlpha) และ glyph เป็นสีเทา — legend มี swatch
+ * ที่ตรงกัน (`MapLegend.tsx` `CamSwatch`)
+ */
+function markerTexture(style: MarkerStyle): THREE.CanvasTexture {
+  const key = `${style.kind}:${style.verified ? "ok" : "dim"}`;
+  const cached = textures.get(key);
+  if (cached) return cached;
   const size = 64;
   const c = document.createElement("canvas");
   c.width = size;
   c.height = size;
   const ctx = c.getContext("2d")!;
+  ctx.globalAlpha = style.verified ? 1 : 0.55;
   ctx.shadowColor = "rgba(0,0,0,0.6)";
   ctx.shadowBlur = 6;
   ctx.beginPath();
@@ -36,131 +65,82 @@ function cameraTexture(): THREE.CanvasTexture {
   ctx.fill();
   ctx.shadowBlur = 0;
   ctx.lineWidth = 3;
-  ctx.strokeStyle = "rgba(255,255,255,0.9)";
+  ctx.strokeStyle = style.verified ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.55)";
   ctx.stroke();
-  // ตัวกล้อง + เลนส์
-  ctx.fillStyle = "#e2e8f0";
-  ctx.beginPath();
-  ctx.roundRect(15, 23, 26, 18, 3);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(41, 28);
-  ctx.lineTo(50, 23);
-  ctx.lineTo(50, 41);
-  ctx.lineTo(41, 36);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = "#0ea5e9";
-  ctx.beginPath();
-  ctx.arc(28, 32, 5, 0, Math.PI * 2);
-  ctx.fill();
+  const glyph = style.verified ? GLYPH_VERIFIED : GLYPH_DIMMED;
+  if (style.kind === "video") {
+    ctx.fillStyle = glyph;
+    ctx.beginPath();
+    ctx.moveTo(25, 20);
+    ctx.lineTo(45, 32);
+    ctx.lineTo(25, 44);
+    ctx.closePath();
+    ctx.fill();
+  } else {
+    // ตัวกล้อง + เลนส์
+    ctx.fillStyle = style.verified ? "#e2e8f0" : GLYPH_DIMMED;
+    ctx.beginPath();
+    ctx.roundRect(15, 23, 26, 18, 3);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(41, 28);
+    ctx.lineTo(50, 23);
+    ctx.lineTo(50, 41);
+    ctx.lineTo(41, 36);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = style.verified ? GLYPH_VERIFIED : "rgba(10,16,30,0.9)";
+    ctx.beginPath();
+    ctx.arc(28, 32, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
-  sharedTexture = tex;
-  return tex;
-}
-
-/** พื้นสี่เหลี่ยมมุมมนสีอำพันของหมุด iTIC ทั้งสองแบบ — คืน context ไว้วาดสัญลักษณ์ต่อ */
-function iticTile(): { c: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
-  const size = 64;
-  const c = document.createElement("canvas");
-  c.width = size;
-  c.height = size;
-  const ctx = c.getContext("2d")!;
-  ctx.shadowColor = "rgba(0,0,0,0.6)";
-  ctx.shadowBlur = 6;
-  ctx.beginPath();
-  ctx.roundRect(9, 9, 46, 46, 11);
-  ctx.fillStyle = "rgba(120,53,15,0.92)";
-  ctx.fill();
-  ctx.shadowBlur = 0;
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = "#fbbf24";
-  ctx.stroke();
-  return { c, ctx };
-}
-
-/**
- * ไอคอนกล้องถนนของ iTIC (E15.2) — ต่างจากกล้อง DWR ทั้งรูปทรง (สี่เหลี่ยมมุมมน ไม่ใช่วงกลม)
- * และสี (อำพัน) พร้อมสามเหลี่ยม "เล่น" = วิดีโอสด ไม่ใช่ภาพนิ่ง; ไม่ได้เข้ารหัสค่าใด ๆ เช่นกัน
- */
-function iticTexture(): THREE.CanvasTexture {
-  if (sharedIticTexture) return sharedIticTexture;
-  const { c, ctx } = iticTile();
-  ctx.fillStyle = "#fde68a";
-  ctx.beginPath();
-  ctx.moveTo(25, 20);
-  ctx.lineTo(45, 32);
-  ctx.lineTo(25, 44);
-  ctx.closePath();
-  ctx.fill();
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  sharedIticTexture = tex;
+  textures.set(key, tex);
   return tex;
 }
 
 /**
- * กล้อง iTIC ที่ให้ภาพนิ่งรีเฟรชอัตโนมัติ (`stream.kind = "jpeg"`) — พื้นเดียวกับหมุดวิดีโอ
- * (ยังเป็นกล้องถนนของ iTIC) แต่สัญลักษณ์เป็นรูปกล้อง ไม่ใช่สามเหลี่ยม "เล่น" เพื่อไม่ให้อ่านเป็นวิดีโอสด
+ * หมุดกล้องทุกแหล่งในบัญชีรวมที่ตกในกริดของจังหวัดนี้ (รวมกล้องของจังหวัดข้างเคียงที่อยู่ในกรอบ) —
+ * กลุ่มเดียว material สูงสุดสี่แบบ (ชนิด × ยืนยัน) และ `renderOrder` ตาม `markerPriority` ของแหล่ง
+ * (หมุดริมน้ำของ DWR อยู่บนกล้องถนนเมื่อทับกัน)
  */
-function iticSnapshotTexture(): THREE.CanvasTexture {
-  if (sharedIticSnapshotTexture) return sharedIticSnapshotTexture;
-  const { c, ctx } = iticTile();
-  ctx.fillStyle = "#fde68a";
-  ctx.beginPath();
-  ctx.roundRect(17, 24, 30, 20, 3);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.roundRect(25, 20, 10, 6, 2);
-  ctx.fill();
-  ctx.fillStyle = "rgba(120,53,15,1)";
-  ctx.beginPath();
-  ctx.arc(32, 34, 6, 0, Math.PI * 2);
-  ctx.fill();
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  sharedIticSnapshotTexture = tex;
-  return tex;
-}
-
-/** กล้องของแหล่งไหน — กำหนดไอคอนและ `userData.kind` ที่ picking ส่งต่อให้ popup */
-export type CctvMarkerSource =
-  | { kind: "cctv"; cameras: readonly CctvCamera[] }
-  | { kind: "itic"; cameras: readonly ItiCCamera[] };
-
-/** หมุดกล้องทุกตัวในบัญชีที่ตกในกริดของจังหวัดนี้ (รวมกล้องของจังหวัดข้างเคียงที่อยู่ในกรอบ) */
 export function buildCctvMarkers(
   manifest: AoiManifest,
-  source: CctvMarkerSource,
+  cameras: readonly Camera[],
   sampleGround: (x: number, z: number) => number,
   viewportHeightPx: number,
 ): CctvMarkerResult {
-  const cameras: readonly (CctvCamera | ItiCCamera)[] = source.cameras;
   const proj = createLocalProjection(manifest);
   const dots = new THREE.Group();
-  dots.name = `${source.kind}:dots`;
+  dots.name = "cameras:dots";
   const placed: { sprite: THREE.Sprite; groundY: number }[] = [];
-  const makeMaterial = (map: THREE.Texture) =>
-    new THREE.SpriteMaterial({ map, sizeAttenuation: false, depthTest: false, depthWrite: false, transparent: true });
-  const material = makeMaterial(source.kind === "itic" ? iticTexture() : cameraTexture());
-  /** หมุดภาพนิ่งของ iTIC — สร้างเมื่อมีกล้องแบบนี้ในชุดจริงเท่านั้น */
-  let snapshotMaterial: THREE.SpriteMaterial | null = null;
-  const materialFor = (cam: CctvCamera | ItiCCamera): THREE.SpriteMaterial => {
-    if (!("stream" in cam) || cam.stream.kind !== "jpeg") return material;
-    snapshotMaterial ??= makeMaterial(iticSnapshotTexture());
-    return snapshotMaterial;
+  /** material ต่อรูปแบบ — สร้างเมื่อมีกล้องแบบนั้นในชุดจริงเท่านั้น */
+  const materials = new Map<string, THREE.SpriteMaterial>();
+  const materialFor = (style: MarkerStyle): THREE.SpriteMaterial => {
+    const key = `${style.kind}:${style.verified}`;
+    let m = materials.get(key);
+    if (!m) {
+      m = new THREE.SpriteMaterial({
+        map: markerTexture(style),
+        sizeAttenuation: false,
+        depthTest: false,
+        depthWrite: false,
+        transparent: true,
+      });
+      materials.set(key, m);
+    }
+    return m;
   };
   for (const cam of cameras) {
     const [x, z] = proj.lonLatToLocal(cam.lon, cam.lat);
     if (!proj.insideGrid(x, z)) continue;
     const groundY = sampleGround(x, z);
-    const sprite = new THREE.Sprite(materialFor(cam));
+    const sprite = new THREE.Sprite(materialFor(markerStyle(cam)));
     sprite.scale.setScalar((MARKER_PX / Math.max(1, viewportHeightPx)) * 2);
     sprite.position.set(x, groundY, z);
-    // กล้อง DWR อยู่บนกล้องถนนเมื่อทับกัน (หมุดริมน้ำสัมพันธ์กับชั้นอุทกภัยมากกว่า)
-    sprite.renderOrder = source.kind === "itic" ? 30 : 31;
-    sprite.userData = { kind: source.kind, camera: cam };
+    sprite.renderOrder = CAMERA_SOURCES[cam.sourceId].markerPriority;
+    sprite.userData = { kind: "camera", camera: cam };
     dots.add(sprite);
     placed.push({ sprite, groundY });
   }
@@ -172,8 +152,7 @@ export function buildCctvMarkers(
     },
     // texture ใช้ร่วมกันทั้งแอป (สร้างครั้งเดียว) จึงทิ้งแค่ material ของชุดนี้
     dispose: () => {
-      material.dispose();
-      snapshotMaterial?.dispose();
+      for (const m of materials.values()) m.dispose();
     },
   };
 }

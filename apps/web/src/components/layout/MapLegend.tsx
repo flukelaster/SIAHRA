@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { ExternalLink, Gauge, Layers } from "lucide-react";
-import type { FloodSceneIndexEntry, ProvinceExposureResponse } from "@siahra/shared-types";
+import { SOURCES, type CameraSourceId, type FloodSceneIndexEntry, type ProvinceExposureResponse } from "@siahra/shared-types";
 import { DETAIL_TILE_ALTITUDE_GATE_M } from "../../scene/lod";
 import type { QualityLevel, QualityMode } from "../../scene/quality";
 import type { LazySceneLayer, MapLayers } from "./Map3DCanvas";
@@ -41,7 +41,7 @@ import type { StationSheetInfo } from "../../scene/StationSheet";
 import { FLOOD_SCENE_MAX_AGE_MS, type FloodSceneReason } from "../../lib/floodScenes";
 import type { ErrorMessage } from "../../lib/errorMessage";
 import { resolveError } from "../../lib/errorMessage";
-import { CCTV_ENABLED, ITIC_ENABLED } from "../../lib/featureFlags";
+import { ENABLED_CAMERA_SOURCES } from "../../lib/featureFlags";
 import { formatNumber } from "../../lib/number";
 import { formatAge, formatFullDateTime, formatWeekday } from "../../lib/time";
 import type { ExposureUnavailableReason } from "../../hooks/useFloodExposure";
@@ -779,40 +779,29 @@ function ForecastBandLegendRow({
   );
 }
 
-/** สัญลักษณ์หมุดกล้อง DWR (วงกลม จุดฟ้า) — ตรงกับ `cameraTexture()` ใน scene/CctvMarkers.ts */
-function DwrCamSwatch() {
-  return (
-    <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full border border-white/80 bg-[#0a101e]">
-      <span className="h-1.5 w-1.5 rounded-full bg-[#0ea5e9]" />
-    </span>
-  );
-}
-
-/** สัญลักษณ์หมุดกล้องถนน iTIC (สี่เหลี่ยมมุมมน สีอำพัน) — ตรงกับ `iticTexture()` */
-function IticCamSwatch() {
-  return (
-    <span className="flex h-3.5 w-3.5 items-center justify-center rounded-[4px] border border-[#fbbf24] bg-[#78350f]">
-      <span className="h-0 w-0 border-y-[3px] border-l-[5px] border-y-transparent border-l-[#fde68a]" />
-    </span>
-  );
-}
-
 /**
- * ชื่อ + หมายเหตุของแถว `cctv` ตามแฟล็กที่เปิด — แหล่งที่ถูกถอดด้วยแฟล็กต้องไม่ถูกเอ่ยถึงเลย
- * (ไม่มีชื่อ ไม่มีหมายเหตุ ไม่มีสัญลักษณ์)
+ * สัญลักษณ์หมุดกล้อง (E15.3) — ตรงกับ `markerTexture()` ใน scene/CctvMarkers.ts: วงกลมพื้นเข้มขอบขาว
+ * สามเหลี่ยม "เล่น" = วิดีโอ, รูปกล้อง = ภาพนิ่ง; `dimmed` = ยังไม่ยืนยันตอน build (จางทั้งหมุด glyph เทา)
  */
-const CCTV_ROW: { labelKey: MessageKey; noteKeys: MessageKey[] } = {
-  labelKey:
-    CCTV_ENABLED && ITIC_ENABLED
-      ? "legend.layer.cctv"
-      : ITIC_ENABLED
-        ? "legend.layer.cctv.iticOnly"
-        : "legend.layer.cctv.dwrOnly",
-  noteKeys: [
-    ...(CCTV_ENABLED ? (["legend.layer.cctv.note"] as const) : []),
-    ...(ITIC_ENABLED ? (["legend.layer.cctv.noteItic"] as const) : []),
-  ],
-};
+function CamSwatch({ kind, dimmed = false }: { kind: "video" | "still"; dimmed?: boolean }) {
+  const glyph = dimmed ? "#94a3b8" : "#38bdf8";
+  return (
+    <span
+      className={`flex h-3.5 w-3.5 items-center justify-center rounded-full border bg-[#0a101e] ${dimmed ? "border-white/50 opacity-55" : "border-white/80"}`}
+    >
+      {kind === "video" ? (
+        <span className="h-0 w-0 border-y-[3px] border-l-[5px] border-y-transparent" style={{ borderLeftColor: glyph }} />
+      ) : (
+        <span className="h-1.5 w-2 rounded-[1px]" style={{ background: dimmed ? glyph : "#e2e8f0" }} />
+      )}
+    </span>
+  );
+}
+
+/** ชื่อแหล่งกล้องที่เปิดอยู่ใน build นี้ ตามภาษา — ใส่ในหมายเหตุของแถว `cctv` (ไม่มีคีย์ i18n ต่อแหล่ง) */
+function cameraSourceNames(lang: Lang): string {
+  return ENABLED_CAMERA_SOURCES.map((id) => (lang === "th" ? SOURCES[id].nameTh : SOURCES[id].nameEn)).join(" · ");
+}
 
 const LAYER_ROWS: {
   key: keyof MapLayers;
@@ -958,15 +947,15 @@ const LAYER_ROWS: {
     swatch: <span className="h-3 w-3 rounded-sm border border-white/80 bg-[#38bdf8]" />,
   },
   {
-    // E15/E15.2 — แสดงเมื่อแฟล็กของแหล่งใดแหล่งหนึ่งเปิด (กรองตอนเรนเดอร์ข้างล่าง) ชื่อ/หมายเหตุ/
-    // สัญลักษณ์เลือกตามแฟล็กที่เปิดอยู่ (`CCTV_ROW`) — labelKey/noteKey ตรงนี้คือกรณีมีทั้งสองแหล่ง
+    // E15/E15.3 — แสดงเมื่อมีแหล่งกล้องเปิดอยู่ใน build (กรองตอนเรนเดอร์ข้างล่าง) หมายเหตุใส่ชื่อแหล่ง
+    // ที่เปิดอยู่ (`cameraSourceNames`) — แหล่งที่ถูกถอดด้วยแฟล็กไม่ถูกเอ่ยถึงเลย
     key: "cctv",
     labelKey: "legend.layer.cctv",
     noteKey: "legend.layer.cctv.note",
     swatch: (
       <span className="flex items-center gap-0.5">
-        {CCTV_ENABLED ? <DwrCamSwatch /> : null}
-        {ITIC_ENABLED ? <IticCamSwatch /> : null}
+        <CamSwatch kind="video" />
+        <CamSwatch kind="still" />
       </span>
     ),
   },
@@ -1162,8 +1151,7 @@ export function MapLegend({
   floodGfm,
   gistdaDepth,
   stationSheet = null,
-  cctvError = null,
-  iticError = null,
+  cameraErrors,
   layerLoadErrors,
 }: {
   layers: MapLayers;
@@ -1180,10 +1168,8 @@ export function MapLegend({
   gistdaDepth?: GistdaDepthLegendState;
   /** แผ่นน้ำจำลองจากสถานี: ความละเอียดที่คำนวณจริงต่อสถานี (C3) — null = ชั้นยังไม่ทำงาน */
   stationSheet?: StationSheetInfo | null;
-  /** E15 — โหลดบัญชีกล้อง CCTV ไม่สำเร็จ: ไม่มีหมุดเพราะอะไร ต้องบอก ไม่ใช่หายเงียบ */
-  cctvError?: ErrorMessage | null;
-  /** E15.2 — โหลดบัญชีกล้องถนนของ iTIC ไม่สำเร็จ (แยกจาก DWR: อีกแหล่งอาจยังมีหมุดอยู่) */
-  iticError?: ErrorMessage | null;
+  /** E15/E15.3 — โหลดบัญชีกล้องของแหล่งใดไม่สำเร็จ: บรรทัดต่อแหล่ง บอกว่าไม่มีหมุดของแหล่งนั้นเพราะอะไร ไม่หายเงียบ */
+  cameraErrors?: Partial<Record<CameraSourceId, ErrorMessage>>;
   /** โหลดโค้ดของชั้นฉากแบบ lazy ไม่สำเร็จ (`MapInfo.layerLoadErrors`) — ชั้นนั้นไม่ถูกวาด ต้องบอก */
   layerLoadErrors?: Partial<Record<LazySceneLayer, ErrorMessage>>;
   quality: QualityMode;
@@ -1208,7 +1194,7 @@ export function MapLegend({
       </div>
 
       <ul className="flex flex-col gap-1">
-        {LAYER_ROWS.filter((row) => row.key !== "cctv" || CCTV_ENABLED || ITIC_ENABLED).map((row) => {
+        {LAYER_ROWS.filter((row) => row.key !== "cctv" || ENABLED_CAMERA_SOURCES.length > 0).map((row) => {
           const entry = descriptors[row.key];
           // ชั้นพื้นที่ลุ่มต่ำเป็นอนุพันธ์ของ terrain.bin โดยตรง จึงเป็นแถวเดียว
           // ที่ต้องบอกผลตรวจลายเซ็น และเป็นแถวเดียวที่ถูกปิดเมื่อไม่ผ่าน
@@ -1242,15 +1228,28 @@ export function MapLegend({
                 {row.swatch}
               </span>
               <span className="min-w-0 leading-tight">
-                <span className="block text-xs text-[var(--color-fg)]">
-                  {t(row.key === "cctv" ? CCTV_ROW.labelKey : row.labelKey)}
-                </span>
+                <span className="block text-xs text-[var(--color-fg)]">{t(row.labelKey)}</span>
                 {row.key === "cctv" ? (
-                  CCTV_ROW.noteKeys.map((k) => (
-                    <span key={k} className="block text-[10px] text-[var(--color-fg-subtle)]">
-                      {t(k)}
+                  <>
+                    <span className="block text-[10px] text-[var(--color-fg-subtle)]">
+                      {t("legend.layer.cctv.note", { sources: cameraSourceNames(lang) })}
                     </span>
-                  ))
+                    <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-[var(--color-fg-subtle)]">
+                      <span className="inline-flex items-center gap-1">
+                        <CamSwatch kind="video" />
+                        {t("legend.layer.cctv.video")}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <CamSwatch kind="still" />
+                        {t("legend.layer.cctv.still")}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <CamSwatch kind="video" dimmed />
+                        <CamSwatch kind="still" dimmed />
+                        {t("legend.layer.cctv.unverified")}
+                      </span>
+                    </span>
+                  </>
                 ) : (
                   <span className="block text-[10px] text-[var(--color-fg-subtle)]">
                     {t(row.noteKey, { km: DETAIL_TILE_ALTITUDE_GATE_M / 1000, radiusKm: SHEET_MAX_RADIUS_M / 1000 })}
@@ -1267,16 +1266,16 @@ export function MapLegend({
                     {t(integrityKey)}
                   </span>
                 ) : null}
-                {row.key === "cctv" && cctvError ? (
-                  <span className="mt-0.5 block text-[10px] text-[var(--color-risk-extreme)]">
-                    {t("legend.layer.cctv.error", { error: resolveError(t, cctvError) ?? "" })}
-                  </span>
-                ) : null}
-                {row.key === "cctv" && iticError ? (
-                  <span className="mt-0.5 block text-[10px] text-[var(--color-risk-extreme)]">
-                    {t("legend.layer.cctv.errorItic", { error: resolveError(t, iticError) ?? "" })}
-                  </span>
-                ) : null}
+                {row.key === "cctv" && cameraErrors
+                  ? ENABLED_CAMERA_SOURCES.filter((id) => cameraErrors[id]).map((id) => (
+                      <span key={id} className="mt-0.5 block text-[10px] text-[var(--color-risk-extreme)]">
+                        {t("legend.layer.cctv.error", {
+                          source: lang === "th" ? SOURCES[id].nameTh : SOURCES[id].nameEn,
+                          error: resolveError(t, cameraErrors[id] ?? null) ?? "",
+                        })}
+                      </span>
+                    ))
+                  : null}
                 {(row.key === "stationSheet" || row.key === "northRoute" || row.key === "gistdaDepth") &&
                 layerLoadErrors?.[row.key] ? (
                   <span className="mt-0.5 block text-[10px] text-[var(--color-risk-extreme)]">

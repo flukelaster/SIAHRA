@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type { CctvCamera } from "@siahra/shared-types";
+import { CAMERA_SOURCES, type Camera } from "@siahra/shared-types";
+import { DWR_ORIGIN } from "./cameraSources";
 import {
   coLocatedCameras,
   distinctLabels,
@@ -56,15 +57,19 @@ describe("freshness", () => {
 });
 
 describe("nearestCamera", () => {
-  const cam = (id: string, lat: number, lon: number): CctvCamera => ({
+  const cam = (id: string, lat: number, lon: number): Camera => ({
     id,
-    stationCode: id,
+    sourceId: "dwr-cctv",
     nameTh: null,
     nameEn: null,
     lat,
     lon,
+    coordSource: "upstream",
     provinceCode: null,
-    amphoeTh: null,
+    owner: null,
+    code: id,
+    placeTh: null,
+    streams: [],
   });
   const cams = [cam("far", 13.8, 100.5), cam("near", 13.71, 100.5), cam("nearer", 13.705, 100.5)];
   it("picks the closest within maxKm", () => {
@@ -170,13 +175,23 @@ describe("dwrLiveUrl", () => {
 });
 
 describe("nearestCamera across sources", () => {
-  it("works on any catalogue with lat/lon (iTIC road cameras too)", () => {
-    const road = [
-      { id: "far", lat: 13.9, lon: 100.9 },
-      { id: "near", lat: 13.701, lon: 100.501 },
+  it("picks the closest camera of any source from the merged list — distances compare directly", () => {
+    const merged = [
+      { id: "far", sourceId: "dwr-cctv" as const, lat: 13.9, lon: 100.9 },
+      { id: "near", sourceId: "itic-cctv" as const, lat: 13.701, lon: 100.501 },
+      { id: "nearer", sourceId: "dwr-cctv" as const, lat: 13.7005, lon: 100.5 },
     ];
-    expect(nearestCamera(13.7, 100.5, road)?.camera.id).toBe("near");
-    expect(nearestCamera(15, 102, road)).toBeNull();
+    expect(nearestCamera(13.7, 100.5, merged)?.camera.id).toBe("nearer");
+    expect(nearestCamera(13.702, 100.502, merged)?.camera.sourceId).toBe("itic-cctv");
+    expect(nearestCamera(15, 102, merged)).toBeNull();
+  });
+});
+
+describe("DWR hosts derived by the web are in the registry", () => {
+  it("DWR_API sits on DWR_ORIGIN, which CAMERA_SOURCES lists for connect (snapshot) and img (MJPEG)", () => {
+    expect(DWR_API.startsWith(`${DWR_ORIGIN}/`)).toBe(true);
+    expect(CAMERA_SOURCES["dwr-cctv"].hosts.connect).toContain(DWR_ORIGIN);
+    expect(CAMERA_SOURCES["dwr-cctv"].hosts.img).toContain(DWR_ORIGIN);
   });
 });
 
@@ -196,18 +211,29 @@ describe("isDwrFrameFresh (DWR live badge)", () => {
 });
 
 describe("coLocatedCameras", () => {
+  const itic = "itic-cctv" as const;
+  const dwr = "dwr-cctv" as const;
   // คู่จริงจากบัญชี iTIC: DOH-PER-3-006 ขาเข้า/ขาออก (~22 ม.) และ ITICM_BMAMI0164–0166 (≤ ~140 ม.)
   const cams = [
-    { id: "DOH-PER-3-006-out", lat: 13.8302, lon: 100.4132 },
-    { id: "far", lat: 13.84, lon: 100.4132 },
-    { id: "DOH-PER-3-006", lat: 13.83, lon: 100.4132 },
-    { id: "ITICM_BMAMI0164", lat: 13.828648681903177, lon: 100.52881854153176 },
-    { id: "ITICM_BMAMI0165", lat: 13.827772016676931, lon: 100.52787985034071 },
-    { id: "ITICM_BMAMI0166", lat: 13.828683279709187, lon: 100.52784892246397 },
-    { id: "b-twin", lat: 13.9, lon: 100.6 },
-    { id: "a-twin", lat: 13.9, lon: 100.6 },
-    { id: "c-twin", lat: 13.9, lon: 100.6 },
+    { id: "DOH-PER-3-006-out", sourceId: itic, lat: 13.8302, lon: 100.4132 },
+    { id: "far", sourceId: itic, lat: 13.84, lon: 100.4132 },
+    { id: "DOH-PER-3-006", sourceId: itic, lat: 13.83, lon: 100.4132 },
+    { id: "ITICM_BMAMI0164", sourceId: itic, lat: 13.828648681903177, lon: 100.52881854153176 },
+    { id: "ITICM_BMAMI0165", sourceId: itic, lat: 13.827772016676931, lon: 100.52787985034071 },
+    { id: "ITICM_BMAMI0166", sourceId: itic, lat: 13.828683279709187, lon: 100.52784892246397 },
+    { id: "b-twin", sourceId: itic, lat: 13.9, lon: 100.6 },
+    { id: "a-twin", sourceId: itic, lat: 13.9, lon: 100.6 },
+    { id: "c-twin", sourceId: itic, lat: 13.9, lon: 100.6 },
   ];
+
+  it("identity is the composite key: the same id in two sources is two cameras, and the cluster crosses sources", () => {
+    const twins = [
+      { id: "PER-3-006", sourceId: itic, lat: 13.83, lon: 100.4132 },
+      { id: "PER-3-006", sourceId: dwr, lat: 13.8301, lon: 100.4132 },
+    ];
+    expect(coLocatedCameras(twins[0], twins).map((c) => `${c.sourceId}:${c.id}`)).toEqual(["itic-cctv:PER-3-006", "dwr-cctv:PER-3-006"]);
+    expect(coLocatedCameras(twins[1], twins).map((c) => c.sourceId)).toEqual(["dwr-cctv", "itic-cctv"]);
+  });
 
   it("puts the picked camera first and includes a same-spot twin, excluding one ~1 km away", () => {
     expect(coLocatedCameras(cams[2], cams).map((c) => c.id)).toEqual(["DOH-PER-3-006", "DOH-PER-3-006-out"]);
@@ -230,8 +256,8 @@ describe("coLocatedCameras", () => {
   it("excludes a camera just past the radius", () => {
     // 0.002° ละติจูด ≈ 222 ม. > 150 ม.
     const pair = [
-      { id: "x", lat: 13, lon: 100 },
-      { id: "y", lat: 13.002, lon: 100 },
+      { id: "x", sourceId: itic, lat: 13, lon: 100 },
+      { id: "y", sourceId: itic, lat: 13.002, lon: 100 },
     ];
     expect(coLocatedCameras(pair[0], pair)).toHaveLength(1);
   });

@@ -24,8 +24,9 @@ Output: `apps/web/public/cctv/itic-cctv.json`, a `CameraCatalogue` (`packages/sh
 written through the shared `src/cameraCatalogue.ts` `writeCatalogue` — dedupe/sort by id, every stream
 URL `https:` with no userinfo and on an origin listed in `CAMERA_SOURCES["itic-cctv"].hosts` for the
 CSP directive its kind needs, `jpeg` URLs matching the source's `urlPattern`, and the serialized file
-refused outright on `CREDENTIAL_PATTERN`. (The legacy `itic-cameras.json` the web app still reads is
-untouched by this script and goes away when the web moves to the generic contract.)
+refused outright on `CREDENTIAL_PATTERN`. This is the only file the web reads for this source
+(`apps/web/src/hooks/useCameraCatalogues.ts`, since E15.3 PR B); the per-source legacy file of E15.2
+was deleted in that PR.
 
 1. `GET https://camera.longdo.com/feed/?command=json` → a bare JSON array (294 entries on
    2026-09-26).

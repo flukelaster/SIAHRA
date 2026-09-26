@@ -16,8 +16,9 @@ npx -y tsx@4 src/build-dwr-cctv.ts [--no-probe] [--vantage <label>]   # from app
 
 Output: `apps/web/public/cctv/dwr-cctv.json`, a `CameraCatalogue` (`packages/shared-types/src/cctv.ts`)
 written through the shared `src/cameraCatalogue.ts` `writeCatalogue` (dedupe/sort by id, allowlisted
-origins only, refused outright on `CREDENTIAL_PATTERN`). The legacy `dwr-cameras.json` the web app
-still reads is untouched by this script and goes away when the web moves to the generic contract.
+origins only, refused outright on `CREDENTIAL_PATTERN`). This is the only file the web reads for this
+source (`apps/web/src/hooks/useCameraCatalogues.ts`, since E15.3 PR B); the per-source legacy file of
+E15 was deleted in that PR.
 
 1. `POST public/reportCctv/listPaginate` with
    `{"paginate":{"page":1,"pageSize":200,"orders":[]},"search":{}}` (the `orders` array is required —

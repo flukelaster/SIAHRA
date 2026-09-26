@@ -1,42 +1,59 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import type { CctvCamera, ItiCCamera } from "@siahra/shared-types";
+import type { Camera } from "@siahra/shared-types";
 import { markerPickFromUserData } from "./picking";
 
-const camera: CctvCamera = {
+const dwr: Camera = {
   id: "cam-1",
-  stationCode: "TC020106",
+  sourceId: "dwr-cctv",
   nameTh: "ทดสอบ",
   nameEn: null,
   lat: 13.7,
   lon: 100.5,
+  coordSource: "upstream",
   provinceCode: "10",
-  amphoeTh: null,
+  owner: null,
+  code: "TC020106",
+  placeTh: null,
+  streams: [
+    { kind: "dwr-snapshot", label: null, captureTime: "path", probe: { result: "ok", cors: true } },
+    { kind: "dwr-mjpeg", stationCode: "TC020106", label: null, captureTime: "none", probe: { result: "ok", cors: true } },
+  ],
+};
+
+const road: Camera = {
+  id: "DOH-PER-3-008",
+  sourceId: "itic-cctv",
+  nameTh: "ทดสอบ",
+  nameEn: null,
+  lat: 13.9,
+  lon: 100.6,
+  coordSource: "upstream",
+  provinceCode: "10",
+  owner: "กรมทางหลวง",
+  code: null,
+  placeTh: null,
+  streams: [
+    { kind: "hls", url: "https://camerai1.iticfoundation.org/hls/x.m3u8", label: null, captureTime: "none", probe: { result: "ok", cors: true } },
+  ],
 };
 
 describe("markerPickFromUserData", () => {
   const anchor = new THREE.Vector3(1, 2, 3);
 
-  it("turns a CCTV sprite into a `cctv` pick carrying its camera", () => {
-    const pick = markerPickFromUserData({ kind: "cctv", camera }, anchor);
-    expect(pick?.kind).toBe("cctv");
-    expect(pick && pick.kind === "cctv" ? pick.camera : null).toBe(camera);
-    expect(pick?.anchor).toBe(anchor);
+  it("turns a camera sprite into one `camera` pick carrying its camera — sources differ by sourceId, not by kind", () => {
+    const a = markerPickFromUserData({ kind: "camera", camera: dwr }, anchor);
+    const b = markerPickFromUserData({ kind: "camera", camera: road }, anchor);
+    expect(a?.kind).toBe("camera");
+    expect(b?.kind).toBe("camera");
+    expect(a && a.kind === "camera" ? a.camera : null).toBe(dwr);
+    expect(b && b.kind === "camera" ? b.camera.sourceId : null).toBe("itic-cctv");
+    expect(a?.anchor).toBe(anchor);
   });
 
-  it("turns an iTIC sprite into an `itic` pick, distinct from DWR", () => {
-    const road: ItiCCamera = {
-      id: "DOH-PER-3-008",
-      name: "ทดสอบ",
-      lat: 13.9,
-      lon: 100.6,
-      organization: "กรมทางหลวง",
-      stream: { kind: "hls", url: "https://camerai1.iticfoundation.org/hls/x.m3u8" },
-      provinceCode: "10",
-    };
-    const pick = markerPickFromUserData({ kind: "itic", camera: road }, anchor);
-    expect(pick?.kind).toBe("itic");
-    expect(pick && pick.kind === "itic" ? pick.camera : null).toBe(road);
+  it("the legacy per-source kinds are no longer markers", () => {
+    expect(markerPickFromUserData({ kind: "cctv", camera: dwr }, anchor)).toBeNull();
+    expect(markerPickFromUserData({ kind: "itic", camera: road }, anchor)).toBeNull();
   });
 
   it("keeps the existing marker kinds", () => {

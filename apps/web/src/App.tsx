@@ -10,7 +10,7 @@ import { useApiHealth, sourceStatus } from "./hooks/useApiHealth";
 import { useLayerDescriptors } from "./hooks/useLayerDescriptors";
 import { useEarthquakeFeed } from "./hooks/useEarthquakeFeed";
 import { useDams } from "./hooks/useDams";
-import { useCctvCatalogue, useItiCCatalogue } from "./hooks/useCctvCatalogue";
+import { useCameraCatalogues } from "./hooks/useCameraCatalogues";
 import { useFloodExposure } from "./hooks/useFloodExposure";
 import { useFloodExtent } from "./hooks/useFloodExtent";
 import { useFloodScene } from "./hooks/useFloodScene";
@@ -42,7 +42,7 @@ import { computeForecastBandStatus } from "./lib/forecastStyle";
 import { formatNumber } from "./lib/number";
 import { buildSearchIndex, type SearchPlace } from "./lib/searchIndex";
 import { useLang } from "./i18n/context";
-import { CCTV_ENABLED, ITIC_ENABLED } from "./lib/featureFlags";
+import { ENABLED_CAMERA_SOURCES } from "./lib/featureFlags";
 
 const DEFAULT_PROVINCE_CODE = "10"; // Bangkok
 
@@ -69,13 +69,12 @@ const DEFAULT_LAYERS: MapLayers = {
   floodDepth: true,
   dams: true,
   /**
-   * E15 — กล้อง CCTV (กรมทรัพยากรน้ำ + กล้องถนนของ iTIC) **ปิดเป็นค่าเริ่มต้น** (เจ้าของตัดสินใจ
-   * 2026-09-26): หมุดและบัญชีกล้อง (`/cctv/dwr-cameras.json`, `/cctv/itic-cameras.json`) ถูกโหลด
-   * ก็ต่อเมื่อผู้ใช้เปิดชั้นนี้เอง (`useCctvCatalogue`/`useItiCCatalogue` ได้ `enabled` = แฟล็ก +
-   * `layers.cctv`) — ปิดอยู่ = ไม่มี request ใดใต้ `/cctv/` เลย; ภาพ/สตรีมจาก DWR และ iTIC ยังขอ
-   * ก็ต่อเมื่อคลิกหมุดเท่านั้น
-   * แฟล็ก `VITE_FEATURE_CCTV=0` / `VITE_FEATURE_ITIC=0` ตอน build = ถอดแหล่งนั้นทั้งหมด แม้ permalink
-   * จะตั้ง `cctv` ไว้
+   * E15/E15.3 — กล้อง CCTV ทุกแหล่ง (`ENABLED_CAMERA_SOURCES`) **ปิดเป็นค่าเริ่มต้น** (เจ้าของตัดสินใจ
+   * 2026-09-26): หมุดและบัญชีกล้อง (`/cctv/{sourceId}.json`) ถูกโหลดก็ต่อเมื่อผู้ใช้เปิดชั้นนี้เอง
+   * (`useCameraCatalogues` ได้ `enabled` = มีแหล่งเปิด + `layers.cctv`) — ปิดอยู่ = ไม่มี request ใดใต้
+   * `/cctv/` เลย; ภาพ/สตรีมจากต้นทางยังขอก็ต่อเมื่อคลิกหมุดเท่านั้น
+   * แฟล็ก `VITE_FEATURE_CCTV=0` (ทั้งชั้น) / `VITE_FEATURE_CCTV_DISABLE=<id,...>` (รายแหล่ง) ตอน build =
+   * ถอดออกทั้งหมด แม้ permalink จะตั้ง `cctv` ไว้
    */
   cctv: false,
   radar: true,
@@ -139,12 +138,9 @@ export default function App() {
   const provinceName = lang === "th" ? province.nameTh : province.nameEn;
   const observations = useObservations(provinceCode, atIso);
   const dams = useDams(provinceCode);
-  // E15 — แฟล็กปิด = ไม่ดึงบัญชีกล้องเลย แม้ permalink จะตั้ง `cctv` ไว้
-  const cctvOn = CCTV_ENABLED && layers.cctv;
-  const cctvCatalogue = useCctvCatalogue(cctvOn);
-  // E15.2 — แฟล็ก iTIC ปิด = ไม่ดึงบัญชีกล้องถนนเลย
-  const iticOn = ITIC_ENABLED && layers.cctv;
-  const iticCatalogue = useItiCCatalogue(iticOn);
+  // E15/E15.3 — ไม่มีแหล่งเปิดใน build = ไม่ดึงบัญชีกล้องเลย แม้ permalink จะตั้ง `cctv` ไว้
+  const cctvOn = ENABLED_CAMERA_SOURCES.length > 0 && layers.cctv;
+  const cameraCatalogues = useCameraCatalogues(cctvOn);
   const radar = useRadar(layers.radar);
   const earthquakes = useEarthquakeFeed();
   const apiHealth = useApiHealth();
@@ -339,8 +335,7 @@ export default function App() {
     floodScenes,
     floodScene,
     northRoute,
-    cctvCatalogue: CCTV_ENABLED ? cctvCatalogue.data : null,
-    iticCatalogue: ITIC_ENABLED ? iticCatalogue.data : null,
+    cameraBuiltAt: cameraCatalogues.builtAt,
     health: apiHealth.health,
     // เวลาที่ artefact ของชั้นคงที่ถูก build มาจาก manifest ของจังหวัดที่แสดงอยู่
     // (null ตอนยังไม่โหลด/manifest รุ่นก่อน E9.1 → legend คงข้อความ "ไม่ได้บันทึกเวลา")
@@ -520,8 +515,7 @@ export default function App() {
       forecastHidden: forecastAtIso !== null,
       sheet: mapInfo?.gistdaSheet ?? null,
     } satisfies GistdaDepthLegendState,
-    cctvCatalogue,
-    iticCatalogue,
+    cameraCatalogues,
     observations,
     floodExtent,
     floodScenes,
@@ -566,8 +560,8 @@ export default function App() {
         floodFieldDim={floodFieldDim}
         gistdaDim={gistdaDim}
         dams={dams.data?.dams ?? []}
-        cctvCameras={cctvOn ? cctvCatalogue.data?.cameras : undefined}
-        iticCameras={iticOn ? iticCatalogue.data?.cameras : undefined}
+        cameras={cctvOn ? cameraCatalogues.cameras : undefined}
+        cameraProbes={cameraCatalogues.probes}
         radar={radar.data}
         exposure={exposure.data}
         exposureStale={exposureNoNewRun}

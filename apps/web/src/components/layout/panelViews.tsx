@@ -4,7 +4,7 @@ import type { Lang } from "../../i18n";
 import { useT } from "../../i18n/context";
 import type { ActiveAlertsState } from "../../hooks/useActiveAlerts";
 import type { AffectedAuthoritiesState } from "../../hooks/useAffectedAuthorities";
-import type { CctvCatalogueState, ItiCCatalogueState } from "../../hooks/useCctvCatalogue";
+import type { CameraCataloguesState } from "../../hooks/useCameraCatalogues";
 import type { DamsState } from "../../hooks/useDams";
 import type { EarthquakeFeedState } from "../../hooks/useEarthquakeFeed";
 import type { FloodExtentState } from "../../hooks/useFloodExtent";
@@ -63,10 +63,8 @@ export interface PanelContext {
   floodGfmLegend: FloodGfmLegendState;
   /** E16 B-2 — แผ่นน้ำ GISTDA 3 มิติ: สถานะข้อมูล + ผลคำนวณ (legend แถว gistdaDepth) */
   gistdaDepthLegend: GistdaDepthLegendState;
-  /** E15 — บัญชีกล้อง CCTV ของ DWR (โหลดเฉพาะเมื่อแฟล็ก + ชั้นเปิด) legend บอกเมื่อโหลดไม่ได้ */
-  cctvCatalogue: CctvCatalogueState;
-  /** E15.2 — บัญชีกล้องถนนของ iTIC (โหลดเฉพาะเมื่อแฟล็ก + ชั้นเปิด) */
-  iticCatalogue: ItiCCatalogueState;
+  /** E15/E15.3 — บัญชีกล้องทุกแหล่งที่เปิด (โหลดเฉพาะเมื่อชั้นเปิด) legend บอกต่อแหล่งเมื่อโหลดไม่ได้ */
+  cameraCatalogues: CameraCataloguesState;
   observations: ObservationsState;
   floodExtent: FloodExtentState;
   /** E14.F5 — ดัชนีฉาก Copernicus GFM ของจังหวัด + ฉากที่เลือกตาม atIso (แผง flood) */
@@ -133,8 +131,7 @@ export function LayersPanel({ ctx }: { ctx: PanelContext }) {
         floodGfm={ctx.floodGfmLegend}
         stationSheet={ctx.mapInfo?.stationSheet ?? null}
         gistdaDepth={ctx.gistdaDepthLegend}
-        cctvError={ctx.cctvCatalogue.error}
-        iticError={ctx.iticCatalogue.error}
+        cameraErrors={ctx.cameraCatalogues.errors}
         layerLoadErrors={ctx.mapInfo?.layerLoadErrors}
       />
       <div className="glass-soft mt-auto shrink-0 rounded-2xl px-3.5 py-2.5">

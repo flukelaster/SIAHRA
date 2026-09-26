@@ -1,40 +1,32 @@
 /**
- * วิดีโอสดกล้องถนนของมูลนิธิ iTIC (E15.2) — ตัวเล่น HLS หนึ่งตัวต่อหน้า + ตัวแยกสถานะ
- * (ภาพนิ่งรีเฟรชอัตโนมัติของกล้องที่ไม่มี HLS อยู่ท้ายไฟล์ — `startItiCSnapshots`)
+ * ตัวเล่นสตรีมกล้องที่ไม่ผูกกับแหล่ง (E15.3) — ตัวเล่น HLS หนึ่งตัวต่อหน้า, ภาพนิ่งที่ขอใหม่เป็น
+ * รอบ ๆ ด้วย `<img src>` (`startJpegPoll`) และภาพนิ่งที่ต้อง `fetch()` เพื่ออ่าน `Last-Modified`
+ * (`fetchJpegOnce`) โฮสต์ที่ยอมเปิดไม่ได้อยู่ในไฟล์นี้: ผู้เรียก inject `allow` (=
+ * `isAllowedUrl` ของ `lib/cameraSources.ts` ซึ่งอ่าน `CAMERA_SOURCES[sourceId].hosts`) และทุก
+ * ตัวเริ่มด้วยการเรียก guard นั้นก่อนแตะเครือข่าย
  *
- * เบราว์เซอร์ขอ playlist/segment จาก `camerai1.iticfoundation.org` ตรง ๆ (ACAO *, ไม่ผ่าน
- * Worker ของเรา — ไม่มีค่าใช้จ่าย Cloudflare) **ทีละกล้อง เฉพาะตอนผู้ใช้เปิด popup**
+ * เบราว์เซอร์ขอ playlist/segment/ภาพจากต้นทางตรง ๆ (ไม่ผ่าน Worker ของเรา — ไม่มีค่าใช้จ่าย
+ * Cloudflare) **ทีละกล้อง เฉพาะตอนผู้ใช้เปิดแผงกล้อง**
  *
+ * HLS:
  * - เบราว์เซอร์ที่เล่น HLS เองได้ (`canPlayType('application/vnd.apple.mpegurl')` — Safari/iOS
  *   และ Chromium รุ่นใหม่) ใช้ตัวเล่นในตัวก่อน ส่วนที่เหลือโหลด hls.js ด้วย dynamic import (chunk
- *   แยก ไม่อยู่ใน entry/vendor) และ `enableWorker: false` เพื่อไม่ต้องเปิด `worker-src blob:`
+ *   แยก ไม่อยู่ใน entry/vendor — และไม่ถูก import เลยเมื่อ build ไม่มีแหล่งที่เล่น HLS ได้,
+ *   `hasEnabledKind("hls")`) และ `enableWorker: false` เพื่อไม่ต้องเปิด `worker-src blob:`
  *   ใน CSP; ตัวเล่นในตัวล้มกับ playlist ที่ตอบ 200 = ลอง hls.js ต่อ (ถ้ามี MediaSource)
  * - ผู้เล่นมีได้ **ตัวเดียว** ทั้งหน้า: เริ่มตัวใหม่ = ทิ้งตัวเก่าก่อน
  * - สถานะความล้มเหลวแยกกันเสมอ และไม่มีแบบไหนพูดถึงสภาพถนน/พื้นที่:
- *     `suspended`   — iTIC ตอบแล้วว่าไม่มีสตรีมนี้ (playlist 4xx / playlist ผิดรูป)
- *     `unreachable` — เราติดต่อ iTIC ไม่ได้ (เครือข่าย/timeout/5xx) บอกอะไรเกี่ยวกับกล้องไม่ได้
+ *     `suspended`   — ต้นทางตอบแล้วว่าไม่มีสตรีมนี้ (playlist 4xx / playlist ผิดรูป)
+ *     `unreachable` — เราติดต่อต้นทางไม่ได้ (เครือข่าย/timeout/5xx) บอกอะไรเกี่ยวกับกล้องไม่ได้
  *     `unsupported` — ได้สตรีมมาแล้วแต่เบราว์เซอร์นี้ถอดรหัสไม่ได้ (เช่นไม่มี H.264)
  * - เวลา: `EXT-X-PROGRAM-DATE-TIME` ของสตรีมเท่านั้น ไม่มี = null ("สตรีมไม่มีเวลากำกับ")
  *   ห้ามใช้นาฬิกาเครื่องผู้ใช้แทนเวลาถ่าย
  */
 import type HlsType from "hls.js";
+import { hasEnabledKind } from "./cameraSources";
 
-/** โฮสต์ HLS เดียวที่ ETL ยอมรับ (`apps/etl/src/build-itic-cctv.ts` HLS_PREFIX) — ตรวจซ้ำก่อนเล่น */
-export const ITIC_HLS_PREFIX = "https://camerai1.iticfoundation.org/";
-export const ITIC_HOME = "https://iticfoundation.org/";
-export const LONGDO_CAMERA_HOME = "https://camera.longdo.com/";
-export { ITIC_CATALOGUE_URL } from "./cameraCatalogues";
-
-/** URL ที่ยอมส่งให้ตัวเล่น — prefix + origin ตรง, ไม่มี userinfo, ไม่ใช่ป้าย `tempsus` */
-export function isPlayableHlsUrl(url: string): boolean {
-  if (!url.startsWith(ITIC_HLS_PREFIX) || url.includes("tempsus")) return false;
-  try {
-    const u = new URL(url);
-    return u.origin + "/" === ITIC_HLS_PREFIX && !u.username && !u.password;
-  } catch {
-    return false;
-  }
-}
+/** url นี้เปิดได้ไหม — inject จากผู้เรียก (`isAllowedUrl(sourceId, kind, url)`) ตัวเล่นไม่รู้จักโฮสต์เอง */
+export type UrlGuard = (url: string) => boolean;
 
 export type HlsPlayerState =
   | { status: "loading" }
@@ -103,12 +95,13 @@ let activeDispose: (() => void) | null = null;
 
 /**
  * เริ่มเล่น `url` บน `video` — คืนฟังก์ชันหยุดที่ตัดการเชื่อมต่อทั้งหมด (เรียกซ้ำได้)
- * ผู้เรียกต้องตรวจ `isPlayableHlsUrl` ก่อน (ฟังก์ชันนี้ตรวจซ้ำและปฏิเสธเช่นกัน)
+ * `allow(url)` เท็จ = ไม่แตะเครือข่ายเลย สถานะ `unsupported` "url rejected"
  */
 export function startHlsPlayer(
   video: HTMLVideoElement,
   url: string,
   onState: (s: HlsPlayerState) => void,
+  allow: UrlGuard,
 ): () => void {
   activeDispose?.();
   let disposed = false;
@@ -148,7 +141,7 @@ export function startHlsPlayer(
   };
   activeDispose = dispose;
 
-  if (!isPlayableHlsUrl(url)) {
+  if (!allow(url)) {
     fail({ status: "unsupported", detail: "url rejected" });
     return dispose;
   }
@@ -189,6 +182,12 @@ export function startHlsPlayer(
   });
 
   const startHlsJs = () => {
+    // build ที่ไม่มีแหล่ง HLS เปิดอยู่เลยต้องไม่ดึง chunk ของ hls.js — และ `allow` ผ่านมาแล้ว
+    // หมายความว่ามีแหล่งเช่นนั้น เงื่อนไขนี้จึงเป็นสายกันตก ไม่ใช่ทางที่คาดว่าจะเกิด
+    if (!hasEnabledKind("hls")) {
+      fail({ status: "unsupported", detail: "no HLS source enabled" });
+      return;
+    }
     void import("hls.js").then(
       ({ default: Hls }) => {
         if (disposed) return;
@@ -223,7 +222,7 @@ export function startHlsPlayer(
         h.attachMedia(video);
       },
       () => {
-        // chunk ของ hls.js โหลดไม่ได้ (เครือข่ายของเราเอง ไม่ใช่ของ iTIC)
+        // chunk ของ hls.js โหลดไม่ได้ (เครือข่ายของเราเอง ไม่ใช่ของต้นทางกล้อง)
         fail({ status: "unsupported", detail: "player failed to load" });
       },
     );
@@ -281,57 +280,43 @@ export function startHlsPlayer(
 }
 
 /* ------------------------------------------------------------------------------------------------
- * ภาพนิ่งของกล้อง iTIC ที่ไม่มี HLS (`stream.kind = "jpeg"`) — ขอภาพใหม่ทุก ~5 วินาทีขณะเปิด popup
+ * ภาพนิ่งที่ขอใหม่เป็นรอบ ๆ ด้วย `<img src>` (`stream.kind = "jpeg"`) — ขอภาพใหม่ทุก ~5 วินาทีขณะเปิด
  *
- * - URL ต้องตรง `ITIC_JPEG_PATTERN` ทุกตัวอักษร (กลุ่มเดียวที่ตอบภาพจริงเมื่อวัด 2026-09-26 — ดู
- *   `apps/etl/src/build-itic-cctv.README.md`) — ETL กรองไว้แล้ว ตรงนี้ตรวจซ้ำ
+ * - URL ต้องผ่าน `allow` (origin ใน `hosts.img` ของแหล่ง + `urlPattern` ถ้ามี — เช่นกลุ่ม
+ *   `jpeg2.php?camid=10.8.0.x:port` ของ iTIC ที่ตอบภาพจริงเมื่อวัด 2026-09-26) — ETL กรองไว้แล้ว ตรงนี้ตรวจซ้ำ
  * - แต่ละรอบใช้ `Image` ใหม่ (ไม่มี `crossOrigin` — เราไม่อ่านพิกเซล) พร้อมพารามิเตอร์กันแคช
  *   ได้เฟรมแล้วจึงแทนภาพที่แสดงอยู่ — ภาพเดิมค้างไว้ระหว่างรอ ไม่กระพริบ และ event ของรอบก่อน
  *   (รวม `error` ที่ `src = ""` ยิงเอง) ไม่มีทางปนกับรอบใหม่
- * - รอบถัดไปนับจากรอบก่อน *จบ* (ได้ภาพ / error / หมดเวลา `ITIC_SNAPSHOT_TIMEOUT_MS`) — ไม่ซ้อนคำขอ
+ * - รอบถัดไปนับจากรอบก่อน *จบ* (ได้ภาพ / error / หมดเวลา `JPEG_POLL_TIMEOUT_MS`) — ไม่ซ้อนคำขอ
  *   คำขอที่ค้าง (โฮสต์ timeout) จึงไม่ติด "กำลังโหลด" ตลอดไป
- * - หยุดเองหลัง `ITIC_SNAPSHOT_MAX_MS` (popup ที่ลืมเปิดค้างไว้ต้องไม่ถาม iTIC ไปเรื่อย ๆ — แนว
- *   เดียวกับภาพสด DWR) ผู้ใช้กดรีเฟรชต่อได้
- * - `error` แยกไม่ได้ว่าเครือข่ายล้มหรือ iTIC ตอบของที่ไม่ใช่ภาพ (เช่น "Camera (jpeg) not found"
+ * - หยุดเองหลัง `JPEG_POLL_MAX_MS` (แผงที่ลืมเปิดค้างไว้ต้องไม่ถามต้นทางไปเรื่อย ๆ — แนวเดียวกับ
+ *   ภาพสด DWR) ผู้ใช้กดรีเฟรชต่อได้
+ * - `error` แยกไม่ได้ว่าเครือข่ายล้มหรือต้นทางตอบของที่ไม่ใช่ภาพ (เช่น "Camera (jpeg) not found"
  *   39 ไบต์) — จึงเป็น `unreachable` สถานะเดียว และข้อความพูดตามนั้น
- * - เวลา: `fetchedAt` = นาฬิกาเครื่องตอนได้ภาพ (เวลาที่ *เรา* ได้ภาพ ไม่ใช่เวลาถ่าย) — เวลาถ่ายกล้อง
- *   พิมพ์ไว้บนภาพเอง ไม่มีเป็นข้อมูลให้อ่าน จึงไม่แสดงเวลาใดเป็นเวลาถ่าย
+ * - เวลา: `fetchedAt` = นาฬิกาเครื่องตอนได้ภาพ (เวลาที่ *เรา* ได้ภาพ ไม่ใช่เวลาถ่าย) — เวลาถ่าย
+ *   (ถ้ามี) พิมพ์อยู่บนภาพเอง ไม่มีเป็นข้อมูลให้อ่าน จึงไม่แสดงเวลาใดเป็นเวลาถ่าย
  * ---------------------------------------------------------------------------------------------- */
 
-/** ต้องตรงกับ `JPEG_PATTERN` ของ `apps/etl/src/build-itic-cctv.ts` */
-export const ITIC_JPEG_PATTERN = /^https:\/\/camera1\.iticfoundation\.org\/jpeg2\.php\?camid=10\.8\.0\.\d+:\d+$/;
-const ITIC_JPEG_ORIGIN = "https://camera1.iticfoundation.org";
-export const ITIC_SNAPSHOT_REFRESH_MS = 5_000;
-export const ITIC_SNAPSHOT_TIMEOUT_MS = 15_000;
-export const ITIC_SNAPSHOT_MAX_MS = 5 * 60_000;
-
-/** URL ภาพนิ่งที่ยอมขอ — pattern ยึดหัวท้าย + origin ตรง + ไม่มี userinfo */
-export function isSnapshotJpegUrl(url: string): boolean {
-  if (!ITIC_JPEG_PATTERN.test(url)) return false;
-  try {
-    const u = new URL(url);
-    return u.origin === ITIC_JPEG_ORIGIN && !u.username && !u.password;
-  } catch {
-    return false;
-  }
-}
+export const JPEG_POLL_REFRESH_MS = 5_000;
+export const JPEG_POLL_TIMEOUT_MS = 15_000;
+export const JPEG_POLL_MAX_MS = 5 * 60_000;
 
 /** URL ของรอบที่ `seq` — พารามิเตอร์ `_` ใหม่ทุกรอบ ให้เบราว์เซอร์/แคชกลางทางขอภาพใหม่จริง */
 export function snapshotFrameUrl(url: string, seq: number, nowMs: number): string {
-  return `${url}&_=${nowMs.toString(36)}-${seq}`;
+  return `${url}${url.includes("?") ? "&" : "?"}_=${nowMs.toString(36)}-${seq}`;
 }
 
-export type ItiCSnapshotState =
+export type JpegPollState =
   /** ยังไม่เคยได้เฟรม — รอคำตอบของรอบแรก */
   | { status: "loading" }
   /** รอบล่าสุดได้ภาพ — `fetchedAt` = เวลาที่เบราว์เซอร์ได้ภาพ (ไม่ใช่เวลาถ่าย) */
   | { status: "ok"; fetchedAt: string }
   /**
    * รอบล่าสุดไม่ได้ภาพ (`error` = เครือข่ายล้มหรือคำตอบไม่ใช่ภาพ; `timeout` = ไม่มีคำตอบใน
-   * `ITIC_SNAPSHOT_TIMEOUT_MS`) — ยังลองต่อทุก ~5 วินาที; `lastFetchedAt` = เฟรมดีล่าสุด (null = ไม่เคยได้)
+   * `JPEG_POLL_TIMEOUT_MS`) — ยังลองต่อทุก ~5 วินาที; `lastFetchedAt` = เฟรมดีล่าสุด (null = ไม่เคยได้)
    */
   | { status: "unreachable"; detail: "error" | "timeout" | "url rejected"; lastFetchedAt: string | null }
-  /** หยุดรีเฟรชเองหลัง `ITIC_SNAPSHOT_MAX_MS` — `lastFailed` = รอบสุดท้ายก่อนหยุดไม่ได้ภาพ */
+  /** หยุดรีเฟรชเองหลัง `JPEG_POLL_MAX_MS` — `lastFailed` = รอบสุดท้ายก่อนหยุดไม่ได้ภาพ */
   | { status: "paused"; lastFetchedAt: string | null; lastFailed: boolean };
 
 /** ส่วนของ `HTMLImageElement` ที่ใช้ (ทดสอบได้โดยไม่มี DOM) */
@@ -353,10 +338,11 @@ export interface SnapshotDeps<I extends SnapshotImage> {
  * เริ่มขอภาพนิ่งเป็นรอบ ๆ — คืนฟังก์ชันหยุดที่ตัดคำขอที่ค้างและตั้ง `src = ""` ให้ทั้งภาพที่รออยู่
  * และภาพที่แสดงอยู่ (เรียกซ้ำได้)
  */
-export function startItiCSnapshots<I extends SnapshotImage>(
+export function startJpegPoll<I extends SnapshotImage>(
   url: string,
-  onState: (s: ItiCSnapshotState) => void,
+  onState: (s: JpegPollState) => void,
   deps: SnapshotDeps<I>,
+  allow: UrlGuard,
 ): () => void {
   const now = deps.now ?? Date.now;
   const startedAt = now();
@@ -368,7 +354,7 @@ export function startItiCSnapshots<I extends SnapshotImage>(
   let nextTimer: ReturnType<typeof setTimeout> | null = null;
   let watchdog: ReturnType<typeof setTimeout> | null = null;
 
-  const emit = (s: ItiCSnapshotState) => {
+  const emit = (s: JpegPollState) => {
     if (!disposed) onState(s);
   };
   /** ทิ้งคำขอที่ค้าง — ถอด listener ก่อน `src = ""` เพื่อไม่ให้ `error` ที่ตามมาถูกนับ */
@@ -382,11 +368,11 @@ export function startItiCSnapshots<I extends SnapshotImage>(
   };
   const scheduleNext = (lastFailed: boolean) => {
     if (disposed) return;
-    if (now() - startedAt >= ITIC_SNAPSHOT_MAX_MS) {
+    if (now() - startedAt >= JPEG_POLL_MAX_MS) {
       emit({ status: "paused", lastFetchedAt, lastFailed });
       return;
     }
-    nextTimer = setTimeout(attempt, ITIC_SNAPSHOT_REFRESH_MS);
+    nextTimer = setTimeout(attempt, JPEG_POLL_REFRESH_MS);
   };
   const fail = (detail: "error" | "timeout") => {
     dropPending();
@@ -425,7 +411,7 @@ export function startItiCSnapshots<I extends SnapshotImage>(
         img.removeEventListener("error", onError);
       },
     };
-    watchdog = setTimeout(() => fail("timeout"), ITIC_SNAPSHOT_TIMEOUT_MS);
+    watchdog = setTimeout(() => fail("timeout"), JPEG_POLL_TIMEOUT_MS);
     img.src = snapshotFrameUrl(url, seq, now());
   }
 
@@ -442,11 +428,82 @@ export function startItiCSnapshots<I extends SnapshotImage>(
     deps.show(null);
   };
 
-  if (!isSnapshotJpegUrl(url)) {
+  if (!allow(url)) {
     emit({ status: "unreachable", detail: "url rejected", lastFetchedAt: null });
     return dispose;
   }
   emit({ status: "loading" });
   attempt();
   return dispose;
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * ภาพนิ่งที่ต้อง `fetch()` (`stream.kind = "jpeg-fetch"`, `connect-src`, ต้อง CORS) — ครั้งละหนึ่งภาพ
+ *
+ * เหตุที่ไม่ใช้ `<img src>`: ต้นทางบางแห่ง (เช่นภาพนิ่งของสำนักการระบายน้ำ กทม.) ให้เวลาภาพผ่าน
+ * `Last-Modified` เท่านั้น ซึ่งอ่านได้จากคำตอบของ `fetch` ไม่ใช่จาก `<img>`
+ * - `observedAt` = `Last-Modified` แปลงเป็น ISO — null เมื่อไม่มี/อ่านไม่ได้ ผู้เรียกต้องบอกว่า
+ *   "ไม่มีเวลาถ่าย" ห้ามแทนด้วย `fetchedAt` หรือนาฬิกาเครื่อง
+ * - ความล้มเหลวสองแบบแยกกันเสมอ: `unreachable` (ถามไม่ได้/5xx/CORS) ≠ `no-image` (ตอบแล้วแต่ไม่มีภาพ:
+ *   404, 0 ไบต์, ไม่ใช่ image/*)
+ * - object URL ที่คืนเป็นของผู้เรียก (revoke เองตอนแทนภาพ/ปิด)
+ * ยังไม่มีแหล่งใดในบัญชีใช้ชนิดนี้ (2026-09-26) — มีไว้เพราะสัญญา `CameraStream` ประกาศชนิดนี้แล้ว
+ * ---------------------------------------------------------------------------------------------- */
+
+export type JpegFetchResult =
+  | { kind: "ok"; blobUrl: string; observedAt: string | null; fetchedAt: string }
+  | { kind: "no-image" }
+  | { kind: "unreachable"; detail: string };
+
+export interface JpegFetchDeps {
+  fetch: typeof fetch;
+  createObjectURL: (blob: Blob) => string;
+  now: () => number;
+}
+
+const defaultJpegFetchDeps = (): JpegFetchDeps => ({
+  fetch: (...a) => fetch(...a),
+  createObjectURL: (b) => URL.createObjectURL(b),
+  now: () => Date.now(),
+});
+
+function isAbort(err: unknown): boolean {
+  return err instanceof DOMException && err.name === "AbortError";
+}
+
+/** `Last-Modified` (RFC 7231 HTTP-date) → ISO — null เมื่อไม่มีหรือแปลงไม่ได้ */
+export function parseLastModified(value: string | null): string | null {
+  if (!value) return null;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+}
+
+/**
+ * ดึงภาพนิ่งหนึ่งครั้ง — `allow(url)` เท็จ = ไม่แตะเครือข่าย (`unreachable` "url rejected");
+ * การยกเลิก (`signal`) โยน AbortError ต่อ ไม่ถูกนับเป็น `unreachable`
+ */
+export async function fetchJpegOnce(
+  url: string,
+  signal: AbortSignal,
+  allow: UrlGuard,
+  deps: JpegFetchDeps = defaultJpegFetchDeps(),
+): Promise<JpegFetchResult> {
+  if (!allow(url)) return { kind: "unreachable", detail: "url rejected" };
+  try {
+    const res = await deps.fetch(snapshotFrameUrl(url, 0, deps.now()), { signal, cache: "no-store" });
+    if (res.status === 404) return { kind: "no-image" };
+    if (!res.ok) return { kind: "unreachable", detail: `HTTP ${res.status}` };
+    const blob = await res.blob();
+    if (blob.size === 0 || (blob.type !== "" && !blob.type.startsWith("image/"))) return { kind: "no-image" };
+    if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+    return {
+      kind: "ok",
+      blobUrl: deps.createObjectURL(blob),
+      observedAt: parseLastModified(res.headers.get("last-modified")),
+      fetchedAt: new Date(deps.now()).toISOString(),
+    };
+  } catch (err) {
+    if (isAbort(err) || signal.aborted) throw err;
+    return { kind: "unreachable", detail: "network" };
+  }
 }
