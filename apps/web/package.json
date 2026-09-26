@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@siahra/shared-types": "*",
+    "hls.js": "^1.7.3",
     "lucide-react": "^1.47.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

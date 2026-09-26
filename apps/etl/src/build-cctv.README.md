@@ -41,6 +41,8 @@ DWR's own API routes. The build script therefore:
 - never prints or stores a raw upstream response — it logs counts, station codes and HTTP statuses
   only;
 - refuses to write the file if the serialized output matches `/@|dyndns|:\/\/[^/]*:[^/]*@/`.
+  (`CREDENTIAL_PATTERN` and the point-in-polygon helpers live in `src/provincePolygons.ts`, shared
+  with `build-itic-cctv.ts`.)
 
 `apps/etl/src/build-cctv.test.ts` proves fake `user:pass@….dyndns…` links never reach the output.
 Never add a camera link field to `CctvCamera` (`packages/shared-types/src/cctv.ts`).

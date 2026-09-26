@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import type { CctvCamera } from "@siahra/shared-types";
+import type { CctvCamera, ItiCCamera } from "@siahra/shared-types";
 import { markerPickFromUserData } from "./picking";
 
 const camera: CctvCamera = {
@@ -22,6 +22,21 @@ describe("markerPickFromUserData", () => {
     expect(pick?.kind).toBe("cctv");
     expect(pick && pick.kind === "cctv" ? pick.camera : null).toBe(camera);
     expect(pick?.anchor).toBe(anchor);
+  });
+
+  it("turns an iTIC sprite into an `itic` pick, distinct from DWR", () => {
+    const road: ItiCCamera = {
+      id: "DOH-PER-3-008",
+      name: "ทดสอบ",
+      lat: 13.9,
+      lon: 100.6,
+      organization: "กรมทางหลวง",
+      hlsUrl: "https://camerai1.iticfoundation.org/hls/x.m3u8",
+      provinceCode: "10",
+    };
+    const pick = markerPickFromUserData({ kind: "itic", camera: road }, anchor);
+    expect(pick?.kind).toBe("itic");
+    expect(pick && pick.kind === "itic" ? pick.camera : null).toBe(road);
   });
 
   it("keeps the existing marker kinds", () => {

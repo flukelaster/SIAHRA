@@ -1334,6 +1334,50 @@ Cloudflare cost: no DO, R2, cron or route; the browser asks DWR directly.
 5. With the flag off there is no toggle, no legend row, no marker, no catalogue fetch and no request
    to `telemetry.dwr.go.th`, even with `?layers=…,cctv` in the URL.
 
+### E15.2 — live CCTV: DWR MJPEG + iTIC road cameras — *done* (2026-09-26), shipped with attribution
+
+Builds on E15. Two live views, both browser → upstream, one camera at a time, only after a click:
+the DWR popup gains a "ดูสด" MJPEG view, and a second source — the iTIC Foundation's road cameras
+(Department of Highways and partner municipalities; camera list from Longdo) — plays HLS. The layer
+`cctv` stays on by default. **No licence is granted for the iTIC streams or the Longdo list, and
+Longdo's API terms restrict redisplay**; the owner decided to ship in production with attribution
+anyway and accepted that risk (§4). `VITE_FEATURE_ITIC=0` at build time is the kill switch (no iTIC
+marker, catalogue fetch, credit, hls.js load or request to iticfoundation.org). Zero Cloudflare cost:
+no DO, R2, cron or route.
+
+- Touches: new `apps/etl/src/build-itic-cctv.ts` (+ test, + `build-itic-cctv.README.md`), helpers
+  shared with `build-cctv.ts` moved to `apps/etl/src/provincePolygons.ts`, `npm run build:itic-cctv
+  -w apps/etl` → tracked `apps/web/public/cctv/itic-cameras.json`; `packages/shared-types/src/{cctv,
+  sources}.ts` (`ItiCCamera`, `ItiCCatalogue`, `SourceId` `itic-cctv`, kind `"browser"`, not in
+  `/api/v1/health`); web `lib/{itic,cctv,featureFlags}.ts`, `hooks/useCctvCatalogue.ts`,
+  `scene/CctvMarkers.ts` (amber play-glyph markers for iTIC), `InfoPopup`, legend, attribution;
+  `hls.js` dependency; `public/_headers` + `docs/security.md` (`img-src`, `connect-src`, `media-src`)
+- Depends: E15
+- Size: M
+- Risk: the source's permission (see above); `npm run build:*` in apps/etl currently fails with
+  "tsx: command not found" because `tsx` is declared in `apps/etl/package.json` but absent from
+  `package-lock.json` (pre-existing) — the catalogue was built with `npx -y tsx@4
+  src/build-itic-cctv.ts` from `apps/etl`
+- Issue: _(not yet filed)_
+
+1. The iTIC catalogue: 294 Longdo feed entries → 164 cameras (กรมทางหลวง 105, iTIC Motion 59) in 47
+   provinces at the first build; only HLS on `https://camerai1.iticfoundation.org/` is kept, and
+   `tempsus` (suspended), empty and dead-host (`camera1.iticfoundation.org`) entries are dropped.
+2. DWR live view: `<img crossOrigin="anonymous">` of `/api/public/cctv/mjpegStream`, reconnected
+   every 15 s (DWR closes a stream after ~11–24 s), double-buffered; a pixel-hash frame check shows
+   "reconnecting" after > 10 s without a new frame and failed after two silent rounds; it pauses
+   itself after 5 min and sets `src = ""` on close.
+3. iTIC playback: native HLS first, else hls.js (lazy chunk, `enableWorker: false`, ~172 kB gz,
+   not in the entry bundle), and hls.js again if native errors; one player at a time, destroyed on
+   close; states loading / live / buffering / paused / suspended / unreachable / unsupported; resume
+   after pause seeks to the live edge.
+4. A stream's time comes only from `EXT-X-PROGRAM-DATE-TIME`; the probed streams carry none, and the
+   popup says so rather than showing the user's clock.
+5. Cameras within 150 m of each other get a switcher; the water-level popup's nearest camera
+   (≤ 3 km) considers both sources.
+6. The enforcing CSP was exercised on the production `dist` (2026-09-26) with zero app violations;
+   entry + vendor 341.68 kB gz of the 360 kB guard.
+
 ## 3. Suggested first two weeks
 
 - **Week 1** (all independent, can run in any order): E1.1, E1.2, E2.1, E2.2, E2.3 (once the secrets
@@ -1355,6 +1399,7 @@ Tracked as one pinned `needs-user` checklist issue, not as tasks.
 | Rerun ETL and upload with `scripts/.env.r2` (the user's machine, hours of runtime) | E9.1, E9.2, E9.3, and verifying E8.3 | **partly resolved 2026-08-20** — no rebuild was needed: none of E8.3/E9.1/E9.2/E9.3 changes a tile byte, so a `--force` rebuild would have spent hours writing byte-identical output through the symlink into the main checkout. What the provenance actually needed was a manifest refresh (`npm run refresh:manifests -w apps/etl`), run over the existing artefacts: 78 manifests written, checksums verified independently, per-layer `builtAt` taken from the untracked tile directories because the tracked files' mtimes are the checkout instant. **Still open:** copying the tiles to E9.2's versioned prefix on R2, which needs the storage decision below |
 | **blocker: R2 storage past the free tier** — E9.2's versioned prefix means the same 5.174 GiB / 303,260 objects exist twice (the old prefix is served `immutable` for a year and can never be deleted), taking the bucket to about 10.35 GiB against a 10 GB free allowance. Server-side copy, so nothing is re-uploaded from a laptop; 303k Class A operations stay inside the free 1M/month | E9.2, E9.3 | **resolved 2026-08-20: copy all 303,260 objects** — accepted the overage. Server-side copy only, proved on one province (11, 903 files) with a 200 through `siahra-radar.co` before the other 76 |
 | **DWR permission** — the Department of Water Resources publishes no terms for its telemetry CCTV API | shipping E15 in production | **resolved 2026-09-26: ship with attribution** — owner's call (a request would likely go unanswered); DWR credited in every camera popup and the always-mounted credit line, and `VITE_FEATURE_CCTV=0` at build time removes the layer if DWR objects |
+| **iTIC / Longdo permission** — no licence is granted for the iTIC road-camera streams (Department of Highways and partner cameras), and Longdo's API terms restrict redisplay of its camera list | shipping E15.2 in production | **resolved 2026-09-26: ship with attribution** — owner's call, accepting the risk that Longdo's terms restrict redisplay; iTIC, the camera owner and Longdo credited in every camera popup and the always-mounted credit line, and `VITE_FEATURE_ITIC=0` at build time removes the iTIC cameras if any of them objects |
 | Is a GitHub blob URL acceptable as the methodology URL? | E3.4, E10.1 | **resolved 2026-08-18: no — a `/methodology` page on the web app**, rendering the Markdown in `docs/methodology/` |
 
 ## 5. Deferred — deliberately not doing now (with triggers)

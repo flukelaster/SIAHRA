@@ -24,12 +24,15 @@
  * ฟังก์ชันล้วนถูก export ให้ `build-cctv.test.ts` ทดสอบกับ fixture ปลอม ส่วน `main()`
  * รันเฉพาะตอนสั่งสคริปต์นี้ตรง ๆ (ผ่าน `tsx`) ไม่ใช่ตอนถูก import
  */
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as z from "zod/mini";
-import { booleanPointInPolygon, point as turfPoint } from "@turf/turf";
 import type { CctvCamera, CctvCatalogue } from "@siahra/shared-types";
+import { assignProvince, CREDENTIAL_PATTERN, loadProvincePolygons, type ProvincePolygon } from "./provincePolygons.js";
+
+// ย้ายไปอยู่ใน `provincePolygons.ts` (ใช้ร่วมกับ build-itic-cctv) — export ต่อให้ผู้เรียกเดิม
+export { assignProvince, CREDENTIAL_PATTERN, loadProvincePolygons, type ProvincePolygon };
 
 export const DWR_API = "https://telemetry.dwr.go.th/api";
 export const LIST_URL = `${DWR_API}/public/reportCctv/listPaginate`;
@@ -41,12 +44,6 @@ const STATION_GAP_MS = 200;
 
 const AOI_ROOT = path.resolve(import.meta.dirname, "../../web/public/aoi");
 const OUT_PATH = path.resolve(import.meta.dirname, "../../web/public/cctv/dwr-cameras.json");
-
-/**
- * สิ่งที่ห้ามหลุดเข้าไปในไฟล์ผลลัพธ์: `@` (userinfo ของ URL), โดเมน dyndns ของกล้อง,
- * และรูป `scheme://user:pass@` — ชื่อสถานีภาษาไทย/อังกฤษไม่มี `@` อยู่แล้ว
- */
-export const CREDENTIAL_PATTERN = /@|dyndns|:\/\/[^/]*:[^/]*@/i;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Schemas — allowlist เท่านั้น: ไม่มีฟิลด์ลิงก์กล้องใดถูกประกาศไว้ที่นี่
@@ -112,40 +109,6 @@ export function parseStationPoint(raw: unknown): { lat: number; lon: number } | 
   // (0,0) คือค่าว่างที่ฐานข้อมูลบางแห่งเติมไว้ ไม่ใช่พิกัดในประเทศไทย
   if (p.lat === 0 && p.lon === 0) return null;
   return { lat: p.lat, lon: p.lon };
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Province assignment
-// ─────────────────────────────────────────────────────────────────────────────
-
-export interface ProvincePolygon {
-  code: string;
-  geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon;
-}
-
-/** อ่าน boundary.geojson ของทุกไดเรกทอรีรหัสจังหวัดสองหลัก (ข้าม AOI สาธิตอย่าง chiangmai-old-city) */
-export function loadProvincePolygons(aoiRoot: string): ProvincePolygon[] {
-  const out: ProvincePolygon[] = [];
-  for (const dir of readdirSync(aoiRoot).sort()) {
-    if (!/^\d{2}$/.test(dir)) continue;
-    const file = path.join(aoiRoot, dir, "boundary.geojson");
-    if (!existsSync(file)) continue;
-    const fc = JSON.parse(readFileSync(file, "utf-8")) as GeoJSON.FeatureCollection;
-    for (const f of fc.features) {
-      const g = f.geometry;
-      if (g && (g.type === "Polygon" || g.type === "MultiPolygon")) out.push({ code: dir, geometry: g });
-    }
-  }
-  return out;
-}
-
-/** รหัสจังหวัดที่พิกัดนี้ตกอยู่ — null = ไม่ตกในขอบเขตใดเลย (ไม่เดา) */
-export function assignProvince(lat: number, lon: number, provinces: readonly ProvincePolygon[]): string | null {
-  const pt = turfPoint([lon, lat]);
-  for (const p of provinces) {
-    if (booleanPointInPolygon(pt, p.geometry)) return p.code;
-  }
-  return null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

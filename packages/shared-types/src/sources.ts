@@ -26,7 +26,8 @@ export type SourceId =
   | "esri-world-imagery"
   | "eox-s2cloudless"
   | "dla"
-  | "dwr-cctv";
+  | "dwr-cctv"
+  | "itic-cctv";
 
 export interface SourceDescriptor {
   id: SourceId;
@@ -52,7 +53,8 @@ export interface SourceDescriptor {
    *           by the API — so /api/v1/health has no status for it and must not
    *           claim one (the server has not probed it; "absent" is the honest
    *           state). Freshness is shown per item where it was fetched (E15:
-   *           the CCTV popup's capture time and fetch time)
+   *           the CCTV popup's capture time and fetch time; E15.2: the live
+   *           stream's own timestamp, or a plain "no timestamp")
    */
   kind: "live" | "static" | "browser";
 }
@@ -286,6 +288,23 @@ export const SOURCES: Record<SourceId, SourceDescriptor> = {
       "ภาพจากกล้อง CCTV สถานีโทรมาตร กรมทรัพยากรน้ำ (telemetry.dwr.go.th) — กรมทรัพยากรน้ำไม่ได้รับรองหรือมีส่วนเกี่ยวข้องกับโครงการนี้",
     // เบราว์เซอร์ของผู้ใช้ขอภาพจาก DWR ตรง ๆ ทีละคลิก api ไม่เคยถาม DWR จึงไม่มีสถานะ
     // ใน /api/v1/health (และต้องไม่มี) — บัญชีกล้องเป็นไฟล์คงที่จาก ETL
+    kind: "browser",
+  },
+  "itic-cctv": {
+    id: "itic-cctv",
+    nameTh: "วิดีโอสดกล้องถนน (มูลนิธิ iTIC · รายการกล้องจาก Longdo)",
+    nameEn: "Live road-camera video (iTIC Foundation · camera list by Longdo)",
+    agency:
+      "มูลนิธิสถาบันส่งเสริมการจัดการความรู้เพื่อความปลอดภัยในการเดินทาง (iTIC Foundation) — กล้องของกรมทางหลวงและหน่วยงานพันธมิตร; รายการกล้องจาก Longdo (Metamedia Technology)",
+    homepageUrl: "https://iticfoundation.org/",
+    // ไม่มีเงื่อนไขการใช้ที่ให้สิทธิ์เราไว้ (ตรวจ 2026-09-26) — ห้ามตั้งชื่อสัญญาอนุญาตขึ้นเอง
+    // แสดงโดยให้เครดิต และถอดได้ด้วยแฟล็ก VITE_FEATURE_ITIC=0 ถ้าเจ้าของขอ
+    licenseName: "ไม่ได้รับสัญญาอนุญาตใด — แสดงโดยให้เครดิต iTIC เจ้าของกล้อง และ Longdo",
+    licenseUrl: "https://iticfoundation.org/",
+    attributionText:
+      "วิดีโอสดจากกล้องที่เผยแพร่ผ่านมูลนิธิสถาบันส่งเสริมการจัดการความรู้เพื่อความปลอดภัยในการเดินทาง (iTIC) — เจ้าของกล้องคือกรมทางหลวงและหน่วยงานพันธมิตรตามที่ระบุในแต่ละกล้อง; รายการกล้องจาก Longdo (camera.longdo.com) — ไม่มีหน่วยงานใดรับรองหรือมีส่วนเกี่ยวข้องกับโครงการนี้",
+    // เบราว์เซอร์เล่นสตรีมจาก iTIC ตรง ๆ ทีละกล้องเมื่อผู้ใช้คลิก api ไม่เคยถาม iTIC
+    // จึงไม่มีสถานะใน /api/v1/health (และต้องไม่มี) — บัญชีกล้องเป็นไฟล์คงที่จาก ETL
     kind: "browser",
   },
 };

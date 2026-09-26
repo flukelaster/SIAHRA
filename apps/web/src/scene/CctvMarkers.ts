@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import type { AoiManifest, CctvCamera } from "@siahra/shared-types";
+import type { AoiManifest, CctvCamera, ItiCCamera } from "@siahra/shared-types";
 import { createLocalProjection } from "./localProjection";
 
 /** Sprite size in CSS px (sizeAttenuation off) — เล็กกว่าหมุดเขื่อนใหญ่ ไม่แย่งสายตาจากค่าตรวจวัด */
@@ -14,6 +14,7 @@ export interface CctvMarkerResult {
 }
 
 let sharedTexture: THREE.CanvasTexture | null = null;
+let sharedIticTexture: THREE.CanvasTexture | null = null;
 
 /**
  * ไอคอนกล้องสีเดียวทุกตัว (E15) — หมุดบอกแค่ "ตรงนี้มีกล้องของ DWR" ไม่ได้เข้ารหัสค่าใด ๆ
@@ -58,19 +59,59 @@ function cameraTexture(): THREE.CanvasTexture {
   return tex;
 }
 
+/**
+ * ไอคอนกล้องถนนของ iTIC (E15.2) — ต่างจากกล้อง DWR ทั้งรูปทรง (สี่เหลี่ยมมุมมน ไม่ใช่วงกลม)
+ * และสี (อำพัน) พร้อมสามเหลี่ยม "เล่น" = วิดีโอสด ไม่ใช่ภาพนิ่ง; ไม่ได้เข้ารหัสค่าใด ๆ เช่นกัน
+ */
+function iticTexture(): THREE.CanvasTexture {
+  if (sharedIticTexture) return sharedIticTexture;
+  const size = 64;
+  const c = document.createElement("canvas");
+  c.width = size;
+  c.height = size;
+  const ctx = c.getContext("2d")!;
+  ctx.shadowColor = "rgba(0,0,0,0.6)";
+  ctx.shadowBlur = 6;
+  ctx.beginPath();
+  ctx.roundRect(9, 9, 46, 46, 11);
+  ctx.fillStyle = "rgba(120,53,15,0.92)";
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = "#fbbf24";
+  ctx.stroke();
+  ctx.fillStyle = "#fde68a";
+  ctx.beginPath();
+  ctx.moveTo(25, 20);
+  ctx.lineTo(45, 32);
+  ctx.lineTo(25, 44);
+  ctx.closePath();
+  ctx.fill();
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  sharedIticTexture = tex;
+  return tex;
+}
+
+/** กล้องของแหล่งไหน — กำหนดไอคอนและ `userData.kind` ที่ picking ส่งต่อให้ popup */
+export type CctvMarkerSource =
+  | { kind: "cctv"; cameras: readonly CctvCamera[] }
+  | { kind: "itic"; cameras: readonly ItiCCamera[] };
+
 /** หมุดกล้องทุกตัวในบัญชีที่ตกในกริดของจังหวัดนี้ (รวมกล้องของจังหวัดข้างเคียงที่อยู่ในกรอบ) */
 export function buildCctvMarkers(
   manifest: AoiManifest,
-  cameras: readonly CctvCamera[],
+  source: CctvMarkerSource,
   sampleGround: (x: number, z: number) => number,
   viewportHeightPx: number,
 ): CctvMarkerResult {
+  const cameras: readonly (CctvCamera | ItiCCamera)[] = source.cameras;
   const proj = createLocalProjection(manifest);
   const dots = new THREE.Group();
-  dots.name = "cctv:dots";
+  dots.name = `${source.kind}:dots`;
   const placed: { sprite: THREE.Sprite; groundY: number }[] = [];
   const material = new THREE.SpriteMaterial({
-    map: cameraTexture(),
+    map: source.kind === "itic" ? iticTexture() : cameraTexture(),
     sizeAttenuation: false,
     depthTest: false,
     depthWrite: false,
@@ -83,8 +124,9 @@ export function buildCctvMarkers(
     const sprite = new THREE.Sprite(material);
     sprite.scale.setScalar((MARKER_PX / Math.max(1, viewportHeightPx)) * 2);
     sprite.position.set(x, groundY, z);
-    sprite.renderOrder = 31;
-    sprite.userData = { kind: "cctv", camera: cam };
+    // กล้อง DWR อยู่บนกล้องถนนเมื่อทับกัน (หมุดริมน้ำสัมพันธ์กับชั้นอุทกภัยมากกว่า)
+    sprite.renderOrder = source.kind === "itic" ? 30 : 31;
+    sprite.userData = { kind: source.kind, camera: cam };
     dots.add(sprite);
     placed.push({ sprite, groundY });
   }

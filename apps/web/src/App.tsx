@@ -9,7 +9,7 @@ import { useApiHealth, sourceStatus } from "./hooks/useApiHealth";
 import { useLayerDescriptors } from "./hooks/useLayerDescriptors";
 import { useEarthquakeFeed } from "./hooks/useEarthquakeFeed";
 import { useDams } from "./hooks/useDams";
-import { useCctvCatalogue } from "./hooks/useCctvCatalogue";
+import { useCctvCatalogue, useItiCCatalogue } from "./hooks/useCctvCatalogue";
 import { useFloodExposure } from "./hooks/useFloodExposure";
 import { useFloodExtent } from "./hooks/useFloodExtent";
 import { useFloodScene } from "./hooks/useFloodScene";
@@ -36,7 +36,7 @@ import { computeForecastBandStatus } from "./lib/forecastStyle";
 import { formatNumber } from "./lib/number";
 import { buildSearchIndex, type SearchPlace } from "./lib/searchIndex";
 import { useLang } from "./i18n/context";
-import { CCTV_ENABLED } from "./lib/featureFlags";
+import { CCTV_ENABLED, ITIC_ENABLED } from "./lib/featureFlags";
 
 const DEFAULT_PROVINCE_CODE = "10"; // Bangkok
 
@@ -67,6 +67,9 @@ const DEFAULT_LAYERS: MapLayers = {
    * หมุดมาจากไฟล์คงที่ของเราเอง (`/cctv/dwr-cameras.json`) ส่วนภาพจาก DWR ยังขอก็ต่อเมื่อ
    * ผู้ใช้คลิกหมุดเท่านั้น — การเปิดชั้นจึงไม่ส่ง request ใดไปถึง DWR
    * และมีผลเฉพาะเมื่อแฟล็ก `VITE_FEATURE_CCTV` เปิด (เปิดเป็นค่าเริ่มต้น; `VITE_FEATURE_CCTV=0` ตอน build = ถอดทั้งชั้น)
+   *
+   * E15.2 — สวิตช์เดียวกันนี้คุมหมุดกล้องถนนของ iTIC (วิดีโอสด) ด้วย ภายใต้แฟล็ก
+   * `VITE_FEATURE_ITIC` ของตัวเอง; สตรีมเริ่มเมื่อผู้ใช้คลิกหมุดเท่านั้น
    */
   cctv: true,
   radar: true,
@@ -125,6 +128,9 @@ export default function App() {
   // E15 — แฟล็กปิด = ไม่ดึงบัญชีกล้องเลย แม้ permalink จะตั้ง `cctv` ไว้
   const cctvOn = CCTV_ENABLED && layers.cctv;
   const cctvCatalogue = useCctvCatalogue(cctvOn);
+  // E15.2 — แฟล็ก iTIC ปิด = ไม่ดึงบัญชีกล้องถนนเลย
+  const iticOn = ITIC_ENABLED && layers.cctv;
+  const iticCatalogue = useItiCCatalogue(iticOn);
   const radar = useRadar(layers.radar);
   const earthquakes = useEarthquakeFeed();
   const apiHealth = useApiHealth();
@@ -274,6 +280,7 @@ export default function App() {
     floodScenes,
     floodScene,
     cctvCatalogue: CCTV_ENABLED ? cctvCatalogue.data : null,
+    iticCatalogue: ITIC_ENABLED ? iticCatalogue.data : null,
     health: apiHealth.health,
     // เวลาที่ artefact ของชั้นคงที่ถูก build มาจาก manifest ของจังหวัดที่แสดงอยู่
     // (null ตอนยังไม่โหลด/manifest รุ่นก่อน E9.1 → legend คงข้อความ "ไม่ได้บันทึกเวลา")
@@ -415,6 +422,7 @@ export default function App() {
     forecastLegend,
     floodGfmLegend,
     cctvCatalogue,
+    iticCatalogue,
     observations,
     floodExtent,
     floodScenes,
@@ -455,6 +463,7 @@ export default function App() {
         floodFieldDim={floodFieldDim}
         dams={dams.data?.dams ?? []}
         cctvCameras={cctvOn ? cctvCatalogue.data?.cameras : undefined}
+        iticCameras={iticOn ? iticCatalogue.data?.cameras : undefined}
         radar={radar.data}
         exposure={exposure.data}
         exposureStale={exposureNoNewRun}

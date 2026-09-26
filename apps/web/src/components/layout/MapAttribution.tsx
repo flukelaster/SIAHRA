@@ -4,7 +4,7 @@ import { BRAND } from "../../branding";
 import type { MapInfo } from "./Map3DCanvas";
 import { formatNumber } from "../../lib/number";
 import { useLang } from "../../i18n/context";
-import { CCTV_ENABLED } from "../../lib/featureFlags";
+import { CCTV_ENABLED, ITIC_ENABLED } from "../../lib/featureFlags";
 
 /**
  * ลำดับเครดิตบนแผนที่: ต้นทางที่วัดจริง (live) มาก่อน แล้วค่อยข้อมูลฐานที่นิ่ง
@@ -15,6 +15,8 @@ const CREDIT_ORDER: SourceId[] = [
   "thaiwater",
   // E15 ภาพกล้อง DWR — DWR ไม่มีเงื่อนไขการใช้ให้อ้าง เราจึงใช้การให้เครดิตที่มองเห็นได้เสมอ
   ...(CCTV_ENABLED ? (["dwr-cctv"] as const) : []),
+  // E15.2 วิดีโอสด iTIC — ไม่มีสัญญาอนุญาตให้อ้าง จึงให้เครดิต iTIC/เจ้าของกล้อง/Longdo ที่มองเห็นได้เสมอ
+  ...(ITIC_ENABLED ? (["itic-cctv"] as const) : []),
   "tmd-radar",
   "gistda-flood",
   // E14.F4 วาดพิกเซลแรกของ GFM — เงื่อนไข CEMS บังคับให้เครดิตมองเห็นได้ (docs/roadmap.md E14.F4 ข้อ 4)

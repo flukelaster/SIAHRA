@@ -13,3 +13,14 @@
  * (permalink `?layers=…,cctv` ตั้งสวิตช์เป็นจริงได้แม้แฟล็กปิด)
  */
 export const CCTV_ENABLED: boolean = import.meta.env.VITE_FEATURE_CCTV !== "0";
+
+/**
+ * E15.2 — วิดีโอสดกล้องถนนของมูลนิธิ iTIC (กล้องของกรมทางหลวงและหน่วยงานพันธมิตร, รายการ
+ * กล้องจาก Longdo): **เปิดเป็นค่าเริ่มต้น** (ตัดสินใจ 2026-09-26) โดยให้เครดิตใน popup และ
+ * บรรทัดเครดิตที่ mount เสมอ — ไม่มีใครให้สัญญาอนุญาตไว้ จึงเก็บแฟล็กเป็น kill switch:
+ * build ด้วย `VITE_FEATURE_ITIC=0` ถ้าเจ้าของขอให้ถอด
+ *
+ * ปิด = ไม่มีหมุด iTIC ไม่ดึง `/cctv/itic-cameras.json` ไม่มีเครดิต `itic-cctv` ไม่โหลด
+ * hls.js และไม่มี request ใดไปถึง iticfoundation.org — ชั้น `cctv` ยังอยู่ถ้าแฟล็ก DWR เปิด
+ */
+export const ITIC_ENABLED: boolean = import.meta.env.VITE_FEATURE_ITIC !== "0";
