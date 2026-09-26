@@ -49,7 +49,8 @@ of the policy string free to drift from the file Cloudflare actually reads.
 ```
 default-src 'self'; base-uri 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'none';
 form-action 'none'; script-src 'self'; style-src 'self' 'unsafe-inline';
-img-src 'self' data: blob: https://server.arcgisonline.com https://tiles.maps.eox.at https://telemetry.dwr.go.th;
+img-src 'self' data: blob: https://server.arcgisonline.com https://tiles.maps.eox.at https://telemetry.dwr.go.th
+  https://camera1.iticfoundation.org;
 font-src 'self'; connect-src 'self' wss://siahra-radar.co https://telemetry.dwr.go.th https://camerai1.iticfoundation.org;
 worker-src 'self'; manifest-src 'self'; media-src blob: https://camerai1.iticfoundation.org
 ```
@@ -74,13 +75,23 @@ worker-src 'self'; manifest-src 'self'; media-src blob: https://camerai1.iticfou
   the user presses "ดูสด" in that camera's popup; the popup re-sets `src` every ~15 s (DWR closes the
   stream after ~11–24 s), stops by itself after 5 min, and sets `src = ""` on close to drop the
   connection. Inert when built with `VITE_FEATURE_CCTV=0`.
+  `https://camera1.iticfoundation.org` (added 2026-09-26) serves still images for the few iTIC road
+  cameras that have no usable HLS stream: `GET /jpeg2.php?camid=10.8.0.{n}:{port}` answers a JPEG
+  (the only `jpeg2.php` group that returned a real frame when probed on 2026-09-26 — the placeholder,
+  `CAMPK…`, `61.91.182.114` and `jpeg.cgi` groups return "not found", "No signal" or nothing, and are
+  never stored; `apps/etl/src/build-itic-cctv.README.md`). One camera, only after a click; the popup
+  re-requests it every ~5 s with a cache-busting parameter while open, gives up on a request after
+  15 s, stops after 5 min, and sets `src = ""` on close. The image is only displayed — no
+  `crossOrigin`, never drawn to a canvas — so the host needs no CORS and appears in `img-src`
+  **only**: nothing on `camera1` is fetched by XHR or loaded as media. Inert when built with
+  `VITE_FEATURE_ITIC=0`.
 - `connect-src 'self' wss://siahra-radar.co https://telemetry.dwr.go.th https://camerai1.iticfoundation.org` — same-origin `/api/*` plus
   the earthquake WebSocket. CSP3 says `'self'` already matches `wss:` on the same origin; the explicit
   host is belt and braces. `https://telemetry.dwr.go.th` (E15) is the Department of Water Resources
   telemetry API: the browser asks it directly for one CCTV snapshot per click (`GET
   /api/public/reportCctv/snapshot/{id}`, then `POST /api/file/image/cctv` for the JPEG — DWR reflects
-  our origin in CORS, checked 2026-09-26). The JPEG is shown from a `blob:` URL. The layer is on in
-  production; building with `VITE_FEATURE_CCTV=0` removes it, and this entry is then inert.
+  our origin in CORS, checked 2026-09-26). The JPEG is shown from a `blob:` URL. The layer ships in
+  production (off by default since 2026-09-26); building with `VITE_FEATURE_CCTV=0` removes it, and this entry is then inert.
   `https://camerai1.iticfoundation.org` (E15.2) is the iTIC Foundation's HLS server for the road
   cameras (Department of Highways and partners; camera list by Longdo, baked into
   `public/cctv/itic-cameras.json` at ETL time, so the Longdo host itself is never contacted by the
@@ -116,7 +127,9 @@ The 2026-08-19 run predates the E15.2 changes (`img-src` + `https://telemetry.dw
 `https://camerai1.iticfoundation.org`, `media-src` from `'none'` to `blob: https://camerai1.iticfoundation.org`).
 QA on 2026-09-26 ran the production `dist` under the enforcing CSP: iTIC played through hls.js/MSE
 (`blob:`), the DWR MJPEG live view ran with its canvas read, the WebSocket opened, and the app raised
-zero violations.
+zero violations. The later `img-src` addition of `https://camera1.iticfoundation.org` (iTIC still
+images) has **not** been verified under the enforcing policy: that host times out from the network
+the change was made on, so no frame could be loaded either way.
 
 Known gap: whether Cloudflare's asset layer honours `_headers` in production could not be exercised
 here (Vite ignores it, and there is no `wrangler dev` for the web Worker in this environment). It was

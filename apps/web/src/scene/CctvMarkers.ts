@@ -15,6 +15,7 @@ export interface CctvMarkerResult {
 
 let sharedTexture: THREE.CanvasTexture | null = null;
 let sharedIticTexture: THREE.CanvasTexture | null = null;
+let sharedIticSnapshotTexture: THREE.CanvasTexture | null = null;
 
 /**
  * ไอคอนกล้องสีเดียวทุกตัว (E15) — หมุดบอกแค่ "ตรงนี้มีกล้องของ DWR" ไม่ได้เข้ารหัสค่าใด ๆ
@@ -59,12 +60,8 @@ function cameraTexture(): THREE.CanvasTexture {
   return tex;
 }
 
-/**
- * ไอคอนกล้องถนนของ iTIC (E15.2) — ต่างจากกล้อง DWR ทั้งรูปทรง (สี่เหลี่ยมมุมมน ไม่ใช่วงกลม)
- * และสี (อำพัน) พร้อมสามเหลี่ยม "เล่น" = วิดีโอสด ไม่ใช่ภาพนิ่ง; ไม่ได้เข้ารหัสค่าใด ๆ เช่นกัน
- */
-function iticTexture(): THREE.CanvasTexture {
-  if (sharedIticTexture) return sharedIticTexture;
+/** พื้นสี่เหลี่ยมมุมมนสีอำพันของหมุด iTIC ทั้งสองแบบ — คืน context ไว้วาดสัญลักษณ์ต่อ */
+function iticTile(): { c: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
   const size = 64;
   const c = document.createElement("canvas");
   c.width = size;
@@ -80,6 +77,16 @@ function iticTexture(): THREE.CanvasTexture {
   ctx.lineWidth = 3;
   ctx.strokeStyle = "#fbbf24";
   ctx.stroke();
+  return { c, ctx };
+}
+
+/**
+ * ไอคอนกล้องถนนของ iTIC (E15.2) — ต่างจากกล้อง DWR ทั้งรูปทรง (สี่เหลี่ยมมุมมน ไม่ใช่วงกลม)
+ * และสี (อำพัน) พร้อมสามเหลี่ยม "เล่น" = วิดีโอสด ไม่ใช่ภาพนิ่ง; ไม่ได้เข้ารหัสค่าใด ๆ เช่นกัน
+ */
+function iticTexture(): THREE.CanvasTexture {
+  if (sharedIticTexture) return sharedIticTexture;
+  const { c, ctx } = iticTile();
   ctx.fillStyle = "#fde68a";
   ctx.beginPath();
   ctx.moveTo(25, 20);
@@ -90,6 +97,30 @@ function iticTexture(): THREE.CanvasTexture {
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   sharedIticTexture = tex;
+  return tex;
+}
+
+/**
+ * กล้อง iTIC ที่ให้ภาพนิ่งรีเฟรชอัตโนมัติ (`stream.kind = "jpeg"`) — พื้นเดียวกับหมุดวิดีโอ
+ * (ยังเป็นกล้องถนนของ iTIC) แต่สัญลักษณ์เป็นรูปกล้อง ไม่ใช่สามเหลี่ยม "เล่น" เพื่อไม่ให้อ่านเป็นวิดีโอสด
+ */
+function iticSnapshotTexture(): THREE.CanvasTexture {
+  if (sharedIticSnapshotTexture) return sharedIticSnapshotTexture;
+  const { c, ctx } = iticTile();
+  ctx.fillStyle = "#fde68a";
+  ctx.beginPath();
+  ctx.roundRect(17, 24, 30, 20, 3);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.roundRect(25, 20, 10, 6, 2);
+  ctx.fill();
+  ctx.fillStyle = "rgba(120,53,15,1)";
+  ctx.beginPath();
+  ctx.arc(32, 34, 6, 0, Math.PI * 2);
+  ctx.fill();
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  sharedIticSnapshotTexture = tex;
   return tex;
 }
 
@@ -110,18 +141,21 @@ export function buildCctvMarkers(
   const dots = new THREE.Group();
   dots.name = `${source.kind}:dots`;
   const placed: { sprite: THREE.Sprite; groundY: number }[] = [];
-  const material = new THREE.SpriteMaterial({
-    map: source.kind === "itic" ? iticTexture() : cameraTexture(),
-    sizeAttenuation: false,
-    depthTest: false,
-    depthWrite: false,
-    transparent: true,
-  });
+  const makeMaterial = (map: THREE.Texture) =>
+    new THREE.SpriteMaterial({ map, sizeAttenuation: false, depthTest: false, depthWrite: false, transparent: true });
+  const material = makeMaterial(source.kind === "itic" ? iticTexture() : cameraTexture());
+  /** หมุดภาพนิ่งของ iTIC — สร้างเมื่อมีกล้องแบบนี้ในชุดจริงเท่านั้น */
+  let snapshotMaterial: THREE.SpriteMaterial | null = null;
+  const materialFor = (cam: CctvCamera | ItiCCamera): THREE.SpriteMaterial => {
+    if (!("stream" in cam) || cam.stream.kind !== "jpeg") return material;
+    snapshotMaterial ??= makeMaterial(iticSnapshotTexture());
+    return snapshotMaterial;
+  };
   for (const cam of cameras) {
     const [x, z] = proj.lonLatToLocal(cam.lon, cam.lat);
     if (!proj.insideGrid(x, z)) continue;
     const groundY = sampleGround(x, z);
-    const sprite = new THREE.Sprite(material);
+    const sprite = new THREE.Sprite(materialFor(cam));
     sprite.scale.setScalar((MARKER_PX / Math.max(1, viewportHeightPx)) * 2);
     sprite.position.set(x, groundY, z);
     // กล้อง DWR อยู่บนกล้องถนนเมื่อทับกัน (หมุดริมน้ำสัมพันธ์กับชั้นอุทกภัยมากกว่า)
@@ -137,6 +171,9 @@ export function buildCctvMarkers(
       for (const p of placed) p.sprite.position.y = p.groundY * f;
     },
     // texture ใช้ร่วมกันทั้งแอป (สร้างครั้งเดียว) จึงทิ้งแค่ material ของชุดนี้
-    dispose: () => material.dispose(),
+    dispose: () => {
+      material.dispose();
+      snapshotMaterial?.dispose();
+    },
   };
 }

@@ -1338,8 +1338,11 @@ Cloudflare cost: no DO, R2, cron or route; the browser asks DWR directly.
 
 Builds on E15. Two live views, both browser → upstream, one camera at a time, only after a click:
 the DWR popup gains a "ดูสด" MJPEG view, and a second source — the iTIC Foundation's road cameras
-(Department of Highways and partner municipalities; camera list from Longdo) — plays HLS. The layer
-`cctv` stays on by default. **No licence is granted for the iTIC streams or the Longdo list, and
+(Department of Highways and partner municipalities; camera list from Longdo) — plays HLS, and for a
+handful of image-only Bangkok cameras (the only `jpeg2.php` group that returned a real frame when
+probed on 2026-09-26) shows a still image re-requested every ~5 s. The layer `cctv` is **off by
+default** since the owner's decision of 2026-09-26: markers and catalogues load only when the user
+turns it on. **No licence is granted for the iTIC streams or the Longdo list, and
 Longdo's API terms restrict redisplay**; the owner decided to ship in production with attribution
 anyway and accepted that risk (§4). `VITE_FEATURE_ITIC=0` at build time is the kill switch (no iTIC
 marker, catalogue fetch, credit, hls.js load or request to iticfoundation.org). Zero Cloudflare cost:

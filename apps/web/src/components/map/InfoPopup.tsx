@@ -19,7 +19,16 @@ import {
   type SnapshotCache,
   type SnapshotResult,
 } from "../../lib/cctv";
-import { ITIC_HOME, LONGDO_CAMERA_HOME, startHlsPlayer, type HlsPlayerState } from "../../lib/itic";
+import {
+  ITIC_HOME,
+  LONGDO_CAMERA_HOME,
+  ITIC_SNAPSHOT_MAX_MS,
+  ITIC_SNAPSHOT_REFRESH_MS,
+  startHlsPlayer,
+  startItiCSnapshots,
+  type HlsPlayerState,
+  type ItiCSnapshotState,
+} from "../../lib/itic";
 import { Sparkline } from "../hazard/Sparkline";
 import { floodDepthMaxLabel } from "../../lib/floodStyle";
 import { formatNumber } from "../../lib/number";
@@ -518,6 +527,85 @@ export function CctvBody({
   );
 }
 
+/** ชื่อกล้อง + เจ้าของ · id · ระยะ — ใช้ร่วมกันทั้งวิดีโอสดและภาพนิ่ง */
+function ItiCHeader({
+  camera,
+  name,
+  distanceKm,
+  t,
+}: {
+  camera: ItiCCamera;
+  name: string;
+  distanceKm: number | null;
+  t: TFunction;
+}) {
+  return (
+    <>
+      <p className="pr-6 text-sm leading-snug font-semibold text-white">{name}</p>
+      <p className="text-[11px] text-[var(--color-fg-muted)]">
+        {[camera.organization, camera.id, distanceKm !== null ? `${distanceKm.toFixed(1)} ${t("unit.km")}` : null]
+          .filter(Boolean)
+          .join(" · ")}
+      </p>
+    </>
+  );
+}
+
+/** เครดิตเจ้าของกล้อง + iTIC + Longdo — อยู่ใน popup ของกล้อง iTIC ทุกแบบเสมอ */
+function ItiCCredits({
+  camera,
+  creditKey,
+  t,
+  action,
+}: {
+  camera: ItiCCamera;
+  creditKey: "popup.itic.credit" | "popup.itic.creditImage";
+  t: TFunction;
+  /** ปุ่มขวามือ (ลองใหม่ / รีเฟรชต่อ) — null = ไม่มี */
+  action: { label: string; onClick: () => void } | null;
+}) {
+  return (
+    <>
+      <div className="mt-1.5 flex items-start justify-between gap-2">
+        <span className="flex min-w-0 flex-col gap-0.5 text-[10px]">
+          {camera.organization ? (
+            <span className="text-[var(--color-fg-muted)]">{t("popup.itic.owner", { org: camera.organization })}</span>
+          ) : null}
+          <a
+            href={ITIC_HOME}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="inline-flex items-center gap-1 text-[var(--color-accent)] hover:underline"
+          >
+            <ExternalLink size={10} aria-hidden="true" />
+            {t(creditKey)}
+          </a>
+          <a
+            href={LONGDO_CAMERA_HOME}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="inline-flex items-center gap-1 text-[var(--color-accent)] hover:underline"
+          >
+            <ExternalLink size={10} aria-hidden="true" />
+            {t("popup.itic.listCredit")}
+          </a>
+        </span>
+        {action ? (
+          <button
+            type="button"
+            onClick={action.onClick}
+            className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-md bg-white/8 px-1.5 py-0.5 text-[10px] text-[var(--color-fg)] hover:bg-white/15"
+          >
+            <RefreshCw size={10} aria-hidden="true" />
+            {action.label}
+          </button>
+        ) : null}
+      </div>
+      <p className="mt-0.5 text-[10px] text-[var(--color-fg-subtle)]">{t("popup.itic.rights")}</p>
+    </>
+  );
+}
+
 /**
  * วิดีโอสดจากกล้องถนนของ iTIC หนึ่งตัว (E15.2) — สตรีมเริ่มตอน mount เท่านั้น (ผู้ใช้คลิกหมุด
  * หรือกด "ดูวิดีโอสด" ในแถวกล้องใกล้เคียง) และถูกตัดทันทีตอน unmount (`startHlsPlayer` คืนตัวหยุด)
@@ -526,19 +614,20 @@ export function CctvBody({
  *   ทั้งหมด และไม่มีแบบไหนพูดถึงสภาพถนน การจราจร หรือพื้นที่ — `buffering` แสดงเฟรมที่ค้างอยู่
  *   พร้อมป้ายสีกลาง ไม่ใช่ป้าย "สด" (และไม่ใช่ความล้มเหลว จึงไม่มีปุ่มลองใหม่)
  * - เวลา: EXT-X-PROGRAM-DATE-TIME ของสตรีมเท่านั้น ไม่มี = บอกตรง ๆ ว่าสตรีมไม่มีเวลากำกับ
- * - เครดิตเจ้าของกล้อง (`organization`) + iTIC + Longdo อยู่ใน popup เสมอ
+ * - เครดิตเจ้าของกล้อง (`organization`) + iTIC + Longdo อยู่ใน popup เสมอ (`ItiCCredits`)
  */
-export function ItiCBody({
+function ItiCVideoBody({
   camera,
+  url,
   lang,
   t,
-  distanceKm = null,
+  distanceKm,
 }: {
   camera: ItiCCamera;
+  url: string;
   lang: Lang;
   t: TFunction;
-  /** ระยะจากสถานีที่เปิดมา (แถวกล้องใกล้เคียง) — null = เปิดจากหมุดกล้องโดยตรง */
-  distanceKm?: number | null;
+  distanceKm: number | null;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [state, setState] = useState<HlsPlayerState>({ status: "loading" });
@@ -547,8 +636,8 @@ export function ItiCBody({
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    return startHlsPlayer(video, camera.hlsUrl, setState);
-  }, [camera.hlsUrl, attempt]);
+    return startHlsPlayer(video, url, setState);
+  }, [url, attempt]);
 
   const name = camera.name ?? t("popup.itic.fallbackName", { id: camera.id });
   const failed = state.status === "suspended" || state.status === "unreachable" || state.status === "unsupported";
@@ -556,13 +645,8 @@ export function ItiCBody({
   const playing = state.status === "live" || state.status === "buffering" || state.status === "paused";
 
   return (
-    <div data-itic-camera={camera.id} data-itic-state={state.status}>
-      <p className="pr-6 text-sm leading-snug font-semibold text-white">{name}</p>
-      <p className="text-[11px] text-[var(--color-fg-muted)]">
-        {[camera.organization, camera.id, distanceKm !== null ? `${distanceKm.toFixed(1)} ${t("unit.km")}` : null]
-          .filter(Boolean)
-          .join(" · ")}
-      </p>
+    <div data-itic-camera={camera.id} data-itic-kind="hls" data-itic-state={state.status}>
+      <ItiCHeader camera={camera} name={name} distanceKm={distanceKm} t={t} />
       <div className="relative mt-2 aspect-video w-full overflow-hidden rounded-lg bg-black/60">
         <video
           ref={videoRef}
@@ -612,49 +696,163 @@ export function ItiCBody({
           )
         ) : null}
       </div>
-      <div className="mt-1.5 flex items-start justify-between gap-2">
-        <span className="flex min-w-0 flex-col gap-0.5 text-[10px]">
-          {camera.organization ? (
-            <span className="text-[var(--color-fg-muted)]">{t("popup.itic.owner", { org: camera.organization })}</span>
-          ) : null}
-          <a
-            href={ITIC_HOME}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="inline-flex items-center gap-1 text-[var(--color-accent)] hover:underline"
+      <ItiCCredits
+        camera={camera}
+        creditKey="popup.itic.credit"
+        t={t}
+        action={failed ? { label: t("popup.itic.retry"), onClick: () => setAttempt((n) => n + 1) } : null}
+      />
+    </div>
+  );
+}
+
+
+/**
+ * ภาพนิ่งจากกล้อง iTIC ที่ไม่มี HLS (`stream.kind = "jpeg"`) — ขอภาพใหม่ทุก ~5 วินาทีขณะ mount
+ * (`startItiCSnapshots` ใน `lib/itic.ts`) และตัดทันทีตอน unmount (`src = ""`)
+ *
+ * - ป้ายบนภาพคือ "ภาพนิ่งรีเฟรชอัตโนมัติ" เสมอ — ไม่ใช่ "สด"
+ * - สถานะ loading / ok / unreachable / paused มีข้อความของตัวเอง ไม่มีแบบไหนพูดถึงสภาพถนน;
+ *   `unreachable` หลังเคยได้ภาพ = ภาพเดิมค้างไว้แบบหรี่พร้อมเวลาที่ได้ภาพนั้น
+ * - เวลา: แสดงเฉพาะ "ได้ภาพล่าสุดเมื่อ" (นาฬิกาเครื่องตอนได้ภาพ) — เวลาถ่ายกล้องพิมพ์ไว้บนภาพเอง
+ *   ไม่มีเป็นข้อมูล จึงบอกตรง ๆ และไม่ใช้นาฬิกาเครื่องเป็นเวลาถ่าย
+ */
+function ItiCSnapshotBody({
+  camera,
+  url,
+  lang,
+  t,
+  distanceKm,
+}: {
+  camera: ItiCCamera;
+  url: string;
+  lang: Lang;
+  t: TFunction;
+  distanceKm: number | null;
+}) {
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [state, setState] = useState<ItiCSnapshotState>({ status: "loading" });
+  const [session, setSession] = useState(0);
+  const name = camera.name ?? t("popup.itic.fallbackName", { id: camera.id });
+  // ข้อความ alt ตามภาษาปัจจุบัน — อ่านผ่าน ref เพื่อไม่ให้การสลับภาษาเริ่มรอบขอภาพใหม่
+  const alt = t("popup.itic.snapshotAlt", { name });
+  const altRef = useRef(alt);
+  useEffect(() => {
+    altRef.current = alt;
+    const shown = frameRef.current?.querySelector("img");
+    if (shown) shown.alt = alt;
+  }, [alt]);
+
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    return startItiCSnapshots(url, setState, {
+      // ไม่ตั้ง crossOrigin — แสดงอย่างเดียว ไม่อ่านพิกเซล
+      createImage: () => {
+        const img = new Image();
+        img.alt = altRef.current;
+        img.decoding = "async";
+        img.className = "h-full w-full object-contain";
+        return img;
+      },
+      show: (img) => {
+        if (img) frame.replaceChildren(img);
+        else frame.replaceChildren();
+      },
+    });
+  }, [url, session]);
+
+  const lastFetchedAt =
+    state.status === "ok" ? state.fetchedAt : state.status === "loading" ? null : state.lastFetchedAt;
+  const hasFrame = lastFetchedAt !== null;
+  /** ภาพที่แสดงไม่ใช่ผลของรอบล่าสุด (ล้ม) หรือหยุดรีเฟรชแล้ว → หรี่ */
+  const dim =
+    state.status === "unreachable" || (state.status === "paused" && (state.lastFailed || !hasFrame));
+  const message =
+    state.status === "loading"
+      ? t("popup.itic.snapshotLoading")
+      : state.status === "unreachable"
+        ? t("popup.itic.snapshotUnreachable", { detail: t(`popup.itic.snapshotDetail.${state.detail === "url rejected" ? "rejected" : state.detail}`) })
+        : state.status === "paused"
+          ? t("popup.itic.snapshotPaused", { min: Math.round(ITIC_SNAPSHOT_MAX_MS / 60_000) })
+          : null;
+
+  return (
+    <div data-itic-camera={camera.id} data-itic-kind="jpeg" data-itic-state={state.status}>
+      <ItiCHeader camera={camera} name={name} distanceKm={distanceKm} t={t} />
+      <div className="relative mt-2 aspect-video w-full overflow-hidden rounded-lg bg-black/60">
+        {/* ลูกของ div นี้เป็นของ startItiCSnapshots (แทนภาพเมื่อได้เฟรมใหม่) — React ไม่เรนเดอร์อะไรในนี้ */}
+        <div
+          ref={frameRef}
+          className={`h-full w-full ${dim ? "opacity-45 grayscale-[35%]" : ""}`}
+        />
+        {hasFrame ? (
+          <span className="pointer-events-none absolute top-1.5 right-1.5 rounded bg-black/75 px-1.5 py-px text-[10px] text-white">
+            {state.status === "paused" ? t("popup.itic.snapshotPausedBadge") : t("popup.itic.snapshotBadge")}
+          </span>
+        ) : null}
+        {message ? (
+          <p
+            className={
+              hasFrame
+                ? "absolute inset-x-0 bottom-0 bg-black/75 px-2 py-1 text-[10px] leading-snug text-[var(--color-fg)]"
+                : "absolute inset-0 flex items-center justify-center px-3 text-center text-[11px] leading-snug text-[var(--color-fg-muted)]"
+            }
           >
-            <ExternalLink size={10} aria-hidden="true" />
-            {t("popup.itic.credit")}
-          </a>
-          <a
-            href={LONGDO_CAMERA_HOME}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="inline-flex items-center gap-1 text-[var(--color-accent)] hover:underline"
-          >
-            <ExternalLink size={10} aria-hidden="true" />
-            {t("popup.itic.listCredit")}
-          </a>
-        </span>
-        {failed ? (
-          <button
-            type="button"
-            onClick={() => setAttempt((n) => n + 1)}
-            className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-md bg-white/8 px-1.5 py-0.5 text-[10px] text-[var(--color-fg)] hover:bg-white/15"
-          >
-            <RefreshCw size={10} aria-hidden="true" />
-            {t("popup.itic.retry")}
-          </button>
+            {message}
+          </p>
         ) : null}
       </div>
-      <p className="mt-0.5 text-[10px] text-[var(--color-fg-subtle)]">{t("popup.itic.rights")}</p>
+      <div className="mt-2 flex flex-col gap-0.5">
+        <Row
+          k={t("popup.itic.snapshotFetchedAt")}
+          v={lastFetchedAt ? formatFullDateTime(lang, lastFetchedAt) : t("popup.itic.snapshotNeverFetched")}
+        />
+        <p className="text-[10px] leading-snug text-[var(--color-fg-subtle)]">
+          {t("popup.itic.snapshotCaptureTime", { s: Math.round(ITIC_SNAPSHOT_REFRESH_MS / 1000) })}
+        </p>
+      </div>
+      <ItiCCredits
+        camera={camera}
+        creditKey="popup.itic.creditImage"
+        t={t}
+        action={
+          state.status === "paused"
+            ? { label: t("popup.itic.snapshotResume"), onClick: () => setSession((n) => n + 1) }
+            : null
+        }
+      />
     </div>
   );
 }
 
 /**
+ * กล้อง iTIC หนึ่งตัว — วิดีโอสด (`hls`) หรือภาพนิ่งรีเฟรชอัตโนมัติ (`jpeg`) ตาม `camera.stream`
+ * ทั้งสองแบบเริ่มขอ iTIC ตอน mount เท่านั้น และหยุดตอน unmount
+ */
+export function ItiCBody({
+  camera,
+  lang,
+  t,
+  distanceKm = null,
+}: {
+  camera: ItiCCamera;
+  lang: Lang;
+  t: TFunction;
+  /** ระยะจากสถานีที่เปิดมา (แถวกล้องใกล้เคียง) — null = เปิดจากหมุดกล้องโดยตรง */
+  distanceKm?: number | null;
+}) {
+  return camera.stream.kind === "jpeg" ? (
+    <ItiCSnapshotBody camera={camera} url={camera.stream.url} lang={lang} t={t} distanceKm={distanceKm} />
+  ) : (
+    <ItiCVideoBody camera={camera} url={camera.stream.url} lang={lang} t={t} distanceKm={distanceKm} />
+  );
+}
+
+/**
  * popup ของหมุดกล้อง iTIC — หมุดที่ตั้งซ้อนกัน (`coLocatedCameras`) คลิกได้แค่ตัวเดียว จึงมีปุ่มสลับ
- * ไปกล้องอื่นที่ตำแหน่งเดียวกัน; ตัวเล่นยังมีทีละตัว (`ItiCBody` ถูก remount ด้วย key → ตัวเก่าหยุดก่อน)
+ * ไปกล้องอื่นที่ตำแหน่งเดียวกัน (วิดีโอสดและภาพนิ่งปนกันได้ ปุ่มมีไอคอนบอกชนิด); ตัวเล่น/ตัวขอภาพ
+ * ยังมีทีละตัว (`ItiCBody` ถูก remount ด้วย key → ตัวเก่าหยุดก่อน)
  */
 function ItiCPickBody({
   camera,
@@ -687,7 +885,14 @@ function ItiCPickBody({
                 className={`cursor-pointer truncate rounded px-1.5 py-0.5 text-left text-[10px] ${c.id === active.id ? "bg-[var(--color-accent)] text-white" : "bg-white/5 text-[var(--color-fg-muted)] hover:bg-white/10"}`}
                 title={fullNames[i]}
               >
-                {labels[i]}
+                <span className="inline-flex max-w-full items-center gap-1">
+                  {c.stream.kind === "jpeg" ? (
+                    <Camera size={10} aria-label={t("popup.itic.kindSnapshot")} className="shrink-0" />
+                  ) : (
+                    <Video size={10} aria-label={t("popup.itic.kindVideo")} className="shrink-0" />
+                  )}
+                  <span className="truncate">{labels[i]}</span>
+                </span>
               </button>
             ))}
           </div>
@@ -793,6 +998,8 @@ function WaterLevelBody({
           <span className="inline-flex items-center gap-1.5">
             {nearest.source === "dwr" ? (
               <Camera size={12} aria-hidden="true" className="text-[#0ea5e9]" />
+            ) : nearest.camera.stream.kind === "jpeg" ? (
+              <Camera size={12} aria-hidden="true" className="text-[#fbbf24]" />
             ) : (
               <Video size={12} aria-hidden="true" className="text-[#fbbf24]" />
             )}
@@ -801,7 +1008,13 @@ function WaterLevelBody({
             })}
           </span>
           <span className="text-[var(--color-accent)]">
-            {t(nearest.source === "dwr" ? "popup.cctv.open" : "popup.itic.open")}
+            {t(
+              nearest.source === "dwr"
+                ? "popup.cctv.open"
+                : nearest.camera.stream.kind === "jpeg"
+                  ? "popup.itic.openSnapshot"
+                  : "popup.itic.open",
+            )}
           </span>
         </button>
       ) : null}

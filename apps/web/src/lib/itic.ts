@@ -1,5 +1,6 @@
 /**
  * วิดีโอสดกล้องถนนของมูลนิธิ iTIC (E15.2) — ตัวเล่น HLS หนึ่งตัวต่อหน้า + ตัวแยกสถานะ
+ * (ภาพนิ่งรีเฟรชอัตโนมัติของกล้องที่ไม่มี HLS อยู่ท้ายไฟล์ — `startItiCSnapshots`)
  *
  * เบราว์เซอร์ขอ playlist/segment จาก `camerai1.iticfoundation.org` ตรง ๆ (ACAO *, ไม่ผ่าน
  * Worker ของเรา — ไม่มีค่าใช้จ่าย Cloudflare) **ทีละกล้อง เฉพาะตอนผู้ใช้เปิด popup**
@@ -277,5 +278,176 @@ export function startHlsPlayer(
   void video.play().catch(() => {
     // autoplay ถูกปฏิเสธ — ผู้ใช้กด play บน controls เองได้ ไม่ใช่ความล้มเหลวของสตรีม
   });
+  return dispose;
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * ภาพนิ่งของกล้อง iTIC ที่ไม่มี HLS (`stream.kind = "jpeg"`) — ขอภาพใหม่ทุก ~5 วินาทีขณะเปิด popup
+ *
+ * - URL ต้องตรง `ITIC_JPEG_PATTERN` ทุกตัวอักษร (กลุ่มเดียวที่ตอบภาพจริงเมื่อวัด 2026-09-26 — ดู
+ *   `apps/etl/src/build-itic-cctv.README.md`) — ETL กรองไว้แล้ว ตรงนี้ตรวจซ้ำ
+ * - แต่ละรอบใช้ `Image` ใหม่ (ไม่มี `crossOrigin` — เราไม่อ่านพิกเซล) พร้อมพารามิเตอร์กันแคช
+ *   ได้เฟรมแล้วจึงแทนภาพที่แสดงอยู่ — ภาพเดิมค้างไว้ระหว่างรอ ไม่กระพริบ และ event ของรอบก่อน
+ *   (รวม `error` ที่ `src = ""` ยิงเอง) ไม่มีทางปนกับรอบใหม่
+ * - รอบถัดไปนับจากรอบก่อน *จบ* (ได้ภาพ / error / หมดเวลา `ITIC_SNAPSHOT_TIMEOUT_MS`) — ไม่ซ้อนคำขอ
+ *   คำขอที่ค้าง (โฮสต์ timeout) จึงไม่ติด "กำลังโหลด" ตลอดไป
+ * - หยุดเองหลัง `ITIC_SNAPSHOT_MAX_MS` (popup ที่ลืมเปิดค้างไว้ต้องไม่ถาม iTIC ไปเรื่อย ๆ — แนว
+ *   เดียวกับภาพสด DWR) ผู้ใช้กดรีเฟรชต่อได้
+ * - `error` แยกไม่ได้ว่าเครือข่ายล้มหรือ iTIC ตอบของที่ไม่ใช่ภาพ (เช่น "Camera (jpeg) not found"
+ *   39 ไบต์) — จึงเป็น `unreachable` สถานะเดียว และข้อความพูดตามนั้น
+ * - เวลา: `fetchedAt` = นาฬิกาเครื่องตอนได้ภาพ (เวลาที่ *เรา* ได้ภาพ ไม่ใช่เวลาถ่าย) — เวลาถ่ายกล้อง
+ *   พิมพ์ไว้บนภาพเอง ไม่มีเป็นข้อมูลให้อ่าน จึงไม่แสดงเวลาใดเป็นเวลาถ่าย
+ * ---------------------------------------------------------------------------------------------- */
+
+/** ต้องตรงกับ `JPEG_PATTERN` ของ `apps/etl/src/build-itic-cctv.ts` */
+export const ITIC_JPEG_PATTERN = /^https:\/\/camera1\.iticfoundation\.org\/jpeg2\.php\?camid=10\.8\.0\.\d+:\d+$/;
+const ITIC_JPEG_ORIGIN = "https://camera1.iticfoundation.org";
+export const ITIC_SNAPSHOT_REFRESH_MS = 5_000;
+export const ITIC_SNAPSHOT_TIMEOUT_MS = 15_000;
+export const ITIC_SNAPSHOT_MAX_MS = 5 * 60_000;
+
+/** URL ภาพนิ่งที่ยอมขอ — pattern ยึดหัวท้าย + origin ตรง + ไม่มี userinfo */
+export function isSnapshotJpegUrl(url: string): boolean {
+  if (!ITIC_JPEG_PATTERN.test(url)) return false;
+  try {
+    const u = new URL(url);
+    return u.origin === ITIC_JPEG_ORIGIN && !u.username && !u.password;
+  } catch {
+    return false;
+  }
+}
+
+/** URL ของรอบที่ `seq` — พารามิเตอร์ `_` ใหม่ทุกรอบ ให้เบราว์เซอร์/แคชกลางทางขอภาพใหม่จริง */
+export function snapshotFrameUrl(url: string, seq: number, nowMs: number): string {
+  return `${url}&_=${nowMs.toString(36)}-${seq}`;
+}
+
+export type ItiCSnapshotState =
+  /** ยังไม่เคยได้เฟรม — รอคำตอบของรอบแรก */
+  | { status: "loading" }
+  /** รอบล่าสุดได้ภาพ — `fetchedAt` = เวลาที่เบราว์เซอร์ได้ภาพ (ไม่ใช่เวลาถ่าย) */
+  | { status: "ok"; fetchedAt: string }
+  /**
+   * รอบล่าสุดไม่ได้ภาพ (`error` = เครือข่ายล้มหรือคำตอบไม่ใช่ภาพ; `timeout` = ไม่มีคำตอบใน
+   * `ITIC_SNAPSHOT_TIMEOUT_MS`) — ยังลองต่อทุก ~5 วินาที; `lastFetchedAt` = เฟรมดีล่าสุด (null = ไม่เคยได้)
+   */
+  | { status: "unreachable"; detail: "error" | "timeout" | "url rejected"; lastFetchedAt: string | null }
+  /** หยุดรีเฟรชเองหลัง `ITIC_SNAPSHOT_MAX_MS` — `lastFailed` = รอบสุดท้ายก่อนหยุดไม่ได้ภาพ */
+  | { status: "paused"; lastFetchedAt: string | null; lastFailed: boolean };
+
+/** ส่วนของ `HTMLImageElement` ที่ใช้ (ทดสอบได้โดยไม่มี DOM) */
+export interface SnapshotImage {
+  src: string;
+  addEventListener(type: "load" | "error", fn: () => void): void;
+  removeEventListener(type: "load" | "error", fn: () => void): void;
+}
+
+export interface SnapshotDeps<I extends SnapshotImage> {
+  /** สร้าง `Image` ของรอบหนึ่ง (ไม่ตั้ง `crossOrigin`) */
+  createImage: () => I;
+  /** ได้เฟรมแล้ว — แสดง `img` แทนภาพเดิม (null = ล้างภาพออก) */
+  show: (img: I | null) => void;
+  now?: () => number;
+}
+
+/**
+ * เริ่มขอภาพนิ่งเป็นรอบ ๆ — คืนฟังก์ชันหยุดที่ตัดคำขอที่ค้างและตั้ง `src = ""` ให้ทั้งภาพที่รออยู่
+ * และภาพที่แสดงอยู่ (เรียกซ้ำได้)
+ */
+export function startItiCSnapshots<I extends SnapshotImage>(
+  url: string,
+  onState: (s: ItiCSnapshotState) => void,
+  deps: SnapshotDeps<I>,
+): () => void {
+  const now = deps.now ?? Date.now;
+  const startedAt = now();
+  let disposed = false;
+  let seq = 0;
+  let lastFetchedAt: string | null = null;
+  let shown: I | null = null;
+  let pending: { img: I; detach: () => void } | null = null;
+  let nextTimer: ReturnType<typeof setTimeout> | null = null;
+  let watchdog: ReturnType<typeof setTimeout> | null = null;
+
+  const emit = (s: ItiCSnapshotState) => {
+    if (!disposed) onState(s);
+  };
+  /** ทิ้งคำขอที่ค้าง — ถอด listener ก่อน `src = ""` เพื่อไม่ให้ `error` ที่ตามมาถูกนับ */
+  const dropPending = () => {
+    if (watchdog !== null) clearTimeout(watchdog);
+    watchdog = null;
+    if (!pending) return;
+    pending.detach();
+    pending.img.src = "";
+    pending = null;
+  };
+  const scheduleNext = (lastFailed: boolean) => {
+    if (disposed) return;
+    if (now() - startedAt >= ITIC_SNAPSHOT_MAX_MS) {
+      emit({ status: "paused", lastFetchedAt, lastFailed });
+      return;
+    }
+    nextTimer = setTimeout(attempt, ITIC_SNAPSHOT_REFRESH_MS);
+  };
+  const fail = (detail: "error" | "timeout") => {
+    dropPending();
+    emit({ status: "unreachable", detail, lastFetchedAt });
+    scheduleNext(true);
+  };
+  function attempt() {
+    nextTimer = null;
+    if (disposed) return;
+    seq += 1;
+    const img = deps.createImage();
+    const onLoad = () => {
+      if (pending?.img !== img) return;
+      if (watchdog !== null) clearTimeout(watchdog);
+      watchdog = null;
+      pending.detach();
+      pending = null;
+      const prev = shown;
+      shown = img;
+      deps.show(img);
+      if (prev && prev !== img) prev.src = "";
+      lastFetchedAt = new Date(now()).toISOString();
+      emit({ status: "ok", fetchedAt: lastFetchedAt });
+      scheduleNext(false);
+    };
+    const onError = () => {
+      if (pending?.img !== img) return;
+      fail("error");
+    };
+    img.addEventListener("load", onLoad);
+    img.addEventListener("error", onError);
+    pending = {
+      img,
+      detach: () => {
+        img.removeEventListener("load", onLoad);
+        img.removeEventListener("error", onError);
+      },
+    };
+    watchdog = setTimeout(() => fail("timeout"), ITIC_SNAPSHOT_TIMEOUT_MS);
+    img.src = snapshotFrameUrl(url, seq, now());
+  }
+
+  const dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    if (nextTimer !== null) clearTimeout(nextTimer);
+    nextTimer = null;
+    dropPending();
+    if (shown) {
+      shown.src = "";
+      shown = null;
+    }
+    deps.show(null);
+  };
+
+  if (!isSnapshotJpegUrl(url)) {
+    emit({ status: "unreachable", detail: "url rejected", lastFetchedAt: null });
+    return dispose;
+  }
+  emit({ status: "loading" });
+  attempt();
   return dispose;
 }

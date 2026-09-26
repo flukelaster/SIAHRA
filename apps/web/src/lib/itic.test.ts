@@ -1,5 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
-import { classifyHlsFatal, classifyProbe, isPlayableHlsUrl, startHlsPlayer, type HlsPlayerState } from "./itic";
+import {
+  classifyHlsFatal,
+  classifyProbe,
+  isPlayableHlsUrl,
+  isSnapshotJpegUrl,
+  ITIC_SNAPSHOT_MAX_MS,
+  ITIC_SNAPSHOT_REFRESH_MS,
+  ITIC_SNAPSHOT_TIMEOUT_MS,
+  snapshotFrameUrl,
+  startHlsPlayer,
+  startItiCSnapshots,
+  type HlsPlayerState,
+  type ItiCSnapshotState,
+  type SnapshotImage,
+} from "./itic";
 
 describe("isPlayableHlsUrl", () => {
   it("accepts only camerai1 playlists that are not the suspended placeholder", () => {
@@ -256,5 +270,185 @@ describe("startHlsPlayer lifecycle", () => {
     )();
     expect(states).toEqual([{ status: "unsupported", detail: "url rejected" }]);
     expect(video.play).not.toHaveBeenCalled();
+  });
+});
+
+const JPEG = "https://camera1.iticfoundation.org/jpeg2.php?camid=10.8.0.19:8802";
+
+describe("isSnapshotJpegUrl", () => {
+  it("accepts only the probed jpeg2.php camid 10.8.0.x:port group", () => {
+    expect(isSnapshotJpegUrl(JPEG)).toBe(true);
+    expect(isSnapshotJpegUrl("https://camera1.iticfoundation.org/jpeg2.php?camid=X.X.X.X:YYYY")).toBe(false);
+    expect(isSnapshotJpegUrl("https://camera1.iticfoundation.org/jpeg2.php?camid=CAMPK0001")).toBe(false);
+    expect(isSnapshotJpegUrl("https://camera1.iticfoundation.org/jpeg2.php?camid=61.91.182.114:1111")).toBe(false);
+    expect(isSnapshotJpegUrl("https://user:pw@camera1.iticfoundation.org/jpeg2.php?camid=10.8.0.1:80")).toBe(false);
+    expect(isSnapshotJpegUrl("http://camera1.iticfoundation.org/jpeg2.php?camid=10.8.0.1:80")).toBe(false);
+    expect(isSnapshotJpegUrl("https://camera1.iticfoundation.org.evil.test/jpeg2.php?camid=10.8.0.1:80")).toBe(false);
+    expect(isSnapshotJpegUrl(`${JPEG}&x=1`)).toBe(false);
+  });
+
+  it("builds a fresh cache-busting URL per attempt", () => {
+    const a = snapshotFrameUrl(JPEG, 1, 1_000);
+    const b = snapshotFrameUrl(JPEG, 2, 1_000);
+    expect(a.startsWith(`${JPEG}&_=`)).toBe(true);
+    expect(a).not.toBe(b);
+  });
+});
+
+describe("startItiCSnapshots lifecycle", () => {
+  class FakeImage implements SnapshotImage {
+    src = "";
+    private listeners = new Map<string, Set<() => void>>();
+    addEventListener(type: "load" | "error", fn: () => void) {
+      if (!this.listeners.has(type)) this.listeners.set(type, new Set());
+      this.listeners.get(type)!.add(fn);
+    }
+    removeEventListener(type: "load" | "error", fn: () => void) {
+      this.listeners.get(type)?.delete(fn);
+    }
+    fire(type: "load" | "error") {
+      for (const fn of [...(this.listeners.get(type) ?? [])]) fn();
+    }
+    listenerCount() {
+      return [...this.listeners.values()].reduce((n, s) => n + s.size, 0);
+    }
+  }
+
+  function setup() {
+    let clock = Date.parse("2026-09-26T05:00:00Z");
+    const images: FakeImage[] = [];
+    const shown: (FakeImage | null)[] = [];
+    const states: ItiCSnapshotState[] = [];
+    const stop = startItiCSnapshots(JPEG, (s) => states.push(s), {
+      createImage: () => {
+        const img = new FakeImage();
+        images.push(img);
+        return img;
+      },
+      show: (img) => shown.push(img),
+      now: () => clock,
+    });
+    const advance = (ms: number) => {
+      clock += ms;
+      vi.advanceTimersByTime(ms);
+    };
+    return { images, shown, states, stop, advance };
+  }
+
+  it("loading → ok with the fetch time, then a new cache-busted request only after the refresh interval", () => {
+    vi.useFakeTimers();
+    try {
+      const { images, shown, states, stop, advance } = setup();
+      expect(states).toEqual([{ status: "loading" }]);
+      expect(images).toHaveLength(1);
+      expect(images[0].src.startsWith(`${JPEG}&_=`)).toBe(true);
+      advance(1_200);
+      images[0].fire("load");
+      expect(shown).toEqual([images[0]]);
+      expect(states.at(-1)).toEqual({ status: "ok", fetchedAt: "2026-09-26T05:00:01.200Z" });
+      advance(ITIC_SNAPSHOT_REFRESH_MS - 1);
+      expect(images).toHaveLength(1);
+      advance(1);
+      expect(images).toHaveLength(2);
+      expect(images[1].src).not.toBe(images[0].src);
+      images[1].fire("load");
+      // เฟรมเดิมถูกแทน และปล่อยทิ้งด้วย src = ""
+      expect(shown.at(-1)).toBe(images[1]);
+      expect(images[0].src).toBe("");
+      stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a hung request becomes `unreachable` (timeout) instead of loading forever, and keeps retrying", () => {
+    vi.useFakeTimers();
+    try {
+      const { images, states, stop, advance } = setup();
+      advance(ITIC_SNAPSHOT_TIMEOUT_MS);
+      expect(states.at(-1)).toEqual({ status: "unreachable", detail: "timeout", lastFetchedAt: null });
+      expect(images[0].src).toBe("");
+      expect(images[0].listenerCount()).toBe(0);
+      // error ที่ src = "" ยิงตามมาต้องไม่ถูกนับเป็นรอบใหม่
+      images[0].fire("error");
+      expect(states.filter((s) => s.status === "unreachable")).toHaveLength(1);
+      advance(ITIC_SNAPSHOT_REFRESH_MS);
+      expect(images).toHaveLength(2);
+      stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("an image error (network, or a non-image body such as a 39-byte 'not found') is `unreachable` and keeps the last good fetch time", () => {
+    vi.useFakeTimers();
+    try {
+      const { images, states, stop, advance } = setup();
+      images[0].fire("load");
+      const ok = states.at(-1) as Extract<ItiCSnapshotState, { status: "ok" }>;
+      advance(ITIC_SNAPSHOT_REFRESH_MS);
+      images[1].fire("error");
+      expect(states.at(-1)).toEqual({ status: "unreachable", detail: "error", lastFetchedAt: ok.fetchedAt });
+      stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("pauses by itself after the maximum viewing time", () => {
+    vi.useFakeTimers();
+    try {
+      const { images, states, stop, advance } = setup();
+      let i = 0;
+      while (states.at(-1)?.status !== "paused" && i < 200) {
+        images[i].fire("load");
+        advance(ITIC_SNAPSHOT_REFRESH_MS);
+        i++;
+      }
+      expect(states.at(-1)).toMatchObject({ status: "paused", lastFailed: false });
+      const n = images.length;
+      advance(ITIC_SNAPSHOT_MAX_MS);
+      expect(images).toHaveLength(n);
+      stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("stop() drops the pending request and the shown frame (src = '') and emits nothing more", () => {
+    vi.useFakeTimers();
+    try {
+      const { images, shown, states, stop, advance } = setup();
+      images[0].fire("load");
+      advance(ITIC_SNAPSHOT_REFRESH_MS);
+      const count = states.length;
+      stop();
+      expect(images[0].src).toBe("");
+      expect(images[1].src).toBe("");
+      expect(shown.at(-1)).toBeNull();
+      images[1].fire("load");
+      advance(ITIC_SNAPSHOT_REFRESH_MS * 3);
+      expect(states).toHaveLength(count);
+      expect(images).toHaveLength(2);
+      stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("refuses a URL outside the probed group without requesting anything", () => {
+    const created: FakeImage[] = [];
+    const states: ItiCSnapshotState[] = [];
+    const stop = startItiCSnapshots("https://camera1.iticfoundation.org/jpeg2.php?camid=CAMPK0001", (s) => states.push(s), {
+      createImage: () => {
+        const img = new FakeImage();
+        created.push(img);
+        return img;
+      },
+      show: () => {},
+    });
+    expect(created).toHaveLength(0);
+    expect(states).toEqual([{ status: "unreachable", detail: "url rejected", lastFetchedAt: null }]);
+    stop();
   });
 });

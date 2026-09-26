@@ -63,15 +63,15 @@ const DEFAULT_LAYERS: MapLayers = {
   floodDepth: true,
   dams: true,
   /**
-   * E15 — ภาพกล้อง CCTV ของกรมทรัพยากรน้ำ **เปิดเป็นค่าเริ่มต้น** (ตัดสินใจ 2026-09-26):
-   * หมุดมาจากไฟล์คงที่ของเราเอง (`/cctv/dwr-cameras.json`) ส่วนภาพจาก DWR ยังขอก็ต่อเมื่อ
-   * ผู้ใช้คลิกหมุดเท่านั้น — การเปิดชั้นจึงไม่ส่ง request ใดไปถึง DWR
-   * และมีผลเฉพาะเมื่อแฟล็ก `VITE_FEATURE_CCTV` เปิด (เปิดเป็นค่าเริ่มต้น; `VITE_FEATURE_CCTV=0` ตอน build = ถอดทั้งชั้น)
-   *
-   * E15.2 — สวิตช์เดียวกันนี้คุมหมุดกล้องถนนของ iTIC (วิดีโอสด) ด้วย ภายใต้แฟล็ก
-   * `VITE_FEATURE_ITIC` ของตัวเอง; สตรีมเริ่มเมื่อผู้ใช้คลิกหมุดเท่านั้น
+   * E15 — กล้อง CCTV (กรมทรัพยากรน้ำ + กล้องถนนของ iTIC) **ปิดเป็นค่าเริ่มต้น** (เจ้าของตัดสินใจ
+   * 2026-09-26): หมุดและบัญชีกล้อง (`/cctv/dwr-cameras.json`, `/cctv/itic-cameras.json`) ถูกโหลด
+   * ก็ต่อเมื่อผู้ใช้เปิดชั้นนี้เอง (`useCctvCatalogue`/`useItiCCatalogue` ได้ `enabled` = แฟล็ก +
+   * `layers.cctv`) — ปิดอยู่ = ไม่มี request ใดใต้ `/cctv/` เลย; ภาพ/สตรีมจาก DWR และ iTIC ยังขอ
+   * ก็ต่อเมื่อคลิกหมุดเท่านั้น
+   * แฟล็ก `VITE_FEATURE_CCTV=0` / `VITE_FEATURE_ITIC=0` ตอน build = ถอดแหล่งนั้นทั้งหมด แม้ permalink
+   * จะตั้ง `cctv` ไว้
    */
-  cctv: true,
+  cctv: false,
   radar: true,
   sunlight: true,
   trees: true,

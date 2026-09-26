@@ -43,6 +43,15 @@
   #                              view is DWR's MJPEG stream (multipart/x-mixed-replace)
   #                              shown as a plain <img src>, one camera, only after the
   #                              user presses "ดูสด" in its popup.
+  #                              https://camera1.iticfoundation.org: still images from
+  #                              the few iTIC road cameras with no usable HLS
+  #                              (jpeg2.php?camid=10.8.0.x:port, the only group that
+  #                              returned a real frame when probed 2026-09-26), one
+  #                              camera, only after a click; re-requested every ~5 s
+  #                              while its popup is open, never read back (no
+  #                              crossOrigin, no canvas). img-src only — nothing on
+  #                              camera1 is fetched by XHR or played as media. Inert
+  #                              when built with VITE_FEATURE_ITIC=0.
   #   connect-src              — same-origin /api/* plus the WebSocket. 'self' already
   #                              covers wss: on the same origin in CSP3; wss://siahra-radar.co
   #                              is spelled out so an old implementation cannot get it wrong.
@@ -62,5 +71,5 @@
   #   worker-src 'self'        — src/workers/* are bundled as real same-origin URLs.
   #                              hls.js runs with enableWorker:false (lib/itic.ts), so its
   #                              transmuxer never needs a blob: worker and this stays as is.
-  Content-Security-Policy: default-src 'self'; base-uri 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; form-action 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://server.arcgisonline.com https://tiles.maps.eox.at https://telemetry.dwr.go.th; font-src 'self'; connect-src 'self' wss://siahra-radar.co https://telemetry.dwr.go.th https://camerai1.iticfoundation.org; worker-src 'self'; manifest-src 'self'; media-src blob: https://camerai1.iticfoundation.org
+  Content-Security-Policy: default-src 'self'; base-uri 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; form-action 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://server.arcgisonline.com https://tiles.maps.eox.at https://telemetry.dwr.go.th https://camera1.iticfoundation.org; font-src 'self'; connect-src 'self' wss://siahra-radar.co https://telemetry.dwr.go.th https://camerai1.iticfoundation.org; worker-src 'self'; manifest-src 'self'; media-src blob: https://camerai1.iticfoundation.org
 
