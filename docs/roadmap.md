@@ -1473,9 +1473,13 @@ nothing in E16 turns rain into a water level or computes when water will arrive.
    retry; dams panel-only every 15 min; nothing while the tab is hidden.
 
 #### E16.B — 3D "flooded now" (remaining) — *planned*
-- GISTDA in 3D once PR0 lands (FwDET depth as `illustrative` only if the polygons turn out to be real
-  satellite extents; a flat translucent extrusion, said so in the legend, if they are admin polygons);
-  `gfm-ingest.yml` cron from every 6 h to
+- ~~GISTDA in 3D~~ — **done as E16.B-2, PR pending** (2026-09-26): web-only, not cost-bearing; layer
+  `gistdaDepth` (default on, needs `floodExtent`) = a 3D sheet on the observed GISTDA extent (H3 cells)
+  with FwDET depth ported from `apps/etl/gfm/gfm/fwdet.py` as `illustrative`
+  (`gistda-flood-depth-illustrative`), golden-tested against the Python output; GFM-flooded cells win
+  over it, it suppresses the station sheet; entry path 332.64 kB gz (`GistdaSheet` 1.95 kB gz and the
+  worker 1.55 kB gz load lazily)
+- Still planned: `gfm-ingest.yml` cron from every 6 h to
   hourly (GitHub minutes only while the repo is public; devops confirms the R2 operations)
 - Depends: E16.PR0 (for the GISTDA part), E16.PR1
 - Issue: _(not yet filed)_

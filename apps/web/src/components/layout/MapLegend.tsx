@@ -31,8 +31,11 @@ import {
   floodDepthLegendRamp,
   floodDepthMaxLabel,
   floodDepthStopLabel,
+  gistdaSheetDepthCss,
   stationSheetCss,
 } from "../../lib/floodStyle";
+import type { GistdaExtentState } from "../../lib/gistdaFlood";
+import type { GistdaSheetInfo } from "../../scene/GistdaSheet";
 import { SHEET_MAX_RADIUS_M } from "../../lib/stationSheet";
 import type { StationSheetInfo } from "../../scene/StationSheet";
 import { FLOOD_SCENE_MAX_AGE_MS, type FloodSceneReason } from "../../lib/floodScenes";
@@ -226,6 +229,113 @@ export interface FloodGfmLegendState {
 }
 
 const FLOOD_SCENE_WINDOW_DAYS = Math.round(FLOOD_SCENE_MAX_AGE_MS / 86_400_000);
+
+/** สิ่งที่ legend ต้องรู้เกี่ยวกับแผ่นน้ำ GISTDA 3 มิติ (E16 B-2) — ประกอบใน App.tsx */
+export interface GistdaDepthLegendState {
+  /** สถานะของคำตอบ GISTDA (`gistdaExtentState`) — แยก "ไม่พบ" ออกจาก "ยังดึงไม่ได้"/"ไม่มีภาพที่เก็บไว้" */
+  extent: GistdaExtentState;
+  /** true = แหล่ง GISTDA ค้าง/ไม่ปกติ → แถวและแผ่นหรี่ (ไม่ซ่อน) */
+  dimmed: boolean;
+  /** true = กำลังเลือกชั่วโมงข้างหน้าบนแถบ TMD → แผ่นซ่อนอยู่ */
+  forecastHidden: boolean;
+  /** ผลคำนวณล่าสุด — null = ชั้นยังไม่ทำงาน (ปิด / ไม่มีเซลล์) */
+  sheet: GistdaSheetInfo | null;
+}
+
+/** จุดบน ramp ของแผ่น GISTDA — ความลึกชุดเดียวกับของ GFM (`floodDepthLegendRamp`) คนละสี */
+function gistdaDepthRamp() {
+  return floodDepthLegendRamp().map((s) => ({ ...s, css: gistdaSheetDepthCss(s.depthM) }));
+}
+
+/**
+ * สัญลักษณ์ของแผ่นน้ำ GISTDA (E16 B-2) — เทาฟ้าซีด → สเลตเข้ม (ตระกูลสีของ GISTDA) **ไม่มีลายทแยง**: ขอบเขตเป็นของที่
+ * ดาวเทียมเห็นจริง (ต่างจากแผ่นจำลองจากสถานี) ส่วนความลึกเป็นภาพประกอบตามที่หมายเหตุบอก
+ */
+function GistdaSheetSwatch() {
+  const ramp = gistdaDepthRamp();
+  const stops = ramp.map((s, i) => `${s.css} ${((i / (ramp.length - 1)) * 100).toFixed(0)}%`).join(", ");
+  return <span className="h-3 w-5 rounded-sm" style={{ background: `linear-gradient(90deg, ${stops})` }} />;
+}
+
+/**
+ * รายละเอียดใต้แถวแผ่นน้ำ GISTDA: วิธีและข้อสมมติ (เสมอ) + สเกล + ผลของจังหวัดนี้ หรือเหตุที่ไม่มีแผ่น —
+ * "GISTDA ไม่พบพื้นที่ท่วม" ≠ "ยังดึงไม่ได้" ≠ "ไม่มีภาพที่เก็บไว้ ณ เวลานั้น" (AGENTS.md)
+ */
+function GistdaDepthDetails({
+  state,
+  extentEnabled,
+  enabled,
+  lang,
+  t,
+}: {
+  state: GistdaDepthLegendState;
+  extentEnabled: boolean;
+  enabled: boolean;
+  lang: Lang;
+  t: TFunction;
+}) {
+  const line = "text-[10px] text-[var(--color-fg-subtle)]";
+  const warn = "text-[10px] text-[var(--color-risk-medium)]";
+  const sheet = state.sheet;
+  const cellM = sheet ? formatNumber(lang, sheet.cellSizeM, 0) : null;
+  let status: ReactNode = null;
+  if (!extentEnabled) {
+    status = <span className={line}>{t("legend.gistdaDepth.needsExtent")}</span>;
+  } else if (state.extent === "never-fetched") {
+    status = <span className={warn}>{t("legend.gistdaDepth.neverFetched")}</span>;
+  } else if (state.extent === "no-archived-scene") {
+    status = <span className={warn}>{t("legend.gistdaDepth.noArchivedScene")}</span>;
+  } else if (state.extent === "none-detected") {
+    status = <span className={line}>{t("legend.gistdaDepth.noneDetected")}</span>;
+  } else if (enabled && sheet) {
+    status = (
+      <>
+        {sheet.error !== null ? (
+          <span className={warn}>{t("legend.gistdaDepth.error", { error: sheet.error })}</span>
+        ) : sheet.pending ? (
+          <span className={line}>{t("legend.gistdaDepth.pending")}</span>
+        ) : sheet.floodedCells > 0 ? (
+          <span className={line}>
+            {sheet.maxDepthCm === null
+              ? t("legend.gistdaDepth.noBoundary", { n: formatNumber(lang, sheet.floodedCells) })
+              : t("legend.gistdaDepth.summary", {
+                  n: formatNumber(lang, sheet.floodedCells),
+                  m: cellM ?? "",
+                  max: floodDepthMaxLabel(lang, sheet.maxDepthCm),
+                })}
+          </span>
+        ) : (
+          <span className={line}>{t("legend.gistdaDepth.tooSmall", { m: cellM ?? "" })}</span>
+        )}
+        {sheet.maxDepthCm !== null && sheet.notEstimatedCells > 0 ? (
+          <span className={line}>{t("legend.gistdaDepth.notEst", { n: formatNumber(lang, sheet.notEstimatedCells) })}</span>
+        ) : null}
+        {sheet.deferredToGfm > 0 ? (
+          <span className={line}>{t("legend.gistdaDepth.gfmFirst", { n: formatNumber(lang, sheet.deferredToGfm) })}</span>
+        ) : null}
+      </>
+    );
+  }
+  const ramp = gistdaDepthRamp();
+  return (
+    <div className="mt-1 ml-7 flex flex-col gap-1 border-l border-white/8 pl-2" data-gistda-depth-legend="">
+      {status}
+      {enabled && extentEnabled && state.forecastHidden ? (
+        <span className={line}>{t("legend.gistdaDepth.forecastHidden")}</span>
+      ) : null}
+      {enabled && extentEnabled && state.dimmed ? <span className={warn}>{t("legend.gistdaDepth.dimmed")}</span> : null}
+      <div className="flex items-center gap-1">
+        {ramp.map((s) => (
+          <span key={s.depthM} className="flex flex-col items-center gap-0.5">
+            <span className="h-2.5 w-5 rounded-sm border border-white/15" style={{ backgroundColor: s.css }} aria-hidden="true" />
+            <span className="text-[9px] tabular-nums text-[var(--color-fg-muted)]">{floodDepthStopLabel(lang, s)}</span>
+          </span>
+        ))}
+      </div>
+      <span className={line}>{t("legend.gistdaDepth.method")}</span>
+    </div>
+  );
+}
 
 /**
  * รายละเอียดใต้แถว "น้ำท่วมจากภาพ Sentinel-1" — สี่สถานะที่ต้องเป็นคนละประโยคเสมอ
@@ -759,6 +869,14 @@ const LAYER_ROWS: {
     ),
   },
   {
+    // E16 B-2 — แผ่นน้ำ 3 มิติบนขอบเขต GISTDA (ขอบเขตตรวจวัดจริง · ความลึกภาพประกอบ) — ต่อจากแถว
+    // GISTDA เพราะมีผลเฉพาะเมื่อแถวนั้นเปิด (แบบเดียวกับ floodDepth ใต้ floodGfm)
+    key: "gistdaDepth",
+    labelKey: "legend.layer.gistdaDepth",
+    noteKey: "legend.layer.gistdaDepth.note",
+    swatch: <GistdaSheetSwatch />,
+  },
+  {
     // E16 B-1 — แผ่นน้ำจำลองจากระดับน้ำที่สถานี: teal ไล่ความลึก + ลายทแยง "ภาพประกอบ"
     // (ต่างจากฟ้า/น้ำเงินล้วนของ GFM ที่ดาวเทียมเห็นจริง) + จางไปทางขวา = จางตามระยะจากสถานี
     key: "stationSheet",
@@ -1042,6 +1160,7 @@ export function MapLegend({
   exposure,
   forecast,
   floodGfm,
+  gistdaDepth,
   stationSheet = null,
   cctvError = null,
   iticError = null,
@@ -1057,6 +1176,8 @@ export function MapLegend({
   forecast?: ForecastLegendState;
   /** ฉาก Copernicus GFM ที่กำลังแสดง + เหตุผลเมื่อไม่มี (E14.F4) */
   floodGfm?: FloodGfmLegendState;
+  /** E16 B-2 — แผ่นน้ำ GISTDA 3 มิติ: สถานะข้อมูล + ผลคำนวณ */
+  gistdaDepth?: GistdaDepthLegendState;
   /** แผ่นน้ำจำลองจากสถานี: ความละเอียดที่คำนวณจริงต่อสถานี (C3) — null = ชั้นยังไม่ทำงาน */
   stationSheet?: StationSheetInfo | null;
   /** E15 — โหลดบัญชีกล้อง CCTV ไม่สำเร็จ: ไม่มีหมุดเพราะอะไร ต้องบอก ไม่ใช่หายเงียบ */
@@ -1099,9 +1220,11 @@ export function MapLegend({
           // แหล่งค้าง — เหตุผลอยู่ใน FloodGfmDetails ข้างล่างเสมอ
           const isGfmRow = row.key === "floodGfm" || row.key === "floodDepth";
           const dimmed =
-            isGfmRow &&
-            floodGfm !== undefined &&
-            (floodGfm.dimmed || floodGfm.missing || floodGfm.reason === "no-scene-in-window");
+            (isGfmRow &&
+              floodGfm !== undefined &&
+              (floodGfm.dimmed || floodGfm.missing || floodGfm.reason === "no-scene-in-window")) ||
+            // E16 B-2 — แถวแผ่นน้ำ GISTDA หรี่ตามแผ่นบนแผนที่ (แหล่งค้าง/ไม่ปกติ) พร้อมเหตุผลข้างล่าง
+            (row.key === "gistdaDepth" && gistdaDepth !== undefined && gistdaDepth.dimmed);
           return (
           <li key={row.key}>
             <label
@@ -1154,7 +1277,8 @@ export function MapLegend({
                     {t("legend.layer.cctv.errorItic", { error: resolveError(t, iticError) ?? "" })}
                   </span>
                 ) : null}
-                {(row.key === "stationSheet" || row.key === "northRoute") && layerLoadErrors?.[row.key] ? (
+                {(row.key === "stationSheet" || row.key === "northRoute" || row.key === "gistdaDepth") &&
+                layerLoadErrors?.[row.key] ? (
                   <span className="mt-0.5 block text-[10px] text-[var(--color-risk-extreme)]">
                     {t("legend.layer.loadFailed", { error: resolveError(t, layerLoadErrors[row.key] ?? null) ?? "" })}
                   </span>
@@ -1183,6 +1307,15 @@ export function MapLegend({
             {row.key === "floodGfm" && floodGfm ? <FloodGfmDetails state={floodGfm} lang={lang} t={t} /> : null}
             {row.key === "floodDepth" ? (
               <FloodDepthDetails state={floodGfm} gfmEnabled={layers.floodGfm} lang={lang} t={t} />
+            ) : null}
+            {row.key === "gistdaDepth" && gistdaDepth ? (
+              <GistdaDepthDetails
+                state={gistdaDepth}
+                extentEnabled={layers.floodExtent}
+                enabled={layers.gistdaDepth}
+                lang={lang}
+                t={t}
+              />
             ) : null}
             {row.key === "stationSheet" && layers.stationSheet && stationSheet ? (
               <StationSheetDetails info={stationSheet} lang={lang} t={t} />

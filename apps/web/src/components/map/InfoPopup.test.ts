@@ -5,7 +5,8 @@ import { FloodFieldClass } from "@siahra/shared-types";
 import { LANGS, translator } from "../../i18n";
 import { gfmConfidence } from "../../scene/floodField";
 import type { FloodCellPick } from "../../scene/picking";
-import { GfmCellBlock } from "./InfoPopup";
+import { GfmCellBlock, GistdaDepthBlock } from "./InfoPopup";
+import { formatNumber } from "../../lib/number";
 
 /**
  * บล็อกเซลล์ Copernicus GFM ใน popup (E14.F5): บรรทัด "ความเชื่อมั่นของการจำแนกภาพ"
@@ -62,5 +63,36 @@ describe("GfmCellBlock", () => {
     const dry = renderToStaticMarkup(createElement(GfmCellBlock, { cell: cell(C.DRY, 95), lang, t }));
     expect(dry).toContain(t("popup.gfm.dry"));
     expect(dry).toContain(t("popup.gfm.confidence", { n: 95 }));
+  });
+});
+
+describe("GistdaDepthBlock", () => {
+  const render = (depthCm: number | null, lang: (typeof LANGS)[number]) =>
+    renderToStaticMarkup(createElement(GistdaDepthBlock, { cell: { depthCm, cellSizeM: 180 }, lang, t: translator(lang) }));
+
+  it.each(LANGS)("ตื้นกว่า 10 ซม. → '< 0.1' (พื้นของความละเอียดกริด) ไม่ใช่ '0.0' (%s)", (lang) => {
+    const t = translator(lang);
+    for (const cm of [0, 4, 9]) {
+      const html = render(cm, lang);
+      // renderToStaticMarkup escape "<" เป็น "&lt;"
+      expect(html).toContain(t("popup.gistdaDepth.belowFloor", { m: formatNumber(lang, 0.1, 1) }).replace("<", "&lt;"));
+      expect(html).toContain(lang === "th" ? "&lt; 0.1 ม." : "&lt; 0.1 m");
+      expect(html).not.toContain("0.0");
+    }
+  });
+
+  it.each(LANGS)("≥ 10 ซม. → ตัวเลขผ่าน formatNumber ทศนิยมหนึ่งตำแหน่ง (%s)", (lang) => {
+    const t = translator(lang);
+    expect(render(10, lang)).toContain(t("popup.gistdaDepth", { m: formatNumber(lang, 0.1, 1) }));
+    expect(render(1234, lang)).toContain(t("popup.gistdaDepth", { m: formatNumber(lang, 12.34, 1) }));
+    expect(render(1234, lang)).toContain("12.3");
+    expect(render(1234, lang)).not.toContain(t("popup.gistdaDepth.belowFloor", { m: formatNumber(lang, 0.1, 1) }));
+  });
+
+  it.each(LANGS)("null = ท่วมแต่ไม่ได้ประมาณ — ไม่มีตัวเลข (%s)", (lang) => {
+    const t = translator(lang);
+    const html = render(null, lang);
+    expect(html).toContain(t("popup.gistdaDepth.notEst"));
+    expect(html).toContain('data-gistda-depth="not-estimated"');
   });
 });

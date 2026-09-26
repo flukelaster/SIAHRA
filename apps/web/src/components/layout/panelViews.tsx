@@ -30,6 +30,7 @@ import {
   MapLegend,
   type ExposureLegendState,
   type FloodGfmLegendState,
+  type GistdaDepthLegendState,
   type ForecastLegendState,
 } from "./MapLegend";
 
@@ -60,6 +61,8 @@ export interface PanelContext {
   forecastLegend: ForecastLegendState;
   /** E14.F4 — ฉาก Copernicus GFM ที่กำลังแสดง + เหตุผลเมื่อไม่มี (legend สองแถว) */
   floodGfmLegend: FloodGfmLegendState;
+  /** E16 B-2 — แผ่นน้ำ GISTDA 3 มิติ: สถานะข้อมูล + ผลคำนวณ (legend แถว gistdaDepth) */
+  gistdaDepthLegend: GistdaDepthLegendState;
   /** E15 — บัญชีกล้อง CCTV ของ DWR (โหลดเฉพาะเมื่อแฟล็ก + ชั้นเปิด) legend บอกเมื่อโหลดไม่ได้ */
   cctvCatalogue: CctvCatalogueState;
   /** E15.2 — บัญชีกล้องถนนของ iTIC (โหลดเฉพาะเมื่อแฟล็ก + ชั้นเปิด) */
@@ -129,6 +132,7 @@ export function LayersPanel({ ctx }: { ctx: PanelContext }) {
         forecast={ctx.forecastLegend}
         floodGfm={ctx.floodGfmLegend}
         stationSheet={ctx.mapInfo?.stationSheet ?? null}
+        gistdaDepth={ctx.gistdaDepthLegend}
         cctvError={ctx.cctvCatalogue.error}
         iticError={ctx.iticCatalogue.error}
         layerLoadErrors={ctx.mapInfo?.layerLoadErrors}

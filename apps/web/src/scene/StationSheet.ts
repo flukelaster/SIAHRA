@@ -12,6 +12,7 @@ import {
   type SheetInput,
 } from "../lib/stationSheetField";
 import type { SheetWindow } from "../lib/stationSheetLeaf";
+import { unionMasks } from "../lib/gistdaDepthField";
 import type {
   SheetStationResolution,
   StationSheetLeafStats,
@@ -144,6 +145,8 @@ export class StationSheetLayer {
   private readonly clipXf = { value: new THREE.Vector3() };
   private readonly opacity = { value: 1 };
   private observedField: FloodField | null = null;
+  /** มาสก์ท่วมของ GISTDA (ไม่เบลอ, แถว 0 = เหนือ) — null = ไม่มีเซลล์/ชั้นปิด (E16 B-2) */
+  private gistdaFlooded: Uint8Array | null = null;
   private visible = true;
   private dimmed = false;
   private disposed = false;
@@ -260,7 +263,8 @@ export class StationSheetLayer {
           : null,
       };
       worker.postMessage(init, [heights.buffer]);
-      if (this.observedField) worker.postMessage({ type: "observed", mask: observedMaskFromField(this.observedField) });
+      const observed = this.observedMask();
+      if (observed) worker.postMessage({ type: "observed", mask: observed });
       this.worker = worker;
       this.error = null;
       return worker;
@@ -470,7 +474,25 @@ export class StationSheetLayer {
     const usable = field && field.width === this.manifest.terrain.width && field.height === this.manifest.terrain.height ? field : null;
     if (usable === this.observedField) return;
     this.observedField = usable;
-    this.post({ type: "observed", mask: usable ? observedMaskFromField(usable) : null });
+    this.post({ type: "observed", mask: this.observedMask() });
+  }
+
+  /**
+   * เซลล์ที่ GISTDA ระบุว่าท่วม (E16 B-2; มาสก์ไม่เบลอจาก `buildFloodMask().raw`, null = ไม่มีเซลล์ /
+   * ชั้น GISTDA ปิด) — นับเป็น "ดาวเทียมสังเกตแล้ว" เช่นเดียวกับฉาก GFM: แผ่นจำลองไม่วาดทับ
+   * เฉพาะ *ท่วม* — "แห้ง" ของ GISTDA เป็นข้อสมมติของ FwDET ไม่ใช่การสังเกต
+   */
+  setGistdaObserved(flooded: Uint8Array | null): void {
+    const { width, height } = this.manifest.terrain;
+    const usable = flooded && flooded.length === width * height ? flooded : null;
+    if (usable === this.gistdaFlooded) return;
+    this.gistdaFlooded = usable;
+    this.post({ type: "observed", mask: this.observedMask() });
+  }
+
+  /** มาสก์ "สังเกตแล้ว" ที่ worker ใช้ = GFM (ท่วม/แห้ง) ∪ GISTDA (ท่วม) — null = ไม่มีทั้งคู่ */
+  private observedMask(): Uint8Array | null {
+    return unionMasks(this.observedField ? observedMaskFromField(this.observedField) : null, this.gistdaFlooded);
   }
 
   /** เซลล์ของแผ่นใต้จุด `(x, z)` ของฉาก — หน้าต่าง 30 ม. ก่อน แล้วค่อย overview; null = ไม่มีแผ่น */

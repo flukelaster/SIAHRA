@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { AoiManifest } from "@siahra/shared-types";
 import { rasterizeBoundaryMask, type Ring } from "./boundaryMask";
-import { rasterizeRingsBucketed } from "./floodMask";
+import { buildFloodMask, rasterizeRingsBucketed } from "./floodMask";
 
 /**
  * E16.PR0 — ชั้น GISTDA เป็นเซลล์ H3 หลายพันเซลล์ต่อจังหวัด ตัว rasterise ของ flood mask
@@ -48,5 +48,27 @@ describe("rasterizeRingsBucketed", () => {
     }
     expect(filled).toBeGreaterThan(100);
     expect(diff).toBe(0);
+  });
+});
+
+describe("buildFloodMask — มาสก์ไม่เบลอสำหรับ FwDET (E16 B-2)", () => {
+  it("`raw` = ผลของ rasterizeRingsBucketed ทุกเซลล์ (0/1 ล้วน) ส่วน texture ถูกเบลอ", () => {
+    const rings = cells();
+    const features = rings.map((ring, i) => ({
+      type: "Feature" as const,
+      id: String(i),
+      properties: {} as never,
+      geometry: { type: "Polygon" as const, coordinates: [ring] },
+    }));
+    const mask = buildFloodMask(manifest, features, null)!;
+    const expected = rasterizeRingsBucketed(manifest, rings);
+    expect(mask.raw.length).toBe(expected.length);
+    let diff = 0;
+    for (let i = 0; i < expected.length; i++) if (mask.raw[i] !== expected[i]) diff++;
+    expect(diff).toBe(0);
+    expect([...new Set(mask.raw)].sort()).toEqual([0, 1]);
+    const tex = mask.texture.image.data as Uint8Array;
+    expect(tex.some((v) => v > 0 && v < 255)).toBe(true);
+    mask.dispose();
   });
 });

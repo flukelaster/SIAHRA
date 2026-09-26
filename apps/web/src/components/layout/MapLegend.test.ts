@@ -3,8 +3,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { LANGS, translator, type Lang } from "../../i18n";
 import { LanguageContext } from "../../i18n/context";
-import { FLOOD_DEPTH_LEGEND_STOPS_M } from "../../lib/floodStyle";
-import { MapLegend, type FloodGfmLegendState } from "./MapLegend";
+import { FLOOD_DEPTH_LEGEND_STOPS_M, FLOOD_RGB, GISTDA_SHEET_RGB, STATION_SHEET_RGB } from "../../lib/floodStyle";
+import { MapLegend, type FloodGfmLegendState, type GistdaDepthLegendState } from "./MapLegend";
 import type { MapLayers } from "./Map3DCanvas";
 
 /**
@@ -31,6 +31,7 @@ const ALL_OFF: MapLayers = {
   trees: false,
   localAuthorities: false,
   stationSheet: false,
+  gistdaDepth: false,
   northRoute: false,
 };
 
@@ -152,5 +153,109 @@ describe("MapLegend — ลำดับแถว: ดาวเทียมที
     expect(at("legend.layer.floodGfm")).toBeLessThan(at("legend.layer.floodDepth"));
     expect(at("legend.layer.floodDepth")).toBeLessThan(at("legend.layer.floodExtent"));
     expect(at("legend.layer.floodExtent")).toBeLessThan(at("legend.layer.stationSheet"));
+  });
+});
+
+describe("MapLegend — แผ่นน้ำ GISTDA 3 มิติ (E16 B-2)", () => {
+  const sheet = {
+    floodedCells: 3500,
+    boundaryCells: 900,
+    notEstimatedCells: 0,
+    maxDepthCm: 240,
+    deferredToGfm: 0,
+    cellSizeM: 83,
+    pending: false,
+    drawn: true,
+    error: null as string | null,
+  };
+  const base: GistdaDepthLegendState = { extent: "detected", dimmed: false, forecastHidden: false, sheet };
+  const renderG = (lang: Lang, state: Partial<GistdaDepthLegendState>, layers: Partial<MapLayers> = {}) =>
+    renderToStaticMarkup(
+      createElement(
+        LanguageContext.Provider,
+        { value: { lang, setLang: () => {}, t: translator(lang) } },
+        createElement(MapLegend, {
+          layers: { ...ALL_OFF, floodExtent: true, gistdaDepth: true, ...layers },
+          onToggle: () => {},
+          descriptors: {},
+          quality: "auto",
+          qualityLevel: "balanced",
+          onQualityChange: () => {},
+          gistdaDepth: { ...base, ...state },
+        }),
+      ),
+    ).replaceAll("&#x27;", "'");
+
+  it.each(LANGS)("หมายเหตุบอกทั้งสองส่วน: ขอบเขตตรวจวัดจริง · ความลึกภาพประกอบ + ข้อสมมติ 'แห้ง' (%s)", (lang) => {
+    const html = renderG(lang, {});
+    const t = translator(lang);
+    expect(html).toContain(t("legend.layer.gistdaDepth.note"));
+    expect(html).toContain(t("legend.gistdaDepth.method"));
+    expect(html).toContain(t("legend.gistdaDepth.summary", { n: "3,500", m: "83", max: "2.4" }));
+  });
+
+  it("ข้อความบังคับของหมายเหตุ (ภาษาไทย) ตรงตามที่ตกลง", () => {
+    expect(translator("th")("legend.layer.gistdaDepth.note")).toBe(
+      "ขอบเขตน้ำจากภาพดาวเทียม GISTDA (ตรวจวัดจริง) · ความลึกโดยประมาณ (FwDET จาก DEM — ภาพประกอบ)",
+    );
+  });
+
+  it.each(LANGS)("ไม่มีเซลล์ = บอกว่า GISTDA ไม่พบ ต่างจากยังดึงไม่ได้/ไม่มีภาพที่เก็บไว้ (%s)", (lang) => {
+    const t = translator(lang);
+    expect(renderG(lang, { extent: "none-detected", sheet: null })).toContain(t("legend.gistdaDepth.noneDetected"));
+    expect(renderG(lang, { extent: "never-fetched", sheet: null })).toContain(t("legend.gistdaDepth.neverFetched"));
+    expect(renderG(lang, { extent: "no-archived-scene", sheet: null })).toContain(t("legend.gistdaDepth.noArchivedScene"));
+    expect(renderG(lang, { extent: "never-fetched", sheet: null })).not.toContain(t("legend.gistdaDepth.noneDetected"));
+  });
+
+  it.each(LANGS)("ไม่มีขอบน้ำ = 'ไม่ได้ประมาณ' ไม่ใช่ 0 ม.; หรี่/ซ่อนตอนพยากรณ์ บอกเหตุ (%s)", (lang) => {
+    const t = translator(lang);
+    expect(renderG(lang, { sheet: { ...sheet, boundaryCells: 0, maxDepthCm: null, notEstimatedCells: 3500 } })).toContain(
+      t("legend.gistdaDepth.noBoundary", { n: "3,500" }),
+    );
+    expect(renderG(lang, { dimmed: true })).toContain(t("legend.gistdaDepth.dimmed"));
+    expect(renderG(lang, { forecastHidden: true })).toContain(t("legend.gistdaDepth.forecastHidden"));
+    expect(renderG(lang, {}, { floodExtent: false })).toContain(t("legend.gistdaDepth.needsExtent"));
+  });
+
+  it.each(LANGS)("โหลดโค้ดของชั้นไม่สำเร็จ → บรรทัดแดงใต้แถว (MapInfo.layerLoadErrors.gistdaDepth) ไม่หายเงียบ (%s)", (lang) => {
+    const t = translator(lang);
+    const html = renderToStaticMarkup(
+      createElement(
+        LanguageContext.Provider,
+        { value: { lang, setLang: () => {}, t } },
+        createElement(MapLegend, {
+          layers: { ...ALL_OFF, floodExtent: true, gistdaDepth: true },
+          onToggle: () => {},
+          descriptors: {},
+          quality: "auto",
+          qualityLevel: "balanced",
+          onQualityChange: () => {},
+          gistdaDepth: { ...base, sheet: null },
+          layerLoadErrors: { gistdaDepth: { raw: "chunk 404" } },
+        }),
+      ),
+    ).replaceAll("&#x27;", "'");
+    expect(html).toContain(t("legend.layer.loadFailed", { error: "chunk 404" }));
+  });
+
+  it("แถวอยู่ต่อจาก GISTDA และก่อนแผ่นจำลองจากสถานี", () => {
+    const html = renderG("th", {});
+    const t = translator("th");
+    const at = (k: Parameters<typeof t>[0]) => html.indexOf(t(k));
+    expect(at("legend.layer.floodExtent")).toBeLessThan(at("legend.layer.gistdaDepth"));
+    expect(at("legend.layer.gistdaDepth")).toBeLessThan(at("legend.layer.stationSheet"));
+  });
+});
+
+describe("สามแผ่นน้ำแยกสีกันได้ (E16 B-2)", () => {
+  it("ปลายตื้น/ลึกของ GFM · GISTDA · แผ่นจำลองจากสถานี ต่างกันทุกคู่ และ GISTDA ไม่ใช่ม่วงของชั้นภาพประกอบ", () => {
+    const sets = [FLOOD_RGB, GISTDA_SHEET_RGB, STATION_SHEET_RGB];
+    for (const end of ["shallow", "deep"] as const) {
+      const css = sets.map((p) => p[end].join(","));
+      expect(new Set(css).size).toBe(3);
+    }
+    // ม่วง = R และ B สูงกว่า G ชัดเจน (ILLUSTRATIVE_RGB / EXPOSURE_RGB) — ปลายทั้งสองของแผ่น GISTDA ต้องไม่ใช่
+    for (const [r, g, b] of [GISTDA_SHEET_RGB.shallow, GISTDA_SHEET_RGB.deep]) expect(r > g && b > g).toBe(false);
   });
 });

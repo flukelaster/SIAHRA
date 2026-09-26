@@ -5,6 +5,7 @@ import { FloodFieldClass, type CctvCamera, type ItiCCamera } from "@siahra/share
 import { gfmConfidence } from "../../scene/floodField";
 import type { FloodCellPick, PickResult } from "../../scene/picking";
 import type { StationSheetCellPick } from "../../scene/StationSheet";
+import type { GistdaDepthCellPick } from "../../lib/gistdaDepthField";
 import { useStationHistory } from "../../hooks/useStationHistory";
 import { useNow } from "../../hooks/useNow";
 import {
@@ -124,6 +125,31 @@ export function GfmCellBlock({ cell, lang, t }: { cell: FloodCellPick; lang: Lan
         <ExternalLink size={10} aria-hidden="true" />
         {t("freshness.methodology")}
       </a>
+    </div>
+  );
+}
+
+/** ต่ำกว่านี้ (ซม.) ทศนิยมหนึ่งตำแหน่งจะออกมาเป็น "0.0" — แสดงเป็น "< 0.1 ม." แทน */
+const GISTDA_DEPTH_FLOOR_CM = 10;
+
+/**
+ * ความลึกของแผ่นน้ำ GISTDA (E16 B-2) ใต้จุดที่คลิก — export เพื่อให้เทสเรนเดอร์ตรง ๆ ได้
+ * ความลึก < 10 ซม. แสดง "< 0.1 ม.": พื้นเป็น DSM จำนวนเต็มเมตรบนกริดหยาบ ค่าต่ำกว่านี้คือพื้นของ
+ * ความละเอียด ไม่ใช่ค่าที่วัดได้ (และ "0.0 ม." จะอ่านเหมือน "แห้ง" ทั้งที่ GISTDA ว่าท่วม)
+ */
+export function GistdaDepthBlock({ cell, lang, t }: { cell: GistdaDepthCellPick; lang: Lang; t: TFunction }) {
+  return (
+    <div className="mt-1.5" data-gistda-depth={cell.depthCm ?? "not-estimated"}>
+      <p className="text-[11px] text-[#b3cce0]">
+        {cell.depthCm === null
+          ? t("popup.gistdaDepth.notEst")
+          : cell.depthCm < GISTDA_DEPTH_FLOOR_CM
+            ? t("popup.gistdaDepth.belowFloor", { m: formatNumber(lang, GISTDA_DEPTH_FLOOR_CM / 100, 1) })
+            : t("popup.gistdaDepth", { m: formatNumber(lang, cell.depthCm / 100, 1) })}
+      </p>
+      <p className="text-[10px] text-[var(--color-fg-subtle)]">
+        {t("popup.gistdaDepth.note", { m: formatNumber(lang, cell.cellSizeM, 0) })}
+      </p>
     </div>
   );
 }
@@ -1340,6 +1366,11 @@ export function InfoPopup({
               </>
             ) : null}
           </div>
+          {/* E16 B-2 — ความลึกของแผ่นน้ำ GISTDA ใต้จุดนี้: แสดงเฉพาะคู่กับเซลล์ GISTDA (`pick.flood`) เสมอ
+              เวลาภาพ + ดาวเทียมจึงอยู่เหนือบรรทัดนี้ทุกครั้ง; null = ไม่มีแผ่นตรงนี้ (ไม่ใช่ "ไม่ท่วม") */}
+          {pick.flood && pick.gistdaDepth ? (
+            <GistdaDepthBlock cell={pick.gistdaDepth} lang={lang} t={t} />
+          ) : null}
           {pick.flood ? (
             <p className="mt-1.5 text-[10px] text-[var(--color-fg-subtle)]">{t("popup.floodNote")}</p>
           ) : null}

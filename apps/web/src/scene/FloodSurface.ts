@@ -118,6 +118,12 @@ export interface FloodSurfaceVariant {
    * มาสก์จังหวัดยัง sample จาก overlay ของ overview ผ่านตำแหน่งฉาก
    */
   window?: { cols: number; rows: number; x0: number; z0: number; cellSizeM: number; heights: Float32Array };
+  /**
+   * แผ่นบนขอบเขตที่ **ตรวจวัดจริง** (E16 B-2: แผ่นน้ำ GISTDA) — วาดทุกเซลล์ FLOODED ที่มีค่าความลึก
+   * รวมที่ตื้นกว่า 2 ซม. (ขอบเขตคือสิ่งที่ดาวเทียมเห็น ความลึกแค่ไล่เฉด — ตัดเซลล์ตื้นทิ้งจะทำให้พื้นที่
+   * ที่เห็นว่าท่วมหายเป็นรู) ความทึบขั้นต่ำ `minAlpha` แทน 0.35 ใช้ได้เฉพาะเมื่อไม่มี `sheet`
+   */
+  observedExtent?: { minAlpha: number };
 }
 
 const glslVec3 = (c: readonly [number, number, number]) =>
@@ -213,6 +219,25 @@ if (sfNotEst > 0.5) {
   diffuseColor.rgb = mix(diffuseColor.rgb, ${glslVec3(ILLUSTRATIVE_RGB.light)}, ${STATION_SHEET_HATCH_MIX.toFixed(4)} * stripe);
   sfHatchA = mix(${STATION_SHEET_HATCH_GAP_ALPHA.toFixed(4)}, 1.0, stripe);
 }`;
+}
+
+/**
+ * ตัวเนื้อของแผ่นบนขอบเขตที่ตรวจวัดจริง (`variant.observedExtent`, แผ่นน้ำ GISTDA) — เหมือนแผ่น GFM
+ * ทุกอย่าง ยกเว้นไม่ทิ้งเซลล์ที่ตื้นกว่า 2 ซม. และความทึบเริ่มที่ `minAlpha` (ไม่มีลายทแยง: ขอบเขตไม่ใช่
+ * ภาพประกอบ) — แผ่น GFM ไม่ผ่านฟังก์ชันนี้ จึงได้ GLSL เดิมทุกไบต์
+ */
+function observedExtentFragmentBody(
+  palette: { shallow: readonly [number, number, number]; deep: readonly [number, number, number] },
+  minAlpha: number,
+): string {
+  return /* glsl */ `#include <map_fragment>
+if (texture2D(uMaskOverlay, vFloodUv).b < ${MASK_INSIDE_MIN.toFixed(3)}) discard;
+float sfCov; float sfDepth; float sfNotEst;
+siahraFloodSample(uFloodField, vFloodUv, sfCov, sfDepth, sfNotEst);
+if (sfCov < 0.5 || sfNotEst > 0.5) discard;
+float sfMix = siahraDepthMix(sfDepth);
+diffuseColor.rgb = mix(${glslVec3(palette.shallow)}, ${glslVec3(palette.deep)}, sfMix);
+diffuseColor.a = mix(${minAlpha.toFixed(3)}, 0.9, sfMix);`;
 }
 
 /**
@@ -318,6 +343,7 @@ export function createFloodSurface(
   const maskUv = win ? "vSheetMaskUv" : "vFloodUv";
   const clip = sheet?.clip !== undefined;
   const palette = variant?.palette ?? FLOOD_RGB;
+  const observed = sheet ? undefined : variant?.observedExtent;
 
   const material = createWaterMaterial(uTime);
   const baseCompile = material.onBeforeCompile;
@@ -357,7 +383,9 @@ ${sheet ? sheetFragmentDecl(clip) : ""}${floodFieldGlsl()}${sheet ? SHEET_FADE_G
         "#include <map_fragment>",
         sheet
           ? sheetFragmentBody(maskUv, clip, palette)
-          : /* glsl */ `#include <map_fragment>
+          : observed
+            ? observedExtentFragmentBody(palette, observed.minAlpha)
+            : /* glsl */ `#include <map_fragment>
 // นอกขอบเขตจังหวัด (มาสก์ B ของ overlay = 0) ไม่วาดแผ่นน้ำเลย — bbox ของฉาก
 // ครอบเซลล์ท่วมของจังหวัดข้างเคียงด้วย แต่แผ่นน้ำเป็นของจังหวัดที่เลือกเท่านั้น
 if (texture2D(uMaskOverlay, vFloodUv).b < ${MASK_INSIDE_MIN.toFixed(3)}) discard;
@@ -382,7 +410,7 @@ diffuseColor.a = mix(0.35, 0.9, sfMix);`,
       );
   };
   const cacheKey = variant
-    ? `${variant.cacheKey}${sheet ? `:sheet${win ? ":win" : ""}${clip ? ":clip" : ""}` : ""}`
+    ? `${variant.cacheKey}${sheet ? `:sheet${win ? ":win" : ""}${clip ? ":clip" : ""}` : observed ? ":observed" : ""}`
     : "siahra-flood-surface";
   material.customProgramCacheKey = () => cacheKey;
 
