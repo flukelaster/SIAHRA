@@ -3,7 +3,7 @@ import { ExternalLink, Gauge, Layers } from "lucide-react";
 import type { FloodSceneIndexEntry, ProvinceExposureResponse } from "@siahra/shared-types";
 import { DETAIL_TILE_ALTITUDE_GATE_M } from "../../scene/lod";
 import type { QualityLevel, QualityMode } from "../../scene/quality";
-import type { MapLayers } from "./Map3DCanvas";
+import type { LazySceneLayer, MapLayers } from "./Map3DCanvas";
 import type { LayerDescriptors } from "../../hooks/useLayerDescriptors";
 import { useNow } from "../../hooks/useNow";
 import { useLang } from "../../i18n/context";
@@ -1045,6 +1045,7 @@ export function MapLegend({
   stationSheet = null,
   cctvError = null,
   iticError = null,
+  layerLoadErrors,
 }: {
   layers: MapLayers;
   onToggle: (key: keyof MapLayers, value: boolean) => void;
@@ -1062,6 +1063,8 @@ export function MapLegend({
   cctvError?: ErrorMessage | null;
   /** E15.2 — โหลดบัญชีกล้องถนนของ iTIC ไม่สำเร็จ (แยกจาก DWR: อีกแหล่งอาจยังมีหมุดอยู่) */
   iticError?: ErrorMessage | null;
+  /** โหลดโค้ดของชั้นฉากแบบ lazy ไม่สำเร็จ (`MapInfo.layerLoadErrors`) — ชั้นนั้นไม่ถูกวาด ต้องบอก */
+  layerLoadErrors?: Partial<Record<LazySceneLayer, ErrorMessage>>;
   quality: QualityMode;
   qualityLevel: QualityLevel;
   onQualityChange: (q: QualityMode) => void;
@@ -1149,6 +1152,11 @@ export function MapLegend({
                 {row.key === "cctv" && iticError ? (
                   <span className="mt-0.5 block text-[10px] text-[var(--color-risk-extreme)]">
                     {t("legend.layer.cctv.errorItic", { error: resolveError(t, iticError) ?? "" })}
+                  </span>
+                ) : null}
+                {(row.key === "stationSheet" || row.key === "northRoute") && layerLoadErrors?.[row.key] ? (
+                  <span className="mt-0.5 block text-[10px] text-[var(--color-risk-extreme)]">
+                    {t("legend.layer.loadFailed", { error: resolveError(t, layerLoadErrors[row.key] ?? null) ?? "" })}
                   </span>
                 ) : null}
                 {showBuildingsError ? (

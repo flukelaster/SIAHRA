@@ -36,7 +36,7 @@ import {
 /**
  * ทุกอย่างที่แผงใดแผงหนึ่งอาจต้องใช้ — App.tsx ประกอบก้อนนี้ก้อนเดียวแล้วส่งให้
  * `SideDrawer` (จอกว้าง) หรือ `MobileSheet` (มือถือ) ซึ่งเรนเดอร์ **เฉพาะแผงที่
- * เปิดอยู่** ผ่าน `PANELS[i].render(ctx)` (`panelRegistry.ts`) — สองเปลือกใช้
+ * เปิดอยู่** ผ่าน `<PanelSlot>` + `PANELS[i].view` (`panelRegistry.ts`) — สองเปลือกใช้
  * ทะเบียนเดียวกัน จึงไม่มีวันที่แผงหนึ่งหายไปจากมือถือแต่ยังอยู่บนเดสก์ท็อป
  * (หรือกลับกัน)
  *
@@ -131,6 +131,7 @@ export function LayersPanel({ ctx }: { ctx: PanelContext }) {
         stationSheet={ctx.mapInfo?.stationSheet ?? null}
         cctvError={ctx.cctvCatalogue.error}
         iticError={ctx.iticCatalogue.error}
+        layerLoadErrors={ctx.mapInfo?.layerLoadErrors}
       />
       <div className="glass-soft mt-auto shrink-0 rounded-2xl px-3.5 py-2.5">
         <ApiStatusFooter

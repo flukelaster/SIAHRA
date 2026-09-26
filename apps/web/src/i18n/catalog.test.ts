@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { en } from "./en";
 import { th } from "./th";
-import { CATALOGS, LANGS, translate } from "./index";
+import { LANGS, catalogFor, translate } from "./index";
 
 /**
  * `en.ts` ประกาศชนิดเป็น `Record<keyof typeof th, string>` อยู่แล้ว คีย์ที่ขาด/เกิน
@@ -129,7 +129,7 @@ describe("i18n catalogs", () => {
   });
 
   it.each(LANGS)("ไม่มีข้อความว่างใน catalog %s", (lang) => {
-    const empty = Object.entries(CATALOGS[lang])
+    const empty = Object.entries(catalogFor(lang))
       .filter(([, v]) => v.trim() === "")
       .map(([k]) => k);
     expect(empty).toEqual([]);
@@ -151,7 +151,7 @@ describe("i18n catalogs", () => {
   it("ไม่มีข้อความไหนอ่านเป็นการพยากรณ์ ความน่าจะเป็น หรือคะแนนความเสี่ยง", () => {
     const offenders: string[] = [];
     for (const lang of LANGS) {
-      for (const [key, value] of Object.entries(CATALOGS[lang])) {
+      for (const [key, value] of Object.entries(catalogFor(lang))) {
         if (!BANNED.test(value)) continue;
         // ตัดประโยคปฏิเสธออกก่อน แล้วดูว่ายังเหลือคำต้องห้ามอยู่ไหม
         // (คีย์ตระกูลพยากรณ์ที่อ้าง TMD ไว้ในประโยคเดียวกันได้รับการยกเว้นเฉพาะคำพยากรณ์)
@@ -263,9 +263,9 @@ describe("i18n catalogs", () => {
   /** ป้ายชนิดความรู้และสถานะแหล่งข้อมูลคือข้อความที่ห้ามเพี้ยนความหมาย (E3.2–E3.5) */
   it("แยก delayed ออกจาก stale ได้ในทั้งสองภาษา", () => {
     for (const lang of LANGS) {
-      expect(CATALOGS[lang]["health.delayed"]).not.toBe(CATALOGS[lang]["health.stale"]);
-      expect(CATALOGS[lang]["freshness.missing.observed"]).not.toBe(
-        CATALOGS[lang]["freshness.missing.staticReference"],
+      expect(catalogFor(lang)["health.delayed"]).not.toBe(catalogFor(lang)["health.stale"]);
+      expect(catalogFor(lang)["freshness.missing.observed"]).not.toBe(
+        catalogFor(lang)["freshness.missing.staticReference"],
       );
     }
     expect(en["health.delayed"]).toMatch(/not published/i);

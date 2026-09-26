@@ -57,15 +57,46 @@ const fmt = (bytes) => `${kb(bytes).toFixed(2)} kB`;
 
 /**
  * Everything the browser must download before the map can render is "critical":
- * the entry chunk plus the vendor chunks it statically imports. Lazily imported
- * routes and the Web Workers are counted and printed, but not budgeted — they
- * are not on the first-paint path.
+ * the entry chunk plus every chunk it reaches through **static** imports — the
+ * vendor chunks, and the shared chunks the bundler cuts out of the entry once
+ * lazy chunks exist (a module used by both the entry and a lazy panel lands in
+ * its own chunk named after its first module, e.g. `i18n-*.js` holding the Thai
+ * catalogue, which the entry then imports statically). Grouping by file name
+ * alone would count those as "deferred" and under-report the first-paint cost,
+ * so the static import graph is walked.
+ * Lazily imported chunks (`import("./x.js")`) and the Web Workers are counted
+ * and printed, but not budgeted — they are not on the first-paint path.
+ *
+ * So the budget is the **entry path** — what the map needs before its first
+ * frame — not "everything a first visit downloads". On the wide tier the layers
+ * drawer is open by default, so its `panelViews-*.js` chunk (and, with data,
+ * `StationSheet-*.js` / `NorthRouteRivers-*.js`) follows right after, in
+ * parallel with the API fetches that those views wait for anyway; they show up
+ * above as `deferred`.
  */
+const nameOf = (file) => file.replace(/-[A-Za-z0-9_-]{6,}\.js$/, "");
+/** `import{a}from"./x.js"` / `import"./x.js"` — never `import("./x.js")`, which is lazy */
+const STATIC_IMPORT = /(?:\bfrom|\bimport)\s*["']\.\/([^"']+\.js)["']/g;
+const staticImportsOf = (file) =>
+  [...readFileSync(path.join(assetsDir, file), "utf8").matchAll(STATIC_IMPORT)].map((m) => m[1]);
+
+const entryFiles = entries.filter((f) => nameOf(f) === "index");
+const reachable = new Set(entryFiles);
+for (const queue = [...entryFiles]; queue.length > 0; ) {
+  for (const dep of staticImportsOf(queue.pop())) {
+    if (!reachable.has(dep) && entries.includes(dep)) {
+      reachable.add(dep);
+      queue.push(dep);
+    }
+  }
+}
+
 const groupOf = (file) => {
-  const name = file.replace(/-[A-Za-z0-9_-]{6,}\.js$/, "");
+  const name = nameOf(file);
   if (name === "index") return "entry";
   if (REQUIRED_VENDOR.includes(name)) return `vendor:${name}`;
   if (name.endsWith(".worker")) return "worker";
+  if (reachable.has(file)) return "entry:shared";
   return "deferred";
 };
 
@@ -81,7 +112,7 @@ const rows = entries
   })
   .sort((a, b) => b.gzip - a.gzip);
 
-const critical = rows.filter((r) => r.group === "entry" || r.group.startsWith("vendor:"));
+const critical = rows.filter((r) => r.group.startsWith("entry") || r.group.startsWith("vendor:"));
 const criticalGzip = critical.reduce((s, r) => s + r.gzip, 0);
 const criticalRaw = critical.reduce((s, r) => s + r.raw, 0);
 
@@ -89,7 +120,7 @@ console.log("bundle budget — apps/web");
 for (const r of rows) {
   console.log(`  ${r.group.padEnd(14)} ${r.file.padEnd(38)} ${fmt(r.raw).padStart(11)}  gzip ${fmt(r.gzip).padStart(10)}`);
 }
-console.log(`  entry + vendor: ${fmt(criticalRaw)} raw, ${fmt(criticalGzip)} gzipped`);
+console.log(`  entry + vendor (+ entry:shared): ${fmt(criticalRaw)} raw, ${fmt(criticalGzip)} gzipped`);
 
 const failures = [];
 

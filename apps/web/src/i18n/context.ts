@@ -3,7 +3,12 @@ import { DEFAULT_LANG, translator, type Lang, type TFunction } from "./index";
 
 export interface LanguageContextValue {
   lang: Lang;
-  setLang: (lang: Lang) => void;
+  /**
+   * สลับภาษา — อาจต้องรอโหลดแคตตาล็อกก่อน (อังกฤษเป็น chunk แยก) จึงคืน promise ที่
+   * resolve `true` เมื่อภาษาเปลี่ยนจริง (`false` = ถูกการกดที่ใหม่กว่าแซง) และ reject
+   * เมื่อโหลดไม่สำเร็จ (ภาษาเดิมยังอยู่)
+   */
+  setLang: (lang: Lang) => void | Promise<boolean>;
   t: TFunction;
 }
 
