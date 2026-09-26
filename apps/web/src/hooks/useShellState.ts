@@ -34,7 +34,7 @@ export interface ShellState {
 const getLocalStorage = () => window.localStorage;
 
 /** อีเวนต์คีย์บอร์ดที่มาจากช่องพิมพ์ — Escape ของช่องนั้นเป็นของช่องนั้น ไม่ใช่ของเปลือก */
-function isTypingTarget(target: EventTarget | null): boolean {
+export function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   const tag = target.tagName;
   if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;

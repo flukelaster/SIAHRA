@@ -613,7 +613,6 @@ export const th = {
   "popup.cctv.rights": "© กรมทรัพยากรน้ำ ซึ่งไม่ได้รับรองหรือเกี่ยวข้องกับโครงการนี้",
   "popup.cctv.nearest": "กล้องใกล้เคียง ({km} กม.)",
   "popup.cctv.open": "ดูภาพ",
-  "popup.cctv.back": "กลับไปที่สถานี",
   "popup.cctv.modeLabel": "แบบภาพ",
   "popup.cctv.modeSnapshot": "ภาพนิ่ง",
   "popup.cctv.modeLive": "ดูสด",

@@ -108,6 +108,25 @@ body {
   -webkit-backdrop-filter: blur(16px) saturate(140%);
 }
 
+/* แผงกล้องด้านขวา (components/map/CameraSheet.tsx) เลื่อนเข้าจากขอบขวา — transform อย่างเดียว
+   ไม่มี layout; ผู้ที่ขอลดการเคลื่อนไหวได้แผงปรากฏทันที */
+@keyframes camera-sheet-in {
+  from {
+    transform: translate3d(calc(100% + 96px), 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+.camera-sheet-in {
+  animation: camera-sheet-in 260ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .camera-sheet-in {
+    animation: none;
+  }
+}
+
 /* CSS2D labels anchored to scene points. */
 .map-label {
   display: flex;

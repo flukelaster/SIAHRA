@@ -36,6 +36,7 @@ import { formatDateTime, formatFullDateTime } from "../../lib/time";
 import { damDisplayName } from "../../lib/damName";
 import { nearestProvinceLabel } from "../../lib/nearestProvince";
 import { useLang } from "../../i18n/context";
+import { cctvCameraName, type CameraSelection } from "../../lib/cameraSheet";
 import type { Lang, MessageKey, TFunction } from "../../i18n";
 
 function fmtTime(lang: Lang, iso: string | null | undefined): string {
@@ -379,6 +380,7 @@ export function CctvBody({
   lang,
   t,
   distanceKm = null,
+  showName = true,
 }: {
   camera: CctvCamera;
   cache: SnapshotCache;
@@ -386,6 +388,8 @@ export function CctvBody({
   t: TFunction;
   /** ระยะจากสถานีที่เปิดมา (แถวกล้องใกล้เคียง) — null = เปิดจากหมุดกล้องโดยตรง */
   distanceKm?: number | null;
+  /** false = ชื่อกล้องอยู่ที่หัวของแผงกล้อง (`CameraSheet`) แล้ว ไม่พิมพ์ซ้ำ */
+  showName?: boolean;
 }) {
   const nowMs = useNow();
   const [live, setLive] = useState(false);
@@ -417,7 +421,7 @@ export function CctvBody({
     return () => controller.abort();
   }, [camera.id, cache, reload]);
 
-  const name = pickName(camera.nameTh, camera.nameEn, lang) ?? t("popup.cctv.fallbackName", { code: camera.stationCode });
+  const name = cctvCameraName(camera, lang, t);
   const result = view.status === "done" ? view.result : null;
   const ok = result?.kind === "ok" ? result : null;
   const fresh = ok?.observedAt ? freshness(ok.observedAt, nowMs, lang) : null;
@@ -425,7 +429,7 @@ export function CctvBody({
 
   return (
     <div data-cctv-camera={camera.id}>
-      <p className="pr-6 text-sm font-semibold text-white">{name}</p>
+      {showName ? <p className="pr-6 text-sm font-semibold text-white">{name}</p> : null}
       <p className="text-[11px] text-[var(--color-fg-muted)]">
         {[camera.amphoeTh, camera.stationCode, distanceKm !== null ? `${distanceKm.toFixed(1)} ${t("unit.km")}` : null]
           .filter(Boolean)
@@ -532,16 +536,18 @@ function ItiCHeader({
   camera,
   name,
   distanceKm,
+  showName,
   t,
 }: {
   camera: ItiCCamera;
   name: string;
   distanceKm: number | null;
+  showName: boolean;
   t: TFunction;
 }) {
   return (
     <>
-      <p className="pr-6 text-sm leading-snug font-semibold text-white">{name}</p>
+      {showName ? <p className="pr-6 text-sm leading-snug font-semibold text-white">{name}</p> : null}
       <p className="text-[11px] text-[var(--color-fg-muted)]">
         {[camera.organization, camera.id, distanceKm !== null ? `${distanceKm.toFixed(1)} ${t("unit.km")}` : null]
           .filter(Boolean)
@@ -622,12 +628,14 @@ function ItiCVideoBody({
   lang,
   t,
   distanceKm,
+  showName,
 }: {
   camera: ItiCCamera;
   url: string;
   lang: Lang;
   t: TFunction;
   distanceKm: number | null;
+  showName: boolean;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [state, setState] = useState<HlsPlayerState>({ status: "loading" });
@@ -646,7 +654,7 @@ function ItiCVideoBody({
 
   return (
     <div data-itic-camera={camera.id} data-itic-kind="hls" data-itic-state={state.status}>
-      <ItiCHeader camera={camera} name={name} distanceKm={distanceKm} t={t} />
+      <ItiCHeader camera={camera} name={name} distanceKm={distanceKm} showName={showName} t={t} />
       <div className="relative mt-2 aspect-video w-full overflow-hidden rounded-lg bg-black/60">
         <video
           ref={videoRef}
@@ -723,12 +731,14 @@ function ItiCSnapshotBody({
   lang,
   t,
   distanceKm,
+  showName,
 }: {
   camera: ItiCCamera;
   url: string;
   lang: Lang;
   t: TFunction;
   distanceKm: number | null;
+  showName: boolean;
 }) {
   const frameRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<ItiCSnapshotState>({ status: "loading" });
@@ -779,7 +789,7 @@ function ItiCSnapshotBody({
 
   return (
     <div data-itic-camera={camera.id} data-itic-kind="jpeg" data-itic-state={state.status}>
-      <ItiCHeader camera={camera} name={name} distanceKm={distanceKm} t={t} />
+      <ItiCHeader camera={camera} name={name} distanceKm={distanceKm} showName={showName} t={t} />
       <div className="relative mt-2 aspect-video w-full overflow-hidden rounded-lg bg-black/60">
         {/* ลูกของ div นี้เป็นของ startItiCSnapshots (แทนภาพเมื่อได้เฟรมใหม่) — React ไม่เรนเดอร์อะไรในนี้ */}
         <div
@@ -835,37 +845,53 @@ export function ItiCBody({
   lang,
   t,
   distanceKm = null,
+  showName = true,
 }: {
   camera: ItiCCamera;
   lang: Lang;
   t: TFunction;
   /** ระยะจากสถานีที่เปิดมา (แถวกล้องใกล้เคียง) — null = เปิดจากหมุดกล้องโดยตรง */
   distanceKm?: number | null;
+  /** false = ชื่อกล้องอยู่ที่หัวของแผงกล้อง (`CameraSheet`) แล้ว ไม่พิมพ์ซ้ำ */
+  showName?: boolean;
 }) {
   return camera.stream.kind === "jpeg" ? (
-    <ItiCSnapshotBody camera={camera} url={camera.stream.url} lang={lang} t={t} distanceKm={distanceKm} />
+    <ItiCSnapshotBody camera={camera} url={camera.stream.url} lang={lang} t={t} distanceKm={distanceKm} showName={showName} />
   ) : (
-    <ItiCVideoBody camera={camera} url={camera.stream.url} lang={lang} t={t} distanceKm={distanceKm} />
+    <ItiCVideoBody camera={camera} url={camera.stream.url} lang={lang} t={t} distanceKm={distanceKm} showName={showName} />
   );
 }
 
 /**
- * popup ของหมุดกล้อง iTIC — หมุดที่ตั้งซ้อนกัน (`coLocatedCameras`) คลิกได้แค่ตัวเดียว จึงมีปุ่มสลับ
+ * เนื้อหาของหมุดกล้อง iTIC — หมุดที่ตั้งซ้อนกัน (`coLocatedCameras`) คลิกได้แค่ตัวเดียว จึงมีปุ่มสลับ
  * ไปกล้องอื่นที่ตำแหน่งเดียวกัน (วิดีโอสดและภาพนิ่งปนกันได้ ปุ่มมีไอคอนบอกชนิด); ตัวเล่น/ตัวขอภาพ
  * ยังมีทีละตัว (`ItiCBody` ถูก remount ด้วย key → ตัวเก่าหยุดก่อน)
+ *
+ * `activeId`/`onActiveChange` ให้แผงกล้อง (`CameraSheet`) คุมกล้องที่เลือกเอง เพื่อให้หัวแผง
+ * แสดงชื่อกล้องที่กำลังดูอยู่ ไม่ใช่ตัวที่ถูกคลิก
  */
-function ItiCPickBody({
+export function ItiCPickBody({
   camera,
   cameras,
   lang,
   t,
+  distanceKm = null,
+  activeId: controlledId,
+  onActiveChange,
+  showName = true,
 }: {
   camera: ItiCCamera;
   cameras: readonly ItiCCamera[];
   lang: Lang;
   t: TFunction;
+  distanceKm?: number | null;
+  activeId?: string;
+  onActiveChange?: (id: string) => void;
+  showName?: boolean;
 }) {
-  const [activeId, setActiveId] = useState(camera.id);
+  const [ownId, setOwnId] = useState(camera.id);
+  const activeId = controlledId ?? ownId;
+  const setActiveId = onActiveChange ?? setOwnId;
   const cluster = coLocatedCameras(camera, cameras);
   const active = cluster.find((c) => c.id === activeId) ?? camera;
   const fullNames = cluster.map((c) => c.name ?? t("popup.itic.fallbackName", { id: c.id }));
@@ -898,7 +924,14 @@ function ItiCPickBody({
           </div>
         </div>
       ) : null}
-      <ItiCBody key={active.id} camera={active} lang={lang} t={t} />
+      <ItiCBody
+        key={active.id}
+        camera={active}
+        lang={lang}
+        t={t}
+        distanceKm={active.id === camera.id ? distanceKm : null}
+        showName={showName}
+      />
     </>
   );
 }
@@ -914,18 +947,23 @@ type NearestCam =
   | { source: "dwr"; camera: CctvCamera; distanceKm: number }
   | { source: "itic"; camera: ItiCCamera; distanceKm: number };
 
+/** ปุ่ม "กล้องใกล้เคียง" → เปิดกล้องในแผงด้านขวา; null = ไม่มีแผงให้เปิด (ไม่มีปุ่ม) */
+export type OpenCamera = (sel: CameraSelection) => void;
+
 function WaterLevelBody({
   pick,
   lang,
   t,
   cctv,
   itic,
+  onOpenCamera,
 }: {
   pick: Extract<PickResult, { kind: "waterlevel" }>;
   lang: Lang;
   t: TFunction;
   cctv: CctvPopupContext | null;
   itic: ItiCPopupContext | null;
+  onOpenCamera: OpenCamera | null;
 }) {
   const { obs } = pick;
   const [hours, setHours] = useState(72);
@@ -940,25 +978,16 @@ function WaterLevelBody({
       : nearItic
         ? { source: "itic", camera: nearItic.camera, distanceKm: nearItic.distanceKm }
         : null;
-  const [showCamera, setShowCamera] = useState(false);
-  if (nearest && showCamera && (nearest.source === "itic" || cctv)) {
-    return (
-      <>
-        {nearest.source === "dwr" && cctv ? (
-          <CctvBody camera={nearest.camera} cache={cctv.cache} lang={lang} t={t} distanceKm={nearest.distanceKm} />
-        ) : nearest.source === "itic" ? (
-          <ItiCBody camera={nearest.camera} lang={lang} t={t} distanceKm={nearest.distanceKm} />
-        ) : null}
-        <button
-          type="button"
-          onClick={() => setShowCamera(false)}
-          className="mt-1.5 cursor-pointer text-[10px] text-[var(--color-accent)] hover:underline"
-        >
-          {t("popup.cctv.back")}
-        </button>
-      </>
+  // กล้องเปิดในแผงด้านขวา (`CameraSheet`) ไม่ใช่ใน popup เล็ก ๆ นี้ — popup ของสถานียังเปิดอยู่
+  // (บริบทของกล้อง) และเป็นที่ที่โฟกัสกลับมาเมื่อปิดแผง
+  const openNearest = () => {
+    if (!nearest || !onOpenCamera) return;
+    onOpenCamera(
+      nearest.source === "dwr"
+        ? { kind: "cctv", camera: nearest.camera, distanceKm: nearest.distanceKm }
+        : { kind: "itic", camera: nearest.camera, distanceKm: nearest.distanceKm },
     );
-  }
+  };
   return (
     <>
       <p className="text-sm font-semibold text-white">
@@ -989,10 +1018,11 @@ function WaterLevelBody({
         ) : null}
         <Row k={t("popup.observedAt")} v={fmtTime(lang, obs.observedAt)} />
       </div>
-      {nearest ? (
+      {nearest && onOpenCamera ? (
         <button
           type="button"
-          onClick={() => setShowCamera(true)}
+          onClick={openNearest}
+          aria-haspopup="dialog"
           className="mt-1.5 flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg bg-white/5 px-2 py-1 text-[11px] text-[var(--color-fg)] hover:bg-white/10"
         >
           <span className="inline-flex items-center gap-1.5">
@@ -1056,13 +1086,17 @@ export function InfoPopup({
   onClose,
   cctv = null,
   itic = null,
+  onOpenCamera = null,
 }: {
+  /** กล้อง (`cctv`/`itic`) ไม่มาที่นี่ — เปิดในแผงด้านขวา (`CameraSheet`) */
   pick: PickResult;
   onClose: () => void;
   /** E15 — null = แฟล็ก/ชั้น CCTV ปิด */
   cctv?: CctvPopupContext | null;
   /** E15.2 — null = แฟล็ก iTIC/ชั้น CCTV ปิด */
   itic?: ItiCPopupContext | null;
+  /** เปิดกล้องใกล้เคียงของสถานีในแผงด้านขวา — null = ไม่มีปุ่ม */
+  onOpenCamera?: OpenCamera | null;
 }) {
   const { lang, t } = useLang();
   return (
@@ -1076,13 +1110,15 @@ export function InfoPopup({
         <X size={13} />
       </button>
       {pick.kind === "waterlevel" ? (
-        <WaterLevelBody key={pick.obs.station.id} pick={pick} lang={lang} t={t} cctv={cctv} itic={itic} />
-      ) : null}
-      {pick.kind === "cctv" && cctv ? (
-        <CctvBody key={pick.camera.id} camera={pick.camera} cache={cctv.cache} lang={lang} t={t} />
-      ) : null}
-      {pick.kind === "itic" && itic ? (
-        <ItiCPickBody key={pick.camera.id} camera={pick.camera} cameras={itic.cameras} lang={lang} t={t} />
+        <WaterLevelBody
+          key={pick.obs.station.id}
+          pick={pick}
+          lang={lang}
+          t={t}
+          cctv={cctv}
+          itic={itic}
+          onOpenCamera={onOpenCamera}
+        />
       ) : null}
       {pick.kind === "rainfall" ? (
         <>

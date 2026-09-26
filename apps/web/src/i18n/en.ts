@@ -571,7 +571,6 @@ export const en: Record<keyof typeof th, string> = {
   "popup.cctv.rights": "© Department of Water Resources — not affiliated with or endorsing this project",
   "popup.cctv.nearest": "Nearby camera ({km} km)",
   "popup.cctv.open": "View image",
-  "popup.cctv.back": "Back to station",
   "popup.cctv.modeLabel": "Image mode",
   "popup.cctv.modeSnapshot": "Snapshot",
   "popup.cctv.modeLive": "Live",
