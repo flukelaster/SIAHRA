@@ -97,7 +97,7 @@ jobs:
       # named) and, for the two tools, a pinned uv release (the one uv.lock
       # was produced with) and the distro's rclone package rather than a
       # curl|bash installer.
-      - uses: astral-sh/setup-uv@v10.0.1
+      - uses: astral-sh/setup-uv@v10.1.0
         with:
           version: "0.9.30"
       - name: Install Python dependencies (uv sync --frozen)
