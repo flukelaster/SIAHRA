@@ -13,6 +13,7 @@ import { floodCellAt, type FloodCell, type FloodField, type FloodFieldGrid } fro
 import type { LocalProjection } from "./localProjection";
 import type { SceneHandles } from "./setupScene";
 import type { StationSheetCellPick } from "./StationSheet";
+import type { GistdaDepthCellPick } from "../lib/gistdaDepthField";
 
 /**
  * เซลล์ของฉาก Copernicus GFM ใต้จุดที่คลิก (E14.F5) + ฉากที่มันมาจาก — popup ต้อง
@@ -49,8 +50,18 @@ export type PickResult =
       floodCell: FloodCellPick | null;
       /** เซลล์ของแผ่นน้ำจำลองจากสถานีใต้จุดนี้ — null = ชั้นซ่อน/ไม่มีแผ่นตรงนี้ (ไม่ใช่ "ไม่ท่วม") */
       stationSheet: StationSheetCellPick | null;
+      /**
+       * เซลล์ของแผ่นน้ำ GISTDA 3 มิติใต้จุดนี้ (E16 B-2) — null = ชั้นซ่อน/ไม่มีแผ่นตรงนี้/ฉาก GFM มาก่อน
+       * (ไม่ใช่ "ไม่ท่วม") popup แสดงเฉพาะคู่กับเซลล์ GISTDA (`flood`) ที่ให้เวลาภาพ + ดาวเทียม
+       */
+      gistdaDepth: GistdaDepthCellPick | null;
       anchor: THREE.Vector3;
     };
+
+/** แผ่นน้ำ GISTDA 3 มิติ (E16 B-2, `GistdaSheet.ts`) — null/ไม่ส่ง = ชั้นซ่อนหรือไม่มีแผ่น */
+export interface GistdaSheetPickSource {
+  cellAt: (x: number, z: number) => GistdaDepthCellPick | null;
+}
 
 /**
  * แผ่นน้ำจำลองจากระดับน้ำที่สถานี (E16 B-1, `StationSheet.ts`) — อ่านเซลล์ใต้จุดคลิกบนพื้น
@@ -117,6 +128,8 @@ export function pickAt(
     floodField?: FloodFieldPickSource | null;
     /** แผ่นน้ำจำลองจากระดับน้ำที่สถานี (E16 B-1) — ไม่ส่ง/null = ชั้นซ่อนหรือไม่มีแผ่น */
     stationSheet?: StationSheetPickSource | null;
+    /** แผ่นน้ำ GISTDA 3 มิติ (E16 B-2) — ไม่ส่ง/null = ชั้นซ่อนหรือไม่มีแผ่น */
+    gistdaSheet?: GistdaSheetPickSource | null;
   },
 ): PickResult | null {
   raycaster.setFromCamera(ndc, handles.camera);
@@ -151,6 +164,7 @@ export function pickAt(
     flood,
     floodCell,
     stationSheet: opts.stationSheet?.cellAt(gh.point.x, gh.point.z) ?? null,
+    gistdaDepth: opts.gistdaSheet?.cellAt(gh.point.x, gh.point.z) ?? null,
     anchor: new THREE.Vector3(gh.point.x, gh.point.y / scaleY, gh.point.z),
   };
 }

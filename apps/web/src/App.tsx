@@ -30,7 +30,9 @@ import { BRAND, DATA_ATTRIBUTION_TH } from "./branding";
 import type { CameraPose } from "./scene/setupScene";
 import type { QualityLevel, QualityMode } from "./scene/quality";
 import { summarizeFloodField } from "./scene/floodField";
-import type { FloodGfmLegendState } from "./components/layout/MapLegend";
+import type { FloodGfmLegendState, GistdaDepthLegendState } from "./components/layout/MapLegend";
+import { deriveGistdaImpactFreshness } from "./lib/gistdaImpactFreshness";
+import { gistdaExtentState } from "./lib/gistdaFlood";
 import type { TimelineMark } from "./components/layout/TimelineBar";
 import { formatFullDateTime } from "./lib/time";
 import { exposureInputsAreDegraded } from "./lib/exposureInputHealth";
@@ -87,6 +89,9 @@ const DEFAULT_LAYERS: MapLayers = {
   // ทุก 6–12 วัน ระดับน้ำเทียบตลิ่งจึงเป็นสัญญาณที่สดที่สุดที่มี — แผ่นน้ำจำลอง (illustrative) เปิด
   // เป็นค่าเริ่มต้นได้ตราบใดที่ legend บอก caveat ทุกครั้งที่แสดง (แบบเดียวกับ localAuthorities)
   stationSheet: true,
+  // E16 B-2 — แผ่นน้ำ 3 มิติบนขอบเขต GISTDA: ขอบเขตเป็นของที่ดาวเทียมเห็น ความลึกเป็นภาพประกอบ
+  // (legend บอกชนิด + ข้อสมมติทุกครั้ง) มีผลเฉพาะเมื่อ floodExtent เปิดอยู่ — แบบเดียวกับ floodDepth
+  gistdaDepth: true,
   northRoute: true,
 };
 
@@ -194,6 +199,16 @@ export default function App() {
   };
   // E16 B-1 — ชิปอายุแหล่งน้ำท่วมจากดาวเทียมบนแผนที่ (แสดงเมื่อชั้นน้ำท่วมจากดาวเทียมชั้นใดเปิดอยู่)
   const gistdaSource = sourceStatus(apiHealth.health, "gistda-flood");
+  // E16 B-2 — แผ่นน้ำ GISTDA หรี่ด้วยกฎเดียวกับตัวเลข % ท่วม (`deriveGistdaImpactFreshness`: เก่ากว่า
+  // staleAfterSeconds หรือ /health ไม่ ok) + API ล่ม — เฉพาะตอนดูสด: ฉากย้อนหลัง (`?at=`) คือภาพ ณ เวลานั้น
+  // อายุเทียบกับ "ตอนนี้" ไม่ได้บอกอะไรเกี่ยวกับมัน (หรี่ ไม่ใช่ซ่อน; legend บอกเหตุผล)
+  // (อายุคิดใหม่เมื่อคำตอบ GISTDA หรือ /health เปลี่ยน — ทั้งคู่ poll อยู่แล้ว แบบเดียวกับ floodIndexStale)
+  const gistdaLayer = floodExtent.data?.layer ?? null;
+  const gistdaStale = useMemo(
+    () => deriveGistdaImpactFreshness(gistdaLayer, gistdaSource, Date.now()).dim,
+    [gistdaLayer, gistdaSource],
+  );
+  const gistdaDim = atIso === null && (apiHealth.apiDown || gistdaStale);
   const floodAge: FloodSourceAgeInput | null =
     layers.floodExtent || layers.floodGfm
       ? {
@@ -499,6 +514,12 @@ export default function App() {
     exposureLegend,
     forecastLegend,
     floodGfmLegend,
+    gistdaDepthLegend: {
+      extent: gistdaExtentState(floodExtent.data),
+      dimmed: gistdaDim,
+      forecastHidden: forecastAtIso !== null,
+      sheet: mapInfo?.gistdaSheet ?? null,
+    } satisfies GistdaDepthLegendState,
     cctvCatalogue,
     iticCatalogue,
     observations,
@@ -543,6 +564,7 @@ export default function App() {
         floodSceneId={floodScene.scene?.sceneId ?? null}
         floodSceneObservedAt={floodScene.scene?.observedAt ?? null}
         floodFieldDim={floodFieldDim}
+        gistdaDim={gistdaDim}
         dams={dams.data?.dams ?? []}
         cctvCameras={cctvOn ? cctvCatalogue.data?.cameras : undefined}
         iticCameras={iticOn ? iticCatalogue.data?.cameras : undefined}

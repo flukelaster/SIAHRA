@@ -51,6 +51,7 @@ export function MapViewport({
   floodSceneId = null,
   floodSceneObservedAt = null,
   floodFieldDim = false,
+  gistdaDim = false,
   dams,
   cctvCameras,
   iticCameras,
@@ -102,6 +103,8 @@ export function MapViewport({
   /** เวลาบันทึกภาพของฉากที่วาด — popup ของจุดบนแผนที่ (E14.F5) */
   floodSceneObservedAt?: string | null;
   floodFieldDim?: boolean;
+  /** E16 B-2 — แหล่ง GISTDA ค้าง/ติดต่อไม่ได้ → แผ่นน้ำ GISTDA หรี่ลง */
+  gistdaDim?: boolean;
   dams: DamObservation[];
   /** บัญชีกล้อง CCTV ของ DWR (E15) — ส่งต่อให้ Map3DCanvas; undefined/ว่าง = ไม่มีหมุด */
   cctvCameras?: readonly CctvCamera[];
@@ -232,6 +235,7 @@ export function MapViewport({
         floodSceneId={floodSceneId}
         floodSceneObservedAt={floodSceneObservedAt}
         floodFieldDim={floodFieldDim}
+        gistdaDim={gistdaDim}
         dams={dams}
         cctvCameras={cctvCameras}
         iticCameras={iticCameras}

@@ -227,6 +227,25 @@ export const en: Record<keyof typeof th, string> = {
   "legend.layer.stationSheet": "Simulated water sheet from station levels",
   "legend.layer.stationSheet.note":
     "Simulated from the water level measured at the station against ground height (a DSM that includes buildings and trees and can be off by several metres · ground heights are whole metres) · embankments, dikes, flood walls and pumping are not modelled — a 'bathtub' fill of the measured level · not the actual satellite flood extent — where the Sentinel-1 image on screen saw the ground (flooded or dry), the satellite image is used instead · only stations with water above the bank, within {radiusKm} km · fades with distance from the station = confidence decreases",
+  "legend.layer.gistdaDepth": "3D water sheet from GISTDA",
+  "legend.layer.gistdaDepth.note":
+    "Flood extent from GISTDA satellite imagery (observed) · estimated depth (FwDET from the DEM — illustrative)",
+  "legend.gistdaDepth.method":
+    "Method: water surface = ground height at the flood edge (3×3 median), carried to the nearest flooded cell · depth = surface − ground (0–10 m) · assumption: GISTDA sends flooded cells only, so every non-flooded cell inside the province is treated as 'dry' to find the edge — the satellite does not say so · ground heights are a DSM (roofs/canopy included) in whole metres · buildings/trees are not masked out, because land cover exists only as 30 m tiles, not on this grid · not measured, not a forecast",
+  "legend.gistdaDepth.summary": "{n} flooded cells on the ~{m} m grid · deepest about {max} m (illustrative)",
+  "legend.gistdaDepth.noBoundary":
+    "No flood edge to anchor on — {n} flooded cells without a depth estimate (not 0 m), so no sheet is raised",
+  "legend.gistdaDepth.notEst": "{n} flooded cells without a depth estimate — not raised as a sheet (still tinted on the ground)",
+  "legend.gistdaDepth.tooSmall": "The GISTDA cells are smaller than the ~{m} m grid and hit no cell centre — still tinted on the ground",
+  "legend.gistdaDepth.gfmFirst": "{n} cells use the Sentinel-1 (GFM) scene on screen instead (it has a per-pass acquisition time)",
+  "legend.gistdaDepth.pending": "Computing depth…",
+  "legend.gistdaDepth.error": "Depth could not be computed ({error}) — the extent is still tinted on the ground",
+  "legend.gistdaDepth.needsExtent": "Takes effect when the satellite flood extent (GISTDA) layer is on",
+  "legend.gistdaDepth.noneDetected": "GISTDA found no flooded area in this province in the data we pulled — no water sheet",
+  "legend.gistdaDepth.neverFetched": "GISTDA data has not been pulled successfully yet — no water sheet (this does not mean no flooding)",
+  "legend.gistdaDepth.noArchivedScene": "No GISTDA data was archived for the selected time — no water sheet (this does not mean no flooding)",
+  "legend.gistdaDepth.forecastHidden": "Hidden while a future hour is selected on the TMD strip — this sheet comes from imagery already taken",
+  "legend.gistdaDepth.dimmed": "Dimmed: the GISTDA data is older than its usual cycle, or the source is not healthy (see source status)",
   "legend.stationSheet.worker": "The sheet worker failed ({error}) — finer tiles are no longer requested for this province; overview grid only",
   "viewport.sheetBadge": "Simulated water sheet — not observed flooding",
   "legend.stationSheet.resolution": "Computed on the {leafM} m grid: {leaf} stations · on the ~{ovM} m overview grid: {ov} stations",
@@ -741,6 +760,11 @@ export const en: Record<keyof typeof th, string> = {
   "popup.imageTime": "Image time",
   "popup.floodNote":
     "Interpreted from satellite imagery (GISTDA) — already detected, not a forecast",
+  "popup.gistdaDepth": "Water about {m} m deep (estimated from the DEM)",
+  "popup.gistdaDepth.belowFloor": "Water < {m} m deep — below the grid resolution, not a measurement (estimated from the DEM)",
+  "popup.gistdaDepth.notEst": "Flooded, depth not estimated (no flood edge to anchor on)",
+  "popup.gistdaDepth.note":
+    "Depth is illustrative: FwDET from the GISTDA extent on the ~{m} m DEM grid (DSM · whole metres) — not measured, not a forecast",
   "popup.sheet.title": "Simulated water sheet from station levels",
   "popup.sheet.depth": "Water about {m} m deep (simulated)",
   "popup.sheet.source": "from the water level at {station}, {level} m MSL at {time}",

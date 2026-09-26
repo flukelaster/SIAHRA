@@ -174,6 +174,26 @@ export function stationSheetDescriptor(obs: HazardLayerDescriptor): HazardLayerD
 }
 
 /**
+ * descriptor ของแผ่นน้ำ 3 มิติบนขอบเขต GISTDA (E16 B-2, `scene/GistdaSheet.ts`) — ชนิด
+ * `illustrative`: ขอบเขตเป็นของที่ GISTDA แปลจากภาพดาวเทียม (observed) แต่ความลึกเป็นสิ่งที่เราคำนวณเอง
+ * (FwDET จาก Copernicus DEM) เวลาทุกตัว (`observedAt`, `fetchedAt`, `staleAfterSeconds`) คัดลอกจาก
+ * descriptor ของชั้น GISTDA ที่ backend ประกาศ — `fetchedAt: null` ยังเป็น null, ไม่มี `observedAt` ก็ไม่มี
+ * (ไม่สังเคราะห์จาก feature) และ `publishedAt: null` เพราะไม่มีใครเผยแพร่ความลึกนี้
+ */
+export function gistdaDepthDescriptor(flood: HazardLayerDescriptor): HazardLayerDescriptor {
+  return {
+    id: "gistda-flood-depth-illustrative",
+    epistemicClass: "illustrative",
+    liveOrStatic: "live",
+    ...(flood.observedAt !== undefined ? { observedAt: flood.observedAt } : {}),
+    publishedAt: null,
+    fetchedAt: flood.fetchedAt,
+    ...(flood.staleAfterSeconds !== undefined ? { staleAfterSeconds: flood.staleAfterSeconds } : {}),
+    sourceIds: ["gistda-flood", "copernicus-dem"],
+  };
+}
+
+/**
  * รวม `HazardLayerDescriptor` ของทุกชั้นที่ legend แสดง ไว้ที่เดียว
  *
  * - ชั้นที่มาจาก API อ่าน `.layer` ที่ backend ประกาศไว้ตรง ๆ (ห้ามประกอบเอง
@@ -240,6 +260,9 @@ export function useLayerDescriptors(input: {
     put("hazard", obsLayer);
     put("radar", radarLayer);
     put("floodExtent", floodLayer);
+    // E16 B-2 — แผ่นน้ำ 3 มิติบนขอบเขต GISTDA: **illustrative** (ความลึก FwDET เป็นของเรา) เวลาคัดลอกจาก
+    // descriptor ของ GISTDA ที่ backend ประกาศ
+    put("gistdaDepth", floodLayer ? gistdaDepthDescriptor(floodLayer) : undefined);
     put("dams", damsLayer);
     put("exposure", exposureLayer);
     // E16 B-1 — แผ่นน้ำจำลองจากระดับน้ำที่สถานี: **illustrative** (เราเติมระดับน้ำลง DEM เอง)

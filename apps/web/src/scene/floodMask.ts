@@ -20,6 +20,12 @@ export interface FloodMask {
   texture: THREE.DataTexture;
   /** Fraction of in-province cells flagged flooded (for the legend/summary). */
   coverage: number;
+  /**
+   * มาสก์ท่วม **ก่อนเบลอ** (1 = กึ่งกลางเซลล์อยู่ในเซลล์ GISTDA, แถว 0 = เหนือ ลำดับเดียวกับ
+   * `terrain.heights`) — ข้อมูลเข้าของ FwDET ใน `scene/GistdaSheet.ts` (E16 B-2) และมาสก์ "ดาวเทียม
+   * สังเกตแล้วว่าท่วม" ของแผ่นจำลองจากสถานี ไม่ต้อง rasterise ซ้ำ
+   */
+  raw: Uint8Array;
   dispose: () => void;
 }
 
@@ -70,7 +76,7 @@ export function buildFloodMask(
   texture.wrapS = THREE.ClampToEdgeWrapping;
   texture.wrapT = THREE.ClampToEdgeWrapping;
   texture.needsUpdate = true;
-  return { texture, coverage: inside > 0 ? flooded / inside : 0, dispose: () => texture.dispose() };
+  return { texture, coverage: inside > 0 ? flooded / inside : 0, raw: mask, dispose: () => texture.dispose() };
 }
 
 /**

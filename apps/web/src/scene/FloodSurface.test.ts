@@ -170,4 +170,30 @@ describe("createFloodSurface", () => {
     sheet.dispose();
     tex.dispose();
   });
+
+  it("variant.observedExtent (แผ่น GISTDA): วาดเซลล์ตื้น < 2 ซม. + ความทึบขั้นต่ำ + ไม่มีลาย; GFM ยังทิ้งเซลล์ตื้น", () => {
+    const terrain = terrainStub();
+    const tex = buildFloodFieldTexture(f);
+    const gfm = createFloodSurface(terrain, manifest, f, tex.texture, { value: 0 })!;
+    const obs = createFloodSurface(terrain, manifest, f, tex.texture, { value: 0 }, {
+      cacheKey: "siahra-gistda-sheet",
+      name: "gistda-sheet",
+      palette: { shallow: [0.1, 0.2, 0.3], deep: [0.4, 0.5, 0.6] },
+      opacity: { value: 1 },
+      observedExtent: { minAlpha: 0.55 },
+    })!;
+    const g = compile(gfm.mesh.material as THREE.Material).fragmentShader;
+    const o = compile(obs.mesh.material as THREE.Material).fragmentShader;
+    expect(g).toContain("sfDepth < 0.020");
+    expect(o).not.toContain("sfDepth < 0.020");
+    expect(o).toContain("if (sfCov < 0.5 || sfNotEst > 0.5) discard;");
+    expect(o).toContain("diffuseColor.a = mix(0.550, 0.9, sfMix);");
+    expect(o).toContain("mix(vec3(0.1000, 0.2000, 0.3000), vec3(0.4000, 0.5000, 0.6000), sfMix)");
+    expect(o).toContain("diffuseColor.a *= uSurfaceOpacity;");
+    for (const k of ["hatchTri", "sfHatchA", "siahraSheetFade"]) expect(o).not.toContain(k);
+    expect((obs.mesh.material as THREE.Material).customProgramCacheKey()).toBe("siahra-gistda-sheet:observed");
+    gfm.dispose();
+    obs.dispose();
+    tex.dispose();
+  });
 });
