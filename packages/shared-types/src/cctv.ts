@@ -40,10 +40,8 @@ export interface CctvCatalogue {
  * สร้างโดย `npm run build:itic-cctv -w apps/etl` (`apps/etl/src/build-itic-cctv.ts`) จากรายการ
  * กล้องที่ Longdo เผยแพร่ (`https://camera.longdo.com/feed/?command=json`)
  *
- * เป็น **allowlist** เช่นเดียวกับ `CctvCamera`: เก็บเฉพาะ HLS playlist บน
- * `https://camerai1.iticfoundation.org/` ที่ไม่ใช่ `tempsus` (ป้าย "ระงับชั่วคราว") —
- * ห้ามเพิ่มลิงก์ภาพ/MJPEG อื่นของต้นทาง (`imgurl`, `vdourl`, `link` อยู่บน
- * `camera1.iticfoundation.org` ที่วัดแล้ว timeout ทั้งหมด)
+ * เป็น **allowlist** เช่นเดียวกับ `CctvCamera`: เก็บลิงก์ของต้นทางได้สองแบบเท่านั้น (ดู `ItiCStream`)
+ * — ห้ามเพิ่มลิงก์ภาพ/MJPEG อื่นของต้นทาง (`vdourl`, `link`, `imgurl` นอกกลุ่มที่วัดแล้ว)
  */
 export interface ItiCCamera {
   /** `camid` ของต้นทาง (เช่น "DOH-PER-8-012") */
@@ -54,11 +52,22 @@ export interface ItiCCamera {
   lon: number;
   /** เจ้าของกล้องตามที่ต้นทางระบุ (เช่น "กรมทางหลวง") — null เมื่อว่าง; แสดงเป็นเครดิตใน popup */
   organization: string | null;
-  /** HLS playlist — ขึ้นต้นด้วย `https://camerai1.iticfoundation.org/` เสมอ (ETL กรองไว้) */
-  hlsUrl: string;
+  /** สิ่งที่เบราว์เซอร์เปิดได้จากกล้องนี้ — วิดีโอสด HLS หรือภาพนิ่ง JPEG ที่ขอใหม่เป็นระยะ */
+  stream: ItiCStream;
   /** จังหวัดจาก point-in-polygon ตอน build — null = ไม่ตกในขอบเขตจังหวัดใดที่เรามี */
   provinceCode: string | null;
 }
+
+/**
+ * ลิงก์ของกล้อง iTIC หนึ่งตัว (ETL กรองไว้ และ web ตรวจรูปแบบซ้ำก่อนใช้):
+ *
+ * - `hls`  — HLS playlist บน `https://camerai1.iticfoundation.org/` ที่ไม่ใช่ `tempsus`
+ *   (ป้าย "ระงับชั่วคราว") — วิดีโอสด
+ * - `jpeg` — `https://camera1.iticfoundation.org/jpeg2.php?camid=10.8.0.{n}:{port}` เท่านั้น: ภาพนิ่ง
+ *   หนึ่งเฟรม (เวลาถ่ายพิมพ์อยู่บนภาพ ไม่มีเป็นข้อมูล) — กลุ่มเดียวของกล้องที่ไม่มี HLS ใช้ได้ซึ่ง
+ *   ตอบภาพจริงเมื่อวัด 2026-09-26 (เหตุผลและผลของกลุ่มอื่นอยู่ใน `build-itic-cctv.README.md`)
+ */
+export type ItiCStream = { kind: "hls"; url: string } | { kind: "jpeg"; url: string };
 
 export interface ItiCCatalogue {
   /** เวลาที่สคริปต์ ETL ดึงรายการสำเร็จ (UTC ISO) — `fetchedAt` ของชั้น; ต้นทางไม่มีเวลาเผยแพร่ */

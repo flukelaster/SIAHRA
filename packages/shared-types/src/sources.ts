@@ -292,8 +292,8 @@ export const SOURCES: Record<SourceId, SourceDescriptor> = {
   },
   "itic-cctv": {
     id: "itic-cctv",
-    nameTh: "วิดีโอสดกล้องถนน (มูลนิธิ iTIC · รายการกล้องจาก Longdo)",
-    nameEn: "Live road-camera video (iTIC Foundation · camera list by Longdo)",
+    nameTh: "กล้องถนน — วิดีโอสดและภาพนิ่ง (มูลนิธิ iTIC · รายการกล้องจาก Longdo)",
+    nameEn: "Road cameras — live video and still images (iTIC Foundation · camera list by Longdo)",
     agency:
       "มูลนิธิสถาบันส่งเสริมการจัดการความรู้เพื่อความปลอดภัยในการเดินทาง (iTIC Foundation) — กล้องของกรมทางหลวงและหน่วยงานพันธมิตร; รายการกล้องจาก Longdo (Metamedia Technology)",
     homepageUrl: "https://iticfoundation.org/",
@@ -302,8 +302,8 @@ export const SOURCES: Record<SourceId, SourceDescriptor> = {
     licenseName: "ไม่ได้รับสัญญาอนุญาตใด — แสดงโดยให้เครดิต iTIC เจ้าของกล้อง และ Longdo",
     licenseUrl: "https://iticfoundation.org/",
     attributionText:
-      "วิดีโอสดจากกล้องที่เผยแพร่ผ่านมูลนิธิสถาบันส่งเสริมการจัดการความรู้เพื่อความปลอดภัยในการเดินทาง (iTIC) — เจ้าของกล้องคือกรมทางหลวงและหน่วยงานพันธมิตรตามที่ระบุในแต่ละกล้อง; รายการกล้องจาก Longdo (camera.longdo.com) — ไม่มีหน่วยงานใดรับรองหรือมีส่วนเกี่ยวข้องกับโครงการนี้",
-    // เบราว์เซอร์เล่นสตรีมจาก iTIC ตรง ๆ ทีละกล้องเมื่อผู้ใช้คลิก api ไม่เคยถาม iTIC
+      "วิดีโอสดและภาพนิ่งจากกล้องที่เผยแพร่ผ่านมูลนิธิสถาบันส่งเสริมการจัดการความรู้เพื่อความปลอดภัยในการเดินทาง (iTIC) — เจ้าของกล้องคือกรมทางหลวงและหน่วยงานพันธมิตรตามที่ระบุในแต่ละกล้อง; รายการกล้องจาก Longdo (camera.longdo.com) — ไม่มีหน่วยงานใดรับรองหรือมีส่วนเกี่ยวข้องกับโครงการนี้",
+    // เบราว์เซอร์เล่นสตรีม/ขอภาพนิ่งจาก iTIC ตรง ๆ ทีละกล้องเมื่อผู้ใช้คลิก api ไม่เคยถาม iTIC
     // จึงไม่มีสถานะใน /api/v1/health (และต้องไม่มี) — บัญชีกล้องเป็นไฟล์คงที่จาก ETL
     kind: "browser",
   },

@@ -31,7 +31,7 @@ describe("markerPickFromUserData", () => {
       lat: 13.9,
       lon: 100.6,
       organization: "กรมทางหลวง",
-      hlsUrl: "https://camerai1.iticfoundation.org/hls/x.m3u8",
+      stream: { kind: "hls", url: "https://camerai1.iticfoundation.org/hls/x.m3u8" },
       provinceCode: "10",
     };
     const pick = markerPickFromUserData({ kind: "itic", camera: road }, anchor);

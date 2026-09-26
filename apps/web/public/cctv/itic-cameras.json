@@ -1,5 +1,5 @@
 {
-  "builtAt": "2026-09-26T02:11:56.130Z",
+  "builtAt": "2026-09-26T04:21:14.901Z",
   "sourceUrl": "https://camera.longdo.com/feed/?command=json",
   "cameras": [
     {
@@ -8,7 +8,10 @@
       "lat": 16.95636,
       "lon": 104.458738,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_004.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_004.stream/playlist.m3u8"
+      },
       "provinceCode": "48"
     },
     {
@@ -17,7 +20,10 @@
       "lat": 17.266887,
       "lon": 102.333378,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_006.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_006.stream/playlist.m3u8"
+      },
       "provinceCode": "39"
     },
     {
@@ -26,7 +32,10 @@
       "lat": 16.37846,
       "lon": 103.549727,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_007.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_007.stream/playlist.m3u8"
+      },
       "provinceCode": "46"
     },
     {
@@ -35,7 +44,10 @@
       "lat": 13.903087,
       "lon": 101.976211,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_010.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_010.stream/playlist.m3u8"
+      },
       "provinceCode": "27"
     },
     {
@@ -44,7 +56,10 @@
       "lat": 14.751395,
       "lon": 100.743662,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_011.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_011.stream/playlist.m3u8"
+      },
       "provinceCode": "19"
     },
     {
@@ -53,7 +68,10 @@
       "lat": 15.226901,
       "lon": 101.152119,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_012.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_012.stream/playlist.m3u8"
+      },
       "provinceCode": "16"
     },
     {
@@ -62,7 +80,10 @@
       "lat": 15.955757,
       "lon": 99.846883,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_013.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_013.stream/playlist.m3u8"
+      },
       "provinceCode": "60"
     },
     {
@@ -71,7 +92,10 @@
       "lat": 12.743208,
       "lon": 99.929972,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_031.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_031.stream/playlist.m3u8"
+      },
       "provinceCode": "76"
     },
     {
@@ -80,7 +104,10 @@
       "lat": 13.75699,
       "lon": 99.925495,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_032.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_032.stream/playlist.m3u8"
+      },
       "provinceCode": "70"
     },
     {
@@ -89,7 +116,10 @@
       "lat": 13.415702,
       "lon": 99.810252,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_033.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase10/PER_10_033.stream/playlist.m3u8"
+      },
       "provinceCode": "70"
     },
     {
@@ -98,7 +128,10 @@
       "lat": 16.685221,
       "lon": 104.660819,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_001.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_001.stream/playlist.m3u8"
+      },
       "provinceCode": "49"
     },
     {
@@ -107,7 +140,10 @@
       "lat": 16.442999,
       "lon": 102.125361,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_002.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_002.stream/playlist.m3u8"
+      },
       "provinceCode": "36"
     },
     {
@@ -116,7 +152,10 @@
       "lat": 16.068029,
       "lon": 102.679967,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_003.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_003.stream/playlist.m3u8"
+      },
       "provinceCode": "40"
     },
     {
@@ -125,7 +164,10 @@
       "lat": 16.0551402,
       "lon": 103.019189,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_004.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_004.stream/playlist.m3u8"
+      },
       "provinceCode": "44"
     },
     {
@@ -134,17 +176,11 @@
       "lat": 16.340556,
       "lon": 103.314581,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_006.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_006.stream/playlist.m3u8"
+      },
       "provinceCode": "44"
-    },
-    {
-      "id": "DOH-PER-11-007",
-      "name": "(จ.นครราชสีมา) 2 - อ.เมืองนครราชสีมา จ.นครราชสีมา ทิศทางมุ่งหน้าเข้า จ.สระบุรี",
-      "lat": 14.893386,
-      "lon": 101.88634,
-      "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_007_IN.stream/playlist.m3u8",
-      "provinceCode": "30"
     },
     {
       "id": "DOH-PER-11-007-out",
@@ -152,7 +188,10 @@
       "lat": 14.893585999999999,
       "lon": 101.88634,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_007_OUT.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_007_OUT.stream/playlist.m3u8"
+      },
       "provinceCode": "30"
     },
     {
@@ -161,16 +200,10 @@
       "lat": 14.6074,
       "lon": 102.990236,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_008.stream/playlist.m3u8",
-      "provinceCode": "31"
-    },
-    {
-      "id": "DOH-PER-11-009",
-      "name": "(จ.บุรีรัมย์) 226 - อ.บุรีรัมย์ จ.บุรีรัมย์",
-      "lat": 15.007949,
-      "lon": 102.990236,
-      "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_009.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_008.stream/playlist.m3u8"
+      },
       "provinceCode": "31"
     },
     {
@@ -179,7 +212,10 @@
       "lat": 14.847595,
       "lon": 100.445785,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_018_OUT.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_018_OUT.stream/playlist.m3u8"
+      },
       "provinceCode": "17"
     },
     {
@@ -188,7 +224,10 @@
       "lat": 14.1194,
       "lon": 99.68241,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_022.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_022.stream/playlist.m3u8"
+      },
       "provinceCode": "71"
     },
     {
@@ -197,7 +236,10 @@
       "lat": 13.4276063,
       "lon": 101.1183259,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_026_IN.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_026_IN.stream/playlist.m3u8"
+      },
       "provinceCode": "20"
     },
     {
@@ -206,7 +248,10 @@
       "lat": 13.4278063,
       "lon": 101.1183259,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_026_OUT.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_026_OUT.stream/playlist.m3u8"
+      },
       "provinceCode": "20"
     },
     {
@@ -215,7 +260,10 @@
       "lat": 13.3756247,
       "lon": 101.0198804,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_027_OUT.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_027_OUT.stream/playlist.m3u8"
+      },
       "provinceCode": "20"
     },
     {
@@ -224,7 +272,10 @@
       "lat": 13.2963883,
       "lon": 100.945525,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_028_IN.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_028_IN.stream/playlist.m3u8"
+      },
       "provinceCode": "20"
     },
     {
@@ -233,17 +284,11 @@
       "lat": 12.841583,
       "lon": 101.011513,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_030.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_030.stream/playlist.m3u8"
+      },
       "provinceCode": "20"
-    },
-    {
-      "id": "DOH-PER-11-032",
-      "name": "(จ.ระยอง) 344 - อ.แกลง จ.ระยอง",
-      "lat": 12.8567229,
-      "lon": 101.602356,
-      "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_032.stream/playlist.m3u8",
-      "provinceCode": "21"
     },
     {
       "id": "DOH-PER-11-033",
@@ -251,7 +296,10 @@
       "lat": 13.965813,
       "lon": 100.92626,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_033.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase11/PER_11_033.stream/playlist.m3u8"
+      },
       "provinceCode": "26"
     },
     {
@@ -260,7 +308,10 @@
       "lat": 18.5863,
       "lon": 99.08,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_002.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_002.stream/playlist.m3u8"
+      },
       "provinceCode": "51"
     },
     {
@@ -269,7 +320,10 @@
       "lat": 15.1032,
       "lon": 104.4136,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_003.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_003.stream/playlist.m3u8"
+      },
       "provinceCode": "33"
     },
     {
@@ -278,7 +332,10 @@
       "lat": 14.5252,
       "lon": 102.2572,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_006.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_006.stream/playlist.m3u8"
+      },
       "provinceCode": "30"
     },
     {
@@ -287,7 +344,10 @@
       "lat": 14.4038,
       "lon": 101.8625,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_007.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_007.stream/playlist.m3u8"
+      },
       "provinceCode": "30"
     },
     {
@@ -296,7 +356,10 @@
       "lat": 15.0812,
       "lon": 103.167,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_008.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_008.stream/playlist.m3u8"
+      },
       "provinceCode": "31"
     },
     {
@@ -305,7 +368,10 @@
       "lat": 13.7678,
       "lon": 102.3293,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_009.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_009.stream/playlist.m3u8"
+      },
       "provinceCode": "27"
     },
     {
@@ -314,7 +380,10 @@
       "lat": 14.6047,
       "lon": 101.0596,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_010_OUT.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_010_OUT.stream/playlist.m3u8"
+      },
       "provinceCode": "19"
     },
     {
@@ -323,7 +392,10 @@
       "lat": 15.2836,
       "lon": 100.1957,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_011_IN.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_011_IN.stream/playlist.m3u8"
+      },
       "provinceCode": "18"
     },
     {
@@ -332,7 +404,10 @@
       "lat": 15.2838,
       "lon": 100.1957,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_011_OUT.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_011_OUT.stream/playlist.m3u8"
+      },
       "provinceCode": "18"
     },
     {
@@ -341,7 +416,10 @@
       "lat": 13.6006,
       "lon": 100.5592,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_015_IN.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_015_IN.stream/playlist.m3u8"
+      },
       "provinceCode": "11"
     },
     {
@@ -350,7 +428,10 @@
       "lat": 13.7646,
       "lon": 100.3288,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_016_OUT.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_016_OUT.stream/playlist.m3u8"
+      },
       "provinceCode": "73"
     },
     {
@@ -359,8 +440,23 @@
       "lat": 13.7579,
       "lon": 100.3012,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_017.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_017.stream/playlist.m3u8"
+      },
       "provinceCode": "73"
+    },
+    {
+      "id": "DOH-PER-12-019",
+      "name": "(จ.พระนครศรีอยุธยา) 3111 - ท้ายเกาะ - เสนา",
+      "lat": 14.1389,
+      "lon": 100.4938,
+      "organization": "กรมทางหลวง",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_019.stream/playlist.m3u8"
+      },
+      "provinceCode": "14"
     },
     {
       "id": "DOH-PER-12-022",
@@ -368,7 +464,10 @@
       "lat": 12.9202,
       "lon": 101.01893,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_022.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_022.stream/playlist.m3u8"
+      },
       "provinceCode": "20"
     },
     {
@@ -377,7 +476,10 @@
       "lat": 12.6565,
       "lon": 102.1832,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_024.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_024.stream/playlist.m3u8"
+      },
       "provinceCode": "22"
     },
     {
@@ -386,7 +488,10 @@
       "lat": 12.7664,
       "lon": 102.0904,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_025.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_025.stream/playlist.m3u8"
+      },
       "provinceCode": "22"
     },
     {
@@ -395,7 +500,10 @@
       "lat": 13.4809,
       "lon": 101.0015,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_026_OUT.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_026_OUT.stream/playlist.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -404,7 +512,10 @@
       "lat": 12.7637,
       "lon": 101.2893,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_029_IN.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_029_IN.stream/playlist.m3u8"
+      },
       "provinceCode": "21"
     },
     {
@@ -413,7 +524,10 @@
       "lat": 12.7639,
       "lon": 101.2893,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_029_OUT.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.208:1935/Phase12/PER_12_029_OUT.stream/playlist.m3u8"
+      },
       "provinceCode": "21"
     },
     {
@@ -422,7 +536,10 @@
       "lat": 14.3916,
       "lon": 100.888,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase3/PER_3_003_OUT.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase3/PER_3_003_OUT.stream/playlist.m3u8"
+      },
       "provinceCode": "19"
     },
     {
@@ -431,7 +548,10 @@
       "lat": 13.83,
       "lon": 100.4132,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase3/PER_3_006_IN.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase3/PER_3_006_IN.stream/playlist.m3u8"
+      },
       "provinceCode": "12"
     },
     {
@@ -440,7 +560,10 @@
       "lat": 13.8302,
       "lon": 100.4132,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase3/PER_3_006_OUT.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase3/PER_3_006_OUT.stream/playlist.m3u8"
+      },
       "provinceCode": "12"
     },
     {
@@ -449,7 +572,10 @@
       "lat": 13.9277,
       "lon": 100.6058,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase3/PER_3_008_IN.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase3/PER_3_008_IN.stream/playlist.m3u8"
+      },
       "provinceCode": "10"
     },
     {
@@ -458,7 +584,10 @@
       "lat": 13.6612,
       "lon": 100.6617,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase3/PER_3_009_IN.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase3/PER_3_009_IN.stream/playlist.m3u8"
+      },
       "provinceCode": "11"
     },
     {
@@ -467,7 +596,10 @@
       "lat": 13.661399999999999,
       "lon": 100.6617,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase3/PER_3_009_OUT.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase3/PER_3_009_OUT.stream/playlist.m3u8"
+      },
       "provinceCode": "11"
     },
     {
@@ -476,7 +608,10 @@
       "lat": 13.9329,
       "lon": 100.6882,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase3/PER_3_017.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase3/PER_3_017.stream/playlist.m3u8"
+      },
       "provinceCode": "13"
     },
     {
@@ -485,7 +620,10 @@
       "lat": 14.8564,
       "lon": 101.6727,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase4/PER_4_003.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase4/PER_4_003.stream/playlist.m3u8"
+      },
       "provinceCode": "30"
     },
     {
@@ -494,7 +632,10 @@
       "lat": 14.8566,
       "lon": 101.6727,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase4/PER_4_003_OUT.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase4/PER_4_003_OUT.stream/playlist.m3u8"
+      },
       "provinceCode": "30"
     },
     {
@@ -503,7 +644,10 @@
       "lat": 15.2537,
       "lon": 102.4092,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase4/PER_4_004.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase4/PER_4_004.stream/playlist.m3u8"
+      },
       "provinceCode": "30"
     },
     {
@@ -512,7 +656,10 @@
       "lat": 14.523,
       "lon": 100.508,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase4/PER_4_011_IN.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase4/PER_4_011_IN.stream/playlist.m3u8"
+      },
       "provinceCode": "14"
     },
     {
@@ -521,7 +668,10 @@
       "lat": 14.5232,
       "lon": 100.508,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase4/PER_4_011_OUT.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase4/PER_4_011_OUT.stream/playlist.m3u8"
+      },
       "provinceCode": "14"
     },
     {
@@ -530,7 +680,10 @@
       "lat": 14.1844,
       "lon": 100.5567,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase4/PER_4_023.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase4/PER_4_023.stream/playlist.m3u8"
+      },
       "provinceCode": "14"
     },
     {
@@ -539,7 +692,22 @@
       "lat": 14.2125,
       "lon": 100.68,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase5/PER_5_001_IN.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase5/PER_5_001_IN.stream/playlist.m3u8"
+      },
+      "provinceCode": "14"
+    },
+    {
+      "id": "DOH-PER-5-001-out",
+      "name": "(จ.พระนครศรีอยุธยา) 1 - อ.วังน้อย จ.พระนครศรีอยุธยา ทิศทางมุ่งหน้าสระบุรี",
+      "lat": 14.2127,
+      "lon": 100.68,
+      "organization": "กรมทางหลวง",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase5/PER_5_001_OUT.stream/playlist.m3u8"
+      },
       "provinceCode": "14"
     },
     {
@@ -548,7 +716,10 @@
       "lat": 12.8293,
       "lon": 99.9352,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase5/PER_5_006_IN.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase5/PER_5_006_IN.stream/playlist.m3u8"
+      },
       "provinceCode": "76"
     },
     {
@@ -557,7 +728,10 @@
       "lat": 12.6745,
       "lon": 99.9524,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase5/PER_5_007_IN.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase5/PER_5_007_IN.stream/playlist.m3u8"
+      },
       "provinceCode": "76"
     },
     {
@@ -566,7 +740,10 @@
       "lat": 12.6747,
       "lon": 99.9524,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase5/PER_5_007_OUT.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase5/PER_5_007_OUT.stream/playlist.m3u8"
+      },
       "provinceCode": "76"
     },
     {
@@ -575,7 +752,10 @@
       "lat": 13.3575,
       "lon": 99.9363,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase5/PER_5_014_IN.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase5/PER_5_014_IN.stream/playlist.m3u8"
+      },
       "provinceCode": "75"
     },
     {
@@ -584,7 +764,10 @@
       "lat": 13.3577,
       "lon": 99.9363,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase5/PER_5_014_OUT.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase5/PER_5_014_OUT.stream/playlist.m3u8"
+      },
       "provinceCode": "75"
     },
     {
@@ -593,7 +776,10 @@
       "lat": 15.4122,
       "lon": 100.1473,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase6/PER_6_002_IN.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase6/PER_6_002_IN.stream/playlist.m3u8"
+      },
       "provinceCode": "60"
     },
     {
@@ -602,7 +788,10 @@
       "lat": 15.4124,
       "lon": 100.1473,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase6/PER_6_002_OUT.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase6/PER_6_002_OUT.stream/playlist.m3u8"
+      },
       "provinceCode": "60"
     },
     {
@@ -611,7 +800,10 @@
       "lat": 16.7981,
       "lon": 99.1534,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase6/PER_6_004.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase6/PER_6_004.stream/playlist.m3u8"
+      },
       "provinceCode": "63"
     },
     {
@@ -620,7 +812,10 @@
       "lat": 17.690851,
       "lon": 100.142021,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase6/PER_6_007.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase6/PER_6_007.stream/playlist.m3u8"
+      },
       "provinceCode": "53"
     },
     {
@@ -629,7 +824,10 @@
       "lat": 14.221084,
       "lon": 100.610092,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase6/PER_6_013_IN.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase6/PER_6_013_IN.stream/playlist.m3u8"
+      },
       "provinceCode": "14"
     },
     {
@@ -638,7 +836,10 @@
       "lat": 15.938901,
       "lon": 104.628319,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase7/PER_7_013.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase7/PER_7_013.stream/playlist.m3u8"
+      },
       "provinceCode": "37"
     },
     {
@@ -647,7 +848,10 @@
       "lat": 14.98138,
       "lon": 102.167587,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase7/PER_7_022.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase7/PER_7_022.stream/playlist.m3u8"
+      },
       "provinceCode": "30"
     },
     {
@@ -656,17 +860,11 @@
       "lat": 14.736886,
       "lon": 100.102638,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase7/PER_7_024.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase7/PER_7_024.stream/playlist.m3u8"
+      },
       "provinceCode": "72"
-    },
-    {
-      "id": "DOH-PER-7-026",
-      "name": "(จ.ตาก) 1 - อ.บ้านตาก จ.ตาก ทิศทางมุ่งหน้าเข้า จังหวัดตาก [2]",
-      "lat": 17.112,
-      "lon": 99.0863,
-      "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase7/PER_7_026.stream/playlist.m3u8",
-      "provinceCode": "63"
     },
     {
       "id": "DOH-PER-7-029",
@@ -674,7 +872,10 @@
       "lat": 16.7227,
       "lon": 98.575,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase7/PER_7_029.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase7/PER_7_029.stream/playlist.m3u8"
+      },
       "provinceCode": "63"
     },
     {
@@ -683,7 +884,10 @@
       "lat": 13.805537,
       "lon": 100.15847,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase7/PER_7_035_IN.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase7/PER_7_035_IN.stream/playlist.m3u8"
+      },
       "provinceCode": "73"
     },
     {
@@ -692,7 +896,10 @@
       "lat": 13.805736999999999,
       "lon": 100.15847,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase7/PER_7_035_OUT.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase7/PER_7_035_OUT.stream/playlist.m3u8"
+      },
       "provinceCode": "73"
     },
     {
@@ -701,7 +908,10 @@
       "lat": 16.509216,
       "lon": 103.581797,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_001.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_001.stream/playlist.m3u8"
+      },
       "provinceCode": "46"
     },
     {
@@ -710,7 +920,10 @@
       "lat": 14.686469,
       "lon": 104.374769,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_005.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_005.stream/playlist.m3u8"
+      },
       "provinceCode": "33"
     },
     {
@@ -719,7 +932,10 @@
       "lat": 15.793365,
       "lon": 102.004128,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_008.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_008.stream/playlist.m3u8"
+      },
       "provinceCode": "36"
     },
     {
@@ -728,7 +944,10 @@
       "lat": 13.7966,
       "lon": 99.9616,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_012.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_012.stream/playlist.m3u8"
+      },
       "provinceCode": "73"
     },
     {
@@ -737,7 +956,10 @@
       "lat": 15.34198,
       "lon": 100.532905,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_013.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_013.stream/playlist.m3u8"
+      },
       "provinceCode": "60"
     },
     {
@@ -746,7 +968,10 @@
       "lat": 17.861987,
       "lon": 99.319199,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_014.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_014.stream/playlist.m3u8"
+      },
       "provinceCode": "52"
     },
     {
@@ -755,7 +980,10 @@
       "lat": 19.1746,
       "lon": 100.861777,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_016.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_016.stream/playlist.m3u8"
+      },
       "provinceCode": "55"
     },
     {
@@ -764,7 +992,10 @@
       "lat": 18.210847,
       "lon": 97.9382,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_019.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_019.stream/playlist.m3u8"
+      },
       "provinceCode": "58"
     },
     {
@@ -773,7 +1004,10 @@
       "lat": 15.878686,
       "lon": 100.414189,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_022.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_022.stream/playlist.m3u8"
+      },
       "provinceCode": "60"
     },
     {
@@ -782,7 +1016,10 @@
       "lat": 10.5091,
       "lon": 99.0146,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_023.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_023.stream/playlist.m3u8"
+      },
       "provinceCode": "86"
     },
     {
@@ -791,7 +1028,10 @@
       "lat": 7.558622,
       "lon": 99.719197,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_027.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_027.stream/playlist.m3u8"
+      },
       "provinceCode": "92"
     },
     {
@@ -800,7 +1040,10 @@
       "lat": 8.691251,
       "lon": 99.135928,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_029_OUT.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_029_OUT.stream/playlist.m3u8"
+      },
       "provinceCode": "84"
     },
     {
@@ -809,7 +1052,10 @@
       "lat": 8.066068,
       "lon": 98.342281,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_032_IN.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_032_IN.stream/playlist.m3u8"
+      },
       "provinceCode": "83"
     },
     {
@@ -818,7 +1064,10 @@
       "lat": 8.066267999999999,
       "lon": 98.342281,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_032_OUT.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_032_OUT.stream/playlist.m3u8"
+      },
       "provinceCode": "83"
     },
     {
@@ -827,7 +1076,10 @@
       "lat": 7.933697,
       "lon": 99.597711,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_033.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_033.stream/playlist.m3u8"
+      },
       "provinceCode": "92"
     },
     {
@@ -836,7 +1088,10 @@
       "lat": 7.071654,
       "lon": 100.492735,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_036.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_036.stream/playlist.m3u8"
+      },
       "provinceCode": "90"
     },
     {
@@ -845,7 +1100,10 @@
       "lat": 7.921877,
       "lon": 98.370946,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_038.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase8/PER_8_038.stream/playlist.m3u8"
+      },
       "provinceCode": "83"
     },
     {
@@ -854,17 +1112,11 @@
       "lat": 16.761762,
       "lon": 98.584959,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER_9_004.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER_9_004.stream/playlist.m3u8"
+      },
       "provinceCode": "63"
-    },
-    {
-      "id": "DOH-PER-9-009",
-      "name": "(จ.อุดรธานี) 227 - อ.วังสามหมอ จ.อุดรธานี ทิศทางมุ่งหน้าเข้า อ.วังสามหมอ จ.อุดรธานี",
-      "lat": 16.962216,
-      "lon": 103.435409,
-      "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER_9_009.stream/playlist.m3u8",
-      "provinceCode": "41"
     },
     {
       "id": "DOH-PER-9-015",
@@ -872,7 +1124,10 @@
       "lat": 14.929965,
       "lon": 103.028132,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER-9-015.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER-9-015.stream/playlist.m3u8"
+      },
       "provinceCode": "31"
     },
     {
@@ -881,7 +1136,10 @@
       "lat": 13.77301,
       "lon": 101.82733,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER-9-017.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER-9-017.stream/playlist.m3u8"
+      },
       "provinceCode": "25"
     },
     {
@@ -890,7 +1148,10 @@
       "lat": 13.87167,
       "lon": 100.462385,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER_9_026_IN.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER_9_026_IN.stream/playlist.m3u8"
+      },
       "provinceCode": "12"
     },
     {
@@ -899,7 +1160,10 @@
       "lat": 13.87187,
       "lon": 100.462385,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER_9_026_OUT.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER_9_026_OUT.stream/playlist.m3u8"
+      },
       "provinceCode": "12"
     },
     {
@@ -908,7 +1172,10 @@
       "lat": 13.811674,
       "lon": 100.787157,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER_9_027_IN.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER_9_027_IN.stream/playlist.m3u8"
+      },
       "provinceCode": "10"
     },
     {
@@ -917,7 +1184,10 @@
       "lat": 13.811874,
       "lon": 100.787157,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER_9_027_OUT.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER_9_027_OUT.stream/playlist.m3u8"
+      },
       "provinceCode": "10"
     },
     {
@@ -926,7 +1196,10 @@
       "lat": 12.2515,
       "lon": 102.5704,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER_9_031.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER_9_031.stream/playlist.m3u8"
+      },
       "provinceCode": "23"
     },
     {
@@ -935,7 +1208,10 @@
       "lat": 13.658957,
       "lon": 100.089816,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER_9_034.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER_9_034.stream/playlist.m3u8"
+      },
       "provinceCode": "73"
     },
     {
@@ -944,8 +1220,119 @@
       "lat": 13.514666,
       "lon": 99.74425,
       "organization": "กรมทางหลวง",
-      "hlsUrl": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER_9_035.stream/playlist.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/pass/180.180.242.207:1935/Phase9/PER_9_035.stream/playlist.m3u8"
+      },
       "provinceCode": "70"
+    },
+    {
+      "id": "ITICM_BMAMI0071",
+      "name": "(กรุงเทพมหานคร) ถ.พระราม4 แยกทางด่วนพระราม4",
+      "lat": 13.7230899699148,
+      "lon": 100.552203208208,
+      "organization": "iTIC Motion",
+      "stream": {
+        "kind": "jpeg",
+        "url": "https://camera1.iticfoundation.org/jpeg2.php?camid=10.8.0.14:8002"
+      },
+      "provinceCode": "10"
+    },
+    {
+      "id": "ITICM_BMAMI0072",
+      "name": "(กรุงเทพมหานคร) ทางด่วน แยกทางด่วนพระราม4",
+      "lat": 13.72257,
+      "lon": 100.553284,
+      "organization": "iTIC Motion",
+      "stream": {
+        "kind": "jpeg",
+        "url": "https://camera1.iticfoundation.org/jpeg2.php?camid=10.8.0.14:8003"
+      },
+      "provinceCode": "10"
+    },
+    {
+      "id": "ITICM_BMAMI0074",
+      "name": "(กรุงเทพมหานคร) ถ.พระราม4 แยกทางด่วนพระราม4",
+      "lat": 13.7233557452068,
+      "lon": 100.551693588495,
+      "organization": "iTIC Motion",
+      "stream": {
+        "kind": "jpeg",
+        "url": "https://camera1.iticfoundation.org/jpeg2.php?camid=10.8.0.14:8001"
+      },
+      "provinceCode": "10"
+    },
+    {
+      "id": "ITICM_BMAMI0076",
+      "name": "(กรุงเทพมหานคร) ถนนสาทรหน้าสถานเอกอัครราชทูตเยอรมนี",
+      "lat": 13.725388,
+      "lon": 100.542599,
+      "organization": "iTIC Motion",
+      "stream": {
+        "kind": "jpeg",
+        "url": "https://camera1.iticfoundation.org/jpeg2.php?camid=10.8.0.15:8002"
+      },
+      "provinceCode": "10"
+    },
+    {
+      "id": "ITICM_BMAMI0080",
+      "name": "(กรุงเทพมหานคร) เชิงสะพานตากสิน ฝั่งสาทร บริเวณจุดกลับใต้สะพาน",
+      "lat": 13.718527,
+      "lon": 100.515279,
+      "organization": "iTIC Motion",
+      "stream": {
+        "kind": "jpeg",
+        "url": "https://camera1.iticfoundation.org/jpeg2.php?camid=10.8.0.18:8002"
+      },
+      "provinceCode": "10"
+    },
+    {
+      "id": "ITICM_BMAMI0081",
+      "name": "(กรุงเทพมหานคร) เชิงสะพานตากสิน ฝั่งสาทร มุ่งหน้าถนนสาทร",
+      "lat": 13.718309,
+      "lon": 100.516079,
+      "organization": "iTIC Motion",
+      "stream": {
+        "kind": "jpeg",
+        "url": "https://camera1.iticfoundation.org/jpeg2.php?camid=10.8.0.18:8001"
+      },
+      "provinceCode": "10"
+    },
+    {
+      "id": "ITICM_BMAMI0102",
+      "name": "(กรุงเทพมหานคร) ทางด่วน แยกทางด่วนพระราม4",
+      "lat": 13.722297,
+      "lon": 100.552604,
+      "organization": "iTIC Motion",
+      "stream": {
+        "kind": "jpeg",
+        "url": "https://camera1.iticfoundation.org/jpeg2.php?camid=10.8.0.14:8004"
+      },
+      "provinceCode": "10"
+    },
+    {
+      "id": "ITICM_BMAMI0124",
+      "name": "(กรุงเทพมหานคร) ทางพิเศษศรีรัชด้านใต้ถนนกำแพงเพชร",
+      "lat": 13.794136,
+      "lon": 100.539016,
+      "organization": "iTIC Motion",
+      "stream": {
+        "kind": "jpeg",
+        "url": "https://camera1.iticfoundation.org/jpeg2.php?camid=10.8.0.19:8801"
+      },
+      "provinceCode": "10"
+    },
+    {
+      "id": "ITICM_BMAMI0125",
+      "name": "(กรุงเทพมหานคร) ทางพิเศษศรีรัช ด้านเหนือถนนกำแพงเพชร",
+      "lat": 13.795449,
+      "lon": 100.539338,
+      "organization": "iTIC Motion",
+      "stream": {
+        "kind": "jpeg",
+        "url": "https://camera1.iticfoundation.org/jpeg2.php?camid=10.8.0.19:8802"
+      },
+      "provinceCode": "10"
     },
     {
       "id": "ITICM_BMAMI0129",
@@ -953,7 +1340,10 @@
       "lat": 13.66886779,
       "lon": 101.0551117,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs00.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs00.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -962,7 +1352,10 @@
       "lat": 13.66879785,
       "lon": 101.0549851,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs01.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs01.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -971,7 +1364,10 @@
       "lat": 13.66877179,
       "lon": 101.0550884,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs02.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs02.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -980,7 +1376,10 @@
       "lat": 13.66608199,
       "lon": 101.0498334,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs03.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs03.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -989,7 +1388,10 @@
       "lat": 13.66652089,
       "lon": 101.049914,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs05.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs05.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -998,7 +1400,10 @@
       "lat": 13.6662412,
       "lon": 101.0501302,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs06.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs06.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1007,7 +1412,10 @@
       "lat": 13.67577018,
       "lon": 101.0692228,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs07.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs07.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1016,7 +1424,10 @@
       "lat": 13.6758227,
       "lon": 101.069337,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs08.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs08.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1025,7 +1436,10 @@
       "lat": 13.67577128,
       "lon": 101.0695253,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs09.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs09.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1034,7 +1448,10 @@
       "lat": 13.67597091,
       "lon": 101.0693323,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs12.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs12.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1043,7 +1460,10 @@
       "lat": 13.68204802,
       "lon": 101.0669795,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs13.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs13.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1052,7 +1472,10 @@
       "lat": 13.68238514,
       "lon": 101.0668339,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs14.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs14.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1061,7 +1484,10 @@
       "lat": 13.6829742,
       "lon": 101.0665681,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs15.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs15.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1070,7 +1496,10 @@
       "lat": 13.68282618,
       "lon": 101.0666266,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs16.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs16.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1079,7 +1508,10 @@
       "lat": 13.68780981,
       "lon": 101.0645602,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs17.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs17.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1088,7 +1520,10 @@
       "lat": 13.68753273,
       "lon": 101.0646656,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs18.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs18.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1097,7 +1532,10 @@
       "lat": 13.68862984,
       "lon": 101.0642248,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs19.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs19.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1106,7 +1544,10 @@
       "lat": 13.69427242,
       "lon": 101.0633406,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs20.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs20.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1115,7 +1556,10 @@
       "lat": 13.69423354,
       "lon": 101.0635909,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs21.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs21.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1124,7 +1568,10 @@
       "lat": 13.828648681903177,
       "lon": 100.52881854153176,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/charlie-new-tran-8.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/charlie-new-tran-8.m3u8"
+      },
       "provinceCode": "10"
     },
     {
@@ -1133,7 +1580,10 @@
       "lat": 13.827772016676931,
       "lon": 100.52787985034071,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/charlie-new-tran-10.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/charlie-new-tran-10.m3u8"
+      },
       "provinceCode": "10"
     },
     {
@@ -1142,7 +1592,10 @@
       "lat": 13.828683279709187,
       "lon": 100.52784892246397,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/charlie-new-tran-9.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/charlie-new-tran-9.m3u8"
+      },
       "provinceCode": "10"
     },
     {
@@ -1151,7 +1604,10 @@
       "lat": 13.674739,
       "lon": 101.0682996,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs22.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs22.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1160,7 +1616,10 @@
       "lat": 13.67467906,
       "lon": 101.0681132,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs23.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs23.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1169,7 +1628,10 @@
       "lat": 13.674152,
       "lon": 101.065047,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs24.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs24.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1178,7 +1640,10 @@
       "lat": 13.671455,
       "lon": 101.060082,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs25.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs25.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1187,7 +1652,10 @@
       "lat": 13.67782059,
       "lon": 101.0687662,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs26.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs26.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1196,7 +1664,10 @@
       "lat": 13.677849,
       "lon": 101.06855,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs27.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs27.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1205,7 +1676,10 @@
       "lat": 13.680634,
       "lon": 101.067516,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs28.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs28.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1214,7 +1688,10 @@
       "lat": 13.681103,
       "lon": 101.067445,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs29.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs29.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1223,7 +1700,10 @@
       "lat": 13.684452,
       "lon": 101.066003,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs30.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs30.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1232,7 +1712,10 @@
       "lat": 13.688769,
       "lon": 101.064194,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs31.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs31.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1241,7 +1724,10 @@
       "lat": 13.69028691,
       "lon": 101.0638486,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs32.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs32.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1250,7 +1736,10 @@
       "lat": 13.69004651,
       "lon": 101.0638808,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs33.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs33.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1259,7 +1748,10 @@
       "lat": 13.691199,
       "lon": 101.063778,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs34.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs34.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1268,7 +1760,10 @@
       "lat": 13.69115,
       "lon": 101.063695,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs35.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs35.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1277,7 +1772,10 @@
       "lat": 13.694297,
       "lon": 101.063514,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs36.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs36.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1286,7 +1784,10 @@
       "lat": 13.69434607,
       "lon": 101.0633151,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs37.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs37.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1295,7 +1796,10 @@
       "lat": 13.692547,
       "lon": 101.070987,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs38.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs38.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1304,7 +1808,10 @@
       "lat": 13.692571,
       "lon": 101.070902,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs39.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs39.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1313,7 +1820,10 @@
       "lat": 13.691591,
       "lon": 101.070533,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs40.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs40.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1322,7 +1832,10 @@
       "lat": 13.691665,
       "lon": 101.070586,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/ccs41.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/ccs41.m3u8"
+      },
       "provinceCode": "24"
     },
     {
@@ -1331,7 +1844,10 @@
       "lat": 13.8398548,
       "lon": 100.5412483,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/charlie-new5.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/charlie-new5.m3u8"
+      },
       "provinceCode": "10"
     },
     {
@@ -1340,7 +1856,10 @@
       "lat": 13.829910786201587,
       "lon": 100.53886719979914,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/cl209-d.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/cl209-d.m3u8"
+      },
       "provinceCode": "10"
     },
     {
@@ -1349,7 +1868,10 @@
       "lat": 13.830396351707916,
       "lon": 100.53924892093693,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/cl210-d.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/cl210-d.m3u8"
+      },
       "provinceCode": "10"
     },
     {
@@ -1358,7 +1880,10 @@
       "lat": 13.831026338568995,
       "lon": 100.53918006269038,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/cl211-d.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/cl211-d.m3u8"
+      },
       "provinceCode": "10"
     },
     {
@@ -1367,7 +1892,10 @@
       "lat": 13.830535355916915,
       "lon": 100.53804904821575,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/cl212-d.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/cl212-d.m3u8"
+      },
       "provinceCode": "10"
     },
     {
@@ -1376,7 +1904,10 @@
       "lat": 16.432483497356,
       "lon": 102.823759317398,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/kk01.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/kk01.m3u8"
+      },
       "provinceCode": "40"
     },
     {
@@ -1385,7 +1916,10 @@
       "lat": 16.433080351432,
       "lon": 102.824649810791,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/kk02.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/kk02.m3u8"
+      },
       "provinceCode": "40"
     },
     {
@@ -1394,7 +1928,10 @@
       "lat": 16.431912368032,
       "lon": 102.824065089226,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/kk04.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/kk04.m3u8"
+      },
       "provinceCode": "40"
     },
     {
@@ -1403,7 +1940,10 @@
       "lat": 16.476563435954,
       "lon": 102.83273935318,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/kk06.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/kk06.m3u8"
+      },
       "provinceCode": "40"
     },
     {
@@ -1412,7 +1952,10 @@
       "lat": 16.475452300114,
       "lon": 102.832524776459,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/kk07.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/kk07.m3u8"
+      },
       "provinceCode": "40"
     },
     {
@@ -1421,7 +1964,10 @@
       "lat": 16.415997251557,
       "lon": 102.819049358368,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/kk08.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/kk08.m3u8"
+      },
       "provinceCode": "40"
     },
     {
@@ -1430,7 +1976,10 @@
       "lat": 16.439817986397,
       "lon": 102.828978896141,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/kk12.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/kk12.m3u8"
+      },
       "provinceCode": "40"
     },
     {
@@ -1439,7 +1988,10 @@
       "lat": 16.439944041487,
       "lon": 102.829102277756,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/kk13.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/kk13.m3u8"
+      },
       "provinceCode": "40"
     },
     {
@@ -1448,7 +2000,10 @@
       "lat": 16.439944041487,
       "lon": 102.828978896141,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/kk14.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/kk14.m3u8"
+      },
       "provinceCode": "40"
     },
     {
@@ -1457,7 +2012,10 @@
       "lat": 16.421461948628,
       "lon": 102.819467782974,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/kk25.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/kk25.m3u8"
+      },
       "provinceCode": "40"
     },
     {
@@ -1466,7 +2024,10 @@
       "lat": 16.421997089614,
       "lon": 102.820765972137,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/kk26.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/kk26.m3u8"
+      },
       "provinceCode": "40"
     },
     {
@@ -1475,7 +2036,10 @@
       "lat": 16.420916514954,
       "lon": 102.820465564728,
       "organization": "iTIC Motion",
-      "hlsUrl": "https://camerai1.iticfoundation.org/hls/kk27.m3u8",
+      "stream": {
+        "kind": "hls",
+        "url": "https://camerai1.iticfoundation.org/hls/kk27.m3u8"
+      },
       "provinceCode": "40"
     }
   ]
