@@ -12,11 +12,13 @@ import {
   type NotificationTab,
 } from "../../lib/notifications";
 import { GUTTER, TOPBAR_H, type Tier } from "../../lib/shellLayout";
+import { STORM_NOTIFY_KM } from "../../lib/storms";
 
 const TAB_LABEL: Record<NotificationTab, MessageKey> = {
   all: "notifications.tab.all",
   rain: "notifications.tab.rain",
   alerts: "notifications.tab.alerts",
+  storm: "notifications.tab.storm",
   system: "notifications.tab.system",
 };
 
@@ -32,16 +34,20 @@ const TONE_DOT: Record<NotificationItem["tone"], string> = {
 /**
  * ป้ายชนิดความรู้ของแถว — พยากรณ์ใช้ขอบ **เส้นประ** ให้ต่างจากค่าที่วัดได้จริง
  * (ขอบทึบ) มองปราดเดียวก็แยกได้ ป้ายพยากรณ์/ตรวจวัดยืมคีย์ `badge.*` เดิม
+ *
+ * แถวพยากรณ์ของแท็บพายุ **ห้าม** ใช้ `badge.forecast` ("พยากรณ์จากแบบจำลอง TMD") —
+ * เส้นทางพายุเป็นประกาศของ JMA/JTWC ไม่ใช่ของ TMD จึงใช้ป้าย `storm.badge.track` แทน
  */
-function KindBadge({ kind }: { kind: NotificationItem["kind"] }) {
+function KindBadge({ kind, category }: { kind: NotificationItem["kind"]; category: NotificationItem["category"] }) {
   const { t } = useLang();
   if (kind === "forecast") {
+    const storm = category === "storm";
     return (
       <span
-        title={t("badge.forecast.title")}
+        title={t(storm ? "storm.badge.track.title" : "badge.forecast.title")}
         className="shrink-0 rounded border border-dashed border-[var(--color-risk-low)]/70 px-1 text-[10px] text-[var(--color-risk-low)]"
       >
-        {t("badge.forecast")}
+        {t(storm ? "storm.badge.track" : "badge.forecast")}
       </span>
     );
   }
@@ -195,7 +201,7 @@ export function NotificationCenter({
       </div>
 
       <p className="px-3 pt-2 text-[10px] text-[var(--color-fg-subtle)]">
-        {t("notifications.scope", { province: provinceName })}
+        {t("notifications.scope", { province: provinceName, limit: STORM_NOTIFY_KM })}
       </p>
 
       <div role="tabpanel" className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
@@ -229,7 +235,7 @@ export function NotificationCenter({
                     </div>
                     {item.body ? <span className="text-[var(--color-fg-muted)]">{item.body}</span> : null}
                     <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] text-[var(--color-fg-subtle)]">
-                      <KindBadge kind={item.kind} />
+                      <KindBadge kind={item.kind} category={item.category} />
                       <span className="min-w-0 truncate">{item.source}</span>
                       <span className="text-white/25">·</span>
                       <span>{notificationTimeText(item.time, lang)}</span>

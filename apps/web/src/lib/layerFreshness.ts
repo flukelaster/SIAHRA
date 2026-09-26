@@ -15,7 +15,7 @@
  *      - static-reference → "ไม่ได้บันทึกเวลาที่ดึงข้อมูล" (ของอยู่ในชุดข้อมูลแล้ว
  *                            แต่ไปป์ไลน์ยังไม่ได้บันทึกเวลาของ artefact นั้นไว้ — E9.1)
  *      - illustrative     → ไม่ได้ "ดึง" มาจากไหน เพราะคำนวณจากภูมิประเทศเอง
- *      - probabilistic    → ยังไม่มีชั้นแบบนี้ในระบบ แต่ต้องมีข้อความรองรับไว้
+ *      - probabilistic    → ใช้ครั้งแรกกับวงกลม 70% ของ JMA (ชั้นพายุ v1) — "ยังไม่เคยได้รับผลจากแบบจำลอง"
  *      - forecast         → "ยังไม่เคยได้รับผลพยากรณ์จาก TMD" (เราดึงจากแบบจำลอง
  *                            ของหน่วยงานภายนอกไม่สำเร็จจริง ๆ — ต่างจาก probabilistic
  *                            ตรงที่ชั้นชนิดนี้มีใช้จริง)
@@ -59,8 +59,7 @@ export const EPISTEMIC_BADGE: Record<EpistemicClass, EpistemicBadge> = {
     className: "bg-[#8b5cf6]/18 text-[#c4b0f5] ring-[#8b5cf6]/40",
   },
   probabilistic: {
-    // ยังไม่มีชั้นชนิดนี้ในระบบ (ดู D-1 ใน docs/roadmap.md) — มีไว้ให้ tsc บังคับว่า
-    // ครบทุกชนิด ถ้าวันหนึ่งมีชั้นแบบนี้จริงจะได้ไม่หลุดออกไปโดยไม่มีป้าย
+    // ใช้ครั้งแรกกับวงกลมความน่าจะเป็น 70% ของ JMA (ชั้นพายุ v1, `StormsResponse.layers.circle`)
     labelKey: "badge.probabilistic",
     titleKey: "badge.probabilistic.title",
     className: "bg-[var(--color-risk-low)]/15 text-[var(--color-risk-low)] ring-[var(--color-risk-low)]/35",

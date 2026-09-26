@@ -51,6 +51,9 @@ const DATA_ROUTES: { path: string; mayFail503?: boolean }[] = [
   // พยากรณ์ NWP: DO ที่ยังเย็นตอบ 200 พร้อม `batch: null` และ fetchedAt เป็น null
   // ทั้งสอง descriptor — ไม่ใช่ 503 เพราะจังหวัดนั้นมีอยู่จริง
   { path: "/api/v1/provinces/50/forecast" },
+  // เส้นทางพายุ: DO เย็นตอบ 200 พร้อม storms ว่างและ fetchedAt null ทั้งสามชั้น
+  // (ไม่ใช่ "ไม่มีพายุ" — sources.*.lastSuccessAt null บอกว่ายังไม่เคยดึง)
+  { path: "/api/v1/storms" },
   { path: "/api/v1/stations/1/history?hours=24", mayFail503: true },
   { path: "/api/v1/earthquakes/recent?limit=5" },
 ];

@@ -87,11 +87,37 @@ const ELIGIBLE_KEY = /^(badge\.forecast|freshness\.missing\.forecast|forecast\.)
  */
 const FORECAST_FAMILY = /forecast|predict|คาดการณ์|พยากรณ์/gi;
 
-/** เหมือน `flagsAsClaim` แต่รู้จักคีย์ จึงยกข้อยกเว้นของชั้นพยากรณ์ TMD ได้ */
-const flagsAsClaimForKey = (key: string, value: string) =>
-  ELIGIBLE_KEY.test(key) && value.includes("TMD")
+/**
+ * ข้อยกเว้นที่สอง (ชั้นพายุ v1): เส้นทางพายุเป็น **ประกาศพยากรณ์ของหน่วยงานภายนอก** (JMA /
+ * JTWC ผ่าน GDACS) และวงกลม 70 % เป็น **ความน่าจะเป็นที่ JMA เผยแพร่เอง** — ทั้งสองอ้างอิงได้
+ * ไม่ใช่ตัวเลขที่เราแต่ง จึงผ่อนแบบรัดสามชั้น:
+ *
+ *   - `storm.*` ยกได้เฉพาะคำตระกูลพยากรณ์ (`FORECAST_FAMILY`) — ไม่ต้องมี "TMD" เพราะ
+ *     ไม่ใช่ข้อมูลของ TMD (และห้ามพูดว่าเป็น)
+ *   - **เฉพาะ** `storm.circle.*` ยกคำ "ความน่าจะเป็น / probability" และใช้ "%" ได้
+ *     (`CIRCLE_PROBABILITY`) — คำอื่นในตระกูลเดียวกัน (chance of, likelihood, likely,
+ *     โอกาสเกิด, risk score) ไม่ถูกยก ยังโดน `BANNED` แม้บนคีย์วงกลม
+ *   - คีย์ `storm.*` อื่นที่มี "%" แดงทันที — `BANNED` เดิมไม่ได้จับ "%" (ข้อความ
+ *     "% ที่ท่วม" ของ GISTDA เป็นสัดส่วนพื้นที่ที่วัดได้จริง) จึงต้องมีกติกาเฉพาะของพายุ
+ *     ไม่งั้น "70%" หลุดออกจากคีย์วงกลมไปอยู่ประโยคไหนก็ได้โดยไม่มีใครฟ้อง
+ */
+const STORM_KEY = /^storm\./;
+const STORM_CIRCLE_KEY = /^storm\.circle\./;
+/** มี `g` ได้เพราะใช้กับ `.replace()` เท่านั้น */
+const CIRCLE_PROBABILITY = /probabilit(y|ies)|ความน่าจะเป็น/gi;
+
+/** เหมือน `flagsAsClaim` แต่รู้จักคีย์ จึงยกข้อยกเว้นของชั้นพยากรณ์ TMD และชั้นพายุได้ */
+const flagsAsClaimForKey = (key: string, value: string) => {
+  if (STORM_KEY.test(key)) {
+    const circle = STORM_CIRCLE_KEY.test(key);
+    if (!circle && value.includes("%")) return true;
+    const rest = value.replace(FORECAST_FAMILY, "");
+    return flagsAsClaim(circle ? rest.replace(CIRCLE_PROBABILITY, "") : rest);
+  }
+  return ELIGIBLE_KEY.test(key) && value.includes("TMD")
     ? flagsAsClaim(value.replace(FORECAST_FAMILY, ""))
     : flagsAsClaim(value);
+};
 
 describe("i18n catalogs", () => {
   it("มีคีย์ชุดเดียวกันทั้งสองภาษา", () => {
@@ -199,6 +225,33 @@ describe("i18n catalogs", () => {
     // 3. คีย์ที่ไม่มีสิทธิ์ ต่อให้มี TMD ก็ยังแดง
     expect(flagsAsClaimForKey("badge.observed", "พยากรณ์ฝนจาก TMD")).toBe(true);
     expect(flagsAsClaimForKey("water.note", "TMD forecast for tomorrow")).toBe(true);
+  });
+
+  /**
+   * ตัวคุมของข้อยกเว้นชั้นพายุ — ใช้ `flagsAsClaimForKey` ตัวเดียวกับเทสแคตาล็อกจริง
+   * ความน่าจะเป็นพูดได้ **เฉพาะ** คีย์ `storm.circle.*` และคำตระกูลอื่นยังห้ามแม้บนคีย์นั้น
+   */
+  it("ข้อยกเว้นชั้นพายุ: storm.* พูดคำพยากรณ์ได้ แต่ความน่าจะเป็น/% ได้เฉพาะ storm.circle.*", () => {
+    // ผ่าน: คำพยากรณ์บนคีย์พายุ (ไม่ต้องมี TMD) และความน่าจะเป็น/% บนคีย์วงกลม
+    expect(flagsAsClaimForKey("storm.legend.track", "Forecast track (dashed)")).toBe(false);
+    expect(flagsAsClaimForKey("storm.legend.track", "เส้นทางพยากรณ์ (เส้นประ)")).toBe(false);
+    expect(flagsAsClaimForKey("storm.circle.legend", "JMA's published 70% probability circle")).toBe(false);
+    expect(flagsAsClaimForKey("storm.circle.legend", "วงกลมความน่าจะเป็น 70% ที่ JMA เผยแพร่")).toBe(false);
+
+    // 1. คำความน่าจะเป็นบนคีย์พายุที่ไม่ใช่วงกลม → แดง
+    expect(flagsAsClaimForKey("storm.card.distanceBasis", "the probability that it reaches the province")).toBe(true);
+    expect(flagsAsClaimForKey("storm.notif.within", "ความน่าจะเป็นที่พายุจะเข้าจังหวัด")).toBe(true);
+    // 2. "%" บนคีย์พายุที่ไม่ใช่วงกลม → แดง แม้จะไม่มีคำต้องห้ามเลย
+    expect(flagsAsClaimForKey("storm.notif.within", "Storm X: 70% to reach Bangkok")).toBe(true);
+    expect(flagsAsClaimForKey("storm.card.km", "ใกล้ 40%")).toBe(true);
+    // 3. คำตระกูลอื่นยังห้ามแม้บนคีย์วงกลม
+    expect(flagsAsClaimForKey("storm.circle.legend", "a 70% chance of landfall")).toBe(true);
+    expect(flagsAsClaimForKey("storm.circle.legend", "likely track of the storm")).toBe(true);
+    expect(flagsAsClaimForKey("storm.circle.legend", "โอกาสเกิดพายุเข้า 70%")).toBe(true);
+    // 4. นอก `storm.*` ข้อห้ามเดิมทั้งหมดยังอยู่
+    expect(flagsAsClaimForKey("water.note", "70% probability circle")).toBe(true);
+    expect(flagsAsClaimForKey("circle.storm", "ความน่าจะเป็น 70%")).toBe(true);
+    expect(flagsAsClaimForKey("panel.storm", "Storm forecast")).toBe(true);
   });
 
   it("แทนค่าตัวแปร และคงวงเล็บไว้เมื่อไม่ได้ส่งค่ามา", () => {

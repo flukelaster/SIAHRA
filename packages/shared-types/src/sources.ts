@@ -15,6 +15,8 @@ export type SourceId =
   | "gistda-flood"
   | "tmd-radar"
   | "tmd-nwp"
+  | "jma-typhoon"
+  | "gdacs-tc"
   | "exposure-illustrative"
   | "alert-engine"
   | "copernicus-gfm"
@@ -46,6 +48,12 @@ export interface SourceDescriptor {
    * endorse this project.
    */
   attributionText: string;
+  /**
+   * A disclaimer the source publishes and asks users to carry next to its data,
+   * quoted from its own terms page (the URL is in `licenseUrl`). Absent for the
+   * sources that publish none — never paraphrased into a stronger claim.
+   */
+  disclaimerText?: string;
   /**
    * live    = polled continuously by the API; must appear in /api/v1/health
    * static  = baked into the tiles/manifest by the ETL, no freshness to report
@@ -122,6 +130,41 @@ export const SOURCES: Record<SourceId, SourceDescriptor> = {
     licenseUrl: "https://data.tmd.go.th",
     attributionText:
       "ผลพยากรณ์จากแบบจำลองเชิงตัวเลขของกรมอุตุนิยมวิทยา (TMD) — ข้อมูลจาก data.tmd.go.th; กรมอุตุนิยมวิทยาไม่ได้รับรองหรือมีส่วนเกี่ยวข้องกับโครงการนี้",
+    kind: "live",
+  },
+  "jma-typhoon": {
+    id: "jma-typhoon",
+    nameTh: "เส้นทางพายุหมุนเขตร้อน แปซิฟิกตะวันตกเฉียงเหนือและทะเลจีนใต้ (JMA)",
+    nameEn: "Tropical cyclone tracks, western North Pacific and South China Sea (JMA)",
+    agency: "Japan Meteorological Agency (JMA) — RSMC Tokyo – Typhoon Center",
+    // ข้อมูลอ่านจาก bosai JSON (`/bosai/typhoon/data/targetTc.json` → `TC{id}/specifications.json`
+    // + `forecast.json`) ซึ่งเป็นแหล่งเดียวกับแผนที่ไต้ฝุ่นของหน้าเว็บ JMA — schema ไม่มีเอกสาร
+    homepageUrl: "https://www.jma.go.jp/bosai/map.html#contents=typhoon",
+    // หน้า Legal Notice ของ JMA (ตรวจ 2026-09-26): เนื้อหาใช้ได้ตาม Public Data License (Version 1.0)
+    // และ "The user must cite the source" ในรูป "Source: Japan Meteorological Agency website (URL)"
+    licenseName: "Public Data License (Version 1.0) — ตามเงื่อนไขการใช้เว็บไซต์ JMA",
+    licenseUrl: "https://www.jma.go.jp/jma/en/copyright.html",
+    // บรรทัดแรกคือถ้อยคำที่ JMA บังคับ (ห้ามแก้) — ส่วนหลังคือ "ข้อความว่าได้แก้ไขเนื้อหา" ที่หน้า
+    // Legal Notice กำหนดเมื่อนำไปดัดแปลง (เราวาดตำแหน่งใหม่บนแผนที่ของเราเอง) และต้องไม่ทำให้
+    // เข้าใจว่ารัฐบาลญี่ปุ่นเป็นผู้จัดทำ
+    attributionText:
+      "Source: Japan Meteorological Agency website (https://www.jma.go.jp/) — track, positions and 70% probability circles re-plotted by SIAHRA; this edited map was not created by the Government of Japan",
+    kind: "live",
+  },
+  "gdacs-tc": {
+    id: "gdacs-tc",
+    nameTh: "เส้นทางพายุหมุนเขตร้อน มหาสมุทรอินเดียเหนือ (GDACS / JTWC)",
+    nameEn: "Tropical cyclone tracks, North Indian Ocean (GDACS / JTWC)",
+    agency: "GDACS — European Commission Joint Research Centre (EC-JRC) และ UN-OCHA; ข้อมูลพายุจาก JTWC",
+    homepageUrl: "https://www.gdacs.org/",
+    // GDACS ไม่ได้เผยแพร่สัญญาอนุญาตการนำข้อมูลไปใช้ต่อ (ตรวจ 2026-09-26) มีเพียงหน้า
+    // "Disclaimer and Terms of Use" — ห้ามตั้งชื่อสัญญาอนุญาตขึ้นเอง
+    licenseName: "ไม่ได้เผยแพร่สัญญาอนุญาต — มีเพียง Disclaimer and Terms of Use ของ GDACS",
+    licenseUrl: "https://www.gdacs.org/About/termofuse.aspx",
+    attributionText: "GDACS (EC-JRC / UN-OCHA), data: JTWC",
+    // ยกจากหน้า Disclaimer and Terms of Use ของ GDACS ตรงตัว (ตรวจ 2026-09-26)
+    disclaimerText:
+      "GDACS notifications in the case of earthquakes, tsunamis and tropical cyclones are automatic, produced by algorithms and not reviewed by human experts before being issued. They may be subject to uncertainties and errors. GDACS services are not meant to substitute nor to override any official information or alert message from local or national disaster management authorities.",
     kind: "live",
   },
   "exposure-illustrative": {

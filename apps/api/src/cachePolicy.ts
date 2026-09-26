@@ -46,6 +46,13 @@ export const slowMoving = policy("slowMoving", "public, max-age=300");
 /** สรุปสถานะแหล่งข้อมูล — สั้นพอที่แถบสถานะจะไม่โชว์ของค้าง */
 export const health = policy("health", "public, max-age=15");
 
+/**
+ * เส้นทางพายุ (`/api/v1/storms`) — รอบดึงของ StormTrackDO คือ 30 นาที และ JMA ออกประกาศ
+ * ทุก 3–6 ชม. CDN 5 นาทีจึงเล็กกว่าหนึ่งรอบมาก ส่วนเบราว์เซอร์ 60 วิ เหมือนค่าตรวจวัด
+ * (บอดี้มี `fetchedAt`/`lastSuccessAt` ของตัวเอง อายุที่แสดงจึงคิดจากค่าจริง ไม่ใช่จากแคช)
+ */
+export const storms = policy("storms", "public, max-age=60, s-maxage=300");
+
 /** เฟรมเรดาร์ล่าสุด (รายการเฟรม) */
 export const radarFrames = policy("radarFrames", "public, max-age=60");
 

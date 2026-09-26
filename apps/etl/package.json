@@ -20,6 +20,7 @@
     "build:alert-rules": "tsx src/buildAlertRules.ts",
     "build:cctv": "tsx src/build-cctv.ts",
     "build:itic-cctv": "tsx src/build-itic-cctv.ts",
+    "build:region-outline": "tsx src/build-region-outline.ts",
     "refresh:manifests": "tsx src/refreshManifests.ts",
     "gfm:test": "uv run --frozen --directory gfm pytest",
     "gfm:run": "uv run --frozen --directory gfm python -m gfm run",
