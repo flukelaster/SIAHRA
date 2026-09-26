@@ -54,6 +54,7 @@ The standard loop for writing code: `/implement <task>` → **devops** cost-gate
 - QA runs exactly the commands `ci.yml` runs (if they drift, QA goes green while CI goes red) plus a visual acceptance pass with `playwright-cli` — it **must not start a dev server itself** (one per worktree; if none is running it returns `blocked`)
 - **Agents do not open PRs**, whatever the user said earlier about "push" — `.claude/hooks/guard-pr.sh` (PreToolUse) intercepts `gh pr create/merge/ready` and `git push … main` and forces the question back to the user; the hook is a safety net, not an excuse to skip asking
 - `.claude/settings.json` (tracked) holds the hook and the allow-list; `.claude/settings.local.json` is per-machine (gitignored)
+- `.codex/` is the Codex CLI port of the same loop: `agents/*.toml` mirror `.claude/agents/*.md` and `hooks.json` runs the same `guard-pr.sh` (a copy in `.codex/hooks/`, resolved from the repo root) — change an agent or the guard in both places
 
 ## Code Review Rules
 This is the section Codex's GitHub code review reads and applies to every changed file
