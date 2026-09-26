@@ -1,51 +1,109 @@
 import type { HazardLayerDescriptor } from "./hazard-layer.js";
 
 /**
- * Satellite-derived flood extent (GISTDA "flooding_vis" scene, tambon-level
- * polygons). Epistemic class: observed — it is an interpretation of a real
- * satellite image, not a forecast. The upstream features carry no timestamp,
- * so the backend stamps when it retrieved them and when each polygon was
- * first/last seen; the UI must show those, never imply "now".
+ * Satellite-derived flood extent from GISTDA (E16.PR0: the API-gateway feed
+ * `api/2.0/resources/features/flood/{window}` — the old open WFS answers 401
+ * since 2026-09-10). Epistemic class: observed — GISTDA's interpretation of
+ * real SAR scenes, never a forecast.
+ *
+ * Each feature is **one H3 resolution-9 cell** (~0.1 km²) holding the part of
+ * the cell GISTDA classified as flooded. Unlike the WFS scene, every cell now
+ * names the satellite passes it was derived from (`file_name`), so a cell has a
+ * real `observedAt`; `firstSeenAt` is still our own stamp (the first successful
+ * pull that contained the cell) and is labelled as such in the UI.
  */
-export interface FloodExtentFeatureProps {
-  tambonTh: string | null;
-  amphoeTh: string | null;
-  provinceTh: string | null;
-  provinceCode: string | null;
-  /** Flooded area in rai (upstream unit). */
-  floodAreaRai: number | null;
-  houses: number | null;
-  /** Upstream centroid. */
-  lat: number | null;
-  lon: number | null;
+
+/** One satellite pass named in a cell's `file_name` (`sensor_YYYYMMDD_HHMM`). */
+export interface FloodAcquisition {
   /**
-   * When this polygon was first/last seen by our backend. Both are null for a
-   * feature served from an archived scene (`?at=` older than the hot window):
-   * the archive stores each scene as fetched, not the per-polygon observation
-   * window, and inventing one from the scene time would be a claim we cannot back.
+   * Sensor code exactly as GISTDA publishes it — `S1C`/`S1D` (Sentinel-1C/1D),
+   * `rd2` (RADARSAT-2), … Unknown codes are passed through, never guessed.
+   */
+  sensor: string;
+  /**
+   * Acquisition instant (ISO, UTC). The upstream stamp carries no zone; it is
+   * read as Asia/Bangkok (+07:00) — see `GISTDA_FILE_NAME_TZ` in
+   * `apps/api/src/ingestion/gistda.ts` for the evidence.
+   */
+  acquiredAt: string;
+}
+
+export interface FloodExtentFeatureProps {
+  /** H3 res-9 cell id (`h3_address`); null only for legacy WFS scenes (tambon polygons). */
+  h3: string | null;
+  provinceCode: string | null;
+  provinceTh: string | null;
+  amphoeCode: string | null;
+  amphoeTh: string | null;
+  tambonCode: string | null;
+  tambonTh: string | null;
+  /** Flooded area inside this feature, m² (upstream `f_area`; legacy: rai × 1600). */
+  floodAreaM2: number | null;
+  /** Passes this cell was derived from, newest first; [] when upstream named none (legacy). */
+  acquisitions: FloodAcquisition[];
+  /** Newest of `acquisitions` — when the flooding was observed; null when unknown. */
+  observedAt: string | null;
+  /** GISTDA's record creation time (`_createdAt`) — when upstream published the cell; null when absent. */
+  publishedAt: string | null;
+  /**
+   * The first successful pull by *our* backend that contained this cell —
+   * carried forward refresh to refresh. Null for a legacy WFS scene, whose
+   * archive never recorded it (inventing one from the scene time would be a
+   * claim we cannot back).
    */
   firstSeenAt: string | null;
-  lastSeenAt: string | null;
 }
 
 export interface FloodExtentFeature {
   type: "Feature";
   id: string;
   properties: FloodExtentFeatureProps;
+  /**
+   * WGS84 lon/lat rounded to `FLOOD_EXTENT_COORD_DECIMALS`. A cell whose only
+   * sliver collapses under that rounding keeps an **empty** MultiPolygon
+   * (`coordinates: []`) so cell counts and `floodAreaM2` still match upstream.
+   */
   geometry:
     | { type: "Polygon"; coordinates: number[][][] }
     | { type: "MultiPolygon"; coordinates: number[][][][] };
 }
 
+/**
+ * Decimal places kept on every flood-extent coordinate (≈ 11 m at this
+ * latitude; GISTDA's raster edge is ~25 m). Five decimals measured 5.17 MB
+ * gzip for one nationwide refresh on 2026-09-26 (45,549 cells) — over the
+ * 5 MB archive budget — four measured 4.30 MB.
+ */
+export const FLOOD_EXTENT_COORD_DECIMALS = 4;
+
+/**
+ * Which upstream shape answered: `h3-cell` = the GISTDA API (E16.PR0),
+ * `tambon` = a legacy WFS scene archived before the cutover (`?at=` only).
+ */
+export type FloodExtentGranularity = "h3-cell" | "tambon";
+
 export interface FloodExtentResponse {
   layer: HazardLayerDescriptor;
   /**
-   * When our backend pulled the scene that answers this request. Live: the
-   * latest successful pull. With `?at=`: the pull that covered `at` — null
-   * when no archived scene exists for that instant (see `reason`).
+   * When our backend pulled the answer for this province. Live: the latest
+   * successful pull of this province. With `?at=`: the pull whose content
+   * covered `at` — null when nothing was archived for that instant (see `reason`)
+   * or, live, when no pull has ever succeeded.
    */
   retrievedAt: string | null;
   provinceCode: string;
+  granularity: FloodExtentGranularity;
+  /**
+   * Upstream `numberMatched` for this province in the pulled window; null when
+   * unknown (legacy scene, or never fetched). `0` with a non-null `retrievedAt`
+   * means GISTDA *was asked and answered with no flooded cell* — satellite
+   * detection, not "no flooding" (SAR misses water in dense built-up areas).
+   */
+  matched: number | null;
+  /** Union of every feature's `acquisitions`, newest first. */
+  acquisitions: FloodAcquisition[];
+  /** Newest acquisition among the features (= `layer.observedAt`); null when none. */
+  observedAt: string | null;
   features: FloodExtentFeature[];
   /**
    * Set only on a historical request (`?at=`) that could not be answered: the
@@ -59,16 +117,27 @@ export interface FloodExtentResponse {
 export interface FloodExtentProvinceSummary {
   provinceCode: string;
   provinceTh: string | null;
+  /** Upstream `numberMatched` — H3 cells flagged flooded in this province. */
+  cellCount: number;
   tambonCount: number;
-  floodAreaRai: number;
-  houses: number;
+  floodAreaM2: number;
+  /** Newest acquisition among this province's cells; null with no cells. */
+  observedAt: string | null;
+  /** Last successful pull of this province — may lag the nationwide one when a province failed. */
+  retrievedAt: string;
 }
 
 export interface FloodExtentSummaryResponse {
   layer: HazardLayerDescriptor;
   retrievedAt: string | null;
+  /** Upstream window every province was pulled from (e.g. `"3days"`). */
+  window: string;
+  /** Sum of `cellCount` over `provinces`. */
   totalFeatures: number;
+  /** Every province pulled at least once, largest flooded area first (0-cell provinces included). */
   provinces: FloodExtentProvinceSummary[];
+  /** Provinces whose latest pull failed — their row (if any) is from an older pull. */
+  failedProvinces: string[];
 }
 
 /* ------------------------------------------------------------------------ */

@@ -467,20 +467,27 @@ export const th = {
   "flood.observedChip": "ตรวจพบจริง",
   "flood.loadError": "โหลดชั้นน้ำท่วมไม่ได้: {error}",
   "flood.noScene": "ยังไม่ได้ภาพชุดล่าสุดจาก GISTDA (กำลังลองดึงอยู่) — ไม่ได้แปลว่าไม่มีน้ำท่วม",
-  "flood.none": "ภาพชุดล่าสุดไม่พบพื้นที่น้ำท่วมในจังหวัดนี้",
-  "flood.noneFetched": " (ดึงเมื่อ {age})",
+  "flood.noneDetected":
+    "GISTDA ไม่มีพื้นที่น้ำท่วมที่ตรวจพบในจังหวัดนี้จากภาพรอบนี้ (ภาพดาวเทียมอาจมองน้ำในเขตเมืองไม่เห็น)",
   "flood.historicalScene": "ภาพ ณ {time} เป็นชุดที่ GISTDA มีในช่วงเวลาที่เลือก ไม่ใช่ชุดล่าสุด",
   "flood.noArchivedScene":
     "ไม่มีภาพที่เก็บไว้ ณ {time} เพราะเราเริ่มเก็บขอบเขตน้ำท่วมตั้งแต่เปิดใช้ชั้นนี้ — ไม่ได้แปลว่าไม่มีน้ำท่วม",
-  "flood.noneHistorical": "ภาพในช่วงเวลาที่เลือกไม่พบพื้นที่น้ำท่วมในจังหวัดนี้",
+  "flood.noneHistorical":
+    "GISTDA ไม่มีพื้นที่น้ำท่วมที่ตรวจพบในจังหวัดนี้จากภาพชุดที่ครอบเวลาที่เลือก (ภาพดาวเทียมอาจมองน้ำในเขตเมืองไม่เห็น)",
+  "flood.legacyScene":
+    "ชุดนี้มาจากบริการ WFS เดิมของ GISTDA (ก่อนเปลี่ยนต้นทาง 2569-09) เป็นรายตำบลและไม่ระบุเวลาถ่ายภาพ",
   "flood.tambonCount": "ตำบลที่ท่วม",
   "flood.areaRai": "พื้นที่ (ไร่)",
-  "flood.households": "บ้านเรือน",
+  "flood.cellCount": "เซลล์ที่ท่วม",
+  "flood.tambonCells": "{n} เซลล์",
+  "flood.acquisitions": "ภาพดาวเทียมที่ GISTDA ใช้ในจังหวัดนี้",
+  "flood.acquisitionsNone": "ต้นทางไม่ได้ระบุภาพที่ใช้",
+  "flood.imageTime": "ภาพ {time}",
   "flood.unknownTambon": "ไม่ระบุตำบล",
   "flood.firstSeen": "พบครั้งแรก {time}",
   "flood.note":
-    "GISTDA แปลขอบเขตน้ำท่วมจากภาพดาวเทียม (ชุดข้อมูล flooding_vis) เป็นพื้นที่ที่ตรวจพบแล้ว ไม่ใช่การพยากรณ์ ภาพชุดนี้ไม่ระบุวันที่ถ่าย เราจึงแสดงเวลาที่ดึงข้อมูลแทน",
-  "flood.noteEarliest": " พร้อมเวลาที่พบแต่ละพื้นที่ครั้งแรก (เก่าสุด {time})",
+    "GISTDA แปลขอบเขตน้ำท่วมจากภาพดาวเทียมเรดาร์ เป็นเซลล์ H3 ขนาดราว 0.1 ตร.กม. — เป็นพื้นที่ที่ตรวจพบแล้ว ไม่ใช่การพยากรณ์ · เวลาภาพอ่านจากชื่อไฟล์ภาพของ GISTDA (ถือเป็นเวลาไทย) · ดึงข้อมูลล่าสุด",
+  "flood.noteEarliest": " · ระบบเราเห็นเซลล์แรกเมื่อ {time}",
 
   // ── การ์ดฉาก Sentinel-1 / Copernicus GFM (E14.F5) ───────────────────
   "floodScenes.section.shown": "ภาพที่แสดงอยู่ · Sentinel-1 (Copernicus GFM)",
@@ -728,14 +735,15 @@ export const th = {
   "popup.status": "สถานะ",
   "popup.statusAutomatic": "ตรวจพบโดยอัตโนมัติ ยังไม่มีคนตรวจสอบ",
   "popup.statusReviewed": "ตรวจสอบแล้ว",
-  "popup.floodTitle": "ต.{tambon} — พื้นที่น้ำท่วม",
+  "popup.floodTitle": "{tambon} — พื้นที่น้ำท่วม",
   "popup.mapPoint": "ตำแหน่งบนแผนที่",
   "popup.coords": "พิกัด",
   "popup.elevation": "ความสูงภูมิประเทศ (DSM)",
   "popup.amphoe": "อำเภอ",
   "popup.floodArea": "พื้นที่น้ำท่วม",
   "popup.firstSeen": "พบครั้งแรก",
-  "popup.lastSeen": "พบล่าสุด",
+  "popup.h3Cell": "เซลล์ H3",
+  "popup.imageTime": "เวลาภาพ",
   "popup.floodNote": "GISTDA แปลจากภาพดาวเทียม เป็นพื้นที่ที่ตรวจพบแล้ว ไม่ใช่การพยากรณ์",
   /** E14.F5 — เซลล์ของฉาก Copernicus GFM ใต้จุดที่คลิก: หกคลาส หกประโยค ห้ามพับรวม */
   "popup.gfm.title": "ภาพ Sentinel-1 (Copernicus GFM)",

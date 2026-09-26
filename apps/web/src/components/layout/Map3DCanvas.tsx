@@ -25,6 +25,7 @@ import { BuildingTileLayer } from "../../scene/BuildingTiles";
 import { FeatureTileLayer } from "../../scene/FeatureTiles";
 import { VegetationTiles } from "../../scene/VegetationTiles";
 import { buildFloodMask, type FloodMask } from "../../scene/floodMask";
+import { groupByTambon, m2ToRai } from "../../lib/gistdaFlood";
 import {
   buildFloodFieldTexture,
   summarizeFloodField,
@@ -1213,23 +1214,23 @@ export function Map3DCanvas({
     labels.name = "flood-labels";
     const proj = loaded.terrain.projection;
     // Label the largest flooded tambons; the rest are visible as the tint.
-    const top = [...features]
-      .sort((a, b) => (b.properties.floodAreaRai ?? 0) - (a.properties.floodAreaRai ?? 0))
-      .slice(0, 10);
-    for (const f of top) {
-      const { lat, lon, tambonTh, floodAreaRai } = f.properties;
+    // E16.PR0: GISTDA ส่งเป็นเซลล์ H3 หลายพันเซลล์ — รวมเป็นรายตำบลก่อน (จุดกึ่งกลางถ่วงพื้นที่)
+    const top = groupByTambon(features).slice(0, 10);
+    for (const g of top) {
+      const { lat, lon, tambonTh } = g;
+      const floodAreaRai = m2ToRai(g.areaM2);
       if (lat === null || lon === null) continue;
       const [x, z] = proj.lonLatToLocal(lon, lat);
       if (!proj.insideGrid(x, z)) continue;
       labels.add(
         makeLabel(
           tambonTh ?? t("scene.floodArea"),
-          floodAreaRai !== null
+          floodAreaRai > 0
             ? t("scene.floodAreaRai", { n: formatNumber(lang, Math.round(floodAreaRai)) })
             : t("scene.floodPlain"),
           "info",
           new THREE.Vector3(x, loaded.terrain.sample(x, z) + 30, z),
-          40 + (floodAreaRai ?? 0) / 1000,
+          40 + floodAreaRai / 1000,
         ),
       );
     }

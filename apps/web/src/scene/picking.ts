@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { bboxContains, featureBbox } from "../lib/gistdaFlood";
 import type {
   CctvCamera,
   ItiCCamera,
@@ -74,6 +75,9 @@ function pointInRing(lon: number, lat: number, ring: number[][]): boolean {
 }
 
 function featureContains(f: FloodExtentFeature, lon: number, lat: number): boolean {
+  // E16.PR0: จังหวัดหนึ่งมีได้หลายพันเซลล์ — ตัดด้วยกรอบ (แคชต่อ feature) ก่อนเดิน ring
+  const box = featureBbox(f);
+  if (!box || !bboxContains(box, lon, lat)) return false;
   const polys = f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.coordinates;
   for (const poly of polys) {
     if (!poly.length || !pointInRing(lon, lat, poly[0])) continue;

@@ -114,7 +114,9 @@ Messages worth knowing:
 | `radar frames added` | info | New frames stored this round. |
 | `observation cache refreshed` | info | ThaiWater round finished; `rainfall`/`waterlevel` are record counts or `"failed"`. |
 | `archived day` / `archive tick failed` | info / error | Daily R2 archive rollup. |
-| `gistda flood fetch failed` | error | Includes `consecutiveFailures` and `retryInSeconds` — the current backoff. |
+| `gistda flood refresh failed` | error | A whole round failed (no province pulled, key missing or rejected); includes `consecutiveFailures` and `retryInSeconds` — the current backoff. |
+| `gistda flood refreshed` | info | One line per successful round: `provincesOk`, `provincesFailed`, `cells`, `bodyGzBytes`, `archived`, `archivedGzBytes`. `archivedGzBytes` is what `archive/flood-v2/` grew by this round — the number to watch for R2 storage (`docs/deploy.md` "ค่าใช้จ่ายโดยประมาณ"). |
+| `gistda flood partial refresh` | warn | Some provinces failed or were skipped (`time budget`, `upstream failing`) or their archive `put` failed; they keep their previous answer. At most three GISTDA lines per round. |
 | `tmd poll skipped` | error | TMD credentials missing (the expected state today). |
 | `upstream queue paused` | warn | The ThaiWater circuit breaker tripped; `untilMs` is when it reopens. The source reports `degraded` while paused. |
 | `unhandled route error` | error | A handler threw; the client got a `500`. `path` names the route. Always a bug. |
@@ -133,7 +135,7 @@ refresh, so they cannot double-fetch.
 |---|---|---|---|---|---|---|
 | `ObservationCacheDO` | `thaiwater` | 5 min | 1 → 2 → 4 → … capped 10 min | 900 (15 min) | 7200 (2 h) | 7-day hot window in SQLite, older in R2; station history 8 days |
 | `RadarDO` | `tmd-radar` | 5 min | 1 min | 900 (15 min) | 5400 (90 min) | frames 30 days |
-| `FloodExtentDO` | `gistda-flood` | 30 min | 5 → 10 → 20 → 30 min (±15 % jitter on the alarm; the in-round fetch retry uses ±25 %) | 10800 (3 h) | `null` (no upstream cadence) | features 30 days |
+| `FloodExtentDO` | `gistda-flood` | 30 min, **alarm only** (the cron's `ensureFresh()` only arms the alarm, it never pulls) | 5 → 10 → 20 → 30 min (±15 % jitter on the alarm; the in-round fetch retry uses ±25 %) | 10800 (3 h) | `null` (irregular satellite revisit) | none — `flood_province_scenes` and `archive/flood-v2/` are kept indefinitely |
 | `EarthquakeFeedDO` | `earthquakes` | 1 min | next tick (1 min) | 300 (5 min) | `null` (quakes have no cadence) | events 30 days |
 | `ForecastNwpDO` | `tmd-nwp` | 1 h | 5 min | 10800 (3 h) | `null` (a forecast has no observation to be late about) | none — latest round only, one row per province, overwritten in place |
 | `ObservationCacheDO` (exposure) | `exposure-illustrative` | on every ThaiWater refresh (~5 min) | with that refresh | 3600 (1 h) | 1800 (30 min) | runs kept indefinitely (see §6) |
@@ -187,7 +189,8 @@ If `nextAttemptAt` is `null` for a source, no alarm is scheduled — the next cr
 | `archive/snapshots/{YYYY-MM-DD}/{HH}.json.gz` | `ObservationCacheDO`, hourly | Nationwide observation snapshot (Bangkok day/hour) |
 | `archive/waterlevel/{YYYY-MM-DD}/{PP}.json.gz` | `ObservationCacheDO`, daily after 00:20 ICT | Per-province water level for the previous day |
 | `archive/dams/{YYYY-MM-DD}.json.gz` | `ObservationCacheDO`, daily | Dam observations for that day |
-| `archive/flood/{retrieval time, ISO with `:` and `.` replaced by `-`}.json.gz` | `FloodExtentDO`, when the scene changes | One GISTDA scene, keyed by retrieval time |
+| `archive/flood/{retrieval time, ISO with `:` and `.` replaced by `-`}.json.gz` | `FloodExtentDO` before E16.PR0 — **no longer written** | One legacy WFS scene (tambon polygons), keyed by retrieval time; still read for an `?at=` before the cutover |
+| `archive/flood-v2/{retrieval time, ISO with `:` and `.` replaced by `-`}/{PP}.json.gz` | `FloodExtentDO`, per province whose content hash changed that round | One province's gzipped `FloodExtentResponse` (H3 cells); no retention |
 | `archive/index/{YYYY-MM-DD}.json` | `ObservationCacheDO` | Which of the above exist for that day — backs `/api/v1/archive/days` |
 | `exposure/runs/{runId}.json.gz` | `ObservationCacheDO`, after a refresh whose result changed | One immutable flood-exposure run (E10.3), gzip JSON — **write-once, never rewritten** |
 | `radar/tmd-composite/{frame time, ISO with `:` and `.` replaced by `-`}.png` | `RadarDO`, per new frame | One TMD composite frame, pruned after 30 days |
@@ -243,8 +246,9 @@ else in the code path prunes these objects.
 - **TMD seismic credentials unset** → `earthquakes` is `degraded` with `lastError: "TMD credentials
   not configured"`, USGS and EMSC keep working. This is the intended honest degradation, not a
   failure to hide.
-- **GISTDA publishes no acquisition time** → `gistda-flood` has `observedLagSeconds: null` and its
-  layer carries `publishedAt: null`. It can never be `delayed`; that is correct, not missing data.
+- **Satellite revisit is irregular** → `gistda-flood` has `observedLagSeconds: null` even though
+  every cell now carries its acquisition time (`file_name`, read at +07:00) and the layer its
+  `publishedAt` (newest `_createdAt`). It can never be `delayed`; that is correct, not missing data.
 - **Durable Objects free tier** → the API starts answering `500`/`503` once the account passes
   ~100k DO rows written per day. There is no code fix; the account needs **Workers Paid** ($5/month),
   which Durable Objects require anyway (`docs/deploy.md` §0). Confirm from `wrangler tail`: the errors

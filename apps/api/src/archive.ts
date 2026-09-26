@@ -26,15 +26,21 @@ export const keys = {
   waterlevelDay: (day: string, province: string) => `archive/waterlevel/${day}/${province}.json.gz`,
   snapshot: (day: string, hour: string) => `archive/snapshots/${day}/${hour}.json.gz`,
   dams: (day: string) => `archive/dams/${day}.json.gz`,
+  /** ฉาก WFS เดิม (ก่อน E16.PR0) — ไม่มีการเขียนใหม่แล้ว เหลือไว้ให้ `?at=` ย้อนไปก่อนวันเปลี่ยนต้นทาง */
   flood: (iso: string) => `archive/flood/${iso.replace(/[:.]/g, "-")}.json.gz`,
+  /**
+   * E16.PR0 — หนึ่งไฟล์ต่อ (รอบที่เนื้อหาของจังหวัดเปลี่ยน, จังหวัด) เป็นคำตอบ
+   * `FloodExtentResponse` ทั้งก้อนที่ gzip แล้ว; prefix แยกรุ่นจากไฟล์ WFS เดิม
+   */
+  floodV2: (iso: string, province: string) => `archive/flood-v2/${iso.replace(/[:.]/g, "-")}/${province}.json.gz`,
   index: (day: string) => `archive/index/${day}.json`,
 };
 
-async function gzip(text: string): Promise<ArrayBuffer> {
+export async function gzip(text: string): Promise<ArrayBuffer> {
   const stream = new Blob([text]).stream().pipeThrough(new CompressionStream("gzip"));
   return new Response(stream).arrayBuffer();
 }
-async function gunzip(body: ReadableStream<Uint8Array>): Promise<string> {
+export async function gunzip(body: ReadableStream<Uint8Array>): Promise<string> {
   return new Response(body.pipeThrough(new DecompressionStream("gzip"))).text();
 }
 

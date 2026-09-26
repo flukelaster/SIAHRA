@@ -1,4 +1,5 @@
 import { exports as workerExports } from "cloudflare:workers";
+import { TEST_GISTDA_KEY, gistdaCell, runFloodAlarm, serveGistda, setGistdaKey } from "./helpers/gistdaApi";
 import type { FloodExtentFeature, LocalAuthorityImpactResponse } from "@siahra/shared-types";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getBoundaryGeometryById } from "../src/data/localAuthorityBoundaries.js";
@@ -45,16 +46,18 @@ const FLOOD_WEST_HALF: FloodExtentFeature = {
   type: "Feature",
   id: "flood-west-half",
   properties: {
-    tambonTh: null,
-    amphoeTh: null,
-    provinceTh: null,
+    h3: null,
     provinceCode: "99",
-    floodAreaRai: null,
-    houses: null,
-    lat: null,
-    lon: null,
+    provinceTh: null,
+    amphoeCode: null,
+    amphoeTh: null,
+    tambonCode: null,
+    tambonTh: null,
+    floodAreaM2: null,
+    acquisitions: [],
+    observedAt: null,
+    publishedAt: null,
     firstSeenAt: "2026-01-01T00:00:00.000Z",
-    lastSeenAt: "2026-01-01T00:00:00.000Z",
   },
   geometry: { type: "Polygon", coordinates: [[[0, 0], [5, 0], [5, 10], [0, 10], [0, 0]]] },
 };
@@ -240,20 +243,13 @@ const call = (path: string) => workerExports.default.fetch(new Request(`https://
  *  (102.0263922-102.1377388, 14.9377794-15.0039869) — verified against the
  *  committed apps/web/public/aoi/30/local-authorities.geojson to give a real
  *  intersection ~50.6% of the authority's real area (18.69 / 36.91 km²). */
-const WFS_SCENE = {
-  type: "FeatureCollection",
-  timeStamp: "2999-01-01T00:00:00.000Z",
-  totalFeatures: 1,
-  features: [
-    {
-      type: "Feature",
-      id: "FloodArea_Poly.1",
-      properties: { PV_IDN: 30, TB_IDN: 1, flood_area: 100, house: 1, lat: 14.97, long: 102.05 },
-      geometry: {
-        type: "Polygon",
-        coordinates: [[[102.0, 14.9], [102.08, 14.9], [102.08, 15.05], [102.0, 15.05], [102.0, 14.9]]],
-      },
-    },
+const FLOOD_CELLS = {
+  "30": [
+    gistdaCell({
+      h3: "8965a0000000fff",
+      province: "30",
+      coordinates: [[[[102.0, 14.9], [102.08, 14.9], [102.08, 15.05], [102.0, 15.05], [102.0, 14.9]]]],
+    }),
   ],
 };
 
@@ -264,9 +260,10 @@ describe("GET /api/v1/local-authorities/:id/impact — real boundary + real base
     expect(boundary).not.toBeNull();
     expect(baseline).not.toBeNull();
 
-    vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
-      new Response(JSON.stringify(WFS_SCENE), { headers: { "Content-Type": "application/json" } }),
-    );
+    setGistdaKey(TEST_GISTDA_KEY);
+    serveGistda(FLOOD_CELLS);
+    await runFloodAlarm();
+    setGistdaKey(undefined);
     const res = await call("/api/v1/local-authorities/TH-LAO-3300102/impact");
     expect(res.status).toBe(200);
     const body = (await res.json()) as LocalAuthorityImpactResponse;
