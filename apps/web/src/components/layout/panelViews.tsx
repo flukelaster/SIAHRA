@@ -157,15 +157,19 @@ export function ImpactPanel({ ctx }: { ctx: PanelContext }) {
       <AffectedAuthorityList
         state={affectedAuthorities}
         alerts={activeAlerts.data?.alerts ?? []}
+        health={ctx.apiHealth}
         selectedId={selectedAuthorityId}
         onSelect={ctx.setSelectedAuthorityId}
       />
-      <ImpactSummaryCard
-        authority={selectedAuthority}
-        state={localAuthorityImpact}
-        health={ctx.apiHealth}
-        alerts={selectedAuthorityAlerts}
-      />
+      {/* จังหวัดที่ไม่มีขอบเขตเลยไม่มีรายการให้เลือก — ไม่แสดงการ์ดที่บอกให้ "เลือกจากรายการ" */}
+      {affectedAuthorities.coverage === "none" ? null : (
+        <ImpactSummaryCard
+          authority={selectedAuthority}
+          state={localAuthorityImpact}
+          health={ctx.apiHealth}
+          alerts={selectedAuthorityAlerts}
+        />
+      )}
     </div>
   );
 }

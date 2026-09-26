@@ -6,10 +6,16 @@ import type { HazardLayerDescriptor } from "./hazard-layer.js";
  * `apps/etl/data/sources/dla/SOURCE.md`), baked into the API bundle at build
  * time by `apps/etl/src/buildLocalAuthorities.ts`.
  *
- * The six types below are exactly the six strings the source data contains —
- * nothing invented, nothing defaulted. Anything the source does not carry
- * for a given record (English name, district code, coordinates, area) is
+ * The first six types below are exactly the six strings the DLA source
+ * contains — nothing invented, nothing defaulted. Anything the source does not
+ * carry for a given record (English name, district code, coordinates, area) is
  * `null`, never a fabricated placeholder.
+ *
+ * `bma_district` is **not** an อปท. and never comes from DLA: Bangkok is
+ * governed by its own act and is absent from DLA's registry, so (owner
+ * decision 2026-09-26) its 50 districts (เขต) are carried as a separate unit
+ * sourced from OSM `admin_level=6` relations — see
+ * `apps/etl/src/buildBmaDistricts.ts` and `apps/etl/data/sources/osm-admin/COVERAGE.md`.
  */
 export type LocalAuthorityType =
   | "provincial_admin_org" // อบจ.
@@ -17,18 +23,15 @@ export type LocalAuthorityType =
   | "town_municipality" // เทศบาลเมือง
   | "subdistrict_municipality" // เทศบาลตำบล
   | "subdistrict_admin_org" // อบต.
-  | "special_admin_area"; // ท้องถิ่นรูปแบบพิเศษ
+  | "special_admin_area" // ท้องถิ่นรูปแบบพิเศษ
+  | "bma_district"; // เขต (กทม.) — not an อปท., sourced from OSM
 
-export interface LocalAuthorityRef {
-  /** `TH-LAO-${dlaCode}` */
-  id: string;
-  /** รหัส อปท. — verbatim from source. */
-  dlaCode: string;
+/** Fields every registry record carries, whichever unit it is. */
+interface LocalAuthorityRefBase {
   nameTh: string;
-  /** The source carries no English names — always null, never invented. */
   nameEn: string | null;
-  type: LocalAuthorityType;
-  /** Mapped via `apps/etl/src/provinceBoundaries.ts`'s `readProvinceList()`. */
+  /** Mapped via `apps/etl/src/provinceBoundaries.ts`'s `readProvinceList()`
+   *  (DLA) or point-in-polygon against `provinceRings.json` (BMA districts). */
   provinceCode: string;
   /** อำเภอ, verbatim — the source has no district *code*, only a name. */
   districtNameTh: string | null;
@@ -37,12 +40,63 @@ export interface LocalAuthorityRef {
   areaKm2: number | null;
 }
 
+/** A real DLA อปท. record. */
+export interface DlaLocalAuthorityRef extends LocalAuthorityRefBase {
+  /** `TH-LAO-${dlaCode}` */
+  id: string;
+  /** รหัส อปท. — verbatim from source. */
+  dlaCode: string;
+  /** The source carries no English names — always null, never invented. */
+  nameEn: null;
+  type: Exclude<LocalAuthorityType, "bma_district">;
+}
+
+/**
+ * One of Bangkok's 50 districts (เขต), from an OSM `boundary=administrative`
+ * `admin_level=6` relation — never a DLA record and never given a DLA code.
+ * OSM carries no official district code (`ref`) for these relations, so the
+ * id is keyed on the relation id rather than an invented code.
+ */
+export interface BmaDistrictRef extends LocalAuthorityRefBase {
+  /** `TH-BMA-osm${relationId}` — the OSM relation this district's name and
+   *  boundary came from (kept only in the id: the API bundle has ~no headroom
+   *  left, see `apps/etl/src/buildBmaDistricts.ts`). */
+  id: string;
+  /** BMA districts are not in DLA's registry — always null. */
+  dlaCode: null;
+  /** Verbatim OSM `name` (e.g. "เขตพระนคร"). */
+  nameTh: string;
+  /** Verbatim OSM `name:en` — null when the relation carries none. */
+  nameEn: string | null;
+  type: "bma_district";
+  /** Not declared by the source — null. */
+  districtNameTh: null;
+  centerLat: null;
+  centerLon: null;
+  areaKm2: null;
+}
+
+export type LocalAuthorityRef = DlaLocalAuthorityRef | BmaDistrictRef;
+
+/** Provenance of the BMA-district subset of the registry (OSM, not DLA). */
+export interface BmaDistrictsProvenance {
+  sourceIds: ["osm-admin"];
+  /** OSM extract `osmosis_replication_timestamp`, or null when unreadable. */
+  publishedAt: string | null;
+  /** sha256 of the `thailand-latest.osm.pbf` the districts were read from. */
+  pbfSha256: string;
+  recordCount: number;
+}
+
 /** The registry artefact written to `apps/api/src/data/localAuthorities.json`. */
 export interface LocalAuthoritiesRegistry {
   descriptor: HazardLayerDescriptor;
   /** sha256 of the source CSV this registry was built from. */
   sourceSha256: string;
+  /** DLA records + BMA districts. */
   recordCount: number;
+  /** Absent in registries built before the BMA districts were added. */
+  bmaDistricts?: BmaDistrictsProvenance;
   localAuthorities: LocalAuthorityRef[];
 }
 
@@ -67,6 +121,7 @@ export const LOCAL_AUTHORITY_TYPES: readonly LocalAuthorityType[] = [
   "subdistrict_municipality",
   "subdistrict_admin_org",
   "special_admin_area",
+  "bma_district",
 ];
 
 export function isLocalAuthorityType(value: string): value is LocalAuthorityType {
@@ -83,8 +138,10 @@ export function isLocalAuthorityType(value: string): value is LocalAuthorityType
  * polygon E11.2 produced (`apps/web/public/aoi/{code}/local-authorities.geojson`)
  * and baked into `apps/api/src/data/localAuthorityExposure.json`.
  *
- * Only the 431 authorities with a real E11.2 boundary get a record — there is
- * no polygon to compute zonal statistics against for the other ~7,418, and
+ * Only the authorities with a real E11.2 boundary get a record (431 DLA
+ * อปท. at the 2026-08-23 build, plus Bangkok's 50 OSM districts since
+ * 2026-09-26) — there is no polygon to compute zonal statistics against for
+ * the other ~7,418 DLA records, and
  * inventing one (a buffer around a point, a borrowed tambon shape) would be
  * exactly the fabrication this epic exists to eliminate. See
  * `apps/etl/data/sources/worldpop/COVERAGE.md` for the real coverage numbers.
@@ -94,7 +151,7 @@ export function isLocalAuthorityType(value: string): value is LocalAuthorityType
  * here either.
  */
 export interface LocalAuthorityBaselineExposure {
-  /** `TH-LAO-{dlaCode}` — joins back to `LocalAuthorityRef.id`. */
+  /** `LocalAuthorityRef.id` (`TH-LAO-*` or `TH-BMA-osm*`). */
   localAuthorityId: string;
   population: {
     /** Sum of WorldPop pixel values (people/pixel) over the polygon. `null`
@@ -168,7 +225,7 @@ export type LocalAuthorityBoundaryGeometry =
 /** One authority's real boundary polygon, repackaged for the API bundle —
  *  see `apps/api/src/data/localAuthorityBoundaries.json`. */
 export interface LocalAuthorityBoundaryRecord {
-  /** `TH-LAO-{dlaCode}` — joins to `LocalAuthorityRef.id`. */
+  /** `LocalAuthorityRef.id` (`TH-LAO-*` or `TH-BMA-osm*`). */
   id: string;
   geometry: LocalAuthorityBoundaryGeometry;
 }

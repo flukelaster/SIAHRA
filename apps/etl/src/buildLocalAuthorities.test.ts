@@ -10,7 +10,7 @@ import {
   type RawDlaRow,
 } from "./buildLocalAuthorities.js";
 import type { ProvinceEntry } from "./provinceBoundaries.js";
-import type { HazardLayerDescriptor } from "@siahra/shared-types";
+import type { BmaDistrictRef, BmaDistrictsProvenance, HazardLayerDescriptor } from "@siahra/shared-types";
 
 const PROVINCES: ProvinceEntry[] = [
   { code: "81", nameTh: "กระบี่", nameEn: "Krabi" },
@@ -183,8 +183,10 @@ describe("buildRegistry (end-to-end on a small fixture)", () => {
       rejectedEmptyCode: 1,
       rejectedUnknownType: 1,
       rejectedUnmatchedProvince: 1,
+      bmaDistricts: 0,
     });
     expect(registry.recordCount).toBe(2);
+    expect(registry.bmaDistricts).toBeUndefined();
     expect(registry.sourceSha256).toBe("deadbeef");
     expect(registry.descriptor).toEqual(DESCRIPTOR);
 
@@ -193,5 +195,52 @@ describe("buildRegistry (end-to-end on a small fixture)", () => {
     const songkhla = registry.localAuthorities.find((a) => a.dlaCode === "9000001");
     expect(songkhla?.centerLat).toBeNull();
     expect(songkhla?.areaKm2).toBeNull();
+  });
+});
+
+describe("buildRegistry — Bangkok districts appended as a separate unit", () => {
+  const district: BmaDistrictRef = {
+    id: "TH-BMA-osm92053",
+    dlaCode: null,
+    nameTh: "เขตพระนคร",
+    nameEn: "Phra Nakhon District",
+    type: "bma_district",
+    provinceCode: "10",
+    districtNameTh: null,
+    centerLat: null,
+    centerLon: null,
+    areaKm2: null,
+  };
+  const provenance: BmaDistrictsProvenance = {
+    sourceIds: ["osm-admin"],
+    publishedAt: "2026-08-15T20:21:20.000Z",
+    pbfSha256: "cafe",
+    recordCount: 1,
+  };
+  const csv = csvOf(["กระบี่,คลองท่อม,คลองท่อมเหนือ,5810401,เทศบาลตำบล,คลองท่อมใต้,-,2,81120,2.7,7.95,99.15,http://x"]);
+
+  it("appends the districts after every DLA record, counts them apart, and carries their provenance", () => {
+    const { registry, report } = buildRegistry(csv, PROVINCES, {
+      sourceSha256: "deadbeef",
+      descriptor: DESCRIPTOR,
+      bmaDistricts: { refs: [district], provenance },
+    });
+    expect(report.written).toBe(1); // DLA only
+    expect(report.bmaDistricts).toBe(1);
+    expect(registry.recordCount).toBe(2);
+    expect(registry.localAuthorities.map((a) => a.id)).toEqual(["TH-LAO-5810401", "TH-BMA-osm92053"]);
+    expect(registry.bmaDistricts).toEqual(provenance);
+    // no DLA row is synthesized for Bangkok
+    expect(registry.localAuthorities.filter((a) => a.provinceCode === "10" && a.dlaCode !== null)).toHaveLength(0);
+  });
+
+  it("refuses an id that collides with a DLA record", () => {
+    expect(() =>
+      buildRegistry(csv, PROVINCES, {
+        sourceSha256: "deadbeef",
+        descriptor: DESCRIPTOR,
+        bmaDistricts: { refs: [{ ...district, id: "TH-LAO-5810401" }], provenance },
+      }),
+    ).toThrow(/collides/);
   });
 });

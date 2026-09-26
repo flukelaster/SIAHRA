@@ -34,6 +34,14 @@
  * มีชื่อเต็มอยู่แล้ว (`properties.name`) ฝั่งทะเบียนต้องประกอบเอง (`prefix + nameTh`
  * เพราะ `buildLocalAuthorities.ts` ตัด prefix ย่อ เช่น "เทศบาลเมือง" ออกจาก
  * `nameTh` ไปแล้ว) จึงไม่ต้องแยกวิเคราะห์ prefix จากชื่อ OSM เลย
+ *
+ * ## 50 เขตของกรุงเทพฯ (`bma_district`) — admin_level=6 ไม่ใช่ 7
+ * ไม่ผ่านการจับคู่ด้วยชื่อข้างบนเลย (`OSM_NAME_PREFIX` ไม่มี `bma_district` โดย
+ * ตั้งใจ — relation admin_level=7 ของกรุงเทพฯ จึงจับคู่กับเขตด้วยชื่อไม่ได้)
+ * เรขาคณิตมาจาก `data/sources/osm-admin/bma-districts.json` ที่
+ * `buildBmaDistricts.ts` สร้างไว้ (ย่อด้วย `SIMPLIFY_TOLERANCE_DEG` ตัวเดียวกัน)
+ * แล้ว join กับทะเบียนด้วย id (`TH-BMA-osm{relationId}`) ตรง ๆ — id ที่ไม่มีใน
+ * ทะเบียนทำให้สคริปต์หยุด ไม่เขียนขอบเขตที่ไม่มี record รองรับ
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -45,6 +53,9 @@ import type {
   LocalAuthorityRef,
   LocalAuthorityType,
 } from "@siahra/shared-types";
+// import type เท่านั้น — buildBmaDistricts.ts import ฟังก์ชันจากไฟล์นี้ จึงไม่ import
+// runtime กลับเพื่อไม่ให้เกิด import วงกลม (อ่านไฟล์ JSON ตรง ๆ ใน `readBmaDistricts`)
+import type { BmaDistrictsArtefact } from "./buildBmaDistricts.js";
 import { fetchThailandOsm } from "./fetchOsm.js";
 import { readOsmPublishedAt, sha256File } from "./provenance.js";
 
@@ -62,6 +73,7 @@ export const COVERAGE_DIR = path.resolve(
   import.meta.dirname,
   "../data/sources/osm-admin",
 );
+const BMA_DISTRICTS_JSON = path.join(COVERAGE_DIR, "bma-districts.json");
 
 /** ~30 ม. บนละติจูดของไทย — ละเอียดกว่าที่จำเป็นสำหรับ อปท. ขนาดเล็กสุด (ตำบล) */
 export const SIMPLIFY_TOLERANCE_DEG = 0.0002;
@@ -286,6 +298,46 @@ export function matchOsmToRegistry(
   return { matched, rejected, registryKeyCollisions };
 }
 
+/** ขอบเขตเขตของกรุงเทพฯ หนึ่งชิ้นที่ join กับทะเบียนแล้ว */
+export interface BmaBoundaryMatch {
+  ref: LocalAuthorityRef;
+  geometry: unknown;
+  provinceCode: string;
+}
+
+/**
+ * join เขตของกรุงเทพฯ (จาก `bma-districts.json`) เข้ากับทะเบียนด้วย id ตรง ๆ —
+ * ฟังก์ชันล้วน ทุก id ต้องมีอยู่ในทะเบียนเป็น `bma_district` ไม่งั้นโยน error
+ * (ทะเบียนเก่ากว่าไฟล์ตั้งต้น = ลืมรัน buildLocalAuthorities.ts ก่อน) และรูปต้อง
+ * ไม่ว่าง
+ */
+export function matchBmaDistrictsToRegistry(
+  districts: readonly { ref: { id: string }; geometry: unknown }[],
+  registry: readonly LocalAuthorityRef[],
+): BmaBoundaryMatch[] {
+  const byId = new Map(registry.map((r) => [r.id, r]));
+  const out: BmaBoundaryMatch[] = [];
+  const problems: string[] = [];
+  for (const d of districts) {
+    const ref = byId.get(d.ref.id);
+    if (!ref || ref.type !== "bma_district") {
+      problems.push(`${d.ref.id}: not a bma_district in the registry`);
+      continue;
+    }
+    if (!hasCoordinates(d.geometry)) {
+      problems.push(`${d.ref.id}: degenerate geometry`);
+      continue;
+    }
+    out.push({ ref, geometry: d.geometry, provinceCode: ref.provinceCode });
+  }
+  if (problems.length > 0) {
+    throw new Error(
+      `[lao-boundaries] BMA districts do not join the registry — rebuild localAuthorities.json first:\n  ${problems.join("\n  ")}`,
+    );
+  }
+  return out;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ขั้นแตะดิสก์จริง — osmium/ogr2ogr, อ่านทะเบียน, เขียน geojson + manifest
 // ─────────────────────────────────────────────────────────────────────────────
@@ -369,8 +421,9 @@ function buildCoverageMarkdown(input: {
   result: MatchResult;
   registry: readonly LocalAuthorityRef[];
   byType: Record<LocalAuthorityType, CoverageByType>;
+  bma: { count: number; publishedAt: string | null; pbfSha256: string };
 }): string {
-  const { generatedAt, publishedAt, osmFeatureCount, result, byType } = input;
+  const { generatedAt, publishedAt, osmFeatureCount, result, byType, bma } = input;
   const rejectCounts = new Map<RejectReason, number>();
   for (const r of result.rejected) rejectCounts.set(r.reason, (rejectCounts.get(r.reason) ?? 0) + 1);
   const reasonRow = (reason: RejectReason, label: string) =>
@@ -395,7 +448,7 @@ the run against \`apps/etl/data/raw/thailand-latest.osm.pbf\`, not estimates.
 ${reasonRow("degenerate-geometry", "degenerate geometry (empty after -makevalid/-simplify)")}
 ${reasonRow("no-province", "centroid resolves to no province")}
 ${reasonRow("ambiguous-province", "centroid resolves to more than one province")}
-${reasonRow("no-registry-match", "no registry record with this (province, type-prefix+name) key — includes every Bangkok admin_level=7 relation, since DLA's own registry has no Bangkok rows (see apps/etl/data/sources/dla/SOURCE.md)")}
+${reasonRow("no-registry-match", "no registry record with this (province, type-prefix+name) key — includes every Bangkok admin_level=7 relation: DLA's own registry has no Bangkok rows (see apps/etl/data/sources/dla/SOURCE.md), and Bangkok's districts are joined by OSM relation id from admin_level=6 instead (next section), never by name")}
 ${reasonRow("ambiguous-registry-key", "registry itself has >1 record under this key (collision) — declined rather than guessed")}
 ${reasonRow("duplicate-osm-match", "more than one OSM relation matched the same registry record — declined rather than guessed")}
 
@@ -413,16 +466,56 @@ jurisdiction is the whole province, already drawn by the existing province-outli
 layer (\`boundary.geojson\`) — drawing it again here would reproduce the exact bug
 this task exists to fix.
 
+## Bangkok districts (\`bma_district\`, OSM \`admin_level=6\`)
+
+Bangkok is absent from DLA's registry — it is governed by its own act, not the Local
+Administration Act (see \`apps/etl/data/sources/dla/SOURCE.md\`). Owner decision
+2026-09-26: Bangkok's districts (เขต) are added as a **separate unit**, never as
+synthesized DLA อปท. rows.
+
+- Source: OSM relations \`boundary=administrative\` + \`admin_level=6\` whose \`name\`
+  starts with "เขต" **and** whose representative point falls inside Bangkok (province
+  \`10\`) by point-in-polygon against \`apps/api/src/data/provinceRings.json\`
+  (\`apps/etl/src/buildBmaDistricts.ts\`); the build refuses to write unless exactly
+  50 distinct districts come out
+- Written to \`apps/etl/data/sources/osm-admin/bma-districts.json\` (tracked), then
+  appended to the registry by \`buildLocalAuthorities.ts\` and joined here by id
+- Districts written: ${bma.count}
+- OSM replication timestamp of that extract: ${bma.publishedAt ?? "unavailable"}
+- Extract sha256: \`${bma.pbfSha256}\`
+- Id: \`TH-BMA-osm{relationId}\` — the relations carry no \`ref\` (official district
+  code), so none is invented; \`dlaCode\` is \`null\`
+- \`nameTh\` = OSM \`name\` verbatim (e.g. "เขตพระนคร"), \`nameEn\` = OSM \`name:en\`
+  verbatim; \`districtNameTh\`, \`centerLat/centerLon\`, \`areaKm2\` are \`null\`
+  (the source declares none of them)
+- Simplified with the same \`-simplify\` tolerance as the \`admin_level=7\` boundaries
+  (${SIMPLIFY_TOLERANCE_DEG}°)
+- License: ODbL 1.0, © OpenStreetMap contributors (source id \`osm-admin\`)
+
+Bangkok's แขวง (\`admin_level=8\`) are not used.
+
 ## Reproduction
 
 \`\`\`
+npx -y tsx@4 src/buildBmaDistricts.ts            # from apps/etl — Bangkok districts
+npx -y tsx@4 src/buildLocalAuthorities.ts        # registry (DLA + districts)
 npm run build:local-authority-boundaries -w apps/etl
 \`\`\`
 
 Re-run after refreshing \`apps/etl/data/raw/thailand-latest.osm.pbf\` or
 \`apps/api/src/data/localAuthorities.json\`; this file and
-\`apps/etl/data/sources/osm-admin/coverage.json\` are regenerated together.
+\`apps/etl/data/sources/osm-admin/coverage.json\` are regenerated together
+(\`bma-districts.json\` is regenerated by \`buildBmaDistricts.ts\`).
 `;
+}
+
+function readBmaDistricts(): BmaDistrictsArtefact {
+  if (!existsSync(BMA_DISTRICTS_JSON)) {
+    throw new Error(
+      `[lao-boundaries] ${BMA_DISTRICTS_JSON} is missing — run \`npx -y tsx@4 src/buildBmaDistricts.ts\` first`,
+    );
+  }
+  return JSON.parse(readFileSync(BMA_DISTRICTS_JSON, "utf-8")) as BmaDistrictsArtefact;
 }
 
 export async function run(): Promise<void> {
@@ -448,13 +541,19 @@ export async function run(): Promise<void> {
       `rejected ${result.rejected.length} (registry key collisions: ${result.registryKeyCollisions})`,
   );
 
+  const bmaArtefact = readBmaDistricts();
+  const bmaMatched = matchBmaDistrictsToRegistry(bmaArtefact.districts, registryArtefact.localAuthorities);
+  console.log(`[lao-boundaries] Bangkok districts (admin_level=6) joined by id: ${bmaMatched.length}`);
+
   // เขียน geojson รายจังหวัด — เฉพาะจังหวัดที่มีอย่างน้อยหนึ่งขอบเขต
-  const byProvince = new Map<string, typeof result.matched>();
-  for (const m of result.matched) {
-    const list = byProvince.get(m.provinceCode);
+  const byProvince = new Map<string, { ref: LocalAuthorityRef; geometry: unknown }[]>();
+  const pushMatch = (provinceCode: string, m: { ref: LocalAuthorityRef; geometry: unknown }) => {
+    const list = byProvince.get(provinceCode);
     if (list) list.push(m);
-    else byProvince.set(m.provinceCode, [m]);
-  }
+    else byProvince.set(provinceCode, [m]);
+  };
+  for (const m of result.matched) pushMatch(m.provinceCode, { ref: m.ref, geometry: m.feature.geometry });
+  for (const m of bmaMatched) pushMatch(m.provinceCode, { ref: m.ref, geometry: m.geometry });
 
   const generatedAt = new Date().toISOString();
   const writtenProvinces: string[] = [];
@@ -473,7 +572,7 @@ export async function run(): Promise<void> {
           nameTh: m.ref.nameTh,
           type: m.ref.type,
         },
-        geometry: m.feature.geometry,
+        geometry: m.geometry,
       })),
     };
     writeFileSync(path.join(provinceDir, "local-authorities.geojson"), JSON.stringify(fc));
@@ -500,8 +599,9 @@ export async function run(): Promise<void> {
     "subdistrict_municipality",
     "subdistrict_admin_org",
     "special_admin_area",
+    "bma_district",
   ];
-  const matchedIds = new Set(result.matched.map((m) => m.ref.id));
+  const matchedIds = new Set([...result.matched.map((m) => m.ref.id), ...bmaMatched.map((m) => m.ref.id)]);
   const byType = Object.fromEntries(
     ALL_TYPES.map((t) => {
       const totalOfType = registryArtefact.localAuthorities.filter((r) => r.type === t);
@@ -535,6 +635,15 @@ export async function run(): Promise<void> {
         ),
         registryKeyCollisions: result.registryKeyCollisions,
         byType,
+        bmaDistricts: {
+          source: "OSM boundary=administrative admin_level=6, name starts with เขต, inside province 10",
+          license: "ODbL 1.0",
+          sourceIds: bmaArtefact.provenance.sourceIds,
+          publishedAt: bmaArtefact.provenance.publishedAt,
+          pbfSha256: bmaArtefact.provenance.pbfSha256,
+          matchedCount: bmaMatched.length,
+          simplifyToleranceDeg: SIMPLIFY_TOLERANCE_DEG,
+        },
         writtenProvinces,
       },
       null,
@@ -550,6 +659,11 @@ export async function run(): Promise<void> {
       result,
       registry: registryArtefact.localAuthorities,
       byType,
+      bma: {
+        count: bmaMatched.length,
+        publishedAt: bmaArtefact.provenance.publishedAt,
+        pbfSha256: bmaArtefact.provenance.pbfSha256,
+      },
     }),
   );
   console.log(`[lao-boundaries] wrote ${path.join(COVERAGE_DIR, "COVERAGE.md")}`);

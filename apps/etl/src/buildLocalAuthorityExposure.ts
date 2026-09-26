@@ -4,7 +4,7 @@
  *
  *   npm run build:local-authority-exposure -w apps/etl
  *
- * ## ทำไมได้แค่ 431 จาก 7,849 อปท.
+ * ## ทำไมได้แค่ 431 จาก 7,849 อปท. (+ 50 เขตของกรุงเทพฯ ตั้งแต่ 2026-09-26)
  * คำนวณ zonal statistics ได้เฉพาะ อปท. ที่มีขอบเขตจริงจาก E11.2
  * (`apps/web/public/aoi/{code}/local-authorities.geojson`) เท่านั้น — ที่เหลือไม่มี
  * รูปหลายเหลี่ยมให้คำนวณ การประดิษฐ์รูปขึ้นมาเอง (บัฟเฟอร์รอบจุด, ยืมรูปตำบล) คือ
@@ -24,6 +24,13 @@
  * `buildingsPerThousandPop` ไม่ใช่ความเชื่อมั่น (confidence score) แค่อัตราส่วนดิบ
  * ที่ผู้ใช้เอาไปเทียบเองได้ว่าพื้นที่ไหนแมปอาคารไว้ครบกว่าที่อื่น — ค่าต่ำผิดปกติ
  * มักแปลว่า OSM ยังแมปอาคารไม่ครบ ไม่ใช่พื้นที่ไม่มีอาคารจริง ดู COVERAGE.md
+ *
+ * ## `--only=<codes> --merge` — เติมเฉพาะบางจังหวัดโดยไม่รันทั้งประเทศใหม่
+ * `--only` เฉย ๆ เขียนไฟล์ผลลัพธ์ที่มี **เฉพาะ** จังหวัดที่ระบุ (ใช้ไพลอต) ส่วน
+ * `--merge` เก็บ record เดิมของจังหวัดอื่นในไฟล์ที่มีอยู่ไว้ทั้งดุ้น (byte เดิม รวม
+ * `computedAt` เดิมของมัน) แล้วแทน/เติมเฉพาะ record ของจังหวัดที่รันรอบนี้ — ใช้ตอน
+ * เพิ่ม 50 เขตของกรุงเทพฯ (`--only=10 --merge`) โดยไม่คำนวณ 431 record เดิมซ้ำ
+ * `coverage.json` ยังสรุปทั้งไฟล์ที่รวมแล้ว ไม่ใช่แค่รอบนี้
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -409,6 +416,8 @@ export async function run(): Promise<void> {
 
   const onlyArg = process.argv.find((a) => a.startsWith("--only="));
   const only = onlyArg ? onlyArg.slice("--only=".length).split(",") : null;
+  const merge = process.argv.includes("--merge");
+  if (merge && !only) throw new Error("[lao-exposure] --merge needs --only=<codes> (a full run rewrites everything)");
 
   const allProvinceCodes = readdirSync(AOI_DIR, { withFileTypes: true })
     .filter((d) => d.isDirectory())
@@ -557,10 +566,37 @@ export async function run(): Promise<void> {
     }
   }
 
+  let finalExposures = exposures;
+  let priorFailures: { id: string; nameTh: string; reason: string }[] = [];
+  if (merge) {
+    // เก็บ record เดิมของจังหวัดที่ไม่ได้รันรอบนี้ไว้ตามเดิม — id ที่รันรอบนี้แทนของเดิม
+    const prev = existsSync(OUT_PATH)
+      ? (JSON.parse(readFileSync(OUT_PATH, "utf-8")) as LocalAuthorityExposureArtefact)
+      : { generatedAt: computedAt, recordCount: 0, exposures: [] };
+    const rebuiltIds = new Set(exposures.map((e) => e.localAuthorityId));
+    const kept = prev.exposures.filter((e) => !rebuiltIds.has(e.localAuthorityId));
+    finalExposures = [...kept, ...exposures];
+    const prevCoveragePath = path.join(COVERAGE_DIR, "coverage.json");
+    if (existsSync(prevCoveragePath)) {
+      const prevCoverage = JSON.parse(readFileSync(prevCoveragePath, "utf-8")) as {
+        populationFailures?: { id: string; nameTh: string; reason: string }[];
+      };
+      const keptIds = new Set(kept.map((e) => e.localAuthorityId));
+      priorFailures = (prevCoverage.populationFailures ?? []).filter((f) => keptIds.has(f.id));
+    }
+    console.log(
+      `[lao-exposure] --merge: kept ${kept.length} existing records, replaced/added ${exposures.length}`,
+    );
+    zeroPopulationCount = finalExposures.filter((e) => e.population.estimate === 0).length;
+    buildingCountsForSummary.length = 0;
+    for (const e of finalExposures) buildingCountsForSummary.push(e.buildings.count);
+  }
+  const allFailures = [...priorFailures, ...failures];
+
   const artefact: LocalAuthorityExposureArtefact = {
     generatedAt: computedAt,
-    recordCount: exposures.length,
-    exposures,
+    recordCount: finalExposures.length,
+    exposures: finalExposures,
   };
   mkdirSync(path.dirname(OUT_PATH), { recursive: true });
   const json = JSON.stringify(artefact);
@@ -576,9 +612,9 @@ export async function run(): Promise<void> {
         worldpopFetchedAt: worldpopMeta.fetchedAt,
         worldpopPublishedAt: worldpopMeta.publishedAt,
         osmPublishedAt,
-        recordCount: exposures.length,
+        recordCount: finalExposures.length,
         zeroPopulationCount,
-        populationFailures: failures,
+        populationFailures: allFailures,
         buildingCountDistribution: {
           min: Math.min(...buildingCountsForSummary),
           max: Math.max(...buildingCountsForSummary),
@@ -591,7 +627,7 @@ export async function run(): Promise<void> {
   );
 
   console.log(
-    `[lao-exposure] done — ${exposures.length} records, ${failures.length} population failures, ${zeroPopulationCount} zero-population`,
+    `[lao-exposure] done — ${finalExposures.length} records (${exposures.length} computed this run), ${allFailures.length} population failures, ${zeroPopulationCount} zero-population`,
   );
 }
 

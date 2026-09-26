@@ -80,7 +80,8 @@ export const STATIC_LAYER_DESCRIPTORS: Partial<Record<keyof MapLayers, HazardLay
    * ขอบเขต อปท. จาก OSM `admin_level=7` (E11.2) — ครอบคลุมเฉพาะที่ OSM มีขอบเขต
    * จริงเท่านั้น (431/488 relation ที่จับคู่กับทะเบียน DLA ได้ ณ ตอนสร้าง ครบทั้ง
    * เทศบาลนคร บางส่วนของเทศบาลเมือง/ตำบล/อบต. — ดูตัวเลขจริงที่
-   * apps/etl/data/sources/osm-admin/COVERAGE.md) ไม่ใช่ทั้ง 7,849 อปท.
+   * apps/etl/data/sources/osm-admin/COVERAGE.md) ไม่ใช่ทั้ง 7,849 อปท. บวก 50 เขต
+   * ของ กทม. จาก OSM `admin_level=6` (`bma_district`, pbf ชุดเดียวกัน)
    *
    * ค่า publishedAt/fetchedAt เป็นค่าคงที่จริงจากรอบ extraction ล่าสุด (ไม่ใช่
    * เดา) — ไม่ถูกเติมโดย `useLayerDescriptors`'s `PROVENANCE_LAYER_FOR` เพราะ
@@ -93,7 +94,7 @@ export const STATIC_LAYER_DESCRIPTORS: Partial<Record<keyof MapLayers, HazardLay
     liveOrStatic: "static",
     // osmosis_replication_timestamp ของ thailand-latest.osm.pbf ตอน extract
     publishedAt: "2026-08-15T20:21:20Z",
-    fetchedAt: "2026-08-22T18:07:56Z",
+    fetchedAt: "2026-09-26T07:24:30Z",
     sourceIds: ["osm-admin"],
   },
   trees: {

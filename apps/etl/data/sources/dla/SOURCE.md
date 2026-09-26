@@ -43,6 +43,26 @@ Administration Act that creates the หน่วยงาน this dataset lists)
 administer it and it does not appear in DLA's own registry. 76 provinces are
 covered, not 77; Bangkok has no `อปท.` row and must not be synthesized one.
 
+### How Bangkok is covered instead (owner decision 2026-09-26)
+
+Bangkok's **50 districts (เขต)** are carried in the same registry artefact
+(`apps/api/src/data/localAuthorities.json`) as a **separate unit that is not an
+อปท. and not from DLA**:
+
+- `LocalAuthorityType` `"bma_district"` (label "เขต (กทม.)"), id
+  `TH-BMA-osm{relationId}`, `dlaCode: null` — no DLA code is invented, and the OSM
+  relations carry no official district code (`ref`) to use instead
+- Source: OpenStreetMap `boundary=administrative` + `admin_level=6` relations named
+  "เขต…" whose polygon falls inside Bangkok (ODbL 1.0, source id `osm-admin`), built by
+  `apps/etl/src/buildBmaDistricts.ts` into the tracked
+  `apps/etl/data/sources/osm-admin/bma-districts.json`, which
+  `buildLocalAuthorities.ts` appends **after** every DLA record — the 7,849 DLA
+  records are unchanged
+- The registry descriptor's `sourceIds` is therefore `["dla", "osm-admin"]`; its
+  `publishedAt`/`fetchedAt` remain this CSV's, and the OSM extract's own timestamp
+  and sha256 sit in the registry's `bmaDistricts` block
+- Coverage, boundaries and method: `apps/etl/data/sources/osm-admin/COVERAGE.md`
+
 No English names, no district codes (only district *names*, `อำเภอ`), no addresses
 usable as a canonical ID.
 

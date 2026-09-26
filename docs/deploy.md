@@ -383,6 +383,11 @@ under its 15 s edge cache + ≤ 0.7M from flood files served by siahra-web under
 (1M A / 10M B); storage +≈$0.0125/month per accumulated year of scenes; no DO change, no new log line; devops verify
 2026-09-02: **+$0.01/month expected, +$0.70 worst case**; GitHub Actions minutes free (public repo)
 
+The api Worker bakes its static artefacts (`apps/api/src/data/*.json`) into its script bundle. After Bangkok's 50
+districts were added to the local-authority registry, boundaries, exposure and alert rules (2026-09-26), the
+`siahra-api` bundle is 5,599,221 B — the 5.6 MB growth budget `devops` passed is **used up**, so any further growth of
+`apps/api/src/data/*.json` needs a new `devops` pre pass before it is written
+
 **รายการที่สี่ที่ประมาณการข้างบนไม่ได้นับ และเป็นตัวที่ทำให้บิลบานจริง: Durable Objects SQL rows read**
 — คิดตามแถวที่ถูก *สแกน* ไม่ใช่แถวที่ถูกคืนหรือถูกลบ (Workers Paid รวมมาให้ 25B แถว/รอบบิล)
 วัด**ก่อนแก้** (คอมมิต `2e2ecf5`) บนโปรดักชันรอบ 2026-08-18..23: **72.38B rows read เทียบกับ 4.16M rows written** บนสตอเรจ SQL

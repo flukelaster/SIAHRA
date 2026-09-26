@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { LocalAuthorityRef } from "@siahra/shared-types";
+import type { DlaLocalAuthorityRef, LocalAuthorityRef } from "@siahra/shared-types";
 import {
   hasCoordinates,
+  matchBmaDistrictsToRegistry,
   matchOsmToRegistry,
   osmMatchKey,
   pointInRings,
@@ -104,7 +105,9 @@ function square(x0: number, y0: number, x1: number, y1: number) {
   };
 }
 
-function ref(over: Partial<LocalAuthorityRef> & Pick<LocalAuthorityRef, "id" | "provinceCode" | "type" | "nameTh">): LocalAuthorityRef {
+function ref(
+  over: Partial<DlaLocalAuthorityRef> & Pick<DlaLocalAuthorityRef, "id" | "provinceCode" | "type" | "nameTh">,
+): DlaLocalAuthorityRef {
   return {
     dlaCode: over.id.replace("TH-LAO-", ""),
     nameEn: null,
@@ -221,5 +224,44 @@ describe("matchOsmToRegistry", () => {
     };
     const result = matchOsmToRegistry([feature], registry, PROVINCES);
     expect(result.rejected[0].reason).toBe("no-registry-match");
+  });
+});
+
+describe("matchBmaDistrictsToRegistry", () => {
+  const bmaRef: LocalAuthorityRef = {
+    id: "TH-BMA-osm92053",
+    dlaCode: null,
+    nameTh: "เขตพระนคร",
+    nameEn: null,
+    type: "bma_district",
+    provinceCode: "10",
+    districtNameTh: null,
+    centerLat: null,
+    centerLon: null,
+    areaKm2: null,
+  };
+
+  it("joins by id and takes the province from the registry record", () => {
+    const out = matchBmaDistrictsToRegistry([{ ref: { id: bmaRef.id }, geometry: square(0, 0, 1, 1) }], [bmaRef]);
+    expect(out).toHaveLength(1);
+    expect(out[0].provinceCode).toBe("10");
+    expect(out[0].ref).toBe(bmaRef);
+  });
+
+  it("stops the build when a district is missing from the registry (stale localAuthorities.json)", () => {
+    expect(() =>
+      matchBmaDistrictsToRegistry([{ ref: { id: "TH-BMA-osm1" }, geometry: square(0, 0, 1, 1) }], [bmaRef]),
+    ).toThrow(/rebuild localAuthorities.json/);
+  });
+
+  it("never joins a DLA record, even under the same id", () => {
+    const dla = ref({ id: "TH-BMA-osm92053", provinceCode: "10", type: "city_municipality", nameTh: "x" });
+    expect(() =>
+      matchBmaDistrictsToRegistry([{ ref: { id: dla.id }, geometry: square(0, 0, 1, 1) }], [dla]),
+    ).toThrow(/not a bma_district/);
+  });
+
+  it("bma_district has no OSM name prefix — a Bangkok admin_level=7 relation can never name-match a district", () => {
+    expect(registryMatchKey(bmaRef)).toBeNull();
   });
 });
