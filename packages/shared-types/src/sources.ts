@@ -7,6 +7,7 @@
  *
  * Adding a source: add the id to `SourceId`, then `SOURCES` (tsc lists every
  * missing field), then a `SourceStatus` in /api/v1/health if `kind` is "live".
+ * A "browser" source gets no `SourceStatus`: the API never asks it anything.
  */
 export type SourceId =
   | "thaiwater"
@@ -24,7 +25,8 @@ export type SourceId =
   | "worldcover"
   | "esri-world-imagery"
   | "eox-s2cloudless"
-  | "dla";
+  | "dla"
+  | "dwr-cctv";
 
 export interface SourceDescriptor {
   id: SourceId;
@@ -44,10 +46,15 @@ export interface SourceDescriptor {
    */
   attributionText: string;
   /**
-   * live   = polled continuously by the API; must appear in /api/v1/health
-   * static = baked into the tiles/manifest by the ETL, no freshness to report
+   * live    = polled continuously by the API; must appear in /api/v1/health
+   * static  = baked into the tiles/manifest by the ETL, no freshness to report
+   * browser = asked directly by the user's browser, one request per click, never
+   *           by the API — so /api/v1/health has no status for it and must not
+   *           claim one (the server has not probed it; "absent" is the honest
+   *           state). Freshness is shown per item where it was fetched (E15:
+   *           the CCTV popup's capture time and fetch time)
    */
-  kind: "live" | "static";
+  kind: "live" | "static" | "browser";
 }
 
 export const SOURCES: Record<SourceId, SourceDescriptor> = {
@@ -263,6 +270,23 @@ export const SOURCES: Record<SourceId, SourceDescriptor> = {
       "ทะเบียนองค์กรปกครองส่วนท้องถิ่นจากชุดข้อมูลเปิดของกรมส่งเสริมการปกครองท้องถิ่น (DLA)",
     // baked เข้า bundle ตอน build (ETL) ไม่ได้ poll สด จึงไม่มีสถานะให้รายงานใน /api/v1/health
     kind: "static",
+  },
+  "dwr-cctv": {
+    id: "dwr-cctv",
+    nameTh: "ภาพกล้อง CCTV สถานีโทรมาตร (กรมทรัพยากรน้ำ)",
+    nameEn: "Telemetry station CCTV snapshots (Department of Water Resources)",
+    agency: "กรมทรัพยากรน้ำ (Department of Water Resources — DWR)",
+    homepageUrl: "https://telemetry.dwr.go.th",
+    // DWR ไม่ได้เผยแพร่เงื่อนไขการใช้ข้อมูลของ API นี้ (ตรวจ 2026-09-26) — ห้ามตั้งชื่อ
+    // สัญญาอนุญาตขึ้นเอง บอกตามจริงว่าไม่มี — แสดงภาพโดยให้เครดิตแหล่งที่มา (ถอดได้ด้วย
+    // แฟล็ก VITE_FEATURE_CCTV=0 ถ้า DWR ขอ)
+    licenseName: "ไม่ได้เผยแพร่เงื่อนไขการใช้ — แสดงโดยให้เครดิตกรมทรัพยากรน้ำ",
+    licenseUrl: "https://telemetry.dwr.go.th",
+    attributionText:
+      "ภาพจากกล้อง CCTV สถานีโทรมาตร กรมทรัพยากรน้ำ (telemetry.dwr.go.th) — กรมทรัพยากรน้ำไม่ได้รับรองหรือมีส่วนเกี่ยวข้องกับโครงการนี้",
+    // เบราว์เซอร์ของผู้ใช้ขอภาพจาก DWR ตรง ๆ ทีละคลิก api ไม่เคยถาม DWR จึงไม่มีสถานะ
+    // ใน /api/v1/health (และต้องไม่มี) — บัญชีกล้องเป็นไฟล์คงที่จาก ETL
+    kind: "browser",
   },
 };
 

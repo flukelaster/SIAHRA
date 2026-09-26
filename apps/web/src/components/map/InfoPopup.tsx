@@ -1,9 +1,11 @@
-import { ExternalLink, X } from "lucide-react";
-import { useState } from "react";
-import { FloodFieldClass } from "@siahra/shared-types";
+import { Camera, ExternalLink, RefreshCw, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { FloodFieldClass, type CctvCamera } from "@siahra/shared-types";
 import { gfmConfidence } from "../../scene/floodField";
 import type { FloodCellPick, PickResult } from "../../scene/picking";
 import { useStationHistory } from "../../hooks/useStationHistory";
+import { useNow } from "../../hooks/useNow";
+import { DWR_HOME, fetchSnapshot, freshness, nearestCamera, type SnapshotCache, type SnapshotResult } from "../../lib/cctv";
 import { Sparkline } from "../hazard/Sparkline";
 import { floodDepthMaxLabel } from "../../lib/floodStyle";
 import { formatNumber } from "../../lib/number";
@@ -99,6 +101,149 @@ export function GfmCellBlock({ cell, lang, t }: { cell: FloodCellPick; lang: Lan
   );
 }
 
+/**
+ * สิ่งที่ popup ต้องใช้กับกล้อง CCTV (E15) — null = แฟล็กปิดหรือชั้นปิด: ไม่มีแถว
+ * "กล้องใกล้เคียง" และไม่มีทางที่ popup จะส่ง request ไปหา DWR
+ */
+export interface CctvPopupContext {
+  /** บัญชีทั้งประเทศ — สถานีริมเขตจังหวัดอาจใกล้กล้องของจังหวัดข้างเคียงที่สุด */
+  cameras: readonly CctvCamera[];
+  cache: SnapshotCache;
+}
+
+type SnapshotView =
+  | { status: "loading" }
+  | { status: "done"; result: SnapshotResult };
+
+/**
+ * ภาพล่าสุดของกล้อง DWR หนึ่งตัว (E15) — ขอจาก DWR ตอน mount เท่านั้น (คือตอนผู้ใช้คลิก
+ * หมุด หรือกด "ดูภาพ" ในแถวกล้องใกล้เคียง) ภาพที่ได้ภายใน 5 นาทีมาจากแคช
+ *
+ * - เวลาถ่ายมาจาก path ของภาพ; แปลงไม่ได้ = "ไม่ทราบ" ไม่ใช่เวลาปัจจุบัน
+ * - `fetchedAt` แสดงเฉพาะหลังได้ภาพสำเร็จ
+ * - ภาพเก่า (> 45 นาที) หรี่ลงพร้อมป้าย — ยังแสดงอยู่ ไม่ซ่อน
+ * - ล้มเหลวสองแบบ (`unreachable` / `no-image`) มีข้อความของตัวเอง และไม่มีแบบไหนพูดว่า
+ *   กล้องหรือพื้นที่ "ปกติ/เงียบ"
+ */
+export function CctvBody({
+  camera,
+  cache,
+  lang,
+  t,
+  distanceKm = null,
+}: {
+  camera: CctvCamera;
+  cache: SnapshotCache;
+  lang: Lang;
+  t: TFunction;
+  /** ระยะจากสถานีที่เปิดมา (แถวกล้องใกล้เคียง) — null = เปิดจากหมุดกล้องโดยตรง */
+  distanceKm?: number | null;
+}) {
+  const nowMs = useNow();
+  const [reload, setReload] = useState(0);
+  const [view, setView] = useState<SnapshotView>(() => {
+    const hit = cache.get(camera.id);
+    return hit ? { status: "done", result: hit } : { status: "loading" };
+  });
+
+  useEffect(() => {
+    if (reload === 0) {
+      const hit = cache.get(camera.id);
+      if (hit) {
+        setView({ status: "done", result: hit });
+        return;
+      }
+    }
+    const controller = new AbortController();
+    setView({ status: "loading" });
+    fetchSnapshot(camera.id, controller.signal)
+      .then((result) => {
+        if (controller.signal.aborted) return;
+        if (result.kind === "ok") cache.set(camera.id, result);
+        setView({ status: "done", result });
+      })
+      .catch(() => {
+        // AbortError เท่านั้น (ปิด popup/สลับกล้อง) — fetchSnapshot แปลงความล้มเหลวอื่นเป็นผลลัพธ์แล้ว
+      });
+    return () => controller.abort();
+  }, [camera.id, cache, reload]);
+
+  const name = pickName(camera.nameTh, camera.nameEn, lang) ?? t("popup.cctv.fallbackName", { code: camera.stationCode });
+  const result = view.status === "done" ? view.result : null;
+  const ok = result?.kind === "ok" ? result : null;
+  const fresh = ok?.observedAt ? freshness(ok.observedAt, nowMs, lang) : null;
+  const dim = fresh !== null && fresh.level !== "fresh";
+
+  return (
+    <div data-cctv-camera={camera.id}>
+      <p className="pr-6 text-sm font-semibold text-white">{name}</p>
+      <p className="text-[11px] text-[var(--color-fg-muted)]">
+        {[camera.amphoeTh, camera.stationCode, distanceKm !== null ? `${distanceKm.toFixed(1)} ${t("unit.km")}` : null]
+          .filter(Boolean)
+          .join(" · ")}
+      </p>
+      <div className="relative mt-2 aspect-video w-full overflow-hidden rounded-lg bg-black/40">
+        {ok ? (
+          <img
+            src={ok.blobUrl}
+            alt={t("popup.cctv.alt", { name })}
+            className={`h-full w-full object-cover ${dim ? "opacity-55 grayscale-[35%]" : ""}`}
+          />
+        ) : (
+          <p className="flex h-full items-center justify-center px-3 text-center text-[11px] leading-snug text-[var(--color-fg-muted)]">
+            {view.status === "loading"
+              ? t("popup.cctv.loading")
+              : result?.kind === "no-image"
+                ? t("popup.cctv.noImage")
+                : result?.kind === "unreachable"
+                  ? t("popup.cctv.unreachable", { detail: result.detail })
+                  : null}
+          </p>
+        )}
+        {fresh && fresh.level !== "fresh" ? (
+          <span className="absolute top-1.5 left-1.5 rounded bg-[var(--color-risk-medium)]/90 px-1.5 py-px text-[10px] font-medium text-black">
+            {t(fresh.level === "old" ? "popup.cctv.old" : "popup.cctv.stale")}
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-2 flex flex-col gap-0.5">
+        {ok ? (
+          <>
+            <Row
+              k={t("popup.cctv.takenAt")}
+              v={ok.observedAt ? formatFullDateTime(lang, ok.observedAt) : t("popup.cctv.takenAtUnknown")}
+            />
+            {fresh ? <Row k={t("popup.cctv.age")} v={fresh.label} /> : null}
+            <Row k={t("popup.cctv.fetchedAt")} v={formatDateTime(lang, ok.fetchedAt)} />
+          </>
+        ) : null}
+      </div>
+      <div className="mt-1.5 flex items-center justify-between gap-2">
+        <a
+          href={DWR_HOME}
+          target="_blank"
+          rel="noreferrer noopener"
+          title={t("popup.cctv.rights")}
+          className="inline-flex items-center gap-1 text-[10px] text-[var(--color-accent)] hover:underline"
+        >
+          <ExternalLink size={10} aria-hidden="true" />
+          {t("popup.cctv.credit")}
+        </a>
+        <button
+          type="button"
+          onClick={() => setReload((n) => n + 1)}
+          disabled={view.status === "loading"}
+          className="inline-flex cursor-pointer items-center gap-1 rounded-md bg-white/8 px-1.5 py-0.5 text-[10px] text-[var(--color-fg)] hover:bg-white/15 disabled:cursor-default disabled:opacity-50"
+        >
+          <RefreshCw size={10} aria-hidden="true" />
+          {t("popup.cctv.refresh")}
+        </button>
+      </div>
+      <p className="mt-0.5 text-[10px] text-[var(--color-fg-subtle)]">{t("popup.cctv.rights")}</p>
+    </div>
+  );
+}
+
 const HISTORY_RANGES: { hours: number; labelKey: MessageKey }[] = [
   { hours: 72, labelKey: "timeline.range.72h" },
   { hours: 168, labelKey: "timeline.range.7d" },
@@ -109,14 +254,34 @@ function WaterLevelBody({
   pick,
   lang,
   t,
+  cctv,
 }: {
   pick: Extract<PickResult, { kind: "waterlevel" }>;
   lang: Lang;
   t: TFunction;
+  cctv: CctvPopupContext | null;
 }) {
   const { obs } = pick;
   const [hours, setHours] = useState(72);
   const history = useStationHistory(obs.station.id, true, hours);
+  // E15 — กล้อง DWR ภายใน 3 กม. (คิดจากบัญชีที่โหลดไว้แล้ว ไม่ส่ง request ใด) ภาพถูกขอ
+  // เมื่อผู้ใช้กด "ดูภาพ" เท่านั้น
+  const nearest = cctv ? nearestCamera(obs.station.lat, obs.station.lon, cctv.cameras) : null;
+  const [showCamera, setShowCamera] = useState(false);
+  if (cctv && nearest && showCamera) {
+    return (
+      <>
+        <CctvBody camera={nearest.camera} cache={cctv.cache} lang={lang} t={t} distanceKm={nearest.distanceKm} />
+        <button
+          type="button"
+          onClick={() => setShowCamera(false)}
+          className="mt-1.5 cursor-pointer text-[10px] text-[var(--color-accent)] hover:underline"
+        >
+          {t("popup.cctv.back")}
+        </button>
+      </>
+    );
+  }
   return (
     <>
       <p className="text-sm font-semibold text-white">
@@ -147,6 +312,19 @@ function WaterLevelBody({
         ) : null}
         <Row k={t("popup.observedAt")} v={fmtTime(lang, obs.observedAt)} />
       </div>
+      {nearest ? (
+        <button
+          type="button"
+          onClick={() => setShowCamera(true)}
+          className="mt-1.5 flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg bg-white/5 px-2 py-1 text-[11px] text-[var(--color-fg)] hover:bg-white/10"
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <Camera size={12} aria-hidden="true" className="text-[#0ea5e9]" />
+            {t("popup.cctv.nearest", { km: nearest.distanceKm.toFixed(1) })}
+          </span>
+          <span className="text-[var(--color-accent)]">{t("popup.cctv.open")}</span>
+        </button>
+      ) : null}
       <div className="mt-2 rounded-lg bg-black/30 px-2 py-1.5">
         {history.loading ? (
           <div className="h-16 animate-pulse rounded bg-white/8" />
@@ -180,7 +358,16 @@ function WaterLevelBody({
   );
 }
 
-export function InfoPopup({ pick, onClose }: { pick: PickResult; onClose: () => void }) {
+export function InfoPopup({
+  pick,
+  onClose,
+  cctv = null,
+}: {
+  pick: PickResult;
+  onClose: () => void;
+  /** E15 — null = แฟล็ก/ชั้น CCTV ปิด */
+  cctv?: CctvPopupContext | null;
+}) {
   const { lang, t } = useLang();
   return (
     <div className="glass pointer-events-auto relative w-72 rounded-xl px-3 py-2.5 shadow-2xl">
@@ -192,7 +379,12 @@ export function InfoPopup({ pick, onClose }: { pick: PickResult; onClose: () => 
       >
         <X size={13} />
       </button>
-      {pick.kind === "waterlevel" ? <WaterLevelBody pick={pick} lang={lang} t={t} /> : null}
+      {pick.kind === "waterlevel" ? (
+        <WaterLevelBody key={pick.obs.station.id} pick={pick} lang={lang} t={t} cctv={cctv} />
+      ) : null}
+      {pick.kind === "cctv" && cctv ? (
+        <CctvBody key={pick.camera.id} camera={pick.camera} cache={cctv.cache} lang={lang} t={t} />
+      ) : null}
       {pick.kind === "rainfall" ? (
         <>
           <p className="text-sm font-semibold text-white">

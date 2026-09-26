@@ -9,6 +9,7 @@ import { useApiHealth, sourceStatus } from "./hooks/useApiHealth";
 import { useLayerDescriptors } from "./hooks/useLayerDescriptors";
 import { useEarthquakeFeed } from "./hooks/useEarthquakeFeed";
 import { useDams } from "./hooks/useDams";
+import { useCctvCatalogue } from "./hooks/useCctvCatalogue";
 import { useFloodExposure } from "./hooks/useFloodExposure";
 import { useFloodExtent } from "./hooks/useFloodExtent";
 import { useFloodScene } from "./hooks/useFloodScene";
@@ -35,6 +36,7 @@ import { computeForecastBandStatus } from "./lib/forecastStyle";
 import { formatNumber } from "./lib/number";
 import { buildSearchIndex, type SearchPlace } from "./lib/searchIndex";
 import { useLang } from "./i18n/context";
+import { CCTV_ENABLED } from "./lib/featureFlags";
 
 const DEFAULT_PROVINCE_CODE = "10"; // Bangkok
 
@@ -60,6 +62,12 @@ const DEFAULT_LAYERS: MapLayers = {
   floodGfm: true,
   floodDepth: true,
   dams: true,
+  /**
+   * E15 — ภาพกล้อง CCTV ของกรมทรัพยากรน้ำ **ปิดเป็นค่าเริ่มต้น**: การเปิดชั้นทำให้
+   * เบราว์เซอร์ดึงบัญชีกล้อง และคลิกหมุดทำให้ขอภาพจาก DWR ตรง ๆ — ต้องเป็นการกดของผู้ใช้
+   * และมีผลเฉพาะเมื่อแฟล็ก `VITE_FEATURE_CCTV` เปิด (เปิดเป็นค่าเริ่มต้น; `VITE_FEATURE_CCTV=0` ตอน build = ถอดทั้งชั้น)
+   */
+  cctv: false,
   radar: true,
   sunlight: true,
   trees: true,
@@ -113,6 +121,9 @@ export default function App() {
   const provinceName = lang === "th" ? province.nameTh : province.nameEn;
   const observations = useObservations(provinceCode, atIso);
   const dams = useDams(provinceCode);
+  // E15 — แฟล็กปิด = ไม่ดึงบัญชีกล้องเลย แม้ permalink จะตั้ง `cctv` ไว้
+  const cctvOn = CCTV_ENABLED && layers.cctv;
+  const cctvCatalogue = useCctvCatalogue(cctvOn);
   const radar = useRadar(layers.radar);
   const earthquakes = useEarthquakeFeed();
   const apiHealth = useApiHealth();
@@ -261,6 +272,7 @@ export default function App() {
     exposure,
     floodScenes,
     floodScene,
+    cctvCatalogue: CCTV_ENABLED ? cctvCatalogue.data : null,
     health: apiHealth.health,
     // เวลาที่ artefact ของชั้นคงที่ถูก build มาจาก manifest ของจังหวัดที่แสดงอยู่
     // (null ตอนยังไม่โหลด/manifest รุ่นก่อน E9.1 → legend คงข้อความ "ไม่ได้บันทึกเวลา")
@@ -401,6 +413,7 @@ export default function App() {
     exposureLegend,
     forecastLegend,
     floodGfmLegend,
+    cctvCatalogue,
     observations,
     floodExtent,
     floodScenes,
@@ -440,6 +453,7 @@ export default function App() {
         floodSceneObservedAt={floodScene.scene?.observedAt ?? null}
         floodFieldDim={floodFieldDim}
         dams={dams.data?.dams ?? []}
+        cctvCameras={cctvOn ? cctvCatalogue.data?.cameras : undefined}
         radar={radar.data}
         exposure={exposure.data}
         exposureStale={exposureNoNewRun}

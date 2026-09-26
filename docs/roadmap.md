@@ -1298,6 +1298,42 @@ hydraulics stay excluded and the four scoping decisions in §0 are unchanged.
 - Risk: FABDEM is CC BY-NC-SA — a licence decision, not a code one
 - Issue: _(not yet filed)_
 
+### E15 — DWR telemetry CCTV snapshots — *done* (2026-09-26), shipped with attribution
+
+New scope, not from the audit. Public CCTV snapshots from the Department of Water Resources (DWR)
+telemetry API (`https://telemetry.dwr.go.th`), shown where a camera sits next to a water-level
+station. DWR publishes no terms of use for this API (checked 2026-09-26); the owner decided to ship
+it in production with visible attribution rather than wait for an answer (§4). The build flag
+`VITE_FEATURE_CCTV` stays as a kill switch (`=0` removes the whole layer). Zero
+Cloudflare cost: no DO, R2, cron or route; the browser asks DWR directly.
+
+- Touches: new `apps/etl/src/build-cctv.ts` (+ test, + `build-cctv.README.md`) and `npm run
+  build:cctv -w apps/etl` → tracked `apps/web/public/cctv/dwr-cameras.json`;
+  `packages/shared-types/src/{cctv,sources}.ts` (`CctvCamera`, `CctvCatalogue`, `SourceId`
+  `dwr-cctv`, new `SourceDescriptor` kind `"browser"`, excluded from `LIVE_SOURCE_IDS`); web
+  `lib/{cctv,featureFlags}.ts`, `hooks/useCctvCatalogue.ts`, `scene/CctvMarkers.ts`, pick kind
+  `cctv`, `InfoPopup` `CctvBody`, the legend row and descriptor; `public/_headers` +
+  `docs/security.md` (`connect-src` only)
+- Depends: —
+- Size: M
+- Risk: the source's permission — a licence decision, not a code one; the upstream payloads carry
+  direct camera link fields that must never be copied (allowlist projection, write-time refusal)
+- Issue: _(not yet filed)_
+
+1. The catalogue (126 cameras in 58 provinces at the first build) is an allowlist projection; the
+   build refuses to write output matching `CREDENTIAL_PATTERN`
+   (`/@|dyndns|:\/\/[^/]*:[^/]*@/i`), and a test proves fake credential-bearing
+   links never reach the file.
+2. The layer's descriptor is `static-reference` with `fetchedAt = builtAt` and `publishedAt: null`;
+   `/api/v1/health` has no `dwr-cctv` row, because the API never probes it.
+3. A snapshot is fetched only on click, one camera at a time; its capture time comes from the
+   snapshot path at `+07:00`, the fetch time is shown only after a success, and fresh ≤ 45 min /
+   stale ≤ 24 h / older is dimmed and badged.
+4. "Could not ask DWR" and "DWR answered with no image" are distinct texts; neither says the camera
+   or the area is quiet.
+5. With the flag off there is no toggle, no legend row, no marker, no catalogue fetch and no request
+   to `telemetry.dwr.go.th`, even with `?layers=…,cctv` in the URL.
+
 ## 3. Suggested first two weeks
 
 - **Week 1** (all independent, can run in any order): E1.1, E1.2, E2.1, E2.2, E2.3 (once the secrets
@@ -1318,6 +1354,7 @@ Tracked as one pinned `needs-user` checklist issue, not as tasks.
 | Does the default UI language stay Thai? | E7.1 | **resolved 2026-08-18: yes, Thai always** — English via the toggle or `?lang=en`, never auto-detected |
 | Rerun ETL and upload with `scripts/.env.r2` (the user's machine, hours of runtime) | E9.1, E9.2, E9.3, and verifying E8.3 | **partly resolved 2026-08-20** — no rebuild was needed: none of E8.3/E9.1/E9.2/E9.3 changes a tile byte, so a `--force` rebuild would have spent hours writing byte-identical output through the symlink into the main checkout. What the provenance actually needed was a manifest refresh (`npm run refresh:manifests -w apps/etl`), run over the existing artefacts: 78 manifests written, checksums verified independently, per-layer `builtAt` taken from the untracked tile directories because the tracked files' mtimes are the checkout instant. **Still open:** copying the tiles to E9.2's versioned prefix on R2, which needs the storage decision below |
 | **blocker: R2 storage past the free tier** — E9.2's versioned prefix means the same 5.174 GiB / 303,260 objects exist twice (the old prefix is served `immutable` for a year and can never be deleted), taking the bucket to about 10.35 GiB against a 10 GB free allowance. Server-side copy, so nothing is re-uploaded from a laptop; 303k Class A operations stay inside the free 1M/month | E9.2, E9.3 | **resolved 2026-08-20: copy all 303,260 objects** — accepted the overage. Server-side copy only, proved on one province (11, 903 files) with a 200 through `siahra-radar.co` before the other 76 |
+| **DWR permission** — the Department of Water Resources publishes no terms for its telemetry CCTV API | shipping E15 in production | **resolved 2026-09-26: ship with attribution** — owner's call (a request would likely go unanswered); DWR credited in every camera popup and the always-mounted credit line, and `VITE_FEATURE_CCTV=0` at build time removes the layer if DWR objects |
 | Is a GitHub blob URL acceptable as the methodology URL? | E3.4, E10.1 | **resolved 2026-08-18: no — a `/methodology` page on the web app**, rendering the Markdown in `docs/methodology/` |
 
 ## 5. Deferred — deliberately not doing now (with triggers)

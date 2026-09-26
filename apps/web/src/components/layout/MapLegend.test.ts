@@ -25,6 +25,7 @@ const ALL_OFF: MapLayers = {
   floodGfm: true,
   floodDepth: true,
   dams: false,
+  cctv: false,
   radar: false,
   sunlight: false,
   trees: false,

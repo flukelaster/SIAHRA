@@ -50,7 +50,7 @@ of the policy string free to drift from the file Cloudflare actually reads.
 default-src 'self'; base-uri 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'none';
 form-action 'none'; script-src 'self'; style-src 'self' 'unsafe-inline';
 img-src 'self' data: blob: https://server.arcgisonline.com https://tiles.maps.eox.at;
-font-src 'self'; connect-src 'self' wss://siahra-radar.co; worker-src 'self';
+font-src 'self'; connect-src 'self' wss://siahra-radar.co https://telemetry.dwr.go.th; worker-src 'self';
 manifest-src 'self'; media-src 'none'
 ```
 
@@ -69,8 +69,14 @@ manifest-src 'self'; media-src 'none'
 - `img-src` — `data:`/`blob:` for the share-image download (`App.tsx`) and the stitched basemap
   canvas; the two hosts are the basemap providers loaded as `<img>` by `scene/SatelliteImagery.ts`
   (Esri World Imagery and EOX Sentinel-2 cloudless).
-- `connect-src 'self' wss://siahra-radar.co` — same-origin `/api/*` plus the earthquake WebSocket.
-  CSP3 says `'self'` already matches `wss:` on the same origin; the explicit host is belt and braces.
+- `connect-src 'self' wss://siahra-radar.co https://telemetry.dwr.go.th` — same-origin `/api/*` plus
+  the earthquake WebSocket. CSP3 says `'self'` already matches `wss:` on the same origin; the explicit
+  host is belt and braces. `https://telemetry.dwr.go.th` (E15) is the Department of Water Resources
+  telemetry API: the browser asks it directly for one CCTV snapshot per click (`GET
+  /api/public/reportCctv/snapshot/{id}`, then `POST /api/file/image/cctv` for the JPEG — DWR reflects
+  our origin in CORS, checked 2026-09-26). The JPEG is shown from a `blob:` URL, which `img-src`
+  already allows, so only `connect-src` grows. The layer is on in production; building with
+  `VITE_FEATURE_CCTV=0` removes it, and this entry is then inert.
 - `worker-src 'self'` — `src/workers/*.worker.ts` are bundled to same-origin URLs, not blobs.
 - `font-src 'self'` — this is only possible because E4.1 moved Sarabun and IBM Plex Mono into
   `public/fonts/`. Re-adding a Google Fonts `<link>` would force `font-src`/`style-src` back open.

@@ -2,6 +2,7 @@ import { Hand, Layers, Maximize2, Minimize2, Minus, MousePointer2, Navigation, P
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import type {
+  CctvCamera,
   DamObservation,
   EarthquakeEvent,
   FloodExtentResponse,
@@ -42,6 +43,7 @@ export function MapViewport({
   floodSceneObservedAt = null,
   floodFieldDim = false,
   dams,
+  cctvCameras,
   radar,
   exposure,
   exposureStale = false,
@@ -88,6 +90,8 @@ export function MapViewport({
   floodSceneObservedAt?: string | null;
   floodFieldDim?: boolean;
   dams: DamObservation[];
+  /** บัญชีกล้อง CCTV ของ DWR (E15) — ส่งต่อให้ Map3DCanvas; undefined/ว่าง = ไม่มีหมุด */
+  cctvCameras?: readonly CctvCamera[];
   radar: RadarFramesResponse | null;
   /** run ล่าสุดของ "ระดับการเผชิญน้ำ (ภาพประกอบ)" — null = ยังไม่มี/ชั้นถูกปิด */
   exposure: ProvinceExposureResponse | null;
@@ -182,6 +186,7 @@ export function MapViewport({
         floodSceneObservedAt={floodSceneObservedAt}
         floodFieldDim={floodFieldDim}
         dams={dams}
+        cctvCameras={cctvCameras}
         radar={radar}
         exposure={exposure}
         exposureStale={exposureStale}

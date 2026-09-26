@@ -4,6 +4,7 @@ import type { Lang } from "../../i18n";
 import { useT } from "../../i18n/context";
 import type { ActiveAlertsState } from "../../hooks/useActiveAlerts";
 import type { AffectedAuthoritiesState } from "../../hooks/useAffectedAuthorities";
+import type { CctvCatalogueState } from "../../hooks/useCctvCatalogue";
 import type { DamsState } from "../../hooks/useDams";
 import type { EarthquakeFeedState } from "../../hooks/useEarthquakeFeed";
 import type { FloodExtentState } from "../../hooks/useFloodExtent";
@@ -56,6 +57,8 @@ export interface PanelContext {
   forecastLegend: ForecastLegendState;
   /** E14.F4 — ฉาก Copernicus GFM ที่กำลังแสดง + เหตุผลเมื่อไม่มี (legend สองแถว) */
   floodGfmLegend: FloodGfmLegendState;
+  /** E15 — บัญชีกล้อง CCTV ของ DWR (โหลดเฉพาะเมื่อแฟล็ก + ชั้นเปิด) legend บอกเมื่อโหลดไม่ได้ */
+  cctvCatalogue: CctvCatalogueState;
   observations: ObservationsState;
   floodExtent: FloodExtentState;
   /** E14.F5 — ดัชนีฉาก Copernicus GFM ของจังหวัด + ฉากที่เลือกตาม atIso (แผง flood) */
@@ -98,6 +101,7 @@ export function LayersPanel({ ctx }: { ctx: PanelContext }) {
         exposure={ctx.exposureLegend}
         forecast={ctx.forecastLegend}
         floodGfm={ctx.floodGfmLegend}
+        cctvError={ctx.cctvCatalogue.error}
       />
       <div className="glass-soft mt-auto shrink-0 rounded-2xl px-3.5 py-2.5">
         <ApiStatusFooter

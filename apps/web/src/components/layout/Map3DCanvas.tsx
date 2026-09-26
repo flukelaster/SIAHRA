@@ -3,6 +3,7 @@ import * as THREE from "three";
 import type {
   AoiManifest,
   AoiProvenance,
+  CctvCamera,
   DamObservation,
   EarthquakeEvent,
   FloodExtentResponse,
@@ -18,6 +19,7 @@ import {
 } from "../../scene/LocalAuthorityOutline";
 import { buildBuildingLayer } from "../../scene/BuildingLayer";
 import { buildDamMarkers, type DamMarkerResult } from "../../scene/DamMarkers";
+import { buildCctvMarkers, type CctvMarkerResult } from "../../scene/CctvMarkers";
 import { BuildingTileLayer } from "../../scene/BuildingTiles";
 import { FeatureTileLayer } from "../../scene/FeatureTiles";
 import { VegetationTiles } from "../../scene/VegetationTiles";
@@ -51,6 +53,8 @@ import { buildTerrainMesh, type TerrainField } from "../../scene/TerrainMesh";
 import { createTerrainSharedUniforms } from "../../scene/terrainMaterial";
 import { disposedTreeCounters, TerrainTileTree, type TerrainTileStats } from "../../scene/TerrainTiles";
 import { formatNumber } from "../../lib/number";
+import { CCTV_ENABLED } from "../../lib/featureFlags";
+import { SnapshotCache } from "../../lib/cctv";
 import { useLang } from "../../i18n/context";
 import type { MessageKey } from "../../i18n";
 import { errorMessage, resolveError, type ErrorMessage } from "../../lib/errorMessage";
@@ -84,6 +88,11 @@ export interface MapLayers {
    */
   floodDepth: boolean;
   dams: boolean;
+  /**
+   * กล้อง CCTV ของกรมทรัพยากรน้ำ (E15) — **ปิดเป็นค่าเริ่มต้น** และมีผลเฉพาะเมื่อแฟล็ก
+   * `VITE_FEATURE_CCTV` เปิด (`lib/featureFlags.ts`) ภาพถูกดึงจาก DWR ต่อเมื่อคลิกหมุดเท่านั้น
+   */
+  cctv: boolean;
   radar: boolean;
   /** Sun and sky follow real (or timeline) time instead of a fixed studio light. */
   sunlight: boolean;
@@ -152,6 +161,9 @@ type LoadState =
 
 const MAX_STATION_LABELS = 10;
 
+/** ค่าเริ่มต้นที่ identity คงที่ — `[]` ใน default parameter จะสร้างใหม่ทุกเรนเดอร์แล้วสร้างหมุดใหม่ทุกครั้ง */
+const NO_CAMERAS: readonly CctvCamera[] = [];
+
 export function Map3DCanvas({
   aoiId,
   observations,
@@ -162,6 +174,7 @@ export function Map3DCanvas({
   floodSceneObservedAt = null,
   floodFieldDim = false,
   dams,
+  cctvCameras = NO_CAMERAS,
   radar,
   exposure,
   exposureStale = false,
@@ -196,6 +209,11 @@ export function Map3DCanvas({
   /** true = แหล่ง GFM ค้าง/ไม่ปกติ → ชั้นหรี่ลง ไม่หายไป */
   floodFieldDim?: boolean;
   dams: DamObservation[];
+  /**
+   * บัญชีกล้อง CCTV ของ DWR (E15) — ว่าง = แฟล็กปิด / ชั้นปิด / ยังไม่โหลด ใช้ทั้งวาดหมุด
+   * และหา "กล้องใกล้เคียง" ใน popup ของสถานีระดับน้ำ (ทั้งบัญชี ไม่ใช่เฉพาะในจังหวัด)
+   */
+  cctvCameras?: readonly CctvCamera[];
   radar: RadarFramesResponse | null;
   /** run ล่าสุดของ "ระดับการเผชิญน้ำ (ภาพประกอบ)" — null = ยังไม่มี/ชั้นถูกปิด */
   exposure: ProvinceExposureResponse | null;
@@ -271,6 +289,15 @@ export function Map3DCanvas({
     unregister: (() => void) | null;
   } | null>(null);
   const damsRef = useRef<DamMarkerResult | null>(null);
+  const cctvRef = useRef<CctvMarkerResult | null>(null);
+  /**
+   * แคชภาพ CCTV 5 นาที (E15) — เจ้าของ object URL ทั้งหมด: ล้าง (revoke) เมื่อปิดชั้น
+   * และเมื่อแผนที่ถูกถอด (สลับจังหวัด = remount ด้วย key={aoiId})
+   */
+  const [snapshotCache] = useState(() => new SnapshotCache());
+  const cctvOn = CCTV_ENABLED && layers.cctv;
+  const cctvOnRef = useRef(cctvOn);
+  cctvOnRef.current = cctvOn;
   const exposureRef = useRef<ExposureMarkerResult | null>(null);
   /** ถอนตัวนับดีบักของชั้นการเผชิญน้ำ (DEV) เมื่อ run เปลี่ยนหรือฉากถูกทิ้ง */
   const exposureDebugRef = useRef<(() => void) | null>(null);
@@ -735,6 +762,8 @@ export function Map3DCanvas({
       if (damsRef.current) disposeLabels(damsRef.current.labels);
       damsRef.current?.dispose();
       damsRef.current = null;
+      cctvRef.current?.dispose();
+      cctvRef.current = null;
       exposureDebugRef.current?.();
       exposureDebugRef.current = null;
       exposureRef.current?.dispose();
@@ -1002,6 +1031,32 @@ export function Map3DCanvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dams, state.status, lang, t]);
 
+  // หมุดกล้อง CCTV ของ DWR (E15) — สร้างเมื่อมีบัญชี (ซึ่งมีเฉพาะเมื่อแฟล็ก + ชั้นเปิด)
+  useEffect(() => {
+    const handles = sceneRef.current;
+    const loaded = terrainRef.current;
+    if (!handles || !loaded) return;
+    if (cctvRef.current) {
+      handles.markers.remove(cctvRef.current.dots);
+      cctvRef.current.dispose();
+      cctvRef.current = null;
+    }
+    if (!CCTV_ENABLED || cctvCameras.length === 0) return;
+    const result = buildCctvMarkers(loaded.manifest, cctvCameras, loaded.terrain.sample, handles.viewportHeightPx());
+    result.applyExaggeration(handles.getExaggeration());
+    result.dots.visible = cctvOnRef.current;
+    handles.markers.add(result.dots);
+    cctvRef.current = result;
+  }, [cctvCameras, state.status]);
+
+  // ปิดชั้น CCTV = ปิด popup ของกล้อง + คืน object URL ทั้งหมด; ถอดแผนที่ = คืนทั้งหมดเช่นกัน
+  useEffect(() => {
+    if (cctvOn) return;
+    snapshotCache.clear();
+    setPick((p) => (p?.kind === "cctv" ? null : p));
+  }, [cctvOn, snapshotCache]);
+  useEffect(() => () => snapshotCache.clear(), [snapshotCache]);
+
   // ระดับการเผชิญน้ำ (ภาพประกอบ) — E10.4
   //
   // สองส่วนที่ต้องไปด้วยกันเสมอ:
@@ -1182,6 +1237,7 @@ export function Map3DCanvas({
     handles.setExaggeration(exaggeration);
     markersRef.current?.applyExaggeration(exaggeration);
     damsRef.current?.applyExaggeration(exaggeration);
+    cctvRef.current?.applyExaggeration(exaggeration);
     exposureRef.current?.applyExaggeration(exaggeration);
   }, [exaggeration, state.status]);
 
@@ -1243,6 +1299,7 @@ export function Map3DCanvas({
         damsRef.current.dots.visible = layers.dams;
         damsRef.current.labels.visible = layers.dams;
       }
+      if (cctvRef.current) cctvRef.current.dots.visible = cctvOn;
       radarRef.current?.setEnabled(layers.radar);
       loaded.vegetation?.setEnabled(layers.trees);
       if (floodLabelsRef.current) floodLabelsRef.current.visible = layers.floodExtent;
@@ -1261,14 +1318,18 @@ export function Map3DCanvas({
     }
     if (labelsRef.current) labelsRef.current.visible = layers.stations;
     if (buildingsRef.current) buildingsRef.current.visible = layers.buildings;
-  }, [layers, state.status, imageryProgress]);
+  }, [layers, cctvOn, state.status, imageryProgress]);
 
   return (
     <div className="absolute inset-0">
       <div ref={containerRef} className="map-sky absolute inset-0 touch-none" />
       {pick ? (
         <div ref={popupDivRef} className="pointer-events-none absolute top-0 left-0 z-30 will-change-transform">
-          <InfoPopup pick={pick} onClose={closePopup} />
+          <InfoPopup
+            pick={pick}
+            onClose={closePopup}
+            cctv={cctvOn ? { cameras: cctvCameras, cache: snapshotCache } : null}
+          />
         </div>
       ) : null}
 

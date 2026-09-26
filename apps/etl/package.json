@@ -17,6 +17,7 @@
     "build:local-authority-boundaries-bundle": "tsx src/buildLocalAuthorityBoundariesBundle.ts",
     "build:local-authority-exposure": "tsx src/buildLocalAuthorityExposure.ts",
     "build:alert-rules": "tsx src/buildAlertRules.ts",
+    "build:cctv": "tsx src/build-cctv.ts",
     "refresh:manifests": "tsx src/refreshManifests.ts",
     "gfm:test": "uv run --frozen --directory gfm pytest",
     "gfm:run": "uv run --frozen --directory gfm python -m gfm run",
@@ -27,7 +28,8 @@
   "dependencies": {
     "@siahra/shared-types": "*",
     "@turf/turf": "^7.2.0",
-    "execa": "^10.0.1"
+    "execa": "^10.0.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^26.6.2",
