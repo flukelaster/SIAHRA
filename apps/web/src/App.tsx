@@ -3,6 +3,7 @@ import { AppShell } from "./components/layout/AppShell";
 import type { MapApi, MapInfo, MapLayers } from "./components/layout/Map3DCanvas";
 import { MapViewport } from "./components/layout/MapViewport";
 import type { PanelContext } from "./components/layout/panelRegistry";
+import type { StationFocus } from "./components/layout/panelViews";
 import { PROVINCES } from "./data/provinces";
 import { aoiIdForProvince } from "./data/types";
 import { useApiHealth, sourceStatus } from "./hooks/useApiHealth";
@@ -405,6 +406,43 @@ export default function App() {
   const openPanel = shell.openPanel;
   const openLayersPanel = useCallback(() => openPanel("layers"), [openPanel]);
 
+  // E16 — แผงเส้นทางน้ำเหนือขอ "ไปที่สถานีนี้": สลับจังหวัดก่อน (ถ้าต่าง) แล้วรอจนฉากของ
+  // จังหวัดนั้นพร้อม (MapApi ถูกตั้งใหม่ + mapInfo) และ observations ของจังหวัดนั้นมาถึง
+  // จึงบินไปแล้วเปิด popup ด้วยค่าชุดเดียวกับหมุดบนแผนที่ — ไม่มีค่าของสถานีในชุดนั้น
+  // (เช่นเลื่อนเวลาไปช่วงที่สถานีไม่มีค่า) = บินไปที่พิกัดเฉย ๆ ไม่แต่ง popup ขึ้นเอง
+  const [stationFocus, setStationFocus] = useState<StationFocus | null>(null);
+  const setSheetSnap = shell.setSheetSnap;
+  const shellTier = shell.tier;
+  const focusStation = useCallback(
+    (target: StationFocus) => {
+      if (target.provinceCode && target.provinceCode !== provinceCode) selectProvince(target.provinceCode);
+      // มือถือ: ลดแผ่นเลื่อนลงเหลือ peek ไม่งั้น popup ที่เพิ่งเปิดจะอยู่ใต้แผ่นเลื่อน
+      if (shellTier === "phone") setSheetSnap("peek");
+      setStationFocus(target);
+    },
+    [provinceCode, selectProvince, shellTier, setSheetSnap],
+  );
+  useEffect(() => {
+    if (!stationFocus) return;
+    const want = stationFocus.provinceCode ?? provinceCode;
+    if (want !== provinceCode) return;
+    const api = mapApiRef.current;
+    if (!api || !mapInfo) return;
+    const data = observations.data;
+    const dataForProvince = data !== null && (data.summary.provinceCode === null || data.summary.provinceCode === want);
+    // observations ล้มเหลว: ยังบินไปที่สถานีได้ (พิกัดมาจากผัง) แต่ไม่มีค่าให้เปิด popup
+    if (!dataForProvince && !observations.error) return;
+    api.flyToLonLat(stationFocus.lon, stationFocus.lat, 6000);
+    if (!dataForProvince || !data) {
+      setStationFocus(null);
+      return;
+    }
+    const obs = data.waterlevel.find((w) => w.station.id === stationFocus.stationId);
+    if (obs) api.selectWaterlevel(obs);
+    setStationFocus(null);
+  }, [stationFocus, provinceCode, mapInfo, observations.data, observations.error]);
+
+
   // ทุกอย่างที่แผงใดแผงหนึ่งอาจต้องใช้ — ก้อนเดียว ส่งให้ drawer/แผ่นเลื่อนเรนเดอร์
   // เฉพาะแผงที่เปิดอยู่ (components/layout/panels.tsx)
   const ctx: PanelContext = {
@@ -440,6 +478,7 @@ export default function App() {
     // ตัวตั้งเดียวกับที่ TimelineBar ใช้ (ผ่าน AppShell → onAtIsoChange) — แผงฉาก GFM
     // เลือกเวลาแล้วมาตรวัดน้ำ/ดวงอาทิตย์/GISTDA ?at=/เรดาร์ จึงเดินตามพร้อมกัน
     setAtIso: handleAtIsoChange,
+    focusStation,
   };
 
   return (

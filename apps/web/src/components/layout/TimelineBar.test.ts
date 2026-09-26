@@ -5,12 +5,12 @@ import { LANGS, translator, type Lang } from "../../i18n";
 import { LanguageContext } from "../../i18n/context";
 import { floodCss } from "../../lib/floodStyle";
 import { formatFetchedAt } from "../../lib/time";
-import { applyRangeChange } from "../../lib/timelineRange";
+import { applyRangeChange, DEFAULT_TIMELINE_RANGE_INDEX, TIMELINE_RANGES } from "../../lib/timelineRange";
 import { TimelineBar, type TimelineMark } from "./TimelineBar";
 
 /**
  * เรนเดอร์แถบเวลาจริงด้วย react-dom/server แล้วอ่านขีดรอบบิน Sentinel-1 (E14.F5):
- * ขีดในช่วง 72 ชม. (ช่วงเริ่มต้น) ต้องอยู่ที่ตำแหน่งจริง ขีดนอกช่วงต้องไม่ถูกวาด
+ * ขีดในช่วง 48 ชม. (ช่วงเริ่มต้น, E16) ต้องอยู่ที่ตำแหน่งจริง ขีดนอกช่วงต้องไม่ถูกวาด
  * และเวลาที่เลือกซึ่งเก่ากว่าช่วงต้องมีชิป "นอกช่วงของแถบเลื่อน"
  */
 const NOW = Date.parse("2026-09-02T12:00:00Z");
@@ -26,11 +26,11 @@ function render(lang: Lang, props: { atIso: string | null; variant: "dense" | "f
 }
 
 const marks: TimelineMark[] = [
-  // 36 ชม. ก่อน → กึ่งกลางของช่วง 72 ชม.
+  // 36 ชม. ก่อน → หนึ่งในสี่ของราง (ช่วง 48 ชม.)
   { atIso: "2026-09-01T00:00:00.000Z", flooded: true, label: "flooded pass" },
-  // 6 ชม. ก่อน → 11/12 ของราง
+  // 6 ชม. ก่อน → 7/8 ของราง
   { atIso: "2026-09-02T06:00:00.000Z", flooded: false, label: "dry pass" },
-  // 10 วันก่อน → นอกช่วง 72 ชม. ห้ามวาด
+  // 10 วันก่อน → นอกช่วง 48 ชม. ห้ามวาด
   { atIso: "2026-08-23T12:00:00.000Z", flooded: true, label: "out of range pass" },
 ];
 
@@ -52,14 +52,14 @@ describe("TimelineBar — ขีดรอบบิน Sentinel-1", () => {
     vi.useRealTimers();
   });
 
-  it.each(["dense", "full"] as const)("วาดเฉพาะขีดในช่วง 72 ชม. ที่ตำแหน่งจริง (%s)", (variant) => {
+  it.each(["dense", "full"] as const)("วาดเฉพาะขีดในช่วง 48 ชม. ที่ตำแหน่งจริง (%s)", (variant) => {
     const html = render("th", { atIso: null, variant, marks });
     const btns = markButtons(html);
     expect(btns.map((b) => b.title)).toEqual(["flooded pass", "dry pass"]);
     expect(html).not.toContain("out of range pass");
-    // 36/72 = 0.5 และ 66/72 = 0.91667 ของราง (นับจากกึ่งกลางหัวเลื่อน)
-    expect(btns[0].left).toContain("0.50000");
-    expect(btns[1].left).toContain("0.91667");
+    // 1 − 36/48 = 0.25 และ 1 − 6/48 = 0.875 ของราง (นับจากกึ่งกลางหัวเลื่อน)
+    expect(btns[0].left).toContain("0.25000");
+    expect(btns[1].left).toContain("0.87500");
     expect(btns[0].flooded).toBe("1");
     expect(btns[1].flooded).toBe("0");
     // ขีดที่ท่วมใช้สีเดียวกับชั้น GFM บนแผนที่ (lib/floodStyle.ts) ไม่ใช่สีที่เลือกแยก
@@ -90,7 +90,7 @@ describe("TimelineBar — ขีดรอบบิน Sentinel-1", () => {
 
   it.each(LANGS)("dense (มือถือ, overflow-hidden): ชิป 'นอกช่วง' *แทน* ชิปคลังถาวร ไม่ใช่ต่อท้ายจนถูกตัด (%s)", (lang) => {
     const t = translator(lang);
-    // ปี 2024 = ทั้งนอกช่วง 72 ชม. และเก่ากว่า 7 วัน (มาจากคลัง) — dense แสดงชิปเดียว
+    // ปี 2024 = ทั้งนอกช่วง 48 ชม. และเก่ากว่า 7 วัน (มาจากคลัง) — dense แสดงชิปเดียว
     const old = render(lang, { atIso: "2024-09-13T11:30:00.000Z", variant: "dense" });
     expect(old).toContain(t("timeline.outOfRange"));
     expect(old).not.toContain(t("timeline.fromArchive"));
@@ -101,7 +101,7 @@ describe("TimelineBar — ขีดรอบบิน Sentinel-1", () => {
     const oldFull = render(lang, { atIso: "2024-09-13T11:30:00.000Z", variant: "full" });
     expect(oldFull).toContain(t("timeline.outOfRange"));
     expect(oldFull).toContain(t("timeline.fromArchive"));
-    // ในช่วง 72 ชม. → ไม่มีชิปใดเลย
+    // ในช่วง 48 ชม. → ไม่มีชิปใดเลย
     const recent = render(lang, { atIso: "2026-09-01T00:00:00.000Z", variant: "dense" });
     expect(recent).not.toContain(t("timeline.outOfRange"));
     expect(recent).not.toContain(t("timeline.fromArchive"));
@@ -109,7 +109,7 @@ describe("TimelineBar — ขีดรอบบิน Sentinel-1", () => {
 });
 
 describe("TimelineBar — เปลี่ยนช่วงของแถบ", () => {
-  it("เปลี่ยนช่วง (72 ชม. / 7 วัน / 30 วัน) หยุดเล่นและเลื่อน viewport เท่านั้น — ไม่รีเซ็ต atIso กลับเป็นสด", () => {
+  it("เปลี่ยนช่วง (48 ชม. / 7 วัน / 30 วัน) หยุดเล่นและเลื่อน viewport เท่านั้น — ไม่รีเซ็ต atIso กลับเป็นสด", () => {
     const setPlaying = vi.fn();
     const setRangeIdx = vi.fn();
     // ตัวจัดการนี้ไม่มี `onChange` ให้เรียกเลย: เลือกเหตุการณ์ปี 2024 แล้วกด "30 วัน"
@@ -128,5 +128,34 @@ describe("TimelineBar — เปลี่ยนช่วงของแถบ", 
       expect(html).toContain(formatFetchedAt("th", iso));
       expect(html).not.toContain(`>${t("timeline.live")}<`);
     }
+  });
+});
+
+describe("TimelineBar — ช่วงเริ่มต้น 48 ชม. (E16)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("ช่องเริ่มต้นคือ 48 ชม. ก้าวละ 30 นาที และยังมี 7 วัน / 30 วัน", () => {
+    const d = TIMELINE_RANGES[DEFAULT_TIMELINE_RANGE_INDEX];
+    expect(d.hours).toBe(48);
+    expect(d.stepMin).toBe(30);
+    expect(TIMELINE_RANGES.map((r) => r.hours)).toEqual([48, 7 * 24, 30 * 24]);
+  });
+
+  it.each(LANGS)("แถบที่เพิ่งเปิดเลือกป้าย 48 ชม. และราง = 96 ก้าว (%s)", (lang) => {
+    const t = translator(lang);
+    for (const variant of ["dense", "full"] as const) {
+      const html = render(lang, { atIso: null, variant });
+      expect(html).toContain('max="96"');
+      expect(html).toContain(t("timeline.range.48h"));
+    }
+    // 40 ชม. ก่อน = ในช่วง 48 ชม. → ไม่มีชิปนอกช่วง, 50 ชม. ก่อน = นอกช่วง
+    expect(render(lang, { atIso: new Date(NOW - 40 * 3600_000).toISOString(), variant: "dense" })).not.toContain(t("timeline.outOfRange"));
+    expect(render(lang, { atIso: new Date(NOW - 50 * 3600_000).toISOString(), variant: "dense" })).toContain(t("timeline.outOfRange"));
   });
 });

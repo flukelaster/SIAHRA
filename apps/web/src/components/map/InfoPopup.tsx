@@ -33,6 +33,7 @@ import {
 import { Sparkline } from "../hazard/Sparkline";
 import { floodDepthMaxLabel } from "../../lib/floodStyle";
 import { formatNumber } from "../../lib/number";
+import { percentOfQmax } from "../../lib/northRoute";
 import { formatDateTime, formatFullDateTime } from "../../lib/time";
 import { damDisplayName } from "../../lib/damName";
 import { nearestProvinceLabel } from "../../lib/nearestProvince";
@@ -968,6 +969,13 @@ function WaterLevelBody({
 }) {
   const { obs } = pick;
   const [hours, setHours] = useState(72);
+  // E16 — กราฟเดียวกันสลับได้ระหว่างระดับน้ำกับอัตราการไหล (คอลัมน์เดียวกันของประวัติ)
+  const [series, setSeries] = useState<"level" | "discharge">("level");
+  // แถว waterlevel ที่เขียนก่อน E16 ไม่มีฟิลด์ใหม่ — undefined = ไม่มีข้อมูล ไม่ใช่ 0
+  const dischargeM3s = obs.dischargeM3s ?? null;
+  const qmaxM3s = obs.qmaxM3s ?? null;
+  const criticalLevelMsl = obs.criticalLevelMsl ?? null;
+  const qmaxPct = percentOfQmax(dischargeM3s, qmaxM3s);
   const history = useStationHistory(obs.station.id, true, hours);
   // E15/E15.2 — กล้องที่ใกล้ที่สุดภายใน 3 กม. จากทั้งสองแหล่ง (DWR / iTIC) คิดจากบัญชีที่
   // โหลดไว้แล้ว ไม่ส่ง request ใด — ภาพ/สตรีมถูกขอเมื่อผู้ใช้กดปุ่มเท่านั้น
@@ -1017,6 +1025,16 @@ function WaterLevelBody({
             v={`${Math.abs(obs.freeboardM).toFixed(2)} ${t("unit.m")}`}
           />
         ) : null}
+        {criticalLevelMsl !== null ? (
+          <Row k={t("popup.criticalLevel")} v={`${criticalLevelMsl.toFixed(2)} ${t("unit.msl")}`} />
+        ) : null}
+        {dischargeM3s !== null ? (
+          <Row k={t("popup.discharge")} v={`${formatNumber(lang, dischargeM3s, 1)} ${t("unit.m3s")}`} />
+        ) : null}
+        {/* เฉพาะเมื่อมีทั้งอัตราการไหลและความจุลำน้ำที่ต้นทางเผยแพร่ — ไม่มีสัดส่วนที่เดาขึ้นเอง */}
+        {qmaxPct !== null ? (
+          <Row k={t("popup.qmaxPct")} v={`${formatNumber(lang, qmaxPct)}% (${formatNumber(lang, qmaxM3s)} ${t("unit.m3s")})`} />
+        ) : null}
         <Row k={t("popup.observedAt")} v={fmtTime(lang, obs.observedAt)} />
       </div>
       {nearest && onOpenCamera ? (
@@ -1054,7 +1072,26 @@ function WaterLevelBody({
           <div className="h-16 animate-pulse rounded bg-white/8" />
         ) : history.data ? (
           <>
-            <Sparkline points={history.data.points} bankMsl={history.data.datum === "msl" ? obs.minBankMsl : null} />
+            <Sparkline
+              points={history.data.points}
+              bankMsl={history.data.datum === "msl" ? obs.minBankMsl : null}
+              series={series}
+            />
+            {history.data.points.some((p) => p.discharge !== null) ? (
+              <span className="mb-0.5 flex w-fit rounded bg-white/5 p-0.5">
+                {(["level", "discharge"] as const).map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setSeries(k)}
+                    aria-pressed={series === k}
+                    className={`cursor-pointer rounded px-1.5 text-[10px] ${series === k ? "bg-[var(--color-accent)] text-white" : "text-[var(--color-fg-muted)]"}`}
+                  >
+                    {t(k === "level" ? "popup.series.level" : "popup.series.discharge")}
+                  </button>
+                ))}
+              </span>
+            ) : null}
             <div className="flex items-center justify-between">
               <p className="text-[10px] text-[var(--color-fg-subtle)]">
                 {t("popup.realObserved")}

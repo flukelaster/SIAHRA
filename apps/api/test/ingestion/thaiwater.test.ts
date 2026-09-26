@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchDams, fetchRainfall, fetchWaterLevel, fetchWaterLevelHistory } from "../../src/ingestion/thaiwater";
+import { damStoragePercentOrNull, fetchDams, fetchRainfall, fetchWaterLevel, fetchWaterLevelHistory } from "../../src/ingestion/thaiwater";
 import damFixture from "../fixtures/thaiwater-analyst-dam.json";
 import graphFixture from "../fixtures/thaiwater-waterlevel-graph.json";
 import rainFixture from "../fixtures/thaiwater-rain24h.json";
@@ -43,6 +43,10 @@ describe("fetchRainfall", () => {
         amphoeNameTh: "เมืองเชียงใหม่",
         basinNameTh: "ปิง",
         agencyShortTh: "สสน.",
+        // ฟีดฝนไม่มีรหัส RID/สถานีหลัก → ค่าว่างตามจริง ไม่ใช่เดา
+        ridCode: null,
+        subBasinId: null,
+        isKeyStation: false,
       },
       // "12.5" (สตริง) → 12.5 มิลลิเมตร และ 0 ต้องคงเป็น 0 ไม่ใช่ null
       rain24h: 12.5,
@@ -76,6 +80,38 @@ describe("fetchWaterLevel", () => {
     // ระดับสถานการณ์มาจากต้นทาง ห้ามคำนวณเอง (AGENTS.md: ห้ามกุตัวเลขพยากรณ์)
     expect(ok.situationLevel).toBe(2);
     expect(ok.observedAt).toBe("2026-08-19T02:20:00.000Z");
+  });
+
+  it("E16 — อ่านรหัส RID, สถานีหลัก, อัตราการไหล, ความจุลำน้ำ และระดับวิกฤตตามต้นทาง", async () => {
+    respondJson(waterFixture);
+    const [ok] = await fetchWaterLevel();
+    expect(ok.station.ridCode).toBe("C.2");
+    expect(ok.station.subBasinId).toBe(240);
+    expect(ok.station.isKeyStation).toBe(true);
+    // "1824.00" (สตริง) → 1824 ลบ.ม./วินาที
+    expect(ok.dischargeM3s).toBe(1824);
+    expect(ok.qmaxM3s).toBe(3735);
+    expect(ok.criticalLevelMsl).toBe(26.2);
+  });
+
+  it("E16 — qmax/ระดับวิกฤต ≤ 0 และอัตราการไหลติดลบคือค่าที่ขาด ไม่ใช่ค่าจริง", async () => {
+    respondJson(waterFixture);
+    const [, canal] = await fetchWaterLevel();
+    expect(canal.station.ridCode).toBeNull();
+    expect(canal.station.subBasinId).toBeNull();
+    expect(canal.station.isKeyStation).toBe(false);
+    expect(canal.dischargeM3s).toBeNull();
+    expect(canal.qmaxM3s).toBeNull();
+    expect(canal.criticalLevelMsl).toBeNull();
+  });
+
+  it("E16 — อัตราการไหล 0 เป็นค่าที่รายงานจริง ไม่ถูกทิ้ง", async () => {
+    respondJson({
+      ...waterFixture,
+      waterlevel_data: { data: [{ ...waterFixture.waterlevel_data.data[0], discharge: 0 }] },
+    });
+    const [row] = await fetchWaterLevel();
+    expect(row.dischargeM3s).toBe(0);
   });
 
   it("min_bank = 0 คือค่าที่ขาด ไม่ใช่ตลิ่งที่ระดับ 0 — ต้องไม่มี freeboard", async () => {
@@ -183,6 +219,37 @@ describe("fetchDams", () => {
     respondJson(damFixture);
     const dams = await fetchDams(Date.parse("2026-08-19T03:00:00Z"));
     for (const dam of dams) expect(Object.keys(dam)).not.toContain("_p");
+  });
+
+  it("เปอร์เซ็นต์ 0 คู่กับปริมาณน้ำ > 0 เป็นค่าว่างของต้นทาง → null ไม่ใช่ 0% และไม่คำนวณเอง", async () => {
+    respondJson({
+      ...damFixture,
+      data: {
+        ...damFixture.data,
+        dam_hourly: [
+          {
+            ...damFixture.data.dam_daily[0],
+            dam_date: "2026-08-19 09:00",
+            dam_storage: 8451.62,
+            dam_storage_percent: 0,
+            station_type: "dam_hourly",
+          },
+        ],
+      },
+    });
+    const dams = await fetchDams(Date.parse("2026-08-19T03:00:00Z"));
+    const large = dams.find((d) => d.id === 3)!;
+    expect(large.storageMcm).toBe(8451.62);
+    expect(large.storagePercent).toBeNull();
+  });
+
+  it("damStoragePercentOrNull: 0 จริงเมื่อปริมาณน้ำเป็น 0/ไม่มี, ค่าบวกผ่านตามเดิม", () => {
+    expect(damStoragePercentOrNull(0, 8451.62)).toBeNull();
+    expect(damStoragePercentOrNull("-1", 10)).toBeNull();
+    expect(damStoragePercentOrNull(0, 0)).toBe(0);
+    expect(damStoragePercentOrNull(0, null)).toBe(0);
+    expect(damStoragePercentOrNull("46.3", 4560.2)).toBe(46.3);
+    expect(damStoragePercentOrNull(null, 4560.2)).toBeNull();
   });
 
   it("แถวรายชั่วโมงชนะแถวรายวันของเขื่อนเดียวกัน", async () => {

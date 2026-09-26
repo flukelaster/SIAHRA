@@ -14,6 +14,9 @@ const station = (over: Partial<StationRef>): StationRef => ({
   amphoeNameTh: null,
   basinNameTh: null,
   agencyShortTh: null,
+  ridCode: null,
+  subBasinId: null,
+  isKeyStation: false,
   ...over,
 });
 

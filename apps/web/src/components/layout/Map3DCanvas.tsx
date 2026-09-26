@@ -12,6 +12,7 @@ import type {
   ProvinceExposureResponse,
   RadarFramesResponse,
   SourceId,
+  WaterLevelObservation,
 } from "@siahra/shared-types";
 import { buildBoundaryOutline, type BoundaryOutlineResult } from "../../scene/BoundaryOutline";
 import {
@@ -150,6 +151,11 @@ export interface MapInfo {
 /** Imperative map controls exposed to the shell (search fly-to, permalink, capture). */
 export interface MapApi {
   flyToLonLat: (lon: number, lat: number, distanceM?: number) => void;
+  /**
+   * E16 — เปิด popup ของสถานีระดับน้ำจากภายนอก (แผงเส้นทางน้ำเหนือ) เหมือนผู้ใช้คลิกหมุดเอง
+   * `obs` ต้องเป็นค่าจาก observations ของจังหวัดที่แสดงอยู่ — popup ใช้ข้อมูลชุดเดียวกับหมุด
+   */
+  selectWaterlevel: (obs: WaterLevelObservation) => void;
   getPose: () => CameraPose | null;
   setPose: (pose: CameraPose) => void;
   captureImage: (footer: string) => Promise<Blob | null>;
@@ -575,6 +581,11 @@ export function Map3DCanvas({
             const [x, z] = proj.lonLatToLocal(lon, lat);
             const y = terrain.sample(x, z) * h0.world.scale.y;
             h0.flyTo(new THREE.Vector3(x, y, z), distanceM);
+          },
+          selectWaterlevel: (obs) => {
+            const [x, z] = proj.lonLatToLocal(obs.station.lon, obs.station.lat);
+            // anchor อยู่ในพิกัดโลกที่ยังไม่คูณ exaggeration (ตัว ticker ของ popup คูณให้เอง)
+            setPick({ kind: "waterlevel", obs, anchor: new THREE.Vector3(x, terrain.sample(x, z), z) });
           },
           getPose: () => h0.getPose(),
           setPose: (pose) => h0.setPose(pose),

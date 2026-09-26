@@ -46,6 +46,11 @@ interface UpstreamStation {
   tele_station_long?: number | string | null;
   min_bank?: number | string | null;
   ground_level?: number | string | null;
+  tele_station_oldcode?: string | null;
+  sub_basin_id?: number | string | null;
+  is_key_station?: boolean | null;
+  qmax?: number | string | null;
+  critical_level_msl?: number | string | null;
 }
 
 interface UpstreamRecord {
@@ -68,12 +73,42 @@ interface UpstreamWaterRecord extends UpstreamRecord {
   waterlevel_m?: number | string | null;
   storage_percent?: number | string | null;
   situation_level?: number | string | null;
+  discharge?: number | string | null;
 }
 
 function num(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null;
   const n = typeof value === "number" ? value : Number(value);
   return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * ค่าที่ต้องเป็นบวกจึงมีความหมาย (ความจุลำน้ำ ระดับวิกฤต ตลิ่ง) — ต้นทางใช้ 0 หรือค่าติดลบ
+ * เป็นตัวแทน "ไม่มีข้อมูล" แบบเดียวกับ `min_bank` จึงถือเป็น null ไม่ใช่ค่าจริง
+ */
+export function positiveOrNull(value: unknown): number | null {
+  const n = num(value);
+  return n !== null && n > 0 ? n : null;
+}
+
+/**
+ * เปอร์เซ็นต์ความจุเขื่อน: แถว `dam_hourly` ของต้นทางส่ง `dam_storage_percent` = 0 มาพร้อม
+ * `dam_storage` ที่เป็นบวก (ภูมิพล 8,451.62 ล้าน ลบ.ม. / 0%) — ตัวเลขนั้นเป็นค่าว่าง ไม่ใช่เขื่อนแห้ง
+ * จึงเป็น null เมื่อมีปริมาณน้ำ > 0 แต่เปอร์เซ็นต์ ≤ 0; ไม่คำนวณเปอร์เซ็นต์ขึ้นเองจาก max_storage
+ */
+export function damStoragePercentOrNull(value: unknown, storageMcm: number | null): number | null {
+  const n = num(value);
+  if (n !== null && n <= 0 && storageMcm !== null && storageMcm > 0) return null;
+  return n;
+}
+
+/**
+ * อัตราการไหล: 0 เป็นค่าที่รายงานได้จริง (ลำน้ำสาขาหน้าแล้ง) แต่ค่าติดลบไม่ใช่การวัด
+ * ที่ใช้ได้ (ต้นทางใช้เป็นตัวแทนค่าว่าง) → null
+ */
+export function dischargeOrNull(value: unknown): number | null {
+  const n = num(value);
+  return n !== null && n >= 0 ? n : null;
 }
 
 function str(value: unknown): string | null {
@@ -120,6 +155,9 @@ function toStationRef(record: UpstreamRecord): StationRef | null {
     amphoeNameTh: str(record.geocode?.amphoe_name?.th),
     basinNameTh: str(record.basin?.basin_name?.th),
     agencyShortTh: str(record.agency?.agency_shortname?.th),
+    ridCode: str(station?.tele_station_oldcode),
+    subBasinId: num(station?.sub_basin_id),
+    isKeyStation: station?.is_key_station === true,
   };
 }
 
@@ -196,6 +234,9 @@ export async function fetchWaterLevel(): Promise<WaterLevelObservation[]> {
           : null,
       situationLevel: toSituationLevel(record.situation_level),
       storagePercent: num(record.storage_percent),
+      dischargeM3s: dischargeOrNull(record.discharge),
+      qmaxM3s: positiveOrNull(record.station?.qmax),
+      criticalLevelMsl: positiveOrNull(record.station?.critical_level_msl),
       observedAt: toIso(record.waterlevel_datetime),
     });
   }
@@ -306,6 +347,7 @@ export async function fetchDams(nowMs = Date.now()): Promise<DamObservation[]> {
       const rawPv = geo?.province_code;
       const provinceCode =
         rawPv === null || rawPv === undefined || rawPv === "" ? null : String(rawPv).padStart(2, "0");
+      const storageMcm = num(r.dam_storage);
       const dam: DamObservation & { _p?: number } = {
         id,
         nameTh: str(r.dam?.dam_name?.th),
@@ -317,8 +359,8 @@ export async function fetchDams(nowMs = Date.now()): Promise<DamObservation[]> {
         basinNameTh: str(r.basin?.basin_name?.th),
         agencyShortTh: str(r.agency?.agency_shortname?.th),
         kind,
-        storageMcm: num(r.dam_storage),
-        storagePercent: num(r.dam_storage_percent),
+        storageMcm,
+        storagePercent: damStoragePercentOrNull(r.dam_storage_percent, storageMcm),
         maxStorageMcm: num(r.dam?.max_storage),
         normalStorageMcm: num(r.dam?.normal_storage),
         inflowMcm: num(r.dam_inflow),

@@ -47,6 +47,9 @@ function stationRef(over: Partial<StationRef> = {}): StationRef {
     amphoeNameTh: null,
     basinNameTh: null,
     agencyShortTh: null,
+    ridCode: null,
+    subBasinId: null,
+    isKeyStation: false,
     ...over,
   };
 }
@@ -73,6 +76,9 @@ function water(over: Partial<WaterLevelObservation> & { id?: number } = {}): Wat
     freeboardM: null,
     situationLevel: null,
     storagePercent: null,
+    dischargeM3s: null,
+    qmaxM3s: null,
+    criticalLevelMsl: null,
     observedAt: "2026-08-19T02:20:00.000Z",
     ...rest,
   };
