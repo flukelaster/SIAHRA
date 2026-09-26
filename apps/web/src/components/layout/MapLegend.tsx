@@ -33,6 +33,7 @@ import {
 import { FLOOD_SCENE_MAX_AGE_MS, type FloodSceneReason } from "../../lib/floodScenes";
 import type { ErrorMessage } from "../../lib/errorMessage";
 import { resolveError } from "../../lib/errorMessage";
+import { CCTV_ENABLED } from "../../lib/featureFlags";
 import { formatNumber } from "../../lib/number";
 import { formatAge, formatFullDateTime, formatWeekday } from "../../lib/time";
 import type { ExposureUnavailableReason } from "../../hooks/useFloodExposure";
@@ -747,6 +748,17 @@ const LAYER_ROWS: {
     swatch: <span className="h-3 w-3 rounded-sm border border-white/80 bg-[#38bdf8]" />,
   },
   {
+    // E15 — แสดงเฉพาะเมื่อแฟล็ก VITE_FEATURE_CCTV เปิด (กรองตอนเรนเดอร์ข้างล่าง)
+    key: "cctv",
+    labelKey: "legend.layer.cctv",
+    noteKey: "legend.layer.cctv.note",
+    swatch: (
+      <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full border border-white/80 bg-[#0a101e]">
+        <span className="h-1.5 w-1.5 rounded-full bg-[#0ea5e9]" />
+      </span>
+    ),
+  },
+  {
     key: "sunlight",
     labelKey: "legend.layer.sunlight",
     noteKey: "legend.layer.sunlight.note",
@@ -888,6 +900,7 @@ export function MapLegend({
   exposure,
   forecast,
   floodGfm,
+  cctvError = null,
 }: {
   layers: MapLayers;
   onToggle: (key: keyof MapLayers, value: boolean) => void;
@@ -899,6 +912,8 @@ export function MapLegend({
   forecast?: ForecastLegendState;
   /** ฉาก Copernicus GFM ที่กำลังแสดง + เหตุผลเมื่อไม่มี (E14.F4) */
   floodGfm?: FloodGfmLegendState;
+  /** E15 — โหลดบัญชีกล้อง CCTV ไม่สำเร็จ: ไม่มีหมุดเพราะอะไร ต้องบอก ไม่ใช่หายเงียบ */
+  cctvError?: ErrorMessage | null;
   quality: QualityMode;
   qualityLevel: QualityLevel;
   onQualityChange: (q: QualityMode) => void;
@@ -921,7 +936,7 @@ export function MapLegend({
       </div>
 
       <ul className="flex flex-col gap-1">
-        {LAYER_ROWS.map((row) => {
+        {LAYER_ROWS.filter((row) => row.key !== "cctv" || CCTV_ENABLED).map((row) => {
           const entry = descriptors[row.key];
           // ชั้นพื้นที่ลุ่มต่ำเป็นอนุพันธ์ของ terrain.bin โดยตรง จึงเป็นแถวเดียว
           // ที่ต้องบอกผลตรวจลายเซ็น และเป็นแถวเดียวที่ถูกปิดเมื่อไม่ผ่าน
@@ -966,6 +981,11 @@ export function MapLegend({
                     }`}
                   >
                     {t(integrityKey)}
+                  </span>
+                ) : null}
+                {row.key === "cctv" && cctvError ? (
+                  <span className="mt-0.5 block text-[10px] text-[var(--color-risk-extreme)]">
+                    {t("legend.layer.cctv.error", { error: resolveError(t, cctvError) ?? "" })}
                   </span>
                 ) : null}
                 {showBuildingsError ? (

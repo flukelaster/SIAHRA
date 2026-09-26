@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import type {
+  CctvCamera,
   DamObservation,
   EarthquakeEvent,
   FloodExtentFeature,
@@ -30,6 +31,8 @@ export type PickResult =
   | { kind: "waterlevel"; obs: WaterLevelObservation; anchor: THREE.Vector3 }
   | { kind: "rainfall"; obs: RainfallObservation; anchor: THREE.Vector3 }
   | { kind: "dam"; dam: DamObservation; anchor: THREE.Vector3 }
+  /** กล้อง CCTV ของ DWR (E15) — ภาพถูกดึงเมื่อ popup เปิดเท่านั้น ไม่ใช่ตอนวาดหมุด */
+  | { kind: "cctv"; camera: CctvCamera; anchor: THREE.Vector3 }
   | { kind: "quake"; event: EarthquakeEvent; anchor: THREE.Vector3 }
   | {
       kind: "ground";
@@ -43,6 +46,19 @@ export type PickResult =
     };
 
 const raycaster = new THREE.Raycaster();
+
+/** ชนิดหมุดที่ `pickAt` ตอบกลับตรง ๆ จาก `userData` ของ sprite ใน `handles.markers` */
+const MARKER_KINDS = new Set(["waterlevel", "rainfall", "dam", "cctv"]);
+
+/**
+ * `userData` ของหมุดที่โดน → PickResult — null = ไม่ใช่หมุดที่คลิกได้ (เช่นฮาโลรอบสถานี)
+ * แยกออกมาเป็นฟังก์ชันล้วนให้เทสได้โดยไม่ต้องมีกล้อง/raycaster
+ */
+export function markerPickFromUserData(ud: unknown, anchor: THREE.Vector3): PickResult | null {
+  const kind = (ud as { kind?: unknown } | null)?.kind;
+  if (typeof kind !== "string" || !MARKER_KINDS.has(kind)) return null;
+  return { ...(ud as object), anchor } as PickResult;
+}
 
 function pointInRing(lon: number, lat: number, ring: number[][]): boolean {
   let inside = false;
@@ -88,11 +104,8 @@ export function pickAt(
   // generous threshold via the sprite's own bounds (three handles it).
   const markerHits = raycaster.intersectObjects(handles.markers.children, true);
   for (const hit of markerHits) {
-    const ud = hit.object.userData as { kind?: string };
-    if (ud.kind === "waterlevel" || ud.kind === "rainfall" || ud.kind === "dam") {
-      const anchor = hit.object.getWorldPosition(new THREE.Vector3());
-      return { ...(ud as PickResult), anchor } as PickResult;
-    }
+    const picked = markerPickFromUserData(hit.object.userData, hit.object.getWorldPosition(new THREE.Vector3()));
+    if (picked) return picked;
   }
   if (opts.quakeGroup) {
     const qh = raycaster.intersectObject(opts.quakeGroup, true).find((h) => (h.object.userData as { kind?: string }).kind === "quake");

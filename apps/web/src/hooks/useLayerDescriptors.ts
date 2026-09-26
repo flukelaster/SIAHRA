@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type {
   AoiProvenance,
+  CctvCatalogue,
   AoiProvenanceLayer,
   HazardLayerDescriptor,
   HealthResponse,
@@ -142,11 +143,17 @@ export function useLayerDescriptors(input: {
   floodScenes: FloodScenesState;
   /** ฉาก GFM ที่กำลังแสดง — ตัวกำหนด `observedAt` ที่ legend เห็น (ดู withShownScene) */
   floodScene: FloodSceneState;
+  /**
+   * บัญชีกล้อง CCTV ของ DWR (E15) — null = แฟล็กปิด/ชั้นไม่เคยเปิด/โหลดไม่สำเร็จ
+   * (แล้วแถวใน legend ไม่มีบรรทัดเวลา ไม่ใช่เวลาที่เดาขึ้น)
+   */
+  cctvCatalogue?: CctvCatalogue | null;
   health: HealthResponse | null;
   /** `manifest.provenance` ของจังหวัดที่กำลังแสดง — null = manifest ก่อน E9.1 */
   provenance: AoiProvenance | null;
 }): LayerDescriptors {
   const { observations, radar, floodExtent, dams, exposure, floodScenes, floodScene, health, provenance } = input;
+  const cctvBuiltAt = input.cctvCatalogue?.builtAt ?? null;
   const obsLayer = observations.data?.layer;
   const radarLayer = radar.data?.layer;
   const floodLayer = floodExtent.data?.layer;
@@ -182,6 +189,21 @@ export function useLayerDescriptors(input: {
       put("floodGfm", withShownScene(floodIndexLayers.extent, shownScene, noSceneInWindow, true));
       put("floodDepth", withShownScene(floodIndexLayers.depth, shownScene, noSceneInWindow, false));
     }
+    // E15 — ประกอบฝั่งเว็บได้โดยไม่ผิดกฎข้างบน เพราะเวลาไม่ใช่นาฬิกาของ client:
+    // `fetchedAt` = `builtAt` ที่สคริปต์ ETL บันทึกไว้ในไฟล์ตอนดึงรายการจาก DWR สำเร็จ
+    // และ `publishedAt` = null เพราะ DWR ไม่ได้ประกาศเวลาเผยแพร่ของรายการกล้อง (ห้ามเติม
+    // จาก builtAt) ชั้นนี้บอกแค่ "กล้องอยู่ตรงไหน" — ภาพแต่ละภาพมีเวลาถ่าย/เวลาดึงของตัวเอง
+    // ใน popup; `dwr-cctv` ไม่มีสถานะใน /health (kind "browser") → health = null ตามจริง
+    if (cctvBuiltAt) {
+      put("cctv", {
+        id: "dwr-cctv-catalogue",
+        epistemicClass: "static-reference",
+        liveOrStatic: "static",
+        publishedAt: null,
+        fetchedAt: cctvBuiltAt,
+        sourceIds: ["dwr-cctv"],
+      });
+    }
     return out;
   }, [
     obsLayer,
@@ -192,6 +214,7 @@ export function useLayerDescriptors(input: {
     floodIndexLayers,
     shownScene,
     noSceneInWindow,
+    cctvBuiltAt,
     health,
     provenance,
   ]);
