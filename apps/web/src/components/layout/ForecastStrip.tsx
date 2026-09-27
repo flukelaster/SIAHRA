@@ -1,9 +1,10 @@
 import { X } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { ForecastStep } from "@siahra/shared-types";
 import type { ProvinceForecastState } from "../../hooks/useProvinceForecast";
 import { EPISTEMIC_BADGE } from "../../lib/layerFreshness";
 import { resolveError } from "../../lib/errorMessage";
+import { runForecastAutoSelect } from "../../lib/forecastAutoSelect";
 import { formatDateTime } from "../../lib/time";
 import { formatNumber } from "../../lib/number";
 import { useLang } from "../../i18n/context";
@@ -49,12 +50,18 @@ export function ForecastStrip({
   state,
   forecastAtIso,
   onChange,
+  atIso,
   variant = "full",
 }: {
   state: ProvinceForecastState;
   /** ขั้นที่กำลังเลือกอยู่ (ตรงกับ `validAt` ของขั้นใดขั้นหนึ่ง) หรือ null = ยังไม่เลือก */
   forecastAtIso: string | null;
   onChange: (forecastAtIso: string | null) => void;
+  /**
+   * เวลาย้อนหลังที่เลือกอยู่ (null = ค่าปัจจุบัน) — ใช้เฉพาะกันการเลือกขั้นเดียวอัตโนมัติขณะดูค่า
+   * ย้อนหลัง (devops C1, `lib/forecastAutoSelect.ts`) แถบนี้ไม่แตะ atIso เอง
+   */
+  atIso: string | null;
   /**
    * `full` = แถบเดิมพร้อมขีดเวลาและค่า ฝน/อุณหภูมิ/รหัสสภาพอากาศ (dock บนมือถือ)
    * `dense` = บรรทัดเดียวสำหรับ dock ล่างบนจอกว้าง: ล้าง · ป้ายชนิดความรู้ · หมายเหตุ
@@ -82,10 +89,19 @@ export function ForecastStrip({
 
   // ขั้นเดียว (n===1): min===max บน <input type="range"> ทำให้ลากหรือกดลูกศร
   // ไม่ยิง onChange เลย — ขั้นนั้นเลยกลายเป็นเลือกไม่ได้ทั้งที่มีข้อมูลจริงอยู่
-  // เลือกให้อัตโนมัติแทนการรอผู้ใช้ลากตัวควบคุมที่ลากไม่ได้จริง ๆ
+  // เลือกให้อัตโนมัติแทนการรอผู้ใช้ลากตัวควบคุมที่ลากไม่ได้จริง ๆ — แต่ **ไม่** ขณะดูค่าย้อนหลัง
+  // (C1) และรันเฉพาะตอน mount / ชุดขั้นเปลี่ยน: ค่าอื่นอ่านผ่าน ref เพื่อไม่ให้การล้าง (X / ชิปเวลา
+  // "กลับไปปัจจุบัน") ถูกเลือกกลับทันที (`lib/forecastAutoSelect.ts`)
+  const latest = useRef({ forecastAtIso, atIso, onChange });
+  // ประกาศก่อน effect ข้างล่าง — effect วิ่งตามลำดับ ref จึงเป็นค่าของเรนเดอร์นี้เสมอตอนที่ถูกอ่าน
   useEffect(() => {
-    if (n === 1 && forecastAtIso !== steps[0].validAt) onChange(steps[0].validAt);
-  }, [n, steps, forecastAtIso, onChange]);
+    latest.current = { forecastAtIso, atIso, onChange };
+  });
+  const seenSingleStep = useRef<string | null>(null);
+  useEffect(() => {
+    const { forecastAtIso: f, atIso: a, onChange: change } = latest.current;
+    runForecastAutoSelect(steps, f, a, change, seenSingleStep);
+  }, [steps]);
 
   // จุดกำกับบนราง: ไม่เกิน 5 จุด กระจายตามจำนวนขั้นจริง (ต้นทางอาจส่งมาสั้นกว่า
   // 48 ชม. เสมอ ห้าม hard-code จำนวนขั้น) — ป้ายเป็นชั่วโมงที่ห่างจากขั้นแรก
@@ -222,11 +238,13 @@ export function ForecastStrip({
               {t("forecast.headerCount", { n })}
             </span>
             {error ? (
-              <span className="shrink-0 truncate text-[10px] text-[var(--color-danger)]">
+              <span className="min-w-0 text-[10px] leading-snug text-[var(--color-danger)]">
                 {resolveError(t, error)}
               </span>
             ) : stale ? (
-              <span className="shrink-0 rounded-md bg-[var(--color-risk-medium)]/15 px-1.5 py-0.5 text-[10px] leading-none whitespace-nowrap text-[var(--color-risk-medium)]">
+              // ห่อบรรทัดได้ (E18.4): ในลิ้นชักกว้าง ~300px หมายเหตุ "ชุดค้าง" ยาวกว่ากล่อง และถ้า nowrap
+              // ครึ่งหลังของประโยคจะถูกตัดหายไป — ข้อความนี้บอกว่าตัวเลขเป็นชุดเก่า ต้องอ่านได้ทั้งประโยค
+              <span className="min-w-0 rounded-md bg-[var(--color-risk-medium)]/15 px-1.5 py-0.5 text-[10px] leading-snug text-[var(--color-risk-medium)]">
                 {t("forecast.staleNote")}
               </span>
             ) : null}
@@ -250,15 +268,20 @@ export function ForecastStrip({
         />
 
         {/* จุดกำกับวางตามตำแหน่งจริงบนราง เหมือน TimelineBar ไม่ใช่กระจายเท่า ๆ กัน */}
-        <div className="relative mt-0.5 h-3.5 text-[10px] leading-none text-[var(--color-fg-subtle)]">
+        {/* `@container` บนแถวขีดเอง: แถวแคบกว่า 16rem (ลิ้นชัก 768 → แถว 220px, 1024 → 252px, E18.4) ป้ายขีด
+            ข้างเคียงชนหรือเบียดจนอ่านติดกันในภาษาไทย — ซ่อนขีดคี่ ปลายสองข้างยังอยู่เสมอ; 1440 (แถว 260px) แสดงครบห้าขีด */}
+        <div className="relative mt-0.5 h-3.5 text-[10px] leading-none text-[var(--color-fg-subtle)] @container">
           {tickIdxs.map((idx, i) => {
             const pct = n <= 1 ? 0 : (idx / (n - 1)) * 100;
             const hoursAhead = Math.round((Date.parse(steps[idx].validAt) - Date.parse(steps[0].validAt)) / 3600000);
             const last = i === tickIdxs.length - 1;
+            // แถวแคบ (< 16rem): เว้นขีดคี่ (ไม่ใช่ปลาย) — ห้าขีดเหลือ +0 / +24 / +47 (วัดที่ลิ้นชัก 768: แถว 220px
+            // ป้ายไทย "+0 ชม." กับ "+12 ชม." ชนกัน และ "+35" กับ "+47" ชนกัน)
+            const thin = i % 2 === 1 && !last;
             return (
               <span
                 key={idx}
-                className="absolute top-0 whitespace-nowrap tabular-nums"
+                className={`absolute top-0 whitespace-nowrap tabular-nums ${thin ? "hidden @min-[16rem]:inline" : ""}`}
                 style={{
                   left: `${pct}%`,
                   transform: i === 0 ? "none" : last ? "translateX(-100%)" : "translateX(-50%)",

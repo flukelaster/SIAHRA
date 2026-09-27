@@ -1,25 +1,7 @@
 import { useState } from "react";
 import { useLang } from "../../i18n/context";
-import { DEFAULT_LANG, LANGS, type Lang } from "../../i18n";
-
-/**
- * ปุ่มนี้เป็นเสียงสุดท้าย: ถ้า URL ยังพก `?lang=` ของคนที่แชร์มา ต้องเขียนทับให้ตรง
- * กับสิ่งที่ผู้ใช้เพิ่งกด ไม่งั้นโหลดใหม่แล้วเด้งกลับเป็นภาษาของลิงก์ (`/methodology`
- * ไม่มี `usePermalinkSync` จึงไม่มีใครลบ `lang` ให้เลย) ละไว้เมื่อเป็นภาษาไทย
- * ตามกติกาเดียวกับ `serialisePermalink`
- */
-function syncLangInUrl(next: Lang): void {
-  const q = new URLSearchParams(window.location.search);
-  if (next === DEFAULT_LANG) {
-    if (!q.has("lang")) return;
-    q.delete("lang");
-  } else {
-    if (q.get("lang") === next) return;
-    q.set("lang", next);
-  }
-  const search = q.toString();
-  window.history.replaceState(null, "", `${window.location.pathname}${search ? `?${search}` : ""}`);
-}
+import { LANGS, type Lang } from "../../i18n";
+import { syncLangInUrl } from "../../lib/langUrl";
 
 /**
  * ปุ่มสลับภาษา — ค่าเริ่มต้นของแอปคือภาษาไทยเสมอ (docs/roadmap.md §4)

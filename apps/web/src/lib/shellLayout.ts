@@ -35,15 +35,24 @@ export const DRAWER_W: Record<Exclude<Tier, "phone">, number> = {
 export type SheetSnap = "peek" | "half" | "full";
 
 /* ความสูงของแต่ละแถวใน peek (CSS px) — export ไว้ให้เทสต์ตรวจเป็นเลขคณิต ไม่ใช่
-   magic number: `SHEET_PEEK_H` ต้องกว้างพอสำหรับผลรวมที่แย่ที่สุดเสมอ */
+   magic number: `SHEET_PEEK_H` ต้องกว้างพอสำหรับผลรวมที่แย่ที่สุดเสมอ
+   (E18.4 — แถบเวลาแบบ dense ออกจาก peek แล้ว แทนด้วยแถวชิปเวลา `TimeChip`; แถบเต็มเปิดเป็น
+   แผงลอยเหนือแถบแท็บ ซึ่งไม่ใช่ส่วนของ peek จึงไม่นับในเพดานนี้) */
 /** แถบมือจับ (h-6 + py-1.5) */
 export const SHEET_GRIP_H = 24;
-/** แถวสรุป: ชื่อจังหวัด + ชิปย้อนหลัง + จุดสถานะ — ห่อเป็นสองแถวได้ */
-export const SHEET_SUMMARY_MAX_H = 64;
-/** `TimelineBar variant="dense"` = `glass flex h-10` + ขอบ */
-export const TIMELINE_DENSE_H = 42;
-/** บรรทัดเครดิตย่อ ตอนห่อยาวที่สุดบนจอ 360 */
-export const ATTRIBUTION_MAX_H = 73;
+/**
+ * แถวสรุป: ชื่อจังหวัด (truncate) + จุดสถานะ (`h-8`) + ปุ่มกาง/หุบ — **แถวเดียว ไม่ห่อ**
+ * (ชิป "ดูย้อนหลัง" ที่เคยทำให้แถวนี้ห่อเป็นสองแถว = 64 px ย้ายไปเป็นสถานะของชิปเวลาแล้ว)
+ */
+export const SHEET_SUMMARY_MAX_H = 32;
+/** แถวชิปเวลาใน peek (`TimeChip` บนมือถือ = ปุ่ม `h-9`) */
+export const TIME_CHIP_ROW_H = 36;
+/**
+ * บรรทัดเครดิตย่อ ตอนห่อยาวที่สุดบนจอ 360 — วัดใหม่ 2026-09-27 (E18.4): ภาษาอังกฤษ + หมายเหตุ
+ * "Vertical scale 8:1 (exaggerated)" = 99 px (ภาษาไทยที่มาตราส่วนเดียวกัน = 71 px; ค่าเดิม 73 วัดจาก
+ * ภาษาไทยจึงต่ำกว่าความจริงของหน้าภาษาอังกฤษ)
+ */
+export const ATTRIBUTION_MAX_H = 99;
 /** ช่องไฟ 3 ช่อง (gap-2) + padding ล่างของ peek */
 export const SHEET_PEEK_GAPS = 4 * 8;
 
@@ -54,8 +63,10 @@ export const SHEET_PEEK_GAPS = 4 * 8;
  * ค่าคงที่ บรรทัดเครดิตจะหลุดจอ ซึ่งผิดเงื่อนไขของผู้ให้ภาพดาวเทียมที่บังคับให้
  * ข้อความเครดิต "มองเห็นได้") ค่านี้ใช้เป็น inset ของ `computeSafeArea` เท่านั้น
  * จึงต้องเป็นเพดานเสมอ — ดูเทสต์ที่ยืนยันผลรวมข้างบน
+ * (24 + 32 + 36 + 99 + 32 = 223 → 224; ก่อน E18.4 = 240 เมื่อ peek ยังมีแถบเวลา dense — วัดจริงที่
+ * 360 px ภาษาอังกฤษ + 8× = 222.75 px)
  */
-export const SHEET_PEEK_H = 240;
+export const SHEET_PEEK_H = 224;
 /**
  * แถบแท็บหัวข้อด้านล่างของมือถือ (ไม่รวม `env(safe-area-inset-bottom)` ซึ่งเป็น 0 ตราบใดที่
  * `index.html` ไม่ได้ตั้ง `viewport-fit=cover`) — แผ่นเลื่อนวางอยู่ **บน** แถบนี้ ไม่ใช่ใต้
@@ -110,6 +121,20 @@ export function nearestSnap(
     }
   }
   return best;
+}
+
+/**
+ * ขอบล่างของคอลัมน์ปุ่มเครื่องมือบนมือถือ (ชั้นข้อมูล + เข็มทิศ, `MapViewport`) เป็นค่า CSS `bottom`
+ *
+ * peek: เหนือเพดานของ peek (safe area ล่าง + 8) เหมือนเดิม; half/full: ยกขึ้นเหนือขอบบนของแผ่นที่
+ * สแนป half (`SHEET_HALF_VH` ของ dvh + แถบแท็บ) — ก่อน E18.4 คอลัมน์อยู่ที่เดิมแล้วถูกแผ่น (z-20)
+ * บังตั้งแต่ half ขึ้นไป ปุ่มชั้นข้อมูลจึงกดไม่ได้ ที่ full มันยังอยู่ใต้แผ่น (แผ่นกินเกือบทั้งจอ)
+ * `max()` กันจอเตี้ยที่ half ต่ำกว่าเพดาน peek (แบบเดียวกับ `snapHeights`)
+ */
+export function phoneToolsBottom(snap: SheetSnap, safeAreaBottom: number): string {
+  const peek = `${safeAreaBottom + 8}px`;
+  if (snap === "peek") return peek;
+  return `max(${peek}, calc(${SHEET_HALF_VH * 100}dvh + ${PHONE_TABBAR_H + 8}px))`;
 }
 
 /** phone < 768 ≤ tablet < 1024 ≤ laptop < 1280 ≤ wide */

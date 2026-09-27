@@ -109,11 +109,28 @@ export const PANELS: readonly PanelDef[] = [
   // ── ฝนและพายุ ──
   { key: "rain", icon: CloudRain, labelKey: "panel.rain", view: panelView(() => import("./panelViews"), (m) => m.RainPanel) },
   {
+    // E18.4 — แถบเลื่อนพยากรณ์รายชั่วโมงของ TMD ย้ายมาจาก dock/แผ่นเลื่อน: อยู่บนสุดของมุมมองนี้
+    // ข้อมูลมาจาก `ctx.forecast` (โพลตัวเดียวใน App.tsx — ไม่ย้ายเข้ามาในแผง เพราะศูนย์แจ้งเตือนใช้ด้วย)
+    // และ `forecastAtIso`/ตัวตั้งของ App ผ่าน ctx; ถ้อยคำความซื่อสัตย์ของแถบคงเดิมทุกตัว
     key: "forecast",
     icon: CloudSun,
     labelKey: "panel.forecast",
-    view: panelView(() => import("../hazard/ForecastCard"), (m) => ({ ctx }) =>
-      createElement(m.ForecastCard, { state: ctx.forecast, health: ctx.apiHealth })),
+    view: panelView(
+      () => Promise.all([import("../hazard/ForecastCard"), import("./ForecastStrip")]),
+      ([card, strip]) =>
+        ({ ctx }) =>
+          createElement(
+            "div",
+            { className: "flex flex-col gap-3" },
+            createElement(strip.ForecastStrip, {
+              state: ctx.forecast,
+              forecastAtIso: ctx.forecastAtIso,
+              onChange: ctx.setForecastAtIso,
+              atIso: ctx.atIso,
+            }),
+            createElement(card.ForecastCard, { state: ctx.forecast, health: ctx.apiHealth }),
+          ),
+    ),
   },
   {
     // แผนที่ SVG + การ์ดทั้งหมดอยู่ใน chunk แยก; badge บน rail ใช้แค่ `lib/storms.ts` (เล็ก) จึงอยู่ใน entry ได้
