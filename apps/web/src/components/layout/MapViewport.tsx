@@ -1,5 +1,5 @@
 import { Hand, Layers, Maximize2, Minimize2, Minus, MousePointer2, Navigation, Plus } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import * as THREE from "three";
 import type {
   Camera,
@@ -24,6 +24,9 @@ import { FloodSourceAgeChip } from "./FloodSourceAgeChip";
 import type { FloodSourceAgeInput } from "../../lib/floodSourceAge";
 import type { ForecastBandLevel } from "../../lib/forecastStyle";
 import { GUTTER, TOOLS_W, type Tier } from "../../lib/shellLayout";
+import { ENABLED_CAMERA_SOURCES } from "../../lib/featureFlags";
+import { countLayersOn } from "../../lib/layerCount";
+import { LAYERS_DIALOG_ID } from "./LayersSurface";
 import { ILLUSTRATIVE_HATCH_DUTY, ILLUSTRATIVE_HATCH_PERIOD_PX, illustrativeCss } from "../../lib/illustrativeStyle";
 import { stationSheetCss } from "../../lib/floodStyle";
 import type { QualityLevel, QualityMode } from "../../scene/quality";
@@ -77,10 +80,13 @@ export function MapViewport({
   onApi,
   onPoseChange,
   onOpenLayers,
+  onToggleLayers,
+  layersOpen = false,
+  layersButtonRef,
 }: {
   /**
    * ชั้นของเปลือกหน้าต่าง — `phone` ไม่มีหัวข้อ/StatPills บนแผนที่เลย (ย้ายไป
-   * `MobileSheet`) และคอลัมน์เครื่องมือเกาะขวาล่างเหลือ 4 ปุ่ม
+   * `MobileSheet`) และคอลัมน์เครื่องมือเกาะขวาล่างเหลือ 2 ปุ่ม (ชั้นข้อมูล + เข็มทิศ)
    */
   tier: Tier;
   exaggeration: number;
@@ -131,8 +137,14 @@ export function MapViewport({
   /** ชิปอายุแหล่งน้ำท่วมจากดาวเทียม — null = ไม่แสดง (ชั้นน้ำท่วมทั้งสองปิดอยู่) */
   floodAge?: FloodSourceAgeInput | null;
   onInfo?: (info: MapInfo | null) => void;
-  /** มือถือ: ปุ่ม "ชั้นข้อมูล" บนคอลัมน์เครื่องมือ — ไม่ส่ง = ไม่มีปุ่ม */
+  /** ป้าย "แผ่นน้ำจำลอง" เปิดชั้นข้อมูล (legend + หมายเหตุเต็ม) — ไม่ส่ง = ป้ายเป็นข้อความเฉย ๆ */
   onOpenLayers?: () => void;
+  /** ปุ่ม "ชั้นข้อมูล" บนคอลัมน์เครื่องมือ (ทุก tier) — ไม่ส่ง = ไม่มีปุ่ม */
+  onToggleLayers?: () => void;
+  /** popover/แผ่นล่างของชั้นข้อมูลเปิดอยู่ (`aria-expanded` + สถานะ active ของปุ่ม) */
+  layersOpen?: boolean;
+  /** ปุ่มชั้นข้อมูล — popover/แผ่นล่างคืนโฟกัสให้ และไม่นับเป็น "คลิกนอกกรอบ" */
+  layersButtonRef?: RefObject<HTMLButtonElement | null>;
 }) {
   const { lang, t } = useLang();
   const compact = tier === "phone";
@@ -169,6 +181,37 @@ export function MapViewport({
         <p className={sheetBadgeCls}>{sheetBadgeBody}</p>
       )
     ) : null;
+
+  // ปุ่ม "ชั้นข้อมูล" — ไอคอน + ป้าย + จำนวนชั้นที่เปิดอยู่ (นับเฉพาะชั้นที่มีแถวใน legend ของ build นี้)
+  const layersOn = countLayersOn(layers, ENABLED_CAMERA_SOURCES.length > 0 ? [] : ["cctv"]);
+  const layersButton = onToggleLayers ? (
+    <button
+      ref={layersButtonRef}
+      type="button"
+      onClick={onToggleLayers}
+      aria-label={t("layers.button.aria", { n: layersOn })}
+      title={t("layers.button.aria", { n: layersOn })}
+      aria-haspopup="dialog"
+      aria-expanded={layersOpen}
+      aria-controls={layersOpen ? LAYERS_DIALOG_ID : undefined}
+      className={`relative flex h-[52px] w-12 shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] ${
+        layersOpen
+          ? "glass-soft text-white ring-1 ring-[var(--color-accent)]/70 ring-inset"
+          : "glass-soft text-white/90 hover:text-white"
+      }`}
+    >
+      <Layers size={16} aria-hidden="true" />
+      <span className="max-w-full truncate px-0.5 text-[10px] leading-normal" aria-hidden="true">
+        {t("panel.layers")}
+      </span>
+      <span
+        className="pointer-events-none absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-accent)] px-1 text-[10px] leading-none font-bold text-white tabular-nums"
+        aria-hidden="true"
+      >
+        {layersOn}
+      </span>
+    </button>
+  ) : null;
 
   const poseTimer = useRef<number | null>(null);
   const handleSceneReady = useCallback(
@@ -298,11 +341,12 @@ export function MapViewport({
         </div>
       )}
 
-      {/* Compass + tools, anchored to the viewport's right gutter.
-          มือถือ: เกาะ **ขวาล่าง** เหนือส่วน peek ของแผ่นเลื่อน และเหลือ 4 ปุ่ม —
-          orbit/pan ไม่มีความหมายบนจอสัมผัสอีกแล้ว (นิ้วเดียวเลื่อน สองนิ้วหมุน/ก้มเงย)
-          และ fullscreen ใช้ไม่ได้บน iOS Safari ของ iPhone ส่วนปุ่ม "ชั้นข้อมูล"
-          เข้ามาแทนเพราะบนมือถือมันอยู่ลึกกว่าเดิมหนึ่งชั้น
+      {/* ชั้นข้อมูล + compass + tools, anchored to the viewport's right gutter.
+          ปุ่ม "ชั้นข้อมูล" อยู่บนสุดของคอลัมน์ทุก tier (popover ของมันเปิดชิดซ้ายของคอลัมน์)
+          มือถือ: เกาะ **ขวาล่าง** เหนือส่วน peek ของแผ่นเลื่อน (ซึ่งอยู่บนแถบแท็บหัวข้อ) และเหลือ
+          2 ปุ่ม — ชั้นข้อมูล + เข็มทิศ: orbit/pan ไม่มีความหมายบนจอสัมผัส (นิ้วเดียวเลื่อน
+          สองนิ้วหมุน/ก้มเงย/บีบซูม) ซูมเข้า/ออกจึงไม่ต้องมีปุ่ม และ fullscreen ใช้ไม่ได้บน
+          iOS Safari ของ iPhone
           z-10 ชัดเจน: ตอนเป็น z-auto มันถูก dock (z-10) ทับจนกดไม่ได้บนจอเตี้ย */}
       {compact && sheetBadge ? (
         // มุมซ้ายล่างเหนือส่วน peek ของแผ่นเลื่อน — ด้านบนเป็นที่ของ AlertToast (ทับป้ายนี้จนมองไม่เห็น)
@@ -319,23 +363,13 @@ export function MapViewport({
           className="absolute z-10 flex flex-col items-center gap-1.5"
           style={{ bottom: safeArea.bottom + 8, right: toolsRight }}
         >
-          {onOpenLayers ? (
-            <button
-              type="button"
-              onClick={onOpenLayers}
-              title={t("panel.layers")}
-              aria-label={t("panel.layers")}
-              className="glass-soft flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-white/90 transition-colors hover:text-white"
-            >
-              <Layers size={16} />
-            </button>
-          ) : null}
+          {layersButton}
           <button
             type="button"
             onClick={() => sceneRef.current?.resetNorth()}
             title={t("viewport.north")}
             aria-label={t("viewport.north")}
-            className="glass-soft flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-white/90 transition-colors hover:text-white"
+            className="glass-soft flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-white/90 transition-colors hover:text-white"
           >
             <span
               className="relative flex h-7 w-7 items-center justify-center rounded-full border border-white/15"
@@ -345,20 +379,13 @@ export function MapViewport({
               <span className="absolute -top-[8px] text-[7px] font-bold text-white/90">N</span>
             </span>
           </button>
-          <div className="glass-soft flex flex-col gap-1.5 rounded-xl p-1.5">
-            <IconButton label={t("viewport.zoomIn")} onClick={() => dolly(ZOOM_FACTOR)}>
-              <Plus size={16} />
-            </IconButton>
-            <IconButton label={t("viewport.zoomOut")} onClick={() => dolly(1 / ZOOM_FACTOR)}>
-              <Minus size={16} />
-            </IconButton>
-          </div>
         </div>
       ) : (
         <div
           className="absolute flex flex-col items-center gap-2"
           style={{ top: safeArea.top + 8, right: toolsRight }}
         >
+          {layersButton}
           <button
             type="button"
             onClick={() => sceneRef.current?.resetNorth()}

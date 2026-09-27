@@ -24,6 +24,12 @@ interface DragSession {
   startedAt: number;
   /** true = ลากมาจาก body ที่เลื่อนได้ ต้องกัน native scroll ที่ move แรก */
   fromBody: boolean;
+  /**
+   * จับ pointer ไว้แล้วหรือยัง — มือจับจับทันที แต่ body จับ **หลังขยับเกิน TAP_MAX_PX** เท่านั้น:
+   * ถ้าจับตั้งแต่ pointerdown เป้าของ click จะถูกย้ายไปที่ตัว body แล้วปุ่มในเนื้อแผ่น (แท็บย่อย
+   * แถวสถานี …) กดไม่ติดเลยตอนที่ body อยู่บนสุดของ scroll
+   */
+  captured: boolean;
 }
 
 /**
@@ -92,8 +98,10 @@ export function useSheetDrag({
 
   const begin = (e: PointerEvent<HTMLElement>, fromBody: boolean) => {
     const el = sheetRef.current;
-    if (!el || session.current) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
+    // session ของ body ที่ยังไม่ได้จับ pointer อาจค้างอยู่ได้ (ปล่อยนิ้วนอก body = pointerup ไม่มาถึง)
+    // จึงถูกแทนที่ได้เสมอ — ห้ามค้างจนลากแผ่นไม่ได้อีกเลย
+    if (!el || session.current?.captured) return;
+    if (!fromBody) e.currentTarget.setPointerCapture(e.pointerId);
     el.style.transition = "none";
     session.current = {
       pointerId: e.pointerId,
@@ -107,6 +115,7 @@ export function useSheetDrag({
       moved: 0,
       startedAt: e.timeStamp,
       fromBody,
+      captured: !fromBody,
     };
   };
 
@@ -118,6 +127,12 @@ export function useSheetDrag({
     if (s.fromBody) e.preventDefault();
     const dy = e.clientY - s.startY;
     s.moved = Math.max(s.moved, Math.abs(dy));
+    if (!s.captured) {
+      // body: ยังเป็นการแตะอยู่ ไม่ขยับแผ่น (และไม่จับ pointer) จนกว่าจะเกินเกณฑ์
+      if (s.moved < TAP_MAX_PX) return;
+      e.currentTarget.setPointerCapture(e.pointerId);
+      s.captured = true;
+    }
     const heights = snapHeights(window.innerHeight);
     const min = Math.max(0, s.elH - heights.full);
     const max = Math.max(min, s.elH - visibleFor("peek"));
@@ -137,6 +152,8 @@ export function useSheetDrag({
     const s = session.current;
     if (!s || s.pointerId !== e.pointerId) return;
     session.current = null;
+    // แตะใน body = แตะเนื้อหา (ปุ่ม/แท็บย่อยทำงานของตัวเอง) ไม่ใช่คำสั่งเปลี่ยนสแนป
+    if (!s.captured) return;
     // แตะสั้น ๆ บนมือจับ = วนขึ้นทีละขั้น (ปุ่มบนแถบมือจับทำงานของตัวเองไป)
     const tapped = s.moved < TAP_MAX_PX && e.timeStamp - s.startedAt < TAP_MAX_MS;
     const next = tapped

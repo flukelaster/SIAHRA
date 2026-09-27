@@ -1,9 +1,23 @@
 import { createElement, type ComponentType } from "react";
-import { Activity, BellRing, CloudRain, CloudSun, Dam, Layers, Route, Satellite, Tornado, Waves } from "lucide-react";
+import {
+  Activity,
+  BellRing,
+  CloudRain,
+  CloudSun,
+  CloudSunRain,
+  Dam,
+  Droplets,
+  LayoutDashboard,
+  Route,
+  Satellite,
+  Tornado,
+  Waves,
+} from "lucide-react";
 import { translator, type MessageKey } from "../../i18n";
 import { alertRailBadge } from "../../lib/alertSummary";
 import { summarizeStorms } from "../../lib/storms";
 import { PANEL_KEYS, type PanelKey } from "../../lib/shellPrefs";
+import { mostSevereBadge, topicByKey, type TopicKey } from "../../lib/topics";
 import { lazyView, type LazyView } from "../ui/lazyView";
 import type { RailBadge } from "./PanelBadge";
 import type { PanelContext } from "./panelViews";
@@ -31,25 +45,52 @@ export function panelView<M>(
   return lazyView(() => load().then(pick));
 }
 
+type IconComponent = ComponentType<{ size?: number | string; className?: string; "aria-hidden"?: boolean | "true" }>;
+
 /**
- * ทะเบียนแผง — ลำดับ = ลำดับปุ่มบน rail และแท็บบนแผ่นเลื่อน; `view` ถูกเรนเดอร์
+ * ทะเบียนแผง (= มุมมองย่อยของหัวข้อ, `lib/topics.ts`) — ลำดับ = `PANEL_KEYS` = ลำดับ
+ * หัวข้อ → แท็บย่อย; `view` ถูกเรนเดอร์
  * เฉพาะแผงที่เปิดอยู่ ผ่าน `<PanelSlot>` (วงหมุนระหว่างโหลด chunk + กล่องลองใหม่เมื่อ
  * โหลดพลาด) — ไฟล์นี้ไม่มี JSX โดยตั้งใจ คอมโพเนนต์อยู่ใน panelViews.tsx
  *
- * ไอคอน/ป้าย/badge อยู่ในบันเดิลหลัก เพราะ rail ต้องวาดปุ่มทุกแผง (และ badge แจ้งเตือน
+ * ไอคอน/ป้าย/badge อยู่ในบันเดิลหลัก เพราะ rail ต้องวาด badge ของหัวข้อ (badge แจ้งเตือน
  * ต้องเห็นแม้แผงปิดอยู่) ก่อนผู้ใช้เปิดแผงใด
  */
 export interface PanelDef {
   key: PanelKey;
-  icon: ComponentType<{ size?: number | string; className?: string; "aria-hidden"?: boolean | "true" }>;
+  icon: IconComponent;
   labelKey: MessageKey;
   view: LazyView<PanelProps>;
   /** สัญญาณที่ต้องเห็นแม้แผงปิดอยู่ (แจ้งเตือน อปท. และจำนวนพายุ) */
   badge?: (ctx: PanelContext) => RailBadge;
 }
 
+/**
+ * เนื้อของปุ่ม "ชั้นข้อมูล" บนแผนที่ (popover ≥ tablet / แผ่นล่างบนมือถือ) — ไม่ใช่แผงของ
+ * หัวข้อใดแล้ว แต่ยังเป็น chunk แยกแบบเดียวกัน (MapLegend ห้ามเข้าบันเดิลหลัก)
+ */
+export const LAYERS_VIEW = panelView(() => import("./panelViews"), (m) => m.LayersPanel);
+
 export const PANELS: readonly PanelDef[] = [
-  { key: "layers", icon: Layers, labelKey: "panel.layers", view: panelView(() => import("./panelViews"), (m) => m.LayersPanel) },
+  // ── ภาพรวม ──
+  {
+    key: "impact",
+    icon: BellRing,
+    labelKey: "panel.impact",
+    view: panelView(() => import("./panelViews"), (m) => m.ImpactPanel),
+    badge: (ctx) => alertRailBadge(ctx.activeAlerts),
+  },
+  // ── น้ำ ──
+  { key: "water", icon: Waves, labelKey: "panel.water", view: panelView(() => import("./panelViews"), (m) => m.WaterPanel) },
+  {
+    // E16 — เส้นทางน้ำเหนือ (ระดับประเทศ ไม่ขึ้นกับจังหวัดที่เลือก) เดินตาม atIso ของ TimelineBar
+    key: "north",
+    icon: Route,
+    labelKey: "panel.north",
+    view: panelView(() => import("../hazard/NorthWaterCard"), (m) => ({ ctx }) =>
+      createElement(m.NorthWaterCard, { state: ctx.northRoute, atIso: ctx.atIso, onFocusStation: ctx.focusStation })),
+  },
+  { key: "dams", icon: Dam, labelKey: "panel.dams", view: panelView(() => import("../hazard/DamCard"), (m) => ({ ctx }) => createElement(m.DamCard, { state: ctx.dams })) },
   {
     key: "flood",
     icon: Satellite,
@@ -65,22 +106,7 @@ export const PANELS: readonly PanelDef[] = [
         onSelectAt: ctx.setAtIso,
       })),
   },
-  {
-    key: "impact",
-    icon: BellRing,
-    labelKey: "panel.impact",
-    view: panelView(() => import("./panelViews"), (m) => m.ImpactPanel),
-    badge: (ctx) => alertRailBadge(ctx.activeAlerts),
-  },
-  { key: "water", icon: Waves, labelKey: "panel.water", view: panelView(() => import("./panelViews"), (m) => m.WaterPanel) },
-  {
-    // E16 — เส้นทางน้ำเหนือ (ระดับประเทศ ไม่ขึ้นกับจังหวัดที่เลือก) เดินตาม atIso ของ TimelineBar
-    key: "north",
-    icon: Route,
-    labelKey: "panel.north",
-    view: panelView(() => import("../hazard/NorthWaterCard"), (m) => ({ ctx }) =>
-      createElement(m.NorthWaterCard, { state: ctx.northRoute, atIso: ctx.atIso, onFocusStation: ctx.focusStation })),
-  },
+  // ── ฝนและพายุ ──
   { key: "rain", icon: CloudRain, labelKey: "panel.rain", view: panelView(() => import("./panelViews"), (m) => m.RainPanel) },
   {
     key: "forecast",
@@ -89,7 +115,6 @@ export const PANELS: readonly PanelDef[] = [
     view: panelView(() => import("../hazard/ForecastCard"), (m) => ({ ctx }) =>
       createElement(m.ForecastCard, { state: ctx.forecast, health: ctx.apiHealth })),
   },
-  { key: "dams", icon: Dam, labelKey: "panel.dams", view: panelView(() => import("../hazard/DamCard"), (m) => ({ ctx }) => createElement(m.DamCard, { state: ctx.dams })) },
   {
     // แผนที่ SVG + การ์ดทั้งหมดอยู่ใน chunk แยก; badge บน rail ใช้แค่ `lib/storms.ts` (เล็ก) จึงอยู่ใน entry ได้
     key: "storm",
@@ -98,6 +123,7 @@ export const PANELS: readonly PanelDef[] = [
     view: panelView(() => import("../hazard/StormPanel"), (m) => m.StormPanel),
     badge: (ctx) => stormRailBadge(ctx),
   },
+  // ── แผ่นดินไหว ──
   {
     key: "quake",
     icon: Activity,
@@ -106,6 +132,22 @@ export const PANELS: readonly PanelDef[] = [
       createElement(m.EarthquakeLiveCard, { feed: ctx.earthquakes })),
   },
 ];
+
+/** ไอคอนของหัวข้อ (ป้าย/มุมมองย่อยอยู่ใน `lib/topics.ts` ซึ่งไม่ import React) */
+export const TOPIC_ICONS: Record<TopicKey, IconComponent> = {
+  overview: LayoutDashboard,
+  water: Droplets,
+  weather: CloudSunRain,
+  quake: Activity,
+};
+
+/**
+ * badge ของหัวข้อบน rail/แถบแท็บ = badge ที่รุนแรงที่สุดของมุมมองย่อย (`mostSevereBadge`)
+ * — แจ้งเตือน อปท. → ภาพรวม, พายุ → ฝนและพายุ; ตัวละเอียดยังอยู่บนแท็บย่อยของแต่ละมุมมอง
+ */
+export function topicBadge(topic: TopicKey, ctx: PanelContext): RailBadge {
+  return mostSevereBadge(topicByKey(topic).views.map((v) => panelByKey(v).badge?.(ctx) ?? null));
+}
 
 /**
  * badge ของแผงพายุ = จำนวนพายุในคำตอบ (ทุกแอ่ง ไม่ใช่เฉพาะที่ใกล้จังหวัด) — ไม่มีพายุ

@@ -896,6 +896,10 @@ was the sheet's collapse chevron sitting `ml-auto` *inside* the horizontally scr
   ~410 px of an 844 px viewport, and the phone was being served the *full*-height timeline and forecast
   strips while tablet-and-up got the dense ones. ≥ tablet is untouched. See AGENTS.md "Layout" for the
   current shell
+- **Superseded on the rail too (E18.1, 2026-09-27)** — the panel rail of criterion 1 is now an 80 px
+  four-topic rail (so criterion 3's ≥ tablet left inset is 104, not 72), layers is no longer a panel,
+  and the phone sheet sits above a topic tab bar with a safe-area bottom of `SHEET_PEEK_H +
+  PHONE_TABBAR_H + 8`; the criteria stay as written, as above
 
 1. Tiers from `lib/shellLayout.ts`: phone < 768 ≤ tablet < 1024 ≤ laptop < 1280 ≤ wide; ≥ tablet renders
    `TopBar` + `SideRail` (8 panels) + `BottomDock`, phone renders `TopBar` + phone dock + `MobileSheet`.
@@ -1668,6 +1672,51 @@ asks upstream itself, nothing touches `/api`, DO, R2 or cron.
 5. The web app, the legacy JSONs, `public/_headers` and the CSP were byte-for-byte untouched by PR A;
    PR B then rewrote the web and the `_headers` comment block (hosts unchanged) and deleted the legacy
    JSONs; root `npm test`, `npx tsc --noEmit` in `apps/etl` and the web build are green after each.
+
+### E18 — UI redesign (5 PRs)
+
+New scope, not from the audit: a five-PR redesign of the shell from the design canvas
+(https://claude.ai/artifact/1E1ApmiwbvT8PRbEmQmCLw). Before it, the rail and the phone sheet's tab
+strip listed all ten panels side by side, layers among them. Each PR is one `/implement` run with a
+screenshot in its PR.
+
+#### E18.1 — Navigation IA: topics, sub-tabs, layers button, phone tab bar — *in review* (2026-09-27)
+- Why: group the nine data panels into four labelled topics (the panels become their sub-views),
+  and make layers a map-tool button instead of a panel
+- Touches: new `lib/{topics,layerCount}.ts` (+ `topics.test.ts`),
+  `components/layout/{SubTabs,TopicTabBar,LayersSurface}.tsx`; `App.tsx`,
+  `components/layout/{AppShell,MapViewport,MobileSheet,SideDrawer,SideRail,panelRegistry}.ts(x)` (+ test),
+  `components/ui/Panel.tsx`, `hooks/{useSheetDrag,useShellState}.ts`, `lib/{shellLayout,shellPrefs}.ts`
+  (+ tests), `i18n/{th,en}.ts` (`topic.*`, `topic.*.short`, `tabbar.aria`, `subtabs.aria`,
+  `layers.button.aria`, `layers.close`, `layers.done`; `rail.aria` = "Data topics")
+- Depends: E13.1, PR #107
+- Size: L — one PR
+- Risk: the body tap threshold in `useSheetDrag` (pointer capture only after 8 px) is **not verified
+  on a real touch device**; the entry chunk grew 85.71 → 88.21 kB gz
+- Issue: _(not yet filed)_
+
+1. `TOPICS` = overview {impact} / water {water, north, dams, flood} / weather {rain, forecast,
+   storm} / quake {quake}; every `PanelKey` sits in exactly one topic, `layers` in none, and
+   `topicOf` sends a notification's `open-panel` action to the right topic (`topics.test.ts`).
+2. A topic's badge is its sub-views' most severe, count > unreachable > degraded > neverEvaluated,
+   ties to the earlier sub-view, never summed across panels (`topics.test.ts`).
+3. `siahra.shell` keeps `{v:1, drawerOpen, panel}`; a stored string that is no longer a key (the old
+   `"layers"`) reads as `impact` with `drawerOpen` kept, malformed JSON or a wrong shape reads as null
+   (`shellPrefs.test.ts`).
+4. `RAIL_W` 80, `PHONE_TABBAR_H` 56, phone safe-area bottom = `SHEET_PEEK_H + PHONE_TABBAR_H + 8` =
+   304 and covers the worst-case peek plus the tab bar; the narrowest tablet with the drawer open
+   still leaves ≥ 200 px of map (`shellLayout.test.ts`).
+5. `PANELS` has no `layers`, its content is still the lazy `LAYERS_VIEW` chunk, and every topic has
+   an icon (`panelRegistry.test.ts`); the layers button counts only layers that have a legend row in
+   the build (`countLayersOn`, `cctv` excluded when no camera source is enabled).
+
+#### E18.2–E18.5 — *planned*
+- **E18.2** — overview summary card.
+- **E18.3** — per-topic layer presets, a grouped layer list, and the `?layers=` permalink semantics
+  that go with them.
+- **E18.4** — time chip, a ⋯ menu, the forecast strip moved into weather, and the exaggeration
+  control into a basemap control.
+- **E18.5** — fonts and colour tokens.
 
 ## 3. Suggested first two weeks
 

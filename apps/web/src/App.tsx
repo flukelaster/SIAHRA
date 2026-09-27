@@ -451,10 +451,10 @@ export default function App() {
     window.setTimeout(() => URL.revokeObjectURL(url), 5000);
   }, [province, provinceName, atIso, lang, t]);
 
-  // ปุ่ม "ชั้นข้อมูล" บนคอลัมน์เครื่องมือของมือถือ — identity คงที่เพื่อไม่ให้
-  // MapViewport (และ Map3DCanvas ใต้มัน) re-render ทุกครั้งที่ App เรนเดอร์ใหม่
-  const openPanel = shell.openPanel;
-  const openLayersPanel = useCallback(() => openPanel("layers"), [openPanel]);
+  // ปุ่ม "ชั้นข้อมูล" บนคอลัมน์เครื่องมือของแผนที่ (ทุก tier) + ป้าย "แผ่นน้ำจำลอง" —
+  // callback ของ useShellState มี identity คงที่อยู่แล้ว ไม่ทำให้ Map3DCanvas re-render
+  // ป้ายใช้ "เปิด" ไม่ใช่ "สลับ": mousedown บนป้ายปิด popover (นอกกรอบ) แล้ว click เปิดกลับ
+  const { openLayers, toggleLayers, layersButtonRef } = shell;
 
   // E16 — แผงเส้นทางน้ำเหนือขอ "ไปที่สถานีนี้": สลับจังหวัดก่อน (ถ้าต่าง) แล้วรอจนฉากของ
   // จังหวัดนั้นพร้อม (MapApi ถูกตั้งใหม่ + mapInfo) และ observations ของจังหวัดนั้นมาถึง
@@ -582,7 +582,10 @@ export default function App() {
         onInfo={setMapInfo}
         onApi={handleApi}
         onPoseChange={handlePose}
-        onOpenLayers={openLayersPanel}
+        onOpenLayers={openLayers}
+        onToggleLayers={toggleLayers}
+        layersOpen={shell.layersOpen}
+        layersButtonRef={layersButtonRef}
       />
 
       <AppShell

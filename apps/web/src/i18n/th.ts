@@ -435,7 +435,7 @@ export const th = {
   "viewport.historical": "ดูย้อนหลัง {time}",
 
   // ── แผงข้อมูล (rail + drawer บนจอกว้าง / แท็บของแผ่นเลื่อนบนมือถือ) ─────
-  "rail.aria": "แผงข้อมูล",
+  "rail.aria": "หัวข้อข้อมูล",
   "drawer.close": "ปิดแผง",
   "panel.layers": "ชั้นข้อมูล",
   "panel.flood": "น้ำท่วม",
@@ -448,6 +448,23 @@ export const th = {
   "panel.dams": "เขื่อน",
   "panel.quake": "แผ่นดินไหว",
   "panel.storm": "พายุ",
+
+  // ── หัวข้อ (rail บนจอกว้าง / แถบแท็บล่างบนมือถือ) — แผงข้างบนเป็นมุมมองย่อยของหัวข้อ ──
+  "topic.overview": "ภาพรวม",
+  "topic.overview.short": "ภาพรวม",
+  "topic.water": "น้ำ",
+  "topic.water.short": "น้ำ",
+  "topic.weather": "ฝนและพายุ",
+  "topic.weather.short": "ฝน/พายุ",
+  "topic.quake": "แผ่นดินไหว",
+  "topic.quake.short": "แผ่นดินไหว",
+  "tabbar.aria": "หัวข้อข้อมูล",
+  "subtabs.aria": "มุมมองย่อยของ{topic}",
+
+  // ── ปุ่ม "ชั้นข้อมูล" บนแผนที่ + popover / แผ่นล่างของมัน ──────────────────
+  "layers.button.aria": "ชั้นข้อมูล (เปิดอยู่ {n} ชั้น)",
+  "layers.close": "ปิดชั้นข้อมูล",
+  "layers.done": "เสร็จ",
 
   // ── แผ่นเลื่อนบนจอเล็ก ────────────────────────────────────────────────
   "sheet.collapse": "ย่อแผง",
