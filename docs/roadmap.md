@@ -419,6 +419,38 @@ needs.deploy-web.result == 'skipped')`.
 3. No fixture contains a credential.
 4. `docs/testing.md` explains how to re-capture a fixture.
 
+#### E5.7 — TMD radar: new list format and Web Mercator frames — *done, PR pending* (2026-09-28)
+- Touches: `apps/api/src/ingestion/{tmdRadar.ts,schemas/radar.ts}`, `src/durable-objects/radar.ts`, `packages/shared-types/src/radar.ts`, `apps/web/src/lib/radarProjection.ts`, `src/scene/{RadarOverlay.ts,terrainMaterial.ts}`, tests and fixtures, `docs/ops.md` §7, `docs/testing.md`
+- Depends: E4.4
+- Size: M
+- Risk: the dry-weather `delayed` below; the two accepted gaps at the end
+- Issue: _(not yet filed)_
+
+Radar ingestion had been down on prod since 2026-09-02: `images_composite.list` moved to
+`overlay=zr/<n>.png` lines (25 lines, UTC, 15-min steps, the whole window shifting every 15 min, some
+listed files answering 404) and the frames became 1800×2644 Web Mercator (bounds 95–108 E / 4–22.5 N
+from TMD's own MapLibre viewer `RADAR_COORDS`, probed 2026-09-27) instead of 1173×1668 plate carrée.
+The data-honesty point: **no frame is drawn with a guessed georeference** — a frame's projection is
+read from its IHDR size, must agree with the projection its time implies (`WEB_MERCATOR_SINCE_MS` =
+2026-09-02T16:00Z), and any other size is rejected with a `lastError`.
+
+1. Both list forms parse; a listed 404 is `detail.notServed`, not an error.
+2. Frames are held in memory, hashed (duplicates within a round, or equal to meta `newestFrameSha` →
+   `detail.rotated`, not stored), and stored keyed by time only after one list re-read confirms
+   `file → tsMs`. The hash guard is a heuristic: byte-identical empty frames in dry weather are dropped
+   too, so the source can read `delayed` — documented in `docs/ops.md` §7 so nobody chases TMD.
+3. `/api/v1/radar/frames` gives every frame a `projection` plus `georeferences`; the deprecated
+   `bounds/widthPx/heightPx` stay for deploy skew.
+4. The web shader has a Mercator branch; frames decode through `createImageBitmap` resized to
+   1154×1695 (GPU memory ≈ unchanged); a pure selector falls back to equirectangular for an old-API
+   payload and skips a frame with an unknown projection without throwing.
+
+Accepted QA minors (not fixed, recorded):
+- A frame with an unknown projection is skipped **without a UI note** — narrow, since it needs an
+  API newer than the web bundle.
+- The web-mercator georeference rests on TMD's viewer; **no independent ground-truth pixel check
+  exists**. A visual comparison against TMD's viewer and gauges on 2026-09-27 was consistent.
+
 ### E6 — Realtime hardening (server side)
 
 #### E6.1 — Explicit heartbeat cadence and WS ping auto-response

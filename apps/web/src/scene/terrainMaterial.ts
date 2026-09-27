@@ -96,6 +96,8 @@ export interface TerrainSharedUniforms {
   uRadar: { value: THREE.Texture | null };
   uShowRadar: { value: number };
   uRadarBounds: { value: THREE.Vector4 };
+  /** 1 = ภาพเรดาร์เป็น Web Mercator (1800×2644), 0 = equirectangular รุ่นเดิม — ตั้งต่อเฟรม */
+  uRadarMercator: { value: number };
   uRadarLL: { value: THREE.Vector2[] };
 }
 
@@ -130,6 +132,7 @@ export function createTerrainSharedUniforms(): TerrainSharedUniforms {
     uRadar: { value: null },
     uShowRadar: { value: 0 },
     uRadarBounds: { value: new THREE.Vector4(95.005, 3.995, 108.005, 22.495) },
+    uRadarMercator: { value: 0 },
     uRadarLL: { value: [new THREE.Vector2(), new THREE.Vector2(), new THREE.Vector2(), new THREE.Vector2()] },
   };
 }
@@ -172,6 +175,7 @@ uniform float uFloodFieldDim;
 uniform sampler2D uRadar;
 uniform float uShowRadar;
 uniform vec4 uRadarBounds;
+uniform float uRadarMercator;
 uniform vec2 uRadarLL[4];
 varying vec2 vTerrainUv;
 vec3 siahraEmissive = vec3(0.0);
@@ -431,7 +435,19 @@ siahraEmissive += hazCol * hz * (0.16 + 0.10 * pulse);
 // TMD radar echoes (observed reflectivity), draped by lon/lat.
 if (uShowRadar > 0.5) {
   vec2 ll = mix(mix(uRadarLL[0], uRadarLL[1], vTerrainUv.x), mix(uRadarLL[2], uRadarLL[3], vTerrainUv.x), vTerrainUv.y);
-  vec2 ruv = (ll - uRadarBounds.xy) / (uRadarBounds.zw - uRadarBounds.xy);
+  // สูตรเดียวกับ lib/radarProjection.ts (แก้คู่กัน): คอลัมน์เชิงเส้นใน lon, แถวนับ
+  // จากขอบบน (เทกซ์เจอร์อัปโหลดด้วย flipY = false) — Mercator: เชิงเส้นใน
+  // ln(tan(π/4 + φ/2)); equirectangular: เชิงเส้นใน lat
+  vec2 ruv;
+  ruv.x = (ll.x - uRadarBounds.x) / (uRadarBounds.z - uRadarBounds.x);
+  if (uRadarMercator > 0.5) {
+    float mTop = log(tan(0.78539816 + radians(uRadarBounds.w) * 0.5));
+    float mBottom = log(tan(0.78539816 + radians(uRadarBounds.y) * 0.5));
+    float mLat = log(tan(0.78539816 + radians(ll.y) * 0.5));
+    ruv.y = (mTop - mLat) / (mTop - mBottom);
+  } else {
+    ruv.y = (uRadarBounds.w - ll.y) / (uRadarBounds.w - uRadarBounds.y);
+  }
   if (all(greaterThanEqual(ruv, vec2(0.0))) && all(lessThanEqual(ruv, vec2(1.0)))) {
     vec4 rc = texture2D(uRadar, ruv);
     float ra = rc.a * 0.82;
