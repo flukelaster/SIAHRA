@@ -487,8 +487,14 @@ export default function App() {
       setStationFocus(null);
       return;
     }
-    const obs = data.waterlevel.find((w) => w.station.id === stationFocus.stationId);
-    if (obs) api.selectWaterlevel(obs);
+    // id ของสถานีฝนกับสถานีระดับน้ำเป็นคนละเนมสเปซ — หาในรายการตามชนิดเท่านั้น
+    if (stationFocus.kind === "rainfall") {
+      const rain = data.rainfall.find((r) => r.station.id === stationFocus.stationId);
+      if (rain) api.selectRainfall(rain);
+    } else {
+      const obs = data.waterlevel.find((w) => w.station.id === stationFocus.stationId);
+      if (obs) api.selectWaterlevel(obs);
+    }
     setStationFocus(null);
   }, [stationFocus, provinceCode, mapInfo, observations.data, observations.error]);
 
@@ -530,6 +536,7 @@ export default function App() {
     selectedAuthorityId,
     setSelectedAuthorityId,
     apiHealth: apiHealth.health,
+    apiDown: apiHealth.apiDown,
     atIso,
     // ตัวตั้งเดียวกับที่ TimelineBar ใช้ (ผ่าน AppShell → onAtIsoChange) — แผงฉาก GFM
     // เลือกเวลาแล้วมาตรวัดน้ำ/ดวงอาทิตย์/GISTDA ?at=/เรดาร์ จึงเดินตามพร้อมกัน
