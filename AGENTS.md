@@ -36,23 +36,36 @@
 ## Git workflow (enforced by a GitHub ruleset — `.github/rulesets/main.json`)
 - **Never push straight to `main`**, however small or urgent — branch, then open a PR, even when the user says "push" (unless they explicitly override in that moment); the ruleset has no bypass actors, so a direct push is rejected anyway
 - `main` is mergeable once every status check passes: **Lint / TypeScript / Build** (`.github/workflows/ci.yml` — the same commands as "Checks" above). `ci.yml` also runs a **`Test`** gate on every PR, deliberately not yet in the required set: promoting it means editing `.github/rulesets/main.json` and running `scripts/apply-branch-rules.sh`; never make a path-filtered job a required check (a PR that does not touch those paths would wait forever) — that rule is why the per-workspace `Test (…)` legs sit behind an `if: always()` gate instead of being candidates themselves
-- The "English PRs" and "screenshot for UI changes" rules **still apply, but no CI job enforces them any more** (`pr-rules.yml` was removed because it burned Actions minutes) — they are checked by `/implement` before it opens a PR, and by you when you open one by hand
+- The "English PRs" and "screenshot for UI changes" rules **still apply, but no CI job enforces them any more** (`pr-rules.yml` was removed because it burned Actions minutes) — they are checked by `/implement` before it opens a PR, and by any agent or person who opens one by hand
 - **PR text and commit messages must be entirely in English** (subject and body) — check before you push:
   `printf '%s' "$TITLE$BODY" | LC_ALL=C.UTF-8 grep -Pq '[\x{0E00}-\x{0E7F}]'` (the PR) and
   `git log main..HEAD --format='%s%n%b' | LC_ALL=C.UTF-8 grep -Pq '[\x{0E00}-\x{0E7F}]'` (every commit on the branch — these two do not substitute for each other; an English PR over Thai commits still breaks the rule)
   Rewrite whatever it finds (`gh pr edit <n> --title/--body`, `git commit --amend`, or `git rebase -i` if not pushed yet).
   **Comments inside code may still be written in Thai** — this rule covers what an outsider reads first in a public repo: the log and the review surface
 - **A UI change needs a screenshot in the PR** — if the PR touches `apps/web/src/{components,scene}/**`, `App.tsx`, `main.tsx`, `index.css`, `branding.ts`, `index.html`, or a top-level file in `public/` (not `public/aoi/**`), the description must embed at least one image: capture it from the dev server with `playwright-cli`, run `scripts/pr-media.sh "$(git branch --show-current)" <png...>`, and paste the Markdown it prints into the PR body (uploaded as the prerelease asset `primg-<branch>` using plain `gh`; `pr-image-cleanup.yml` deletes it when the PR closes). No visible change → add the `no-screenshot` label
+- **Agents open and merge their own PRs — no need to ask first** (owner decision 2026-09-27). Once a branch's loop is green the agent pushes and runs `gh pr create`. It merges with `gh pr merge <n> --merge --delete-branch` only when **all** of these hold:
+  - every check on the PR has passed, including the non-required `Test` gate; nothing is pending or failing
+  - the PR is not a draft, and `mergeStateStatus` is `CLEAN`
+  - Codex has answered the head commit: either a review, or the 👍 reaction on the PR (its clean verdict — see `/babysit-prs`)
+  - there are zero unresolved review threads, and every Codex review body that carries findings has its `Addressed Codex review <submittedAt>` marker
+  - no cost-gate `stop` is open
+
+  If Codex has not answered within 30 min of the last push, the agent may merge on green checks and says so in the merge report. It never uses `--admin` (the guard hook asks the user), never force-pushes, and never merges someone else's PR.
+
+  What still goes back to the user:
+  - a `devops` `stop`
+  - the same review finding repeating unchanged after it was already fixed
+  - a failing check the agent cannot fix
 - After merging: delete the branch both on the remote (`gh pr merge --delete-branch`, or rely on the repo's delete-on-merge setting) and locally (`git branch -d`), then `git checkout main && git pull` before starting the next task
 - To change the ruleset: edit `.github/rulesets/main.json` and run `scripts/apply-branch-rules.sh` (idempotent; needs `gh` with admin rights)
 
 ## Loop engineering (`.claude/`)
-The standard loop for writing code: `/implement <task>` → **devops** cost-gates it first when it touches DO/D1/R2/cron/logs (see "Cost budget") → **senior-se** writes it → **qa-verifier** checks it → up to 3 rounds of fixes until the verdict is `pass` → **devops** re-verifies the diff (cost-bearing tasks only; a `fail` is a round) → **docs-sync** updates the docs → commit → **always ask the user before opening a PR**
+The standard loop for writing code: `/implement <task>` → **devops** cost-gates it first when it touches DO/D1/R2/cron/logs (see "Cost budget") → **senior-se** writes it → **qa-verifier** checks it → up to 3 rounds of fixes until the verdict is `pass` → **devops** re-verifies the diff (cost-bearing tasks only; a `fail` is a round) → **docs-sync** updates the docs → commit → push + open the PR → wait for CI and Codex → merge (the conditions are in "Git workflow")
 - Agent definitions live in `.claude/agents/{devops,senior-se,qa-verifier,docs-sync}.md`; commands in `.claude/commands/{implement,review-fix,babysit-prs}.md`
 - `devops` **has no Write/Edit tool either** — it returns JSON `{verdict, delta_usd, constraints[], cheaper_design}`; `go-with-constraints` turns its constraints into acceptance criteria, `stop` halts before any code is written and puts the projected number in front of the user
 - `qa-verifier` **has no Write/Edit tool, deliberately** — QA cannot fix its own findings, and that is what makes the loop a loop; it returns JSON `{verdict, findings[], screenshots[]}` so the loop condition is machine-checkable rather than a matter of interpretation
 - QA runs exactly the commands `ci.yml` runs (if they drift, QA goes green while CI goes red) plus a visual acceptance pass with `playwright-cli` — it **must not start a dev server itself** (one per worktree; if none is running it returns `blocked`)
-- **Agents do not open PRs**, whatever the user said earlier about "push" — `.claude/hooks/guard-pr.sh` (PreToolUse) intercepts `gh pr create/merge/ready` and `git push … main` and forces the question back to the user; the hook is a safety net, not an excuse to skip asking
+- **Agents open and merge PRs themselves** under the conditions in "Git workflow". `.claude/hooks/guard-pr.sh` (PreToolUse) still sends two commands back to the user: `git push` that would land on `main`, and `gh pr merge --admin`, which bypasses the required checks. It no longer intercepts `gh pr create/ready/merge`.
 - `.claude/settings.json` (tracked) holds the hook and the allow-list; `.claude/settings.local.json` is per-machine (gitignored)
 - `.codex/` is the Codex CLI port of the same loop: `agents/*.toml` mirror `.claude/agents/*.md` and `hooks.json` runs the same `guard-pr.sh` (a copy in `.codex/hooks/`, resolved from the repo root) — change an agent or the guard in both places
 

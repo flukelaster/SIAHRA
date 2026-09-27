@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# PreToolUse(Bash) guard: an agent must never open, mark ready, or merge a PR on
-# its own, and must never push to main — the operator decides those, in the
-# moment. Returning "ask" (not "deny") keeps the human in the loop while still
-# letting them approve it right there; "ask" also beats a permissive
-# defaultMode, which a plain allow-list rule would not.
+# PreToolUse(Bash) guard. Since 2026-09-27 the owner lets agents open and merge
+# PRs on their own (AGENTS.md "Git workflow"), so `gh pr create/ready/merge` pass
+# through. What still stops for the operator: a push straight to main, and a
+# `gh pr merge --admin`, which would bypass the required checks. Returning "ask"
+# (not "deny") keeps the human in the loop while still letting them approve it
+# right there; "ask" also beats a permissive defaultMode, which a plain
+# allow-list rule would not.
 set -euo pipefail
 
 input=$(cat)
@@ -113,11 +115,12 @@ while IFS= read -r seg; do
         sub=$(printf '%s' "$seg" | awk '{print $2}') ;;
     esac
   fi
-  case "$sub" in
-    create) reason="Opening a PR is always the user's call (/implement step 5) — approve here if they already said to open it"; break ;;
-    merge)  reason="Agents do not merge PRs — the user does that themselves"; break ;;
-    ready)  reason="Marking a draft ready sends it into real review — needs the user's confirmation"; break ;;
-  esac
+  # Opening, readying and merging are the agent's job now; only a merge that
+  # skips the required checks still needs the operator.
+  if [ "$sub" = "merge" ] && printf '%s' "$seg" | grep -Eq '(^|[[:space:]])--admin([[:space:]=]|$)'; then
+    reason="gh pr merge --admin bypasses the required checks — only the user may do that"
+    break
+  fi
 
   # `git push` reaching main. Two ways that happens, and the literal-argument
   # check only catches the first:

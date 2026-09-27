@@ -1,12 +1,12 @@
 ---
-description: Feature loop for SIAHRA — devops cost-gates anything touching DO/D1/R2 first, senior-se implements, qa-verifier gates, loop until green, devops re-verifies the diff, docs-sync updates docs, then ASK before opening a PR (never automatic).
+description: Feature loop for SIAHRA — devops cost-gates anything touching DO/D1/R2 first, senior-se implements, qa-verifier gates, loop until green, devops re-verifies the diff, docs-sync updates docs, then opens the PR and merges it once CI and Codex are clean.
 ---
 
-Run the feature loop: **(devops, when the task is cost-bearing) → senior-se → qa-verifier → (loop until green) → (devops verify) → docs-sync → ask the user → PR**
+Run the feature loop: **(devops, when the task is cost-bearing) → senior-se → qa-verifier → (loop until green) → (devops verify) → docs-sync → PR → merge**
 
 Requested work: `$ARGUMENTS`
 
-This command must run in the main session — the "open a PR?" gate uses `AskUserQuestion`, which a subagent cannot call.
+This command must run in the main session — the devops `stop` gate uses `AskUserQuestion`, which a subagent cannot call.
 
 ## 0. Preflight
 - `git branch --show-current` — if you are on `main`, `git switch -c <type>/<slug>` first (never commit to main)
@@ -67,28 +67,24 @@ Print: `devops verify: pass|fail, delta ≈ $<expected> vs modelled $<expected>`
 `Agent(docs-sync)` — give it the full diff of the branch
 
 ## 4. Commit
-One commit covering both code and docs, **written in English** (subject + body), then **stop**
+One commit covering both code and docs, **written in English** (subject + body), then continue to step 5
 
-## 5. Ask before opening a PR — mandatory
-Use `AskUserQuestion`: "Open a PR now?"
-- `Open it`
-- `Keep the commit` (end here, no push)
-- `More changes` (back to step 1 with the new instructions)
-
-**Never open a PR without asking, whatever the user said earlier about "push"** — the `guard-pr.sh` hook catches it as well, but the hook is a safety net, not an excuse.
-
-## 6. Open the PR (only after the user says to)
+## 5. Open the PR — no need to ask (owner decision 2026-09-27)
 1. `git push -u origin <branch>`
 2. If the diff touches UI → `scripts/pr-media.sh "$(git branch --show-current)" <png from QA>` and paste the Markdown it prints into the body
 3. Write the title and body **in English**
 4. **Self-check before firing** (no CI job catches these any more — a miss here ships):
    - Language: `printf '%s' "$TITLE$BODY" | LC_ALL=C.UTF-8 grep -Pq '[\x{0E00}-\x{0E7F}]'` (title/body) **and** `git log main..HEAD --format='%s%n%b' | LC_ALL=C.UTF-8 grep -Pq '[\x{0E00}-\x{0E7F}]'` (every commit on the branch) → rewrite wherever Thai text turns up
    - Screenshot: if `git diff --name-only main...HEAD` touches `apps/web/index.html`, `apps/web/src/App.tsx`, `apps/web/src/main.tsx`, `apps/web/src/index.css`, `apps/web/src/branding.ts`, `apps/web/src/components/**`, `apps/web/src/scene/**`, or `apps/web/public/*` → the body needs at least one image, otherwise apply the `no-screenshot` label (only when nothing visibly changed — types, comments, refactors; never manufacture a screenshot)
-5. `gh pr create` (the hook asks for approval once more)
-6. Afterwards, tell the user that Codex reviews every push and that `/review-fix <n>` handles the next round
+5. `gh pr create`
+
+## 6. Merge — once CI and Codex are clean
+Wait for the checks and the Codex review (poll `gh pr checks <n>` and the review threads, no faster than every few minutes), fix any P1/P2 findings in one batch as `/review-fix` does, then merge with `gh pr merge <n> --merge --delete-branch` when **every** condition in AGENTS.md "Git workflow" holds: all checks passed (including `Test`), not a draft, `mergeStateStatus` `CLEAN`, Codex answered the head commit (a review or the 👍 reaction), zero unresolved threads with every findings-bearing review body marked `Addressed Codex review <submittedAt>`. If Codex has not answered within 30 min of the last push, merging on green checks is allowed — say so in the report. Never `--admin`, never force-push. Afterwards `git checkout main && git pull` and `git branch -D <branch>`, and report the PR number, the merge commit and anything left open.
+
+Stop and hand back to the user instead of merging when: a check fails and you cannot fix it, the same finding repeats unchanged after it was already fixed, or devops said `stop`.
 
 ## Non-goals
-- Never merge
+- Never merge with `--admin` or on red/pending checks
 - Never touch `.github/rulesets/main.json` or `ci.yml` while building a feature
 - Never skip step 1b to save time on a task that matches the list — the 2026-08-18..23 bill (72B
   rows read, $104.95 projected) came from two statements that looked trivial

@@ -95,5 +95,5 @@ Print a table: `thread | finding | severity | action | sha | resolved?` — one 
 The single thing that is not progress: **the same finding, unchanged, after it was already fixed** (the reviewer rejected the fix, or is repeating itself). Do not fix that one a third time — stop and ask the user. Genuinely new findings never hit this.
 
 ## Non-goals
-- Never merge
+- Do not merge from here — merging is the calling loop's job (`/implement` step 6, `/babysit-prs` step 6), under the conditions in AGENTS.md "Git workflow"
 - Never fix things nobody commented on — bonus refactors make the review cycle longer
