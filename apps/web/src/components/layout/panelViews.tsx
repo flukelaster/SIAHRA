@@ -1,4 +1,5 @@
 import type { HealthResponse } from "@siahra/shared-types";
+import type { Dispatch, SetStateAction } from "react";
 import type { Province } from "../../data/types";
 import type { Lang } from "../../i18n";
 import { useT } from "../../i18n/context";
@@ -18,6 +19,9 @@ import type { ObservationsState } from "../../hooks/useObservations";
 import type { ProvinceForecastState } from "../../hooks/useProvinceForecast";
 import type { StormsState } from "../../hooks/useStorms";
 import { resolveError } from "../../lib/errorMessage";
+import type { LayerPresetState } from "../../lib/defaultLayers";
+import { applyToggle, resetToTopic } from "../../lib/layerGroups";
+import type { TopicKey } from "../../lib/topics";
 import type { QualityLevel, QualityMode } from "../../scene/quality";
 import { ActiveAlertBanner } from "../hazard/ActiveAlertBanner";
 import { AffectedAuthorityList } from "../hazard/AffectedAuthorityList";
@@ -26,6 +30,7 @@ import { OverviewSources, OverviewSummary } from "../hazard/OverviewSummary";
 import { RainfallCard } from "../hazard/RainfallCard";
 import { WaterLevelCard } from "../hazard/WaterLevelCard";
 import { ApiStatusFooter } from "./ApiStatusFooter";
+import { LayerPresetCard } from "./LayerPresetCard";
 import type { MapInfo, MapLayers } from "./Map3DCanvas";
 import {
   MapLegend,
@@ -52,7 +57,12 @@ export interface PanelContext {
   provinceName: string;
   lang: Lang;
   layers: MapLayers;
-  toggleLayer: (key: keyof MapLayers, value: boolean) => void;
+  /**
+   * redesign PR 3 — หัวข้อที่เลือกอยู่ + "เดินตามหัวข้อไหม" + ตัวตั้งสถานะชั้นตัวเดียวของ App.tsx: สวิตช์ใน
+   * legend (`applyToggle`) และปุ่มคืนค่า (`resetToTopic`) เรียกกฎของ `lib/layerGroups.ts` ผ่านตัวตั้งนี้
+   * (ตัวเดียวกับที่ App ใช้ตอนเปลี่ยนหัวข้อ — permalink จึงตามไปเหมือนกันทุกทาง) สถานะอยู่ในหน่วยความจำเท่านั้น
+   */
+  layerPreset: LayerPresetInfo;
   layerDescriptors: LayerDescriptors;
   quality: QualityMode;
   qualityLevel: QualityLevel;
@@ -110,6 +120,16 @@ export interface PanelContext {
   floodAge: FloodSourceAgeInput | null;
 }
 
+export interface LayerPresetInfo {
+  topic: TopicKey;
+  /** false = ปรับเองแล้ว (สลับชั้นที่ชุดของหัวข้อตั้งค่าเอง หรือเปิดจาก `?layers=`) */
+  following: boolean;
+  setState: Dispatch<SetStateAction<LayerPresetState>>;
+  /** โหลดกฎของชุดหัวข้อไม่สำเร็จตอนเปลี่ยนหัวข้อครั้งล่าสุด (ชั้นไม่ถูกเปลี่ยน) — null = ไม่มีปัญหา */
+  loadError: string | null;
+  clearLoadError: () => void;
+}
+
 /** เป้าหมายของ `focusStation` — พิกัด/จังหวัดมาจากผังเส้นทาง (ใช้ได้แม้ไม่มีค่าล่าสุด) */
 export interface StationFocus {
   /**
@@ -124,14 +144,30 @@ export interface StationFocus {
   lon: number;
 }
 
-/** แผงชั้นข้อมูล: legend เดิมไม่แก้ + สถานะการดึงของ ThaiWater เป็น footer (ย้ายมาจาก Sidebar เดิม) */
+/**
+ * แผงชั้นข้อมูล: การ์ดชุดของหัวข้อ + legend จัดเป็นสามกลุ่ม (redesign PR 3 — ทุกบรรทัดของแต่ละชั้น
+ * ยังอยู่ครบ แค่ย้ายเข้ากลุ่ม) + สถานะการดึงของ ThaiWater เป็น footer (ย้ายมาจาก Sidebar เดิม)
+ */
 export function LayersPanel({ ctx }: { ctx: PanelContext }) {
   const obs = ctx.observations.data;
+  const { topic, setState, clearLoadError } = ctx.layerPreset;
   return (
     <div className="flex min-h-full flex-col gap-3">
       <MapLegend
+        header={
+          <LayerPresetCard
+            topic={topic}
+            layers={ctx.layers}
+            following={ctx.layerPreset.following}
+            loadError={ctx.layerPreset.loadError}
+            onReset={() => {
+              clearLoadError();
+              setState((s) => resetToTopic(s, topic));
+            }}
+          />
+        }
         layers={ctx.layers}
-        onToggle={ctx.toggleLayer}
+        onToggle={(key, value) => setState((s) => applyToggle(s, key, value))}
         descriptors={ctx.layerDescriptors}
         quality={ctx.quality}
         qualityLevel={ctx.qualityLevel}

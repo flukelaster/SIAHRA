@@ -6,6 +6,9 @@ import { LANGS, translator, type Lang } from "../../i18n";
 import { ENABLED_CAMERA_SOURCES } from "../../lib/featureFlags";
 import { LanguageContext } from "../../i18n/context";
 import { FLOOD_DEPTH_LEGEND_STOPS_M, FLOOD_RGB, GISTDA_SHEET_RGB, STATION_SHEET_RGB } from "../../lib/floodStyle";
+import { DEFAULT_LAYERS } from "../../lib/defaultLayers";
+import { countLayersOn } from "../../lib/layerCount";
+import { GROUP_LAYERS, layerGroupOf, type LayerGroup } from "../../lib/layerGroups";
 import { MapLegend, type FloodGfmLegendState, type GistdaDepthLegendState } from "./MapLegend";
 import type { MapLayers } from "./Map3DCanvas";
 
@@ -147,14 +150,159 @@ describe("MapLegend — แผ่นน้ำจำลองจากสถา�
 });
 
 describe("MapLegend — ลำดับแถว: ดาวเทียมที่เห็นจริงมาก่อน", () => {
-  it("Sentinel-1 (GFM) → ความลึก → GISTDA → แผ่นจำลองจากสถานี", () => {
+  // redesign PR 3: ความลึก GFM ย้ายไปกลุ่มภาพประกอบ (หลังกลุ่มตรวจวัดจริงทั้งหมด) — ลำดับ "ดาวเทียมที่เห็นจริง
+  // → ภาพประกอบ" ยังอยู่: Sentinel-1 → GISTDA ในกลุ่มตรวจวัดจริง แล้วความลึก → แผ่น GISTDA → แผ่นจำลองจากสถานี
+  it("Sentinel-1 (GFM) → GISTDA → ความลึก → แผ่นจำลองจากสถานี", () => {
     const html = render("th", gfmState(null));
     const t = translator("th");
     const at = (k: Parameters<typeof t>[0]) => html.indexOf(t(k));
     expect(at("legend.layer.floodGfm")).toBeGreaterThan(-1);
-    expect(at("legend.layer.floodGfm")).toBeLessThan(at("legend.layer.floodDepth"));
-    expect(at("legend.layer.floodDepth")).toBeLessThan(at("legend.layer.floodExtent"));
-    expect(at("legend.layer.floodExtent")).toBeLessThan(at("legend.layer.stationSheet"));
+    expect(at("legend.layer.floodGfm")).toBeLessThan(at("legend.layer.floodExtent"));
+    expect(at("legend.layer.floodExtent")).toBeLessThan(at("legend.layer.floodDepth"));
+    expect(at("legend.layer.floodDepth")).toBeLessThan(at("legend.layer.stationSheet"));
+  });
+});
+
+/**
+ * redesign PR 3 — รายการชั้นถูกจัดเป็นสามกลุ่ม: ทุกแถวต้องอยู่ในกลุ่มของมัน (`GROUP_LAYERS`) และทุกบรรทัดที่เคย
+ * อยู่ใต้แถว (หมายเหตุ ความสด ข้อผิดพลาด หมายเหตุชั้นที่พึ่งกัน) ต้องยังอยู่ — เรนเดอร์สถานะที่ "เปิดทุกบรรทัด"
+ * แล้วตรวจทีละคีย์ภายในกล่องของกลุ่มนั้น
+ */
+describe("MapLegend — กลุ่มชั้น: ไม่มีบรรทัดไหนหาย", () => {
+  const LAYER_GROUPS = Object.keys(GROUP_LAYERS) as LayerGroup[];
+  const LAYER_KEYS = Object.keys(ALL_OFF) as (keyof MapLayers)[];
+  const ALL_ON = Object.fromEntries(Object.keys(ALL_OFF).map((k) => [k, true])) as unknown as MapLayers;
+  const err = { raw: "E-42" };
+  const descriptor = (id: string) => ({
+    descriptor: {
+      id,
+      epistemicClass: "observed" as const,
+      liveOrStatic: "live" as const,
+      fetchedAt: "2026-09-27T00:00:00Z",
+      sourceIds: [],
+      methodologyUrl: "/methodology/x",
+    },
+    health: null,
+  });
+  const renderAll = (lang: Lang) =>
+    renderToStaticMarkup(
+      createElement(
+        LanguageContext.Provider,
+        { value: { lang, setLang: () => {}, t: translator(lang) } },
+        createElement(MapLegend, {
+          layers: ALL_ON,
+          onToggle: () => {},
+          descriptors: Object.fromEntries(LAYER_KEYS.map((k) => [k, descriptor(k)])),
+          quality: "auto",
+          qualityLevel: "balanced",
+          onQualityChange: () => {},
+          terrainIntegrity: "mismatch",
+          buildingsError: "x",
+          exposure: { run: null, noNewRun: false, apiUnreachable: true, noRunReason: null },
+          floodGfm: { ...gfmState(725), fieldError: err, scene: null, loading: false, dimmed: true },
+          gistdaDepth: {
+            extent: "detected",
+            dimmed: true,
+            forecastHidden: true,
+            sheet: { floodedCells: 10, boundaryCells: 2, notEstimatedCells: 1, maxDepthCm: 120, deferredToGfm: 1, cellSizeM: 83, pending: false, drawn: true, error: null },
+          },
+          stationSheet: {
+            stations: 2, leaf: 1, pending: 0, budget: 1, failed: 0, overview: 0, overviewCellSizeM: 83, leafCellSizeM: 30,
+            maskCellSizeM: 60, requests: { issued: 48, max: 48 }, drawn: true, workerError: "boom",
+          },
+          cameraErrors: Object.fromEntries(ENABLED_CAMERA_SOURCES.map((id) => [id, err])),
+          layerLoadErrors: { stationSheet: err, northRoute: err, gistdaDepth: err },
+        }),
+      ),
+    ).replaceAll("&#x27;", "'").replaceAll("&quot;", '"');
+
+  /** html ของกล่องกลุ่มแต่ละกลุ่ม (`data-layer-group`) */
+  const sections = (html: string) =>
+    Object.fromEntries(
+      LAYER_GROUPS.map((g) => {
+        const start = html.indexOf(`data-layer-group="${g}"`);
+        const next = LAYER_GROUPS.map((o) => html.indexOf(`data-layer-group="${o}"`)).filter((i) => i > start);
+        const end = next.length > 0 ? Math.min(...next) : html.length;
+        return [g, start === -1 ? "" : html.slice(start, end)];
+      }),
+    ) as Record<LayerGroup, string>;
+
+  /** บรรทัดที่ต้องอยู่ใต้แต่ละชั้น (นอกจากชื่อ/หมายเหตุ/บรรทัดความสดที่ทุกแถวมี) */
+  const extraLines = (lang: Lang): Partial<Record<keyof MapLayers, string[]>> => {
+    const t = translator(lang);
+    const loadFailed = t("legend.layer.loadFailed", { error: "E-42" });
+    return {
+      lowland: [t("legend.integrity.mismatch")],
+      exposure: [t("legend.exposure.integrity.mismatch"), t("legend.layer.exposure.inputs"), t("legend.exposure.apiDownNoRun")],
+      buildings: [t("legend.layer.buildings.error")],
+      floodGfm: [],
+      floodDepth: [t("legend.floodDepth.scale"), t("legend.floodDepth.notEstimated"), t("legend.floodDepth.notEstimated.why")],
+      gistdaDepth: [
+        loadFailed,
+        t("legend.gistdaDepth.summary", { n: "10", m: "83", max: "1.2" }),
+        t("legend.gistdaDepth.forecastHidden"),
+        t("legend.gistdaDepth.dimmed"),
+        t("legend.gistdaDepth.method"),
+      ],
+      stationSheet: [loadFailed, t("legend.stationSheet.worker", { error: "boom" })],
+      northRoute: [loadFailed],
+      cctv: [
+        t("legend.layer.cctv.video"),
+        t("legend.layer.cctv.unverified"),
+        ...ENABLED_CAMERA_SOURCES.map((id) =>
+          t("legend.layer.cctv.error", { source: lang === "th" ? SOURCES[id].nameTh : SOURCES[id].nameEn, error: "E-42" }),
+        ),
+      ],
+    };
+  };
+
+  it.each(LANGS)("ทุกชั้นอยู่ในกลุ่มของมัน พร้อมชื่อ หมายเหตุ บรรทัดความสด และบรรทัดข้อผิดพลาด/หมายเหตุเดิม (%s)", (lang) => {
+    const t = translator(lang);
+    const html = renderAll(lang);
+    const byGroup = sections(html);
+    const extra = extraLines(lang);
+    for (const key of LAYER_KEYS) {
+      if (key === "cctv" && ENABLED_CAMERA_SOURCES.length === 0) continue;
+      const box = byGroup[layerGroupOf(key)];
+      const label = t(`legend.layer.${key}` as Parameters<typeof t>[0]);
+      expect(box, key).toContain(label);
+      for (const other of LAYER_GROUPS.filter((g) => g !== layerGroupOf(key))) {
+        expect(byGroup[other].includes(`>${label}<`), `${key} in ${other}`).toBe(false);
+      }
+      if (key !== "cctv") {
+        expect(box, key).toContain(t(`legend.layer.${key}.note` as Parameters<typeof t>[0], { km: 25, radiusKm: 5 }));
+      }
+      for (const line of extra[key] ?? []) expect(box, `${key}: ${line}`).toContain(line);
+    }
+    // บรรทัดความสด (ป้ายชนิดความรู้ + ลิงก์วิธีคำนวณ) หนึ่งบรรทัดต่อแถว — ไม่มีแถวไหนหล่น
+    const rows = LAYER_KEYS.filter((k) => k !== "cctv" || ENABLED_CAMERA_SOURCES.length > 0).length;
+    expect(html.split(t("freshness.methodology")).length - 1).toBe(rows);
+    // ข้อผิดพลาดของฉาก GFM ยังอยู่ (ไม่มีฉาก = บรรทัดหรี่/ข้อความของ FloodGfmDetails ตามสถานะ)
+    expect(html).toContain(t("badge.observed"));
+    expect(html).toContain(t("badge.illustrative"));
+    expect(html).toContain(t("layers.group.basemap"));
+  });
+
+  it("ตัวเลขบนปุ่มชั้นข้อมูล (countLayersOn) = จำนวนสวิตช์ที่เปิดอยู่ในรายการที่จัดกลุ่มแล้ว", () => {
+    const hidden: (keyof MapLayers)[] = ENABLED_CAMERA_SOURCES.length > 0 ? [] : ["cctv"];
+    for (const layers of [DEFAULT_LAYERS, ALL_ON, { ...ALL_OFF, cctv: true, radar: true }]) {
+      const html = renderToStaticMarkup(
+        createElement(
+          LanguageContext.Provider,
+          { value: { lang: "th", setLang: () => {}, t: translator("th") } },
+          createElement(MapLegend, {
+            layers,
+            onToggle: () => {},
+            descriptors: {},
+            quality: "auto",
+            qualityLevel: "balanced",
+            onQualityChange: () => {},
+          }),
+        ),
+      );
+      const checked = (html.match(/type="checkbox"[^>]*checked=""/g) ?? []).length;
+      expect(checked).toBe(countLayersOn(layers, hidden));
+    }
   });
 });
 

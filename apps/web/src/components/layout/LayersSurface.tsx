@@ -16,8 +16,8 @@ const POPOVER_GAP = 8;
 const POPOVER_W = 360;
 
 /**
- * เนื้อของชั้นข้อมูล = `LayersPanel` เดิม (MapLegend + สถานะการดึงของ ThaiWater) **ไม่แก้
- * ข้อความใดเลย** — ทุกบรรทัด error/ความสด/ป้าย "ภาพประกอบ" ของ legend ยังเหมือนเดิม
+ * เนื้อของชั้นข้อมูล = `LayersPanel` (การ์ดชุดของหัวข้อ + MapLegend จัดเป็นสามกลุ่ม + สถานะการดึงของ
+ * ThaiWater) — ทุกบรรทัด error/ความสด/ป้าย "ภาพประกอบ" ของแต่ละชั้นยังอยู่ครบ (redesign PR 3 แค่จัดกลุ่ม)
  * โหลดเป็น chunk แยกผ่าน `LAYERS_VIEW` ใต้ `ChunkBoundary` (วงหมุน/กล่องลองใหม่)
  */
 function LayersBody({ ctx }: { ctx: PanelContext }) {
