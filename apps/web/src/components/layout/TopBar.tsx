@@ -1,8 +1,8 @@
-import { Bell, Camera, Check, Database, Link2, Search } from "lucide-react";
-import { useMemo, useRef, useState, type RefObject } from "react";
+import { Bell, Search } from "lucide-react";
+import { useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { BRAND } from "../../branding";
 import { BrandMark } from "./BrandMark";
-import { LanguageToggle } from "./LanguageToggle";
+import { MoreMenu } from "./MoreMenu";
 import { ProvinceChip } from "./ProvinceChip";
 import type { Province } from "../../data/types";
 import { useLang } from "../../i18n/context";
@@ -18,11 +18,15 @@ const ICON_BUTTON =
 
 /**
  * Floating header bar over the map (48 px): brand, province chip, search
- * (province/amphoe/station/dam), share, snapshot, notifications bell, sources link.
+ * (province/amphoe/station/dam), time chip (≥ tablet), notifications bell, ⋯ menu.
  *
  * ชื่อแบรนด์เต็ม + แท็กไลน์โผล่เฉพาะ `wide`; ปุ่มทั้งหมดเป็นไอคอนล้วน (ข้อความ
  * เดิมย้ายไป tooltip/aria-label เดียวกับที่ใช้อยู่แล้ว) เพื่อให้ช่องค้นหาและชิป
  * จังหวัดมีที่พอบน tablet/phone
+ *
+ * E18.4 — แชร์ลิงก์ / บันทึกภาพ (ไม่มีบนมือถือเหมือนเดิม) / สลับภาษา / ลิงก์แหล่งข้อมูล ThaiWater
+ * ย้ายเข้าเมนู ⋯ (`MoreMenu`, ทุก tier) เพื่อคืนที่ให้ชิปเวลา (`TimeChip`) ที่ AppShell ส่งมาใน
+ * `timeChip` — มือถือไม่ส่ง (ชิปอยู่ใน peek ของแผ่นเลื่อน)
  */
 export function TopBar({
   tier,
@@ -37,6 +41,7 @@ export function TopBar({
   notificationsOpen,
   onToggleNotifications,
   bellRef,
+  timeChip = null,
 }: {
   tier: Tier;
   provinces: Province[];
@@ -51,9 +56,10 @@ export function TopBar({
   notificationsOpen: boolean;
   onToggleNotifications: () => void;
   bellRef: RefObject<HTMLButtonElement | null>;
+  /** ชิปเวลา (≥ tablet) — วางถัดจากช่องค้นหา */
+  timeChip?: ReactNode;
 }) {
   const { lang, t } = useLang();
-  const [copied, setCopied] = useState(false);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const blurTimer = useRef<number | null>(null);
@@ -94,7 +100,11 @@ export function TopBar({
 
   return (
     <header
-      className="glass absolute top-3 right-3 left-3 z-20 flex items-center gap-2 rounded-2xl px-2.5 @container"
+      // z-20 ตามเดิม (แผ่นกล้องเต็มจอ/InfoPopup ที่ z-30 ต้องทับ header ได้เหมือนบน main) — **เฉพาะตอนที่
+      // รายการที่กางลงมาจาก header เปิดอยู่** (เมนู ⋯ / ผลค้นหา / ชิปจังหวัด — ทั้งสามติด `data-topbar-popover`
+      // และ mount เฉพาะตอนเปิด) header ยกเป็น z-30 ผ่าน `:has()` ไม่งั้น AlertToast (z-20 มาทีหลังใน DOM)
+      // ทับรายการเหล่านั้น และการแตะ "คัดลอกลิงก์" บนมือถือไปเปิดศูนย์แจ้งเตือนแทน (E18.4)
+      className="glass absolute top-3 right-3 left-3 z-20 has-[[data-topbar-popover]]:z-30 flex items-center gap-2 rounded-2xl px-2.5 @container"
       style={{ height: TOPBAR_H }}
     >
       <div className="flex shrink-0 items-center gap-2.5">
@@ -112,7 +122,14 @@ export function TopBar({
         ) : null}
       </div>
 
-      <ProvinceChip provinces={provinces} selected={selectedProvince} onSelect={onSelectProvince} compact={phone} />
+      {/* tablet ใช้ชิปจังหวัดแบบแคบด้วย (E18.4) — ชิปเวลาไม่ยอมหด (เวลาที่ถูกตัดอ่านไม่ได้) ที่ 768 จึงต้อง
+          คืนที่ ~120px ให้ช่องค้นหา */}
+      <ProvinceChip
+        provinces={provinces}
+        selected={selectedProvince}
+        onSelect={onSelectProvince}
+        compact={phone || tier === "tablet"}
+      />
 
       <div className="relative mx-auto min-w-0 w-full max-w-xl">
         {/* `overflow-hidden` บน label (ไม่ใช่ตัวห่อนอก — นั่นจะบังรายการค้นหาที่ลอย
@@ -148,7 +165,7 @@ export function TopBar({
         </label>
 
         {open && matches.length > 0 ? (
-          <ul className="glass absolute top-full right-0 left-0 z-50 mt-1.5 overflow-hidden rounded-xl">
+          <ul data-topbar-popover className="glass absolute top-full right-0 left-0 z-50 mt-1.5 overflow-hidden rounded-xl">
             {matches.map((m) => (
               <li key={m.key}>
                 <button
@@ -168,40 +185,11 @@ export function TopBar({
         ) : null}
       </div>
 
+      {timeChip}
+
       <div className="flex shrink-0 items-center gap-1.5">
-        <button
-          type="button"
-          onClick={async () => {
-            const ok = await onShare();
-            setCopied(ok);
-            window.setTimeout(() => setCopied(false), 1800);
-          }}
-          title={copied ? t("topbar.copied") : t("topbar.shareTitle")}
-          aria-label={copied ? t("topbar.copied") : t("topbar.shareTitle")}
-          className={ICON_BUTTON}
-        >
-          {copied ? <Check size={14} className="text-[var(--color-success)]" /> : <Link2 size={14} />}
-        </button>
-        {/* ปุ่มบันทึกภาพซ่อนบนมือถือ (แบบเดียวกับปุ่มเต็มจอ/หมุน-เลื่อนที่เปลือกตัดทิ้งบน
-            tier นี้): กระดิ่งแจ้งเตือนมาแทนช่องของปุ่ม GitHub และแสดงทุก tier — ถ้ายังมี
-            ปุ่มกล้องอยู่ ช่องค้นหาบนจอ 390 ถูกบีบเหลือ 44px (เหลือที่พิมพ์ ~2px หลังหัก
-            padding ~42px) คืน 38px ให้ช่องค้นหาแทน */}
-        {!phone ? (
-          <button
-            type="button"
-            onClick={onSnapshot}
-            title={t("topbar.snapshotTitle")}
-            aria-label={t("topbar.snapshotTitle")}
-            className={ICON_BUTTON}
-          >
-            <Camera size={14} />
-          </button>
-        ) : null}
-        {/* กระดิ่งศูนย์การแจ้งเตือน — แทนที่ปุ่ม GitHub เดิม (ลิงก์ซอร์สโค้ดย้ายไปอยู่ใน
-            บรรทัดเครดิตของ MapAttribution ที่ mount เสมอ) และแสดง **ทุก tier รวมมือถือ**
-            ปุ่มแชร์/ภาพ/กระดิ่ง = 3 × 32px + ช่องว่าง เท่ากับตอนที่ปุ่ม GitHub ยังโชว์บน
-            tablet ขึ้นไป — บนมือถือช่องค้นหาถูกบีบลงอีก 38px แต่ label ที่ `overflow-hidden`
-            ด้านบนคือสิ่งที่กันแว่นขยายล้นทับปุ่มถัดไป (บั๊กเดิมบน iPhone) จึงยังคุมได้ */}
+        {/* กระดิ่งศูนย์การแจ้งเตือน — แสดง **ทุก tier รวมมือถือ** (ลิงก์ซอร์สโค้ด GitHub อยู่ใน
+            บรรทัดเครดิตของ MapAttribution ที่ mount เสมอ) */}
         <button
           ref={bellRef}
           type="button"
@@ -222,23 +210,10 @@ export function TopBar({
             </span>
           ) : null}
         </button>
-        {/* ลิงก์ไปต้นทาง ThaiWater — บนมือถือไม่มีที่พอ (เครดิตเต็มยังอยู่ในบรรทัด
-            attribution ของ dock ตลอดเวลาอยู่แล้ว) */}
-        {!phone ? (
-          <a
-            href="https://www.thaiwater.net/"
-            target="_blank"
-            rel="noreferrer noopener"
-            title={t("topbar.sources")}
-            aria-label={t("topbar.sources")}
-            className={ICON_BUTTON}
-          >
-            <Database size={14} />
-          </a>
-        ) : null}
+        {/* ⋯ — แชร์ / บันทึกภาพ (ซ่อนบนมือถือ: เหตุผลเดิม — ช่องค้นหาบนจอ 390 แคบเกินใช้) /
+            ภาษา / แหล่งข้อมูล */}
+        <MoreMenu onShare={onShare} onSnapshot={onSnapshot} showSnapshot={!phone} />
       </div>
-
-      <LanguageToggle compact={tier !== "wide"} />
     </header>
   );
 }

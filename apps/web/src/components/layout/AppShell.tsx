@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Province } from "../../data/types";
 import type { ApiHealthState } from "../../hooks/useApiHealth";
 import type { ShellState } from "../../hooks/useShellState";
@@ -13,11 +13,13 @@ import {
 } from "../../lib/notifications";
 import type { SearchPlace } from "../../lib/searchIndex";
 import { bangkokDateKey } from "../../lib/time";
-import { DRAWER_W, GUTTER, RAIL_W, TOPBAR_H } from "../../lib/shellLayout";
+import { DRAWER_W, GUTTER, PHONE_TABBAR_H, RAIL_W, TOPBAR_H, type SheetSnap } from "../../lib/shellLayout";
+import { DEFAULT_TIMELINE_RANGE_INDEX } from "../../lib/timelineRange";
 import type { TopicKey } from "../../lib/topics";
 import { AlertToast } from "./AlertToast";
 import { BottomDock } from "./BottomDock";
 import type { MapInfo } from "./Map3DCanvas";
+import { MapAttribution } from "./MapAttribution";
 import { MobileSheet } from "./MobileSheet";
 import { LazyNotificationCenter as NotificationCenter } from "./LazyNotificationCenter";
 import { LayersPopover, LayersSheet } from "./LayersSurface";
@@ -25,6 +27,8 @@ import type { PanelContext } from "./panelRegistry";
 import { SideDrawer } from "./SideDrawer";
 import { SideRail } from "./SideRail";
 import type { TimelineMark } from "./TimelineBar";
+import { TimeChip } from "./TimeChip";
+import { TIMELINE_PANEL_ID, TimelinePanel } from "./TimelinePanel";
 import { TopBar } from "./TopBar";
 import { TopicTabBar } from "./TopicTabBar";
 
@@ -41,10 +45,10 @@ export interface AppShellProps {
   onSnapshot: () => void;
   apiHealth: ApiHealthState;
   mapInfo: MapInfo | null;
+  /** ค่ามาตราส่วนแนวดิ่ง — บรรทัดเครดิตบอกค่าเมื่อไม่ใช่ 1:1 (ตัวเลือกอยู่ในชั้นข้อมูลผ่าน ctx) */
   exaggeration: number;
-  onExaggerationChange: (f: number) => void;
   onAtIsoChange: (atIso: string | null) => void;
-  /** E14.F5 — ขีดรอบบิน Sentinel-1 บน TimelineBar (ทั้ง dock และแผ่นเลื่อน) */
+  /** E14.F5 — ขีดรอบบิน Sentinel-1 บน TimelineBar (แผงแถบเวลาที่กางจากชิปเวลา) */
   timelineMarks?: TimelineMark[];
   forecastAtIso: string | null;
   onForecastAtIsoChange: (forecastAtIso: string | null) => void;
@@ -52,11 +56,15 @@ export interface AppShellProps {
 
 /**
  * เลือกเปลือกตาม tier — ไม่มี data hook ที่นี่ (ทั้งหมดอยู่ใน App.tsx)
- *   ≥ tablet: TopBar + rail หัวข้อ + drawer เดียว (แท็บย่อยของหัวข้อ) + dock ล่างเต็มความกว้าง
- *             + toast + popover ชั้นข้อมูล (เปิดจากปุ่มบนคอลัมน์เครื่องมือของแผนที่)
- *   phone   : TopBar + แผ่นเลื่อนชั้นเดียว (ทะเบียนแผงเดียวกัน) บนแถบแท็บหัวข้อ + toast
- *             + แผ่นล่าง modal ของชั้นข้อมูล — แผนที่เต็มจอ ทุกอย่างที่ไม่ใช่ TopBar/ปุ่มเครื่องมือ
- *             อยู่ในแผ่นทั้งหมด
+ *   ≥ tablet: TopBar (+ ชิปเวลา) + rail หัวข้อ + drawer เดียว (แท็บย่อยของหัวข้อ) + dock ล่างเต็มความกว้าง
+ *             (สถานะแหล่ง + เครดิต + แผงแถบเวลาเมื่อกาง) + toast + popover ชั้นข้อมูล
+ *   phone   : TopBar + แผ่นเลื่อนชั้นเดียว (ทะเบียนแผงเดียวกัน, ชิปเวลาใน peek) บนแถบแท็บหัวข้อ + toast
+ *             + แผงแถบเวลาเหนือแถบแท็บเมื่อกาง + แผ่นล่าง modal ของชั้นข้อมูล — แผนที่เต็มจอ ทุกอย่างที่
+ *             ไม่ใช่ TopBar/ปุ่มเครื่องมืออยู่ในแผ่นทั้งหมด
+ *
+ * E18.4 — ชิปเวลา/แผงแถบเวลา: สถานะ "กางอยู่" และช่วงที่เลือก (48 ชม./7 วัน/30 วัน) เป็นสถานะการแสดงผล
+ * ของเปลือกเท่านั้น — ไม่อยู่ใน permalink ไม่ทำให้เกิดคำขอ และไม่เปลี่ยน atIso/forecastAtIso (C6)
+ * มี `TimelineBar` ได้ไม่เกินหนึ่งตัว: เฉพาะในแผงที่กางอยู่ (C4) และหุบ = unmount (C5)
  */
 export function AppShell(props: AppShellProps) {
   const { ctx, shell } = props;
@@ -127,6 +135,47 @@ export function AppShell(props: AppShellProps) {
     />
   ) : null;
 
+  // ── ชิปเวลา + แผงแถบเวลา (E18.4)
+  const [timelineOpen, setTimelineOpen] = useState(false);
+  const [timelineRangeIdx, setTimelineRangeIdx] = useState(DEFAULT_TIMELINE_RANGE_INDEX);
+  const chipRef = useRef<HTMLButtonElement | null>(null);
+  const closeTimeline = useCallback(() => setTimelineOpen(false), []);
+  const { onAtIsoChange, onForecastAtIsoChange } = props;
+  const obs = ctx.observations;
+  const timeChip = (
+    <TimeChip
+      atIso={ctx.atIso}
+      forecastAtIso={props.forecastAtIso}
+      observations={{
+        hasData: obs.data !== null,
+        loading: obs.loading,
+        failed: obs.error !== null,
+        fetchedAt: obs.data?.summary.fetchedAt ?? null,
+        latestObservedAt: obs.data?.summary.latestObservedAt ?? null,
+      }}
+      expanded={timelineOpen}
+      panelId={TIMELINE_PANEL_ID}
+      onToggle={() => setTimelineOpen((o) => !o)}
+      onClearAt={() => onAtIsoChange(null)}
+      onClearForecast={() => onForecastAtIsoChange(null)}
+      chipRef={chipRef}
+      variant={shell.tier === "phone" ? "sheet" : "bar"}
+    />
+  );
+  const timelinePanel = (footer?: ReactNode) =>
+    timelineOpen ? (
+      <TimelinePanel
+        atIso={ctx.atIso}
+        onAtIsoChange={onAtIsoChange}
+        marks={props.timelineMarks}
+        rangeIdx={timelineRangeIdx}
+        onRangeIdxChange={setTimelineRangeIdx}
+        onClose={closeTimeline}
+        returnFocusRef={chipRef}
+        footer={footer}
+      />
+    ) : null;
+
   const topBar = (
     <TopBar
       tier={shell.tier}
@@ -141,6 +190,7 @@ export function AppShell(props: AppShellProps) {
       notificationsOpen={notifOpen}
       onToggleNotifications={() => setNotifOpen((o) => !o)}
       bellRef={bellRef}
+      timeChip={shell.tier === "phone" ? null : timeChip}
     />
   );
   const toast = (
@@ -149,6 +199,15 @@ export function AppShell(props: AppShellProps) {
   );
 
   if (shell.tier === "phone") {
+    // แผ่นเปลี่ยนระดับ / แตะหัวข้อ = หุบแผงแถบเวลา (แผงทับส่วนล่างของแผ่นอยู่) — ไม่แตะ atIso (C6)
+    const setSnap = (snap: SheetSnap) => {
+      setTimelineOpen(false);
+      shell.setSheetSnap(snap);
+    };
+    const tapTopic = (topic: TopicKey) => {
+      setTimelineOpen(false);
+      shell.tapTopic(topic);
+    };
     return (
       <>
         {topBar}
@@ -157,17 +216,24 @@ export function AppShell(props: AppShellProps) {
           panel={shell.panel}
           onPanelChange={shell.setPanel}
           snap={shell.sheetSnap}
-          onSnapChange={shell.setSheetSnap}
+          onSnapChange={setSnap}
           apiHealth={props.apiHealth}
           mapInfo={props.mapInfo}
           exaggeration={props.exaggeration}
-          onExaggerationChange={props.onExaggerationChange}
-          onAtIsoChange={props.onAtIsoChange}
-          timelineMarks={props.timelineMarks}
-          forecastAtIso={props.forecastAtIso}
-          onForecastAtIsoChange={props.onForecastAtIsoChange}
+          timeChip={timeChip}
         />
-        <TopicTabBar ctx={ctx} topic={shell.topic} sheetOpen={shell.sheetSnap !== "peek"} onTap={shell.tapTopic} />
+        <TopicTabBar ctx={ctx} topic={shell.topic} sheetOpen={shell.sheetSnap !== "peek"} onTap={tapTopic} />
+        {timelineOpen ? (
+          // แผงแถบเวลาของมือถือ: เหนือแถบแท็บหัวข้อ ทับ peek ของแผ่นเลื่อน (รวมบรรทัดเครดิตของมัน) จึงพก
+          // บรรทัดเครดิตย่อของตัวเองมาด้วย — เครดิตภาพดาวเทียม (Esri ToU / EOX CC BY-NC-SA) ต้องมองเห็นได้
+          // ตลอดที่แผงเปิด (แบบเดียวกับ LayersSheet)
+          <div
+            className="glass absolute right-0 left-0 z-30 rounded-t-2xl p-2"
+            style={{ bottom: `calc(${PHONE_TABBAR_H}px + env(safe-area-inset-bottom))` }}
+          >
+            {timelinePanel(<CompactAttribution info={props.mapInfo} exaggeration={props.exaggeration} />)}
+          </div>
+        ) : null}
         {toast}
         {notificationCenter}
         {shell.layersOpen ? (
@@ -222,13 +288,7 @@ export function AppShell(props: AppShellProps) {
         apiHealth={props.apiHealth}
         mapInfo={props.mapInfo}
         exaggeration={props.exaggeration}
-        onExaggerationChange={props.onExaggerationChange}
-        atIso={ctx.atIso}
-        onAtIsoChange={props.onAtIsoChange}
-        timelineMarks={props.timelineMarks}
-        forecast={ctx.forecast}
-        forecastAtIso={props.forecastAtIso}
-        onForecastAtIsoChange={props.onForecastAtIsoChange}
+        timelinePanel={timelinePanel()}
         onHeight={shell.setDockHeight}
       />
       {toast}
@@ -242,5 +302,19 @@ export function AppShell(props: AppShellProps) {
         />
       ) : null}
     </>
+  );
+}
+
+/** บรรทัดเครดิตย่อของแผงแถบเวลาบนมือถือ (แผงทับ peek ที่มีบรรทัดเครดิตของแผ่นเลื่อน) */
+function CompactAttribution({ info, exaggeration }: { info: MapInfo | null; exaggeration: number }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <MapAttribution
+      info={info}
+      exaggeration={exaggeration}
+      expanded={expanded}
+      onToggle={() => setExpanded((v) => !v)}
+      compact
+    />
   );
 }

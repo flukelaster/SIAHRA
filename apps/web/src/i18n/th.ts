@@ -357,6 +357,14 @@ export const th = {
   "exaggeration.factor": "ขยายความสูง {n} เท่า (ไม่ใช่ขนาดจริง)",
 
   // ── ไทม์ไลน์ ──────────────────────────────────────────────────────────
+  // E18.4 — ชิปเวลา (TopBar ≥ tablet / peek มือถือ) + แผงแถบเวลาที่มันเปิด
+  "timeChip.live": "ปัจจุบัน · {detail}",
+  "timeChip.failed": "ดึงค่าล่าสุดไม่สำเร็จ",
+  "timeChip.noObservationTime": "ไม่มีเวลาตรวจวัด",
+  "timeChip.open": "{label} — เปิดแถบเวลาย้อนหลัง",
+  "timeChip.close": "ปิดแถบเวลา",
+  "forecast.chip.label": "พยากรณ์ TMD · {time}",
+  "topbar.more": "เมนูเพิ่มเติม",
   "timeline.title": "ระดับน้ำย้อนหลัง",
   "timeline.rangeLabel": "ช่วงเวลาย้อนหลัง",
   "timeline.range.72h": "72 ชม.",
