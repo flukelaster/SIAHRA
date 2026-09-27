@@ -277,13 +277,17 @@ function sourceLine(s: SourceStatus, lang: Lang, t: TFunction): string {
 /**
  * ส่วน "แหล่งข้อมูล" ท้ายหัวข้อภาพรวม — อ่าน `/api/v1/health` ที่ App.tsx poll อยู่แล้ว (ไม่ poll เอง)
  * แหล่งที่ไม่ ok หรี่ลงแต่ยังอยู่; ถาม /health ไม่ได้ = บอกว่าถามไม่ได้ ไม่ใช่ "แหล่งล่ม";
- * แหล่งชนิด `browser` (กล้อง CCTV) /health ไม่ได้อ้างสถานะให้ จึงไม่แสดง
+ * แหล่งชนิด `browser` (กล้อง CCTV) และ `community` (รายงานจากประชาชน ที่ api เก็บเอง ไม่มีต้นทางให้ probe)
+ * /health ไม่ได้อ้างสถานะให้ จึงไม่แสดง — ถ้าวันหนึ่งโผล่มาในคำตอบก็ไม่ถือเป็นสถานะของแหล่งนั้น
  */
 export function OverviewSources({ health, apiDown }: { health: HealthResponse | null; apiDown: boolean }) {
   const { lang, t } = useLang();
   // เดินนาฬิกาให้ "อัปเดต N นาทีที่แล้ว" ไม่ค้างอยู่ที่ค่าตอนเรนเดอร์ครั้งแรก
   useNow();
-  const sources = (health?.sources ?? []).filter((s) => SOURCES[s.id]?.kind !== "browser");
+  const sources = (health?.sources ?? []).filter((s) => {
+    const kind = SOURCES[s.id]?.kind;
+    return kind !== "browser" && kind !== "community";
+  });
   return (
     <section className="glass flex flex-col gap-1.5 rounded-2xl p-3.5" aria-label={t("status.sources")}>
       <h3 className="text-sm font-semibold text-[var(--color-fg)]">{t("status.sources")}</h3>

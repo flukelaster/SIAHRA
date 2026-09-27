@@ -14,8 +14,8 @@ Every request goes through `createRouter()` in `apps/api/src/router.ts`, in this
    router reveals whether the path exists at all.
 2. **Path match** — no pattern matches → `404 {"error":"Not found"}`.
 3. **Method** — the path exists but not for that method → `405` with an `Allow` header. Every route
-   is `GET`; a `HEAD` is dispatched to the `GET` handler and answered with the same status and
-   headers but no body.
+   is `GET` except the community-report writes (`POST`, see the rate-limit table); a `HEAD` is
+   dispatched to the `GET` handler and answered with the same status and headers but no body.
 4. **Rate limit** — per client (`CF-Connecting-IP`), per route bucket → `429` with `Retry-After`.
 5. **Handler** — input validation first (below), then the Durable Object.
 
@@ -59,6 +59,17 @@ edit in that table.
 | `/api/v1/local-authorities/{id}/impact` | GET | 300 | default | per route | E11.4 real polygon intersection against the current GISTDA flood scene; same budget as the flood-extent routes it depends on |
 | `/api/v1/alerts/active` | GET | 300 | default | per route | E11.5 read of `AlertEngineDO`'s already-computed state; same budget as the other frequently-polled per-province routes |
 | `/api/v1/alerts/rules` | GET | 300 | default | per route | Static baked rule table (286 rules); cheap to serve |
+| `/api/v1/community/{NN}/reports` | GET | 60 | default | own `community-list` | Per-province list behind a 30 s edge cache and a ≤ 30 s DO memo; unknown province → 404 before the DO, any query → 400 |
+| `/api/v1/community/reports` | POST | 5 | default | own `community-report` | Multipart (≤ 409,600 B, `Content-Length` required, else 413 before parsing); Turnstile siteverify in the Worker; nationwide cap 500/day |
+| `/api/v1/community/session` | POST | 10 | default | own `community-session` | Turnstile → HMAC-signed `voterToken`; no DO call |
+| `/api/v1/community/reports/{id}/vote` | POST | 30 | default | own `community-vote` | `X-Voter-Token` verified in the Worker before any DO call; nationwide cap 20k recorded votes/day |
+| `/api/v1/community/reports/{id}/delete` | POST | 10 | default | own `community-owner-delete` | `{ownerToken}` verified by HMAC recompute |
+| `/api/v1/community/admin/reports/{id}/(hide\|unhide\|delete)` | POST | 30 | default | own `community-admin` | Bearer `COMMUNITY_ADMIN_TOKEN` checked before any DO call; 503 `admin-disabled` when unset |
+| `/api/v1/community/image/{id}` | GET | 120 | default | own `community-image` | One R2 get, no DO call; 120 (not higher) keeps one client from pushing R2 Class B past the free tier |
+
+`{id}` is `YYYYMMDD-<22 base64url>` and is enforced by the route regex, so a malformed id gets a router 404.
+The three community secrets are optional: without `TURNSTILE_SECRET_KEY`/`COMMUNITY_HMAC_KEY` the write
+routes answer `503 {"reason":"reporting-disabled"}` (see `docs/deploy.md`).
 
 A rejected request answers `429 {"error":"Too many requests","retryAfterSeconds":N}` plus
 `Retry-After: N`. `/api/v1/health` reports how many 429s this isolate issued in the last hour under
@@ -103,6 +114,9 @@ Two rules are enforced by `json()` in `apps/api/src/router.ts` rather than by ea
 | `/api/v1/local-authorities/{id}/impact` | `floodExtent(retrievedAt)` | `public, max-age=300` (stored in `caches.default` by full URL) or `no-store` when GISTDA was never retrieved — depends on live flood data, not the static exposure artefact |
 | `/api/v1/alerts/active` | `observations` | `public, max-age=60, s-maxage=120` — reflects live evaluation state (`AlertEngineDO.alarm()` re-evaluates every 5 min), so it gets the same short cache as the observations it is derived from |
 | `/api/v1/alerts/rules` | `slowMoving` | `public, max-age=300` — the baked rule table changes only on redeploy |
+| `/api/v1/community/{NN}/reports` | `communityList` | `public, max-age=30, s-maxage=30`; also stored in `caches.default` keyed on origin + path — every 200 cached, including an empty list; the body's `fetchedAt` is when the DO read the rows |
+| `/api/v1/community/image/{id}` | `communityImage` | `public, max-age=3600` — deliberately not immutable: a deleted image may linger in caches at most this long |
+| community `POST` routes | — | no policy → `no-store` |
 | any 4xx / 5xx | `noStore` | `no-store` |
 
 `stale-while-revalidate` was considered for the observations response (roadmap E4.6 sketches it) and

@@ -20,11 +20,12 @@ interface __BaseEnv_Env {
 	RADAR: DurableObjectNamespace<import("./src/index").RadarDO>;
 	ALERT_ENGINE: DurableObjectNamespace<import("./src/index").AlertEngineDO>;
 	STORM_TRACK: DurableObjectNamespace<import("./src/index").StormTrackDO>;
+	COMMUNITY_REPORT: DurableObjectNamespace<import("./src/index").CommunityReportDO>;
 }
 declare namespace Cloudflare {
 	interface GlobalProps {
 		mainModule: typeof import("./src/index");
-		durableNamespaces: "EarthquakeFeedDO" | "ForecastPointerDO" | "ObservationCacheDO" | "FloodExtentDO" | "RadarDO" | "AlertEngineDO" | "ForecastNwpDO" | "StormTrackDO";
+		durableNamespaces: "EarthquakeFeedDO" | "ForecastPointerDO" | "ObservationCacheDO" | "FloodExtentDO" | "RadarDO" | "AlertEngineDO" | "ForecastNwpDO" | "StormTrackDO" | "CommunityReportDO";
 	}
 	interface Env extends __BaseEnv_Env {}
 }

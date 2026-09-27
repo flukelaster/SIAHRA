@@ -26,7 +26,8 @@
 
   "vars": {
     "EQ_DEFAULT_BBOX": "{\"minLat\":-2,\"maxLat\":29,\"minLon\":90,\"maxLon\":108}",
-    // TMD_UID / TMD_UKEY / TMD_NWP_TOKEN are NOT here: they are secrets
+    // TMD_UID / TMD_UKEY / TMD_NWP_TOKEN (and the community-report secrets
+    // TURNSTILE_SECRET_KEY / COMMUNITY_HMAC_KEY / COMMUNITY_ADMIN_TOKEN) are NOT here: they are secrets
     // (`npx wrangler secret put TMD_UID`, `.dev.vars` locally — see
     // .dev.vars.example). Without them the earthquake feed reports the TMD
     // source as degraded instead of falling back to a shared public key.
@@ -48,7 +49,8 @@
       { "name": "FLOOD_EXTENT", "class_name": "FloodExtentDO" },
       { "name": "RADAR", "class_name": "RadarDO" },
       { "name": "ALERT_ENGINE", "class_name": "AlertEngineDO" },
-      { "name": "STORM_TRACK", "class_name": "StormTrackDO" }
+      { "name": "STORM_TRACK", "class_name": "StormTrackDO" },
+      { "name": "COMMUNITY_REPORT", "class_name": "CommunityReportDO" }
     ]
   },
   "migrations": [
@@ -89,7 +91,10 @@
     // non-interactive รับ stdin ว่างได้เงียบ ๆ แล้วยังพิมพ์ "✨ Success!") ไม่เกี่ยวกับ DO
     // instance หรือ migration เลย ดูรายละเอียดเต็มที่ index.ts บรรทัด scheduled task ของ
     // tmd-nwp และ docs/deploy.md §3
-    { "tag": "v9", "new_sqlite_classes": ["StormTrackDO"] }
+    { "tag": "v9", "new_sqlite_classes": ["StormTrackDO"] },
+    // v10 = CommunityReportDO (รายงานผลกระทบจากประชาชน) — คลาสใหม่ล้วน ๆ ไม่แตะคลาสเดิม
+    // retention 30 วันวิ่งจาก alarm ของ DO เอง ไม่มี cron ใหม่ (devops ALARM-1)
+    { "tag": "v10", "new_sqlite_classes": ["CommunityReportDO"] }
   ],
 
   "triggers": { "crons": ["* * * * *"] },

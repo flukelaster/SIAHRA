@@ -39,7 +39,7 @@ export interface EpistemicBadge {
 }
 
 /**
- * ป้ายห้าชนิดตาม `EpistemicClass` — ผู้ใช้ต้องแยกออกว่าอันไหน "มีคนวัดมา" และ
+ * ป้ายหกชนิดตาม `EpistemicClass` — ผู้ใช้ต้องแยกออกว่าอันไหน "มีคนวัดมา" และ
  * อันไหน "เราคำนวณเอง" ก่อนจะอ่านตัวเลขใด ๆ บนแผนที่
  */
 export const EPISTEMIC_BADGE: Record<EpistemicClass, EpistemicBadge> = {
@@ -73,6 +73,13 @@ export const EPISTEMIC_BADGE: Record<EpistemicClass, EpistemicBadge> = {
     // (พื้นเป็นสีจาง 18% ไม่ใช่สีทึบ ตัวอักษรจึงต้องเป็นสีที่อ่านบนพื้นเข้ม ไม่ใช่ --color-accent-fg)
     className: "bg-[var(--color-accent)]/18 text-[#9dc0ff] ring-[var(--color-accent)]/40",
   },
+  crowdsourced: {
+    // รายงานจากประชาชน (community report pins) — ไม่ใช่เครื่องมือวัด ไม่ใช่หน่วยงาน ไม่ใช่แบบจำลอง
+    // ป้ายต้องบอก "ยังไม่ได้ตรวจสอบ" ในตัวเอง เฉดชมพูจึงไม่ซ้ำกับชิปชนิดใดข้างบน (เขียว/เทา/ม่วง/ฟ้า)
+    labelKey: "badge.crowdsourced",
+    titleKey: "badge.crowdsourced.title",
+    className: "bg-[#ec4899]/15 text-[#f9a8d4] ring-[#ec4899]/40",
+  },
 };
 
 /**
@@ -99,6 +106,8 @@ export function missingFetchedAtKey(kind: EpistemicClass): MessageKey {
       return "freshness.missing.probabilistic";
     case "forecast":
       return "freshness.missing.forecast";
+    case "crowdsourced":
+      return "freshness.missing.crowdsourced";
   }
   // ชนิดที่ยังไม่รู้จัก: บอกว่าไม่ทราบเวลา ห้ามเดาเป็นเวลาใด ๆ
   return "freshness.missing.unknown";
@@ -138,11 +147,13 @@ export interface LayerFreshness {
 function isStale(d: HazardLayerDescriptor, nowMs: number): boolean {
   if (!d.fetchedAt) {
     // ไม่เคยดึงสำเร็จ = ข้อมูลสด "หายไป" จริง; ส่วนชั้นคงที่/ภาพประกอบไม่มีรอบดึง
-    // ชั้นพยากรณ์มีรอบดึงเหมือนข้อมูลสด จึงนับเป็นข้อมูลหายเช่นกัน
+    // ชั้นพยากรณ์มีรอบดึงเหมือนข้อมูลสด จึงนับเป็นข้อมูลหายเช่นกัน — รายงานจากประชาชนก็ถูก poll
+    // จาก api ของเราเอง ยังไม่เคยได้รายการ = หายจริง ไม่ใช่ "ไม่มีรายงาน"
     return (
       d.epistemicClass === "observed" ||
       d.epistemicClass === "probabilistic" ||
-      d.epistemicClass === "forecast"
+      d.epistemicClass === "forecast" ||
+      d.epistemicClass === "crowdsourced"
     );
   }
   if (!d.staleAfterSeconds) return false;

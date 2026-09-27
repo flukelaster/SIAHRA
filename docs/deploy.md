@@ -17,6 +17,9 @@ R2 bucket `siahra-geodata` ตรวจแล้วว่า `/api/v1/health` �
   npx wrangler secret put TMD_UKEY
   npx wrangler secret put TMD_NWP_TOKEN   # คนละระบบกับสองตัวบน — ดู §3
   npx wrangler secret put GISTDA_API_KEY  # E16.PR0 — รันจาก terminal แบบ interactive เท่านั้น ดู §3
+  npx wrangler secret put TURNSTILE_SECRET_KEY   # รายงานจากประชาชน — secret ของ Cloudflare Turnstile widget
+  npx wrangler secret put COMMUNITY_HMAC_KEY     # รายงานจากประชาชน — สุ่ม ≥ 32 ไบต์ เช่น `openssl rand -base64 48`
+  npx wrangler secret put COMMUNITY_ADMIN_TOKEN  # รายงานจากประชาชน — bearer ของ endpoint ผู้ดูแล (สุ่มยาว ๆ)
   ```
   ยังไม่ตั้งก็ deploy ผ่าน แต่จะเสื่อมให้เห็นทีละแหล่ง: ไม่มี `TMD_UID`/`TMD_UKEY` เฉพาะฟีดแผ่นดินไหวจะรายงานที่
   `/api/v1/health` ว่า source `earthquakes` เป็น `degraded` พร้อม `lastError: "TMD credentials not configured"`
@@ -24,6 +27,11 @@ R2 bucket `siahra-geodata` ตรวจแล้วว่า `/api/v1/health` �
   configured"` (USGS/EMSC และแหล่งที่เหลือทำงานตามปกติในทั้งสองกรณี) — ตั้งใจให้เห็นชัดแทนที่จะแอบใช้คีย์สาธารณะร่วมกับคนอื่น
   ส่วนไม่มี `GISTDA_API_KEY` ชั้นน้ำท่วม GISTDA จะไม่ยิงต้นทางเลย และ source `gistda-flood` เป็น **`down`** (ไม่ใช่
   `degraded`) พร้อม `lastError: "GISTDA_API_KEY not configured — no request sent to GISTDA"`
+  ส่วนสาม secret ของรายงานจากประชาชนไม่มีสถานะใน `/api/v1/health` (แหล่ง `community-report` เป็น kind `community`
+  ไม่มีต้นทางให้ probe): ไม่มี `TURNSTILE_SECRET_KEY` หรือ `COMMUNITY_HMAC_KEY` = `POST /api/v1/community/reports` และ
+  `/community/session` ตอบ `503 {reason:"reporting-disabled"}` (ไม่มี HMAC key = โหวต/ลบของเจ้าของก็ 503) ส่วนรายการและรูป
+  ยังอ่านได้; ไม่มี `COMMUNITY_ADMIN_TOKEN` = endpoint ผู้ดูแลตอบ `503 {reason:"admin-disabled"}` — เปลี่ยน
+  `COMMUNITY_HMAC_KEY` เมื่อไรก็ตาม voterToken/ownerToken เดิมทุกใบใช้ไม่ได้ทันที (server ไม่เก็บ token ใดไว้เลย)
   เครื่อง dev ใช้ `apps/api/.dev.vars` (gitignored) โดยคัดลอกจาก `apps/api/.dev.vars.example`
 
 ## 0.1 สอง Worker แยก deploy กัน
@@ -201,6 +209,16 @@ workflow เท่านั้น ถ้าจะยืนยันต้อง 
 Actions minutes ของ live ingest เหลือระดับไม่กี่นาทีต่อรัน (~120 รัน/เดือน) — ยังฟรีเฉพาะ repo **public**
 แต่ไม่ใช่ข้อบังคับระดับเดียวกับตอนมี backfill อีกต่อไป
 
+### 1.1 R2 lifecycle ของรูปรายงานจากประชาชน (`community/`) — ตาข่ายชั้นที่สองของ retention 30 วัน
+`CommunityReportDO.alarm()` ลบแถวและรูป (`community/{YYYY-MM-DD}/{id}`) ที่อายุเกิน 30 วันเองทุกชั่วโมงอยู่แล้ว กฎนี้มีไว้เก็บ
+object กำพร้า (เช่น แถวถูกลบแต่ลบรูปพลาด) ให้ไม่เกิน 30 วันเท่ากัน — ตั้งครั้งเดียวต่อ bucket แล้วตรวจว่ามีจริง:
+```bash
+cd apps/api
+npx wrangler r2 bucket lifecycle add siahra-geodata community-30d community/ --expire-days 30
+npx wrangler r2 bucket lifecycle list siahra-geodata   # ต้องเห็นกฎ community-30d, prefix community/, 30 days
+```
+prefix ต้องเป็น `community/` ตรงตัว — ห้ามเว้นว่าง (ว่าง = ทั้ง bucket รวม tile และคลังถาวร)
+
 ## 2. Worker route สำหรับ tile (เขียนแล้ว — อยู่ที่ **siahra-web** ไม่ใช่ api)
 prefix `/aoi/` มีทั้ง manifest/overview ที่เป็น static asset (`apps/web/public/aoi/**`) และ tile `.bin`
 ก้อนใหญ่ใน R2 และ route ของ Cloudflare **แยกตามนามสกุลไฟล์ไม่ได้** → ทั้ง prefix ต้องอยู่ใน Worker
@@ -294,7 +312,7 @@ fallback — loader จะได้ HTML มาแทน binary แล้วพ�
 - `ALLOWED_ORIGINS`: ว่าง = same-origin เท่านั้น — ไม่ต้องตั้ง เพราะ route ของสอง Worker อยู่บน host
   เดียวกัน (`siahra-radar.co`) ตามหัวข้อ 0.1 ; ถ้าวันหน้าย้าย SPA ไปคนละ host ต้องใส่ origin ของ SPA ที่นี่
   **และ** เติม CORS header ใน `apps/api/src/router.ts` ด้วย ไม่ใช่ตั้งค่านี้ตัวเดียว
-- migrations v1–v9 (DO SQLite) มีครบ, cron `* * * * *` มีแล้ว — v5 สร้าง `AlertEngineDO` ตัวเก่า
+- migrations v1–v10 (DO SQLite) มีครบ, cron `* * * * *` มีแล้ว — v5 สร้าง `AlertEngineDO` ตัวเก่า
   (ทะเบียนสถานีปลอม, E11.5 revert), v6 ลบคลาสทิ้ง, v7 สร้าง `AlertEngineDO` ใหม่ทั้งหมด (E11.5 จริง —
   สถานีจริง, ระดับจาก `computeExposure()`, ไม่มี write route), v8 สร้าง `ForecastNwpDO` (E12.2, binding
   `FORECAST_NWP`) เป็นคลาสใหม่ล้วน ๆ **ไม่ได้** นำ `ForecastPointerDO` มาใช้ซ้ำทั้งที่ชื่อคล้ายกัน — ตัวนั้นคือ
@@ -302,7 +320,10 @@ fallback — loader จะได้ HTML มาแทน binary แล้วพ�
   `wrangler.jsonc` เพราะ Cloudflare เทียบ migrations กับ tag ล่าสุดที่ apply บน production. v9 creates
   `StormTrackDO` (storm layer v1, binding `STORM_TRACK`) as a brand-new class; the tag is free because the 2026-08-24
   v9/v10 `ForecastNwpDO` pair (PR #60) was rejected by Cloudflare before activation and removed in PR #61, so the
-  account's last applied tag is v8
+  account's last applied tag was then v8; v9 was applied when the storm layer shipped (PR #101, live since
+  2026-09-26), so v10 is the next tag. v10 creates `CommunityReportDO` (community report pins, binding
+  `COMMUNITY_REPORT`, single instance `"primary"`) as a brand-new class; its 30-day retention runs from the DO's own
+  hourly alarm, armed only while it holds rows — no cron change
 - โดเมน: `wrangler deploy` สร้าง/อัปเดต Custom Domain + route ให้เองจาก `routes` ในแต่ละ config
   แต่ zone `siahra-radar.co` ต้องอยู่ใน account เดียวกันก่อน — deploy **web ก่อน api** ในครั้งแรก
   เพราะ Custom Domain ของ web เป็นตัวสร้าง DNS record ที่ proxied ให้ apex (route ของ api ต้องมี
@@ -472,6 +493,14 @@ web side the storm branch alone measured 356.88 kB gz entry + vendor (the Storm 
 with E16 (north route, station sheet) it is **379.42 kB gz, over** the 360 kB warning guard in
 `scripts/check-bundle-budget.mjs` — a warning, not a CI gate, and the next change to the entry chunk should lazy-load
 something before adding more
+
+Community report pins (`CommunityReportDO`, `/api/v1/community/*`, PR A): one DO instance, every statement on an index
+(**zero `ALLOWED_SCANS` entries**), a ≤ 30 s in-memory list memo per province under a 30 s `caches.default` entry,
+daily caps held in one overwritten meta row — **500 reports/day** and **20k recorded votes/day** nationwide — and
+30-day retention from the DO's own hourly alarm plus the `community/` R2 lifecycle rule (§1.1). R2 storage at the
+500/day cap × 300 KB × 30 days stays ≤ **4.6 GB**; the bucket is already past the free 10 GB, so that is paid,
+≈ $0.07/month worst case. `devops` pre pass 2026-09-27: **+~$0.08/month expected, +~$2.2 worst case** (one
+abusive client per route, each held to its per-IP limit in `apps/api/src/index.ts`)
 
 **รายการที่สี่ที่ประมาณการข้างบนไม่ได้นับ และเป็นตัวที่ทำให้บิลบานจริง: Durable Objects SQL rows read**
 — คิดตามแถวที่ถูก *สแกน* ไม่ใช่แถวที่ถูกคืนหรือถูกลบ (Workers Paid รวมมาให้ 25B แถว/รอบบิล)

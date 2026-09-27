@@ -90,6 +90,9 @@ export const en: Record<keyof typeof th, string> = {
   "badge.forecast": "TMD model forecast",
   "badge.forecast.title":
     "Values from TMD's numerical weather model — an external agency's deterministic forecast, not a measurement and not computed by this project",
+  "badge.crowdsourced": "Community report — unverified",
+  "badge.crowdsourced.title":
+    "Submitted by members of the public through SIAHRA and not verified by anyone — not agency data or an instrument reading; votes are users' opinions, not a confirmation",
   "badge.unknown": "Unknown data kind",
   "badge.unknown.title": "This build of the app does not recognise this layer's data kind",
 
@@ -101,6 +104,7 @@ export const en: Record<keyof typeof th, string> = {
   "freshness.missing.illustrative": "Computed from terrain; nothing is retrieved per refresh",
   "freshness.missing.probabilistic": "No model output has ever been received",
   "freshness.missing.forecast": "No TMD forecast has ever been received",
+  "freshness.missing.crowdsourced": "Never received the community report list",
   "freshness.missing.unknown": "Retrieval time unknown",
   "freshness.status.unknown": "Source status not known",
   "freshness.publishedAt": "published {time}",

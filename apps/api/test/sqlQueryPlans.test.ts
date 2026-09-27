@@ -3,6 +3,7 @@ import { runInDurableObject } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import type { AppEnv } from "../src/types";
 import alertEngineSrc from "../src/durable-objects/alert-engine.ts?raw";
+import communitySrc from "../src/durable-objects/community-report.ts?raw";
 import earthquakeSrc from "../src/durable-objects/earthquake-feed.ts?raw";
 import floodSrc from "../src/durable-objects/flood-extent.ts?raw";
 import forecastNwpSrc from "../src/durable-objects/forecast-nwp.ts?raw";
@@ -47,6 +48,9 @@ const SOURCES: DoSource[] = [
   // เส้นทางพายุ — แถวเดียว `latest(id)` อ่านด้วย PK, meta ผ่าน readMeta (PK) จึงไม่มี
   // รายการใน ALLOWED_SCANS เลย: ถ้าวันหน้ามีคำสั่งที่สแกนโผล่มา เทสนี้แดงทันที
   { label: "StormTrackDO", source: stormTrackSrc, stub: () => appEnv.STORM_TRACK.getByName("plan-test") },
+  // รายงานจากประชาชน — ทุกคำสั่งผ่านดัชนี (รายการ/นับที่ซ่อน = idx_reports_province_hidden_created,
+  // retention + MIN = idx_reports_created, ต่อรายงาน = PK) จึงไม่มีรายการใน ALLOWED_SCANS เลย (devops SQL-1)
+  { label: "CommunityReportDO", source: communitySrc, stub: () => appEnv.COMMUNITY_REPORT.getByName("plan-test") },
 ];
 
 /**
@@ -120,5 +124,52 @@ describe("ทุก SQL literal ใน Durable Objects ใช้ดัชนี 
     const all = new Set(SOURCES.flatMap((s) => sqlLiterals(s.source)));
     const orphans = Object.keys(ALLOWED_SCANS).filter((sql) => !all.has(sql));
     expect(orphans).toEqual([]);
+  });
+});
+
+/**
+ * devops SQL-2/SQL-3/SQL-5 — ไม่ใช่แค่ "ไม่ SCAN" แต่ต้องเป็นดัชนีที่ตั้งใจ: รายการรายจังหวัดเรียงด้วยดัชนี
+ * (ไม่มี TEMP B-TREE), การนับที่ซ่อนเป็น covering index, retention และ MIN ผ่านดัชนี created_ms
+ */
+describe("CommunityReportDO — แผนของคำสั่งหลักตรงกับที่ devops กำหนด", () => {
+  const LIST_SQL =
+    "SELECT id, province_code, lat, lon, categories, description, image_key, created_ms, up, down FROM reports WHERE province_code = ? AND hidden = 0 AND created_ms > ? ORDER BY created_ms DESC LIMIT 500";
+  const HIDDEN_SQL = "SELECT COUNT(*) AS n FROM reports WHERE province_code = ? AND hidden = 1 AND created_ms > ?";
+  const RETENTION_SQL = "SELECT id, image_key FROM reports WHERE created_ms < ? LIMIT ?";
+  const MIN_SQL = "SELECT MIN(created_ms) AS t FROM reports";
+
+  const planOf = (sql: string) =>
+    runInDurableObject(appEnv.COMMUNITY_REPORT.getByName("plan-test") as never, (_i, state) => {
+      const binds = Array.from({ length: (sql.match(/\?/g) ?? []).length }, () => 0);
+      return state.storage.sql
+        .exec<{ detail: string }>(`EXPLAIN QUERY PLAN ${sql}`, ...binds)
+        .toArray()
+        .map((r) => r.detail)
+        .join(" | ");
+    });
+
+  it("คำสั่งที่ตรวจอยู่ในซอร์สจริงทุกตัว (ไม่ใช่สำเนาที่ลอยอยู่ในเทส)", () => {
+    const literals = sqlLiterals(communitySrc);
+    for (const sql of [LIST_SQL, HIDDEN_SQL, RETENTION_SQL, MIN_SQL]) expect(literals).toContain(sql);
+    // SQL-5: ไม่มี NOT IN (SELECT …) และทุก DELETE/UPDATE มีเงื่อนไข id/created_ms
+    for (const sql of literals) {
+      expect(sql).not.toMatch(/NOT IN \(SELECT/i);
+      if (/^(DELETE|UPDATE)/.test(sql)) expect(sql).toMatch(/WHERE .*(id|created_ms)/);
+    }
+  });
+
+  it("รายการรายจังหวัด = idx_reports_province_hidden_created ไม่มี TEMP B-TREE", async () => {
+    const plan = await planOf(LIST_SQL);
+    expect(plan).toContain("idx_reports_province_hidden_created");
+    expect(plan).not.toContain("TEMP B-TREE");
+  });
+
+  it("hiddenCount = covering index ของดัชนีเดียวกัน", async () => {
+    expect(await planOf(HIDDEN_SQL)).toContain("SEARCH reports USING COVERING INDEX idx_reports_province_hidden_created");
+  });
+
+  it("retention และ MIN(created_ms) ผ่าน idx_reports_created", async () => {
+    expect(await planOf(RETENTION_SQL)).toContain("SEARCH reports USING INDEX idx_reports_created");
+    expect(await planOf(MIN_SQL)).toContain("idx_reports_created");
   });
 });
