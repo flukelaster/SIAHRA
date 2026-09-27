@@ -2,7 +2,7 @@ import { env, exports as workerExports } from "cloudflare:workers";
 import { evictDurableObject, listDurableObjectIds, runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RadarFramesResponse, SourceStatus } from "@siahra/shared-types";
-import { radarListAt, validPngFrame } from "./fixtures/text";
+import { pngFrameFor, radarListAt } from "./fixtures/text";
 
 /**
  * E5.5 — Durable Object หนึ่งตัว "ครบวง" ผ่านคำขอ HTTP จริง
@@ -39,7 +39,9 @@ function serveRadar(options: { list?: string | Error; frame?: () => Response } =
       if (list instanceof Error) throw list;
       return new Response(list);
     }
-    if (/zr\d{4}\.png/.test(url)) return (options.frame ?? (() => new Response(validPngFrame())))();
+    // ภาพต่างกันต่อไฟล์ — RadarDO ทิ้งเฟรมที่ไบต์ซ้ำกันข้ามเวลา (ภาพที่ยังไม่ถูกสลับ)
+    const file = /zr\d{4}\.png/.exec(url)?.[0];
+    if (file) return (options.frame ?? (() => new Response(pngFrameFor(file))))();
     throw new Error(`unexpected fetch in test: ${url}`);
   });
 }
@@ -89,7 +91,8 @@ describe("เรดาร์ครบวง: HTTP → Durable Object → R2", ()
     expect(frameRes.headers.get("Content-Type")).toBe("image/png");
     expect(frameRes.headers.get("ETag")).toBeTruthy();
     const bytes = new Uint8Array(await frameRes.arrayBuffer());
-    expect(Array.from(bytes)).toEqual(Array.from(new Uint8Array(validPngFrame())));
+    // เฟรมเก่าสุดของดัชนีตั้งต้น (ย้อน 30 นาที) คือ zr0022.png
+    expect(Array.from(bytes)).toEqual(Array.from(new Uint8Array(pngFrameFor("zr0022.png"))));
   });
 
   it("เฟรมที่ไม่มีในดัชนีตอบ 404 ไม่ใช่ 500 หรือรูปเปล่า", async () => {

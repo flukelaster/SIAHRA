@@ -7,7 +7,7 @@ import { TEST_GISTDA_KEY, gistdaCell, serveGistda, setGistdaKey } from "./helper
 import damFixture from "./fixtures/thaiwater-analyst-dam.json";
 import rainFixture from "./fixtures/thaiwater-rain24h.json";
 import waterFixture from "./fixtures/thaiwater-waterlevel-load.json";
-import { radarListAt, truncatedPngFrame, validPngFrame } from "./fixtures/text";
+import { pngFrameFor, radarListAt, truncatedPngFrame } from "./fixtures/text";
 
 /**
  * E4.3 AC 3 / E4.4 AC 2–4 — สิ่งที่ต้องพิสูจน์ไม่ใช่ "schema ปฏิเสธของเสีย" แต่คือ
@@ -275,7 +275,8 @@ describe("RadarDO: เฟรมเสียถูกข้าม นับไว
   const frameRoute = (broken: string[]): FetchRoute => (url) => {
     const match = /zr\d{4}\.png/.exec(url);
     if (!match) return null;
-    return new Response(broken.includes(match[0]) ? truncatedPngFrame() : validPngFrame());
+    // ภาพต่างกันต่อไฟล์ — RadarDO ทิ้งเฟรมที่ไบต์ซ้ำกันข้ามเวลา
+    return new Response(broken.includes(match[0]) ? truncatedPngFrame() : pngFrameFor(match[0]));
   };
 
   it("เฟรมที่ถูกตัดกลาง: ข้าม + นับใน detail + degraded พร้อม lastError ที่ระบุชื่อเฟรม", async () => {

@@ -60,12 +60,12 @@ curl -s .../api/v1/health | jq --arg now "$(date -u +%FT%TZ)" '
 | `tmd-nwp` `degraded`/`down` with `TMD NWP token rejected (401)` | The bearer token expired or was revoked — **retrying cannot fix it** | Issue a new token at `data.tmd.go.th/nwpapi/` and overwrite the secret. The token in use expires **2027-08-18**; an outage on or after that date with no other symptom is almost certainly this. |
 | A source is `stale` (no error at all) | **Our side did not fetch** — a missed alarm or cron, not an upstream problem | Check `nextAttemptAt`. If `null`, force a refresh (§5). If cron is not firing at all, every source goes `stale` together — check the Worker's cron trigger in the dashboard. |
 | A source is `down` | Every feed of that source failed, or an error is standing and the last success is past its budget | Read `lastError`. Curl the upstream yourself. If the upstream is genuinely down, the correct state *is* `down` — leave it visible. |
-| A source is `delayed` | Fetching works; the upstream has not published a newer observation | Nothing to do. This is upstream cadence, not a fault. |
+| A source is `delayed` | Fetching works; the upstream has not published a newer observation | Nothing to do. This is upstream cadence, not a fault. **Exception — `tmd-radar`:** `delayed` with `detail.rotated > 0` and `skippedFrames` 0, in dry weather, is *our* frame-hash guard dropping byte-identical empty frames, not TMD falling behind — do not chase TMD; it clears on the first frame whose bytes differ (§7). |
 | `unknown` on a fresh deploy | No attempt has produced a result yet | Wait one cron tick (1 min). If it persists, the DO is throwing before it records anything — check `wrangler tail` (§3). |
 | API answers `500`/`503` broadly, health itself errors | Durable Objects quota (see §7) or a bad deploy | `wrangler tail`, then roll back (§8) if a deploy caused it. |
 | `429` with `Retry-After` for a normal client | Per-route rate limit tripped (`apps/api/src/index.ts` route table) | Check `api.rateLimited429LastHour`. Limits are per isolate and per client IP; a single client can only starve itself. |
 | **Durable Objects "SQL rows read" climbing by billions a day** while "Total SQL storage" stays in the tens of MB | A statement that scans a whole table is running per request or per item (the 2026-08-18..23 incident: a retention `DELETE` per station pull + five aggregates per `/health`) | §9. Do not wait for the billing page — it lags a day; read the counter on **Workers & Pages → Durable Objects**. |
-| Map loads but radar/tiles are missing | R2 object missing or the tile route is wrong | For radar: check `detail.skippedFrames` on the `tmd-radar` source in `/api/v1/health`. For tiles: see `docs/deploy.md` §2. |
+| Map loads but radar/tiles are missing | R2 object missing or the tile route is wrong | For radar: read the three counters in `detail` of the `tmd-radar` source in `/api/v1/health` — `skippedFrames` (real failures, also in `lastError`), `notServed` (TMD lists the time but answers 404) and `rotated` (the frame's time could not be confirmed) — see §7. For tiles: see `docs/deploy.md` §2. |
 
 ## 3. Reading the logs
 
@@ -112,6 +112,8 @@ Messages worth knowing:
 | `r2 put` | info | An archive or radar object was written: `key` and `bytes`. `bytes` near-zero on an archive key means we archived an empty round. |
 | `radar frame skipped` | warn | One composite frame failed to download or validate; `file` names it. It is also recorded in `lastError`, so it reaches the UI. |
 | `radar frames added` | info | New frames stored this round. |
+| `radar frames not stored` | warn | One line per round (never per frame): `notServed`/`rotated` counts and `notServedFiles`/`rotatedFiles`. Neither is a failure and neither reaches `lastError` (§7); a listed file answering 404 every 5 min is normal for TMD. |
+| `radar list re-read failed` | warn | The confirming second read of `images_composite.list` failed, so none of the `frames` downloaded this round was stored. This one *is* recorded in `lastError`. |
 | `observation cache refreshed` | info | ThaiWater round finished; `rainfall`/`waterlevel` are record counts or `"failed"`. |
 | `archived day` / `archive tick failed` | info / error | Daily R2 archive rollup. |
 | `gistda flood refresh failed` | error | A whole round failed (no province pulled, key missing or rejected); includes `consecutiveFailures` and `retryInSeconds` — the current backoff. |
@@ -313,8 +315,56 @@ else in the code path prunes these objects.
   the provinces of that region keep the previous round's values **with their own older
   `batch.fetchedAt`**, because the timestamp lives in the province row, not in one shared `meta` key.
   A round in which *every* region failed writes no `fetchedAt` at all and overwrites nothing.
-- **Radar frames skipped** → `detail.skippedFrames > 0` with a `lastError` naming the files. TMD's
-  24-slot ring buffer occasionally serves a truncated PNG; the good frames of that round are kept.
+- **Radar frames skipped** → `detail.skippedFrames > 0` with a `lastError` naming the files: a 5xx,
+  a truncated PNG, a frame whose size does not match its time, a size with no known georeference, or
+  a failed list re-read. The good frames of that round are kept.
+- **How TMD serves the radar, and why frames are held back.** `images_composite.list` maps image
+  files to UTC times; `apps/api/src/ingestion/tmdRadar.ts` accepts both line forms — the old
+  `overlay=topo_THA.png,zr0023.png,…` (until ~2026-09-02) and `overlay=zr/<n>.png` (probed
+  2026-09-27: 25 lines at 15-min steps, `zr/0` oldest … `zr/24` newest). The new names are a
+  rolling window: every 15 min the whole window shifts and every file is rewritten with a new time,
+  so a file name no longer identifies a time. `RadarDO` therefore holds each round's downloads in
+  memory, re-reads the list **once**, and stores (`r2 put`, keyed by the listed time) only frames
+  whose file still maps to the same time. Two outcomes are counted in `detail` and are **not**
+  errors:
+  - `notServed` — TMD lists a time but answers 404 for its file (2026-09-27: `zr/0`..`zr/9`). TMD
+    does not serve that image; it is not that we could not ask. If it is the newest slot, the lag
+    still shows through `latestObservedAt`. With **no** frame stored at all (every listed file 404
+    or `rotated`, the 30-day table empty) the source is `degraded` with `lastError: null` — the one
+    known exception to the §1 "that is a bug" rule.
+  - `rotated` — the frame's time could not be confirmed: two frames of one round with identical
+    bytes (SHA-256), a frame whose bytes equal the newest stored frame (meta `newestFrameSha`) under
+    another time, or a file the re-read list moved. Nothing is stored; the next round retries.
+- **Dry weather can read `delayed` — that is our guard, not TMD.** An echo-free TMD frame carries no
+  timestamp in its bytes, so empty frames at different times are byte-identical and the hash guard
+  drops them as `rotated`. In a long dry spell the newest stored frame stops moving and `tmd-radar`
+  goes `delayed` (past 90 min) with `detail.rotated > 0`, `skippedFrames` 0 and no `lastError`,
+  until a frame with different bytes arrives. The guard is a heuristic, chosen on purpose: a visible
+  `delayed` is honest, a frame stored under the wrong time is invisible. What it does **not** cover
+  (from the code comment): TMD writing the image before the list (a frame stored one slot early, the
+  correct one held back until a newer frame lands), and an image/list stagger longer than one
+  5-min round whose stale image differs from our newest stored frame.
+- **Two projections, told apart by size and by time.** Frames TMD serves now are 1800×2644 **Web
+  Mercator** over lon 95–108 / lat 4–22.5 (TMD's own MapLibre viewer `RADAR_COORDS`, probed
+  2026-09-27); frames archived before the change are 1173×1668 **equirectangular** over
+  95.005–108.005 / 3.995–22.495. The frame table has no projection column, so a stored frame's
+  projection follows from its time: `WEB_MERCATOR_SINCE_MS` = `2026-09-02T16:00Z`
+  (`tmdRadar.ts`). Do not move that cutoff: the old ingest's last success on prod was
+  2026-09-02T15:40:39Z and the new list reaches back only ~6 h, so no stored frame falls between the
+  two. On ingest the IHDR size must agree with the projection the frame's time implies — a
+  disagreement, or any other size, is skipped with a `lastError` (`unexpected size WxH (no known
+  georeference)` for an unknown size) and never drawn with a guessed box. `/api/v1/radar/frames`
+  gives each frame its `projection` plus `georeferences`; the old `bounds/widthPx/heightPx` fields
+  remain only for deploy skew and carry the newest frame's georeference. The web-mercator
+  georeference rests on TMD's viewer alone — no independent ground-truth pixel check exists (a
+  visual comparison against TMD's viewer and gauges on 2026-09-27 was consistent).
+- **If TMD changes format again**, the symptom is a `lastError` naming an unknown size, or a list
+  that parses to zero slots (`tmd-radar shape: slots …`, the round fails and retries every minute —
+  what the outage that began 2026-09-02 looked like). It is a code change, not an ops fix: obtain a verified
+  georeference first (never infer one from a pixel size alone), then add it to `PROJECTION_BY_SIZE`
+  (`src/ingestion/schemas/radar.ts`) and `RADAR_GEOREFERENCES` with a new time cutoff
+  (`tmdRadar.ts`), the shader branch in `apps/web/src/scene/terrainMaterial.ts` if the projection is
+  new, the list/frame fixtures in `test/fixtures/text.ts`, and `docs/testing.md`.
 
 ## 8. Rolling back a bad deploy
 
@@ -362,6 +412,10 @@ Notes before you press it:
 - Rollback **does not undo a Durable Object migration**. If the bad deploy added or renamed a DO
   class, roll forward with a fix instead — dropping a class in a migration destroys its stored data.
 - Rollback does not touch R2 or secrets.
+- **Radar across a web-only rollback:** a web bundle from before per-frame radar projections reads
+  the deprecated `bounds/widthPx/heightPx` and does not throw, but draws a Web Mercator frame with
+  rows linear in latitude — misplaced north–south by up to ≈ 0.18° (≈ 20 km), computed from the two
+  boxes. That is our pairing, not TMD — roll web forward rather than leave it (rolling api back to before this change breaks radar ingestion again).
 - After rolling back, confirm with `curl -s .../api/v1/health | jq '.ok, .worst'` and one real data
   route; `ok: false` right after a rollback is normal for a minute while each DO re-fetches.
 
