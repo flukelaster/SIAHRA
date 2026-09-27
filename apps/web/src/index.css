@@ -2,23 +2,37 @@
 @import "./fonts.css";
 
 @theme {
-  --font-sans: "Sarabun", "Noto Sans Thai", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "IBM Plex Sans Thai", "Noto Sans Thai", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  /* ระยะบรรทัดของป้ายภาษาไทยที่ `truncate` (overflow: hidden ตัดที่ขอบกล่อง) — ใช้เป็น
+     `leading-thai`: วรรณยุกต์ซ้อนสระบน (น้ำ ชั้น สี่) ของ IBM Plex Sans Thai สูงเกิน ascent
+     ของฟอนต์ ~0.17em (วัดด้วย canvas measureText 2026-09-27) ระยะบรรทัดเริ่มต้นของ
+     text-xs/text-sm (1.33/1.43) จึงตัดหัววรรณยุกต์ทิ้ง ~2 px — 1.8 ให้ครึ่งหนึ่งของส่วนเกิน
+     พอสำหรับตัวที่หนักที่สุด (text-sm ตัวหนา) */
+  --leading-thai: 1.8;
 
   /* Base surfaces */
   --color-bg: #0b1220;
   --color-bg-elevated: #0f172a;
   --color-panel: #131c2e;
   --color-panel-2: #17223a;
-  --color-border: #263148;
-  --color-border-strong: #3a4864;
+  /* เส้นขอบ (E18.5): ต้องเห็นได้บนแผง — border ≥ 1.5:1, border-strong ≥ 2:1 เทียบ panel
+     (ตรวจใน lib/contrast.test.ts) */
+  --color-border: #34425e;
+  --color-border-strong: #475673;
 
+  /* ตัวอักษร (E18.5): ทั้งสามระดับ ≥ 4.5:1 (WCAG AA) บน bg / bg-elevated / panel / panel-2
+     — panel-2 สว่างที่สุดจึงเป็นตัวกำหนด (lib/contrast.test.ts) */
   --color-fg: #e7ecf5;
-  --color-fg-muted: #94a3b8;
-  --color-fg-subtle: #64748b;
+  --color-fg-muted: #9eacc1;
+  --color-fg-subtle: #8391a9;
 
+  /* accent คงเดิมเพราะป้าย forecast (EPISTEMIC_BADGE.forecast) และแถบพยากรณ์อ้างถึงมัน —
+     สีอ่อนใด ๆ บน #3b82f6 ได้ไม่เกิน 3.68:1 accent-fg (ตัวอักษรบนพื้น accent ทึบ) จึงเป็นสีเข้ม
+     เพื่อให้ถึง 4.5:1 */
   --color-accent: #3b82f6;
-  --color-accent-fg: #eaf1ff;
+  --color-accent-fg: #050a14;
 
   /* Semantic risk scale (shared by flood + earthquake legends) */
   --color-risk-low: #38bdf8;

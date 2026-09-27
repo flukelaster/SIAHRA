@@ -34,7 +34,7 @@ function Title() {
   return (
     <div className="flex min-w-0 items-center gap-2">
       <Layers size={16} className="shrink-0 text-[var(--color-accent)]" aria-hidden="true" />
-      <h2 id={TITLE_ID} className="min-w-0 truncate text-sm font-semibold text-[var(--color-fg)]">
+      <h2 id={TITLE_ID} className="min-w-0 truncate text-sm leading-thai font-semibold text-[var(--color-fg)]">
         {t("panel.layers")}
       </h2>
     </div>

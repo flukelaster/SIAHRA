@@ -43,7 +43,7 @@ function EventRow({ event, lang, t }: { event: EarthquakeEvent; lang: Lang; t: T
         {event.mag?.toFixed(1) ?? "—"}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-xs text-[var(--color-fg)]" title={event.place ?? undefined}>
+        <p className="truncate leading-thai text-xs text-[var(--color-fg)]" title={event.place ?? undefined}>
           {event.place ?? t("quake.unknownPlace")}
         </p>
         {/*
@@ -53,7 +53,7 @@ function EventRow({ event, lang, t }: { event: EarthquakeEvent; lang: Lang; t: T
         */}
         {nearest || event.url ? (
           <p className="flex items-center gap-1 text-[11px] text-[var(--color-fg-muted)]">
-            {nearest ? <span className="truncate">{nearest}</span> : null}
+            {nearest ? <span className="truncate leading-thai">{nearest}</span> : null}
             {event.url ? (
               <a
                 href={event.url}

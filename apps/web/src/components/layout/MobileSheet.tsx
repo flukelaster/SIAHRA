@@ -141,7 +141,7 @@ export function MobileSheet({
 
         {/* แถวสรุป — ลากได้เหมือนมือจับ (พื้นที่นิ้วโดนง่ายกว่าเส้นเล็ก ๆ ข้างบน) */}
         <div {...dragHandlers} className="flex touch-none items-center gap-2">
-          <h2 className="min-w-0 shrink truncate text-sm font-bold text-[var(--color-fg)]">
+          <h2 className="min-w-0 shrink truncate text-sm leading-thai font-bold text-[var(--color-fg)]">
             {t("viewport.province", { name: ctx.provinceName })}
           </h2>
           <div className="ml-auto shrink-0 touch-auto" onPointerDown={(e) => e.stopPropagation()}>

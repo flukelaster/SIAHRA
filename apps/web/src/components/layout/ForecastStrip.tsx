@@ -178,7 +178,7 @@ export function ForecastStrip({
           </span>
         ) : stale ? (
           <span
-            className="min-w-0 truncate rounded-md bg-[var(--color-risk-medium)]/15 px-1.5 py-0.5 text-[10px] leading-none text-[var(--color-risk-medium)]"
+            className="min-w-0 truncate rounded-md bg-[var(--color-risk-medium)]/15 px-1.5 py-0.5 text-[10px] leading-thai text-[var(--color-risk-medium)]"
             title={t("forecast.staleNote")}
           >
             {t("forecast.staleNote")}

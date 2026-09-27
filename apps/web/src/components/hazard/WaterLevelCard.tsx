@@ -55,7 +55,7 @@ function StationRow({
       aria-expanded={open}
     >
       <div className="min-w-0 flex-1">
-        <p className="truncate text-xs text-[var(--color-fg)]">
+        <p className="truncate leading-thai text-xs text-[var(--color-fg)]">
           {stationName(obs.station, lang, t)}
         </p>
         <p className="flex flex-wrap items-center gap-x-1.5 text-[11px] text-[var(--color-fg-subtle)]">

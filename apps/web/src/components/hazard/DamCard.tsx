@@ -48,8 +48,8 @@ export function DamCard({ state }: { state: DamsState }) {
                   {d.storagePercent !== null ? `${d.storagePercent.toFixed(0)}%` : "—"}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs text-[var(--color-fg)]">{damDisplayName(d, lang, t)}</p>
-                  <p className="truncate text-[11px] text-[var(--color-fg-subtle)]">
+                  <p className="truncate leading-thai text-xs text-[var(--color-fg)]">{damDisplayName(d, lang, t)}</p>
+                  <p className="truncate leading-thai text-[11px] text-[var(--color-fg-subtle)]">
                     {d.storageMcm !== null ? `${formatNumber(lang, d.storageMcm)} ${t("unit.mcm")}` : ""}
                     {d.maxStorageMcm !== null ? ` / ${formatNumber(lang, d.maxStorageMcm)}` : ""}
                     {d.inflowMcm !== null ? t("dam.inflow", { n: d.inflowMcm.toFixed(1) }) : ""}

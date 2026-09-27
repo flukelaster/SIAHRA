@@ -151,8 +151,8 @@ export function AffectedAuthorityList({
                         : "—"}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs text-[var(--color-fg)]">{entry.nameTh}</p>
-                      <p className="truncate text-[10px] text-[var(--color-fg-subtle)]">
+                      <p className="truncate leading-thai text-xs text-[var(--color-fg)]">{entry.nameTh}</p>
+                      <p className="truncate leading-thai text-[10px] text-[var(--color-fg-subtle)]">
                         {t(LOCAL_AUTHORITY_TYPE_KEY[entry.type])}
                         {entry.bucket === "measured" && freshness.dim && sceneDate
                           ? ` · ${t("authorityList.sceneDate", { date: sceneDate })}`

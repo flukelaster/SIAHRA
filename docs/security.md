@@ -150,8 +150,8 @@ worker-src 'self'; manifest-src 'self'; media-src blob: https://camerai1.iticfou
 - `worker-src 'self'` — `src/workers/*.worker.ts` are bundled to same-origin URLs, not blobs. hls.js is
   created with `enableWorker: false` (`src/lib/streams.ts`), so its transmuxer runs on the main thread
   and never asks for a `blob:` worker; this directive did not change for E15.2.
-- `font-src 'self'` — this is only possible because E4.1 moved Sarabun and IBM Plex Mono into
-  `public/fonts/`. Re-adding a Google Fonts `<link>` would force `font-src`/`style-src` back open.
+- `font-src 'self'` — this is only possible because E4.1 moved the fonts into `public/fonts/` — today IBM
+  Plex Sans Thai (Sarabun until E18.5) and IBM Plex Mono. Re-adding a Google Fonts `<link>` would force `font-src`/`style-src` back open.
 
 ## Verification performed (2026-08-19)
 

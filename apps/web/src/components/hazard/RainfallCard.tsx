@@ -64,11 +64,11 @@ export function RainfallCard({
                   {(s.rain24h ?? 0).toFixed(1)}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs text-[var(--color-fg)]">
+                  <p className="truncate leading-thai text-xs text-[var(--color-fg)]">
                     {(lang === "th" ? (s.station.nameTh ?? s.station.nameEn) : (s.station.nameEn ?? s.station.nameTh)) ??
                       t("water.stationFallback", { id: s.station.id })}
                   </p>
-                  <p className="truncate text-[11px] text-[var(--color-fg-subtle)]">
+                  <p className="truncate leading-thai text-[11px] text-[var(--color-fg-subtle)]">
                     {[s.station.amphoeNameTh, s.station.agencyShortTh].filter(Boolean).join(" · ")}
                   </p>
                 </div>
