@@ -521,6 +521,12 @@ export default function App() {
     // ตัวตั้งเดียวกับที่ TimelineBar ใช้ (ผ่าน AppShell → onAtIsoChange) — แผงฉาก GFM
     // เลือกเวลาแล้วมาตรวัดน้ำ/ดวงอาทิตย์/GISTDA ?at=/เรดาร์ จึงเดินตามพร้อมกัน
     setAtIso: handleAtIsoChange,
+    // E18.4 — แถบพยากรณ์ในมุมมองพยากรณ์ใช้ตัวตั้งตัวเดียวกับที่ dock เคยใช้ (ล้าง atIso เมื่อเลือก)
+    forecastAtIso,
+    setForecastAtIso: handleForecastAtIsoChange,
+    // E18.4 — ตัวเลือกมาตราส่วนแนวดิ่งอยู่ในชั้นข้อมูล; permalink `e` ยังอ่านจาก state เดียวกันนี้
+    exaggeration,
+    setExaggeration,
     focusStation,
     northRoute,
     floodAge,
@@ -566,6 +572,7 @@ export default function App() {
         quality={quality}
         onQualityLevel={handleQualityLevel}
         tier={shell.tier}
+        sheetSnap={shell.sheetSnap}
         onInfo={setMapInfo}
         onApi={handleApi}
         onPoseChange={handlePose}
@@ -587,7 +594,6 @@ export default function App() {
         apiHealth={apiHealth}
         mapInfo={mapInfo}
         exaggeration={exaggeration}
-        onExaggerationChange={setExaggeration}
         onAtIsoChange={handleAtIsoChange}
         timelineMarks={timelineMarks}
         forecastAtIso={forecastAtIso}

@@ -1,14 +1,11 @@
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { ApiHealthState } from "../../hooks/useApiHealth";
 import { useSheetDrag } from "../../hooks/useSheetDrag";
 import { useLang } from "../../i18n/context";
 import { PHONE_TABBAR_H, SHEET_FULL_VH, type SheetSnap } from "../../lib/shellLayout";
 import type { PanelKey } from "../../lib/shellPrefs";
 import { subPanelId, subTabId, topicByKey, topicOf } from "../../lib/topics";
-import { formatDateTime } from "../../lib/time";
-import { ExaggerationControl } from "./ExaggerationControl";
-import { ForecastStrip } from "./ForecastStrip";
 import type { MapInfo } from "./Map3DCanvas";
 import { MapAttribution } from "./MapAttribution";
 import { panelByKey, type PanelContext } from "./panelRegistry";
@@ -18,7 +15,6 @@ import { SHEET_ID } from "./TopicTabBar";
 import { SourceStatusPopover } from "./SourceStatusPopover";
 import { StatPills } from "./StatPills";
 import { FloodSourceAgeChip } from "./FloodSourceAgeChip";
-import { TimelineBar, type TimelineMark } from "./TimelineBar";
 
 /**
  * เปลือกล่างของมือถือ — **ชั้นเดียว** ที่ลอยอยู่เหนือแผนที่ (แบบ Google Maps)
@@ -28,12 +24,15 @@ import { TimelineBar, type TimelineMark } from "./TimelineBar";
  * จึงไม่มี layout ระหว่างลาก และลูปเรนเดอร์ของฉาก Three.js ไม่ถูกรบกวน
  *
  * ส่วน **peek ถูก mount เสมอ** ทุกระดับ และมีของสี่อย่างที่ต้องเห็นตลอด:
- *   1. ชื่อจังหวัด + ชิป "กำลังดูค่าย้อนหลัง" (ย้ายมาจากหัวข้อบนแผนที่)
+ *   1. ชื่อจังหวัด (ย้ายมาจากหัวข้อบนแผนที่)
  *   2. จุดสถานะแหล่งข้อมูล — แหล่งที่หยุดส่งต้องยังเห็นว่าหยุด ไม่ใช่หายไปเงียบ ๆ
- *   3. ไทม์ไลน์ (เวอร์ชันก่อนหน้าถอดมันทิ้งตอนเปิดแผง ทำให้กดย้อนเวลาไม่ได้เลย)
+ *   3. ชิปเวลา (`TimeChip`, E18.4 — แทนแถบเวลา dense เดิม) ที่ **เป็น** ป้าย "ดูย้อนหลัง" เมื่อดูค่า
+ *      ย้อนหลัง (ถ้อยคำ/สีเดียวกัน — ป้ายซ้ำบนแถวสรุปเดิมถูกรวมเข้ามาในชิป) ป้ายพยากรณ์ TMD เมื่อ
+ *      เลือกขั้นพยากรณ์ และมีปุ่มกลับไปปัจจุบัน; กดชิปแล้วกางแถบเวลาตัวเต็มเป็นแผงเหนือแถบแท็บ
+ *      (AppShell — ไม่ใช่ส่วนของ peek) ย้อนเวลาได้ทุกระดับของแผ่นเหมือนเดิม
  *   4. บรรทัดเครดิต — เงื่อนไขของผู้ให้ภาพดาวเทียมบังคับให้ "มองเห็นได้"
- * ส่วนที่เหลือ (สรุปตัวเลข, แถบพยากรณ์, แท็บย่อยของหัวข้อ, มาตราส่วนแนวดิ่ง) อยู่ใน body
- * ซึ่ง mount เฉพาะตอนกาง
+ * ส่วนที่เหลือ (สรุปตัวเลข, แท็บย่อยของหัวข้อ) อยู่ใน body ซึ่ง mount เฉพาะตอนกาง — แถบพยากรณ์ย้ายไป
+ * มุมมองพยากรณ์ของหัวข้อฝนและพายุ และมาตราส่วนแนวดิ่งย้ายไปกลุ่มแผนที่ฐานของชั้นข้อมูล (E18.4)
  *
  * แผ่นวางอยู่ **บน** แถบแท็บหัวข้อ (`TopicTabBar`, `PHONE_TABBAR_H`) ไม่ใช่ขอบจอ — ตัวเลือก
  * หัวข้ออยู่ที่แถบนั้น ส่วนแผ่นมีแค่แท็บย่อยของหัวข้อที่เลือก (`SubTabs`) ความสูงของแผ่น
@@ -49,11 +48,7 @@ export function MobileSheet({
   apiHealth,
   mapInfo,
   exaggeration,
-  onExaggerationChange,
-  onAtIsoChange,
-  timelineMarks,
-  forecastAtIso,
-  onForecastAtIsoChange,
+  timeChip,
 }: {
   ctx: PanelContext;
   /** มุมมองย่อยที่เลือก — หัวข้อ derive จากมัน */
@@ -64,14 +59,10 @@ export function MobileSheet({
   apiHealth: ApiHealthState;
   mapInfo: MapInfo | null;
   exaggeration: number;
-  onExaggerationChange: (f: number) => void;
-  onAtIsoChange: (atIso: string | null) => void;
-  /** E14.F5 — ขีดรอบบิน Sentinel-1 */
-  timelineMarks?: TimelineMark[];
-  forecastAtIso: string | null;
-  onForecastAtIsoChange: (forecastAtIso: string | null) => void;
+  /** แถวชิปเวลาของ peek (`TimeChip variant="sheet"`) — AppShell ประกอบให้ */
+  timeChip: ReactNode;
 }) {
-  const { lang, t } = useLang();
+  const { t } = useLang();
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const peekRef = useRef<HTMLDivElement | null>(null);
   const [peekPx, setPeekPx] = useState(0);
@@ -94,6 +85,34 @@ export function MobileSheet({
   }, []);
 
   const { dragHandlers, bodyHandlers } = useSheetDrag({ sheetRef, snap, onSnapChange, peekPx });
+
+  // `shrink-0` ไม่ใช่ `min-h-0`: ในคอลัมน์ flex ที่เลื่อนได้ กล่องที่ยอมหด
+  // จะถูกบีบให้พอดีที่ว่างแล้วเนื้อหาข้างในล้นออกมาโดยไม่มีอะไรคลิป —
+  // ของที่อยู่ถัดไปจึงถูกวาดทับรายการในแผง (เห็นบน iPhone จริง)
+  const panelSlot = (
+    <div
+      id={hasTabs ? subPanelId(SHEET_ID) : undefined}
+      role={hasTabs ? "tabpanel" : undefined}
+      aria-labelledby={hasTabs ? subTabId(SHEET_ID, panel) : undefined}
+      className="shrink-0"
+    >
+      <PanelSlot def={current} ctx={ctx} />
+    </div>
+  );
+  // ตัวเลขสรุปเป็นของทั้งแผนที่ ไม่ใช่ของแผงใดแผงหนึ่ง + อายุแหล่งน้ำท่วมจากดาวเทียม (E16 B-1 — บนจอ
+  // กว้างอยู่ข้าง StatPills บนแผนที่)
+  const mapWide = (
+    <>
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <StatPills summary={ctx.observations.data?.summary ?? null} loading={ctx.observations.loading} compact />
+      </div>
+      {ctx.floodAge ? (
+        <div className="shrink-0">
+          <FloodSourceAgeChip input={ctx.floodAge} compact />
+        </div>
+      ) : null}
+    </>
+  );
 
   return (
     // ห้ามใส่ overflow-hidden: popover ของจุดสถานะกางขึ้น (`bottom-full`) เหนือแผ่น
@@ -125,13 +144,6 @@ export function MobileSheet({
           <h2 className="min-w-0 shrink truncate text-sm font-bold text-[var(--color-fg)]">
             {t("viewport.province", { name: ctx.provinceName })}
           </h2>
-          {/* กำลังดูค่าย้อนหลัง — ต้องบอกเสมอ ไม่ใช่รู้ได้เฉพาะในการ์ดระดับน้ำ */}
-          {ctx.atIso !== null ? (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[var(--color-risk-medium)]/20 px-2 py-0.5 text-[10px] text-[var(--color-risk-medium)] ring-1 ring-[var(--color-risk-medium)]/50 ring-inset">
-              <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-risk-medium)]" aria-hidden="true" />
-              {t("viewport.historical", { time: formatDateTime(lang, ctx.atIso) })}
-            </span>
-          ) : null}
           <div className="ml-auto shrink-0 touch-auto" onPointerDown={(e) => e.stopPropagation()}>
             <SourceStatusPopover state={apiHealth} />
           </div>
@@ -147,7 +159,11 @@ export function MobileSheet({
           </button>
         </div>
 
-        <TimelineBar atIso={ctx.atIso} onChange={onAtIsoChange} variant="dense" marks={timelineMarks} />
+        {/* ชิปเวลา — "ดูย้อนหลัง …" (ป้ายเดิมของแถวสรุป) / พยากรณ์ TMD / ปัจจุบัน ต้องบอกเสมอทุกระดับ
+            ของแผ่น (`TIME_CHIP_ROW_H` ในเพดาน peek) ห้ามลากแผ่นจากแถวนี้: เป็นปุ่มล้วน */}
+        <div className="flex shrink-0 items-center" onPointerDown={(e) => e.stopPropagation()}>
+          {timeChip}
+        </div>
 
         <MapAttribution
           info={mapInfo}
@@ -172,98 +188,17 @@ export function MobileSheet({
           ) : null}
 
           {/* E18.2 — หัวข้อภาพรวม: การ์ดสรุปมาก่อนแถวของทั้งแผนที่ (ชิปตัวเลขซ้ำกับการ์ด)
-              หัวข้ออื่นยังเรียงแบบเดิมจนกว่าแถบพยากรณ์/มาตราส่วนจะย้ายออกใน E18.4 */}
+              E18.4 — แถบพยากรณ์ย้ายไปมุมมองพยากรณ์ และมาตราส่วนแนวดิ่งไปชั้นข้อมูลแล้ว แถวของทั้งแผนที่
+              จึงเหลือตัวเลขสรุป + อายุแหล่งน้ำท่วมดาวเทียม */}
           {topic === "overview" ? (
             <>
-          {/* `shrink-0` ไม่ใช่ `min-h-0`: ในคอลัมน์ flex ที่เลื่อนได้ กล่องที่ยอมหด
-              จะถูกบีบให้พอดีที่ว่างแล้วเนื้อหาข้างในล้นออกมาโดยไม่มีอะไรคลิป —
-              ของที่อยู่ถัดไปจึงถูกวาดทับรายการในแผง (เห็นบน iPhone จริง) */}
-          <div
-            id={hasTabs ? subPanelId(SHEET_ID) : undefined}
-            role={hasTabs ? "tabpanel" : undefined}
-            aria-labelledby={hasTabs ? subTabId(SHEET_ID, panel) : undefined}
-            className="shrink-0"
-          >
-            <PanelSlot def={current} ctx={ctx} />
-          </div>
-          {/* ตัวเลขสรุป + มาตราส่วนแนวดิ่งอยู่แถวเดียวกัน: ทั้งคู่เป็นของทั้งแผนที่
-              ไม่ใช่ของแผงใดแผงหนึ่ง จึงอยู่เหนือเนื้อของมุมมอง ไม่ใช่ท้ายสุดใต้แผง
-              ซึ่งต้องเลื่อนผ่านรายการยาว ๆ กว่าจะเจอ */}
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <StatPills
-              summary={ctx.observations.data?.summary ?? null}
-              loading={ctx.observations.loading}
-              compact
-            />
-            <div className="ml-auto">
-              <ExaggerationControl value={exaggeration} onChange={onExaggerationChange} compact />
-            </div>
-          </div>
-          {/* E16 B-1 — อายุแหล่งน้ำท่วมจากดาวเทียม (บนจอกว้างอยู่ข้าง StatPills บนแผนที่) */}
-          {ctx.floodAge ? (
-            <div className="shrink-0">
-              <FloodSourceAgeChip input={ctx.floodAge} compact />
-            </div>
-          ) : null}
-          {/* แบบ `dense` ใช้ไม่ได้ที่ความกว้างนี้: ป้าย "พยากรณ์จากแบบจำลอง TMD"
-              กับค่าฝนย่อไม่ได้ (ป้ายบอกว่านี่คือแบบจำลอง ไม่ใช่ค่าที่วัด — ตัดทิ้ง
-              ไม่ได้) รวมกับปุ่มล้างแล้วกินไปแล้ว ~320 จาก 372px สไลเดอร์เลยเหลือ
-              ไม่ถึงนิ้ว แบบเต็มวางสไลเดอร์คนละบรรทัดกับป้าย และ body นี้เลื่อนได้
-              อยู่แล้ว ความสูงจึงถูกกว่าความกว้าง */}
-          <div className="shrink-0">
-            <ForecastStrip
-              state={ctx.forecast}
-              forecastAtIso={forecastAtIso}
-              onChange={onForecastAtIsoChange}
-            />
-          </div>
-
+              {panelSlot}
+              {mapWide}
             </>
           ) : (
             <>
-          {/* ตัวเลขสรุป + มาตราส่วนแนวดิ่งอยู่แถวเดียวกัน: ทั้งคู่เป็นของทั้งแผนที่
-              ไม่ใช่ของแผงใดแผงหนึ่ง จึงอยู่เหนือเนื้อของมุมมอง ไม่ใช่ท้ายสุดใต้แผง
-              ซึ่งต้องเลื่อนผ่านรายการยาว ๆ กว่าจะเจอ */}
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <StatPills
-              summary={ctx.observations.data?.summary ?? null}
-              loading={ctx.observations.loading}
-              compact
-            />
-            <div className="ml-auto">
-              <ExaggerationControl value={exaggeration} onChange={onExaggerationChange} compact />
-            </div>
-          </div>
-          {/* E16 B-1 — อายุแหล่งน้ำท่วมจากดาวเทียม (บนจอกว้างอยู่ข้าง StatPills บนแผนที่) */}
-          {ctx.floodAge ? (
-            <div className="shrink-0">
-              <FloodSourceAgeChip input={ctx.floodAge} compact />
-            </div>
-          ) : null}
-          {/* แบบ `dense` ใช้ไม่ได้ที่ความกว้างนี้: ป้าย "พยากรณ์จากแบบจำลอง TMD"
-              กับค่าฝนย่อไม่ได้ (ป้ายบอกว่านี่คือแบบจำลอง ไม่ใช่ค่าที่วัด — ตัดทิ้ง
-              ไม่ได้) รวมกับปุ่มล้างแล้วกินไปแล้ว ~320 จาก 372px สไลเดอร์เลยเหลือ
-              ไม่ถึงนิ้ว แบบเต็มวางสไลเดอร์คนละบรรทัดกับป้าย และ body นี้เลื่อนได้
-              อยู่แล้ว ความสูงจึงถูกกว่าความกว้าง */}
-          <div className="shrink-0">
-            <ForecastStrip
-              state={ctx.forecast}
-              forecastAtIso={forecastAtIso}
-              onChange={onForecastAtIsoChange}
-            />
-          </div>
-
-          {/* `shrink-0` ไม่ใช่ `min-h-0`: ในคอลัมน์ flex ที่เลื่อนได้ กล่องที่ยอมหด
-              จะถูกบีบให้พอดีที่ว่างแล้วเนื้อหาข้างในล้นออกมาโดยไม่มีอะไรคลิป —
-              ของที่อยู่ถัดไปจึงถูกวาดทับรายการในแผง (เห็นบน iPhone จริง) */}
-          <div
-            id={hasTabs ? subPanelId(SHEET_ID) : undefined}
-            role={hasTabs ? "tabpanel" : undefined}
-            aria-labelledby={hasTabs ? subTabId(SHEET_ID, panel) : undefined}
-            className="shrink-0"
-          >
-            <PanelSlot def={current} ctx={ctx} />
-          </div>
+              {mapWide}
+              {panelSlot}
             </>
           )}
         </div>

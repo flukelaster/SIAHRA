@@ -314,6 +314,14 @@ export const en: Record<keyof typeof th, string> = {
   "exaggeration.factor": "Heights exaggerated {n}× (not true proportions)",
 
   // ── Timeline ──────────────────────────────────────────────────────────
+  // E18.4 — time chip (TopBar ≥ tablet / phone peek) + the timeline panel it opens
+  "timeChip.live": "Live · {detail}",
+  "timeChip.failed": "latest readings failed to load",
+  "timeChip.noObservationTime": "no observation time",
+  "timeChip.open": "{label} — open the timeline",
+  "timeChip.close": "Close the timeline",
+  "forecast.chip.label": "TMD forecast · {time}",
+  "topbar.more": "More",
   "timeline.title": "Water level history",
   "timeline.rangeLabel": "History window",
   "timeline.range.72h": "72 h",

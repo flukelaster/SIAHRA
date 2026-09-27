@@ -30,6 +30,7 @@ import { OverviewSources, OverviewSummary } from "../hazard/OverviewSummary";
 import { RainfallCard } from "../hazard/RainfallCard";
 import { WaterLevelCard } from "../hazard/WaterLevelCard";
 import { ApiStatusFooter } from "./ApiStatusFooter";
+import { ExaggerationControl } from "./ExaggerationControl";
 import { LayerPresetCard } from "./LayerPresetCard";
 import type { MapInfo, MapLayers } from "./Map3DCanvas";
 import {
@@ -105,6 +106,18 @@ export interface PanelContext {
   apiDown: boolean;
   atIso: string | null;
   /**
+   * E18.4 — ขั้นพยากรณ์ TMD ที่เลือกอยู่ + ตัวตั้งตัวเดียวของ App.tsx (`handleForecastAtIsoChange`,
+   * ล้าง atIso เมื่อเลือก) — แถบพยากรณ์ในมุมมองพยากรณ์ขับแผนที่และชิปเวลาผ่านทางนี้
+   */
+  forecastAtIso: string | null;
+  setForecastAtIso: (forecastAtIso: string | null) => void;
+  /**
+   * E18.4 — มาตราส่วนแนวดิ่ง: ตัวเลือกอยู่ในกลุ่มแผนที่ฐานของชั้นข้อมูล (`LayersPanel`) พารามิเตอร์ `ex`
+   * ของ permalink ยังมาจาก state เดียวกันใน App.tsx
+   */
+  exaggeration: number;
+  setExaggeration: (factor: number) => void;
+  /**
    * E14.F5 — ตัวตั้ง `atIso` **ตัวเดียวกับที่ TimelineBar ใช้** (`handleAtIsoChange` ใน
    * App.tsx): แผงฉาก GFM เลือกเวลาผ่านทางนี้ ทุกชั้นที่เดินตามเส้นเวลาจึงตามไปด้วยกัน
    */
@@ -149,6 +162,7 @@ export interface StationFocus {
  * ยังอยู่ครบ แค่ย้ายเข้ากลุ่ม) + สถานะการดึงของ ThaiWater เป็น footer (ย้ายมาจาก Sidebar เดิม)
  */
 export function LayersPanel({ ctx }: { ctx: PanelContext }) {
+  const t = useT();
   const obs = ctx.observations.data;
   const { topic, setState, clearLoadError } = ctx.layerPreset;
   return (
@@ -181,6 +195,19 @@ export function LayersPanel({ ctx }: { ctx: PanelContext }) {
         gistdaDepth={ctx.gistdaDepthLegend}
         cameraErrors={ctx.cameraCatalogues.errors}
         layerLoadErrors={ctx.mapInfo?.layerLoadErrors}
+        basemapFooter={
+          // E18.4 — มาตราส่วนแนวดิ่งเป็นของแผนที่ฐาน (ภูมิประเทศ) ค่าที่ไม่ใช่ 1:1 ยังขึ้นในบรรทัดเครดิต
+          // ที่ mount เสมอทุก tier (`MapAttribution`) ตัวเลือกจึงย้ายมาที่นี่ได้โดยไม่ซ่อนค่า
+          <div className="flex min-h-11 items-center justify-between gap-2 px-1.5" data-layer-row="exaggeration">
+            <span className="min-w-0 text-xs text-[var(--color-fg-muted)]">
+              {t("exaggeration.label")}{" "}
+              <span className="tabular-nums text-[var(--color-fg)]">
+                {ctx.exaggeration === 1 ? t("exaggeration.real") : `${ctx.exaggeration}×`}
+              </span>
+            </span>
+            <ExaggerationControl value={ctx.exaggeration} onChange={ctx.setExaggeration} compact />
+          </div>
+        }
       />
       <div className="glass-soft mt-auto shrink-0 rounded-2xl px-3.5 py-2.5">
         <ApiStatusFooter

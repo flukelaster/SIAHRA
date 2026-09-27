@@ -1179,9 +1179,12 @@ export function MapLegend({
   cameraErrors,
   layerLoadErrors,
   header = null,
+  basemapFooter = null,
 }: {
   /** redesign PR 3 — การ์ดชุดของหัวข้อ วางใต้หัว legend ก่อนกลุ่มชั้น */
   header?: ReactNode;
+  /** E18.4 — แถวท้ายกลุ่มแผนที่ฐาน (มาตราส่วนแนวดิ่ง — ย้ายมาจาก dock/แผ่นเลื่อน) */
+  basemapFooter?: ReactNode;
   layers: MapLayers;
   onToggle: (key: keyof MapLayers, value: boolean) => void;
   /** `HazardLayerDescriptor` ต่อชั้น (useLayerDescriptors) — ไม่มี = ไม่ใช่ข้อมูล */
@@ -1381,6 +1384,7 @@ export function MapLegend({
               </span>
             </h3>
             <ul className="flex flex-col gap-1">{rows.map(renderRow)}</ul>
+            {group === "basemap" ? basemapFooter : null}
           </section>
         );
       })}

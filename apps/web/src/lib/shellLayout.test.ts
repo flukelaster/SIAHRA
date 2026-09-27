@@ -12,12 +12,13 @@ import {
   SHEET_PEEK_GAPS,
   SHEET_PEEK_H,
   SHEET_SUMMARY_MAX_H,
-  TIMELINE_DENSE_H,
+  TIME_CHIP_ROW_H,
   TOOLS_W,
   TOPBAR_H,
   computeSafeArea,
   defaultDrawerOpen,
   nearestSnap,
+  phoneToolsBottom,
   snapHeights,
   tierFor,
 } from "./shellLayout";
@@ -43,7 +44,7 @@ describe("shellLayout — ค่าคงที่ตามสเปก", () => 
     expect(PHONE_TABBAR_H).toBe(56);
     expect(TOOLS_W).toBe(48);
     expect(DRAWER_W).toEqual({ tablet: 320, laptop: 352, wide: 360 });
-    expect(SHEET_PEEK_H).toBe(240);
+    expect(SHEET_PEEK_H).toBe(224);
     expect(SHEET_HALF_VH).toBe(0.55);
     expect(SHEET_FULL_VH).toBe(0.92);
   });
@@ -53,7 +54,7 @@ describe("shellLayout — ค่าคงที่ตามสเปก", () => 
     // (Esri ToU / EOX CC BY-NC-SA) ไม่ "มองเห็นได้" อีกต่อไป — เป็นการผิดเงื่อนไข
     // การใช้ข้อมูล ไม่ใช่แค่เรื่องเลย์เอาต์ ห้ามแก้ด้วยการลดค่าความสูงรายแถว
     const worstCase =
-      SHEET_GRIP_H + SHEET_SUMMARY_MAX_H + TIMELINE_DENSE_H + ATTRIBUTION_MAX_H + SHEET_PEEK_GAPS;
+      SHEET_GRIP_H + SHEET_SUMMARY_MAX_H + TIME_CHIP_ROW_H + ATTRIBUTION_MAX_H + SHEET_PEEK_GAPS;
     expect(SHEET_PEEK_H).toBeGreaterThanOrEqual(worstCase);
     // แผ่นเลื่อนวางอยู่บนแถบแท็บหัวข้อ — inset ล่างของแผนที่ต้องคลุมทั้งสองชั้น
     // (peek ที่แย่ที่สุด + แถบแท็บ) ไม่งั้นกล้องจัดกรอบจังหวัดไปไว้ใต้บรรทัดเครดิต
@@ -83,7 +84,7 @@ describe("shellLayout — computeSafeArea", () => {
       top: 72,
       bottom: SHEET_PEEK_H + PHONE_TABBAR_H + 8,
     });
-    expect(computeSafeArea({ tier: "phone", drawerOpen: false, dockHeight: 0 }).bottom).toBe(304);
+    expect(computeSafeArea({ tier: "phone", drawerOpen: false, dockHeight: 0 }).bottom).toBe(288);
   });
 
   it("phone ไม่ขึ้นกับ dockHeight เลย — ลูป sheet → dock → safeArea ถูกตัดแล้ว", () => {
@@ -123,9 +124,23 @@ describe("shellLayout — computeSafeArea", () => {
   });
 });
 
+describe("shellLayout — phoneToolsBottom", () => {
+  it("peek: เกาะเหนือเพดาน peek (safe area ล่าง + 8) — ค่าเดิมก่อน E18.4", () => {
+    const sa = computeSafeArea({ tier: "phone", drawerOpen: false, dockHeight: 0 });
+    expect(phoneToolsBottom("peek", sa.bottom)).toBe(`${sa.bottom + 8}px`);
+  });
+
+  it("half/full: ขึ้นไปเหนือขอบบนของแผ่นที่ half (55dvh + แถบแท็บ + 8) — ปุ่มชั้นข้อมูลไม่ถูกแผ่นบังที่ half", () => {
+    const sa = computeSafeArea({ tier: "phone", drawerOpen: false, dockHeight: 0 });
+    const css = phoneToolsBottom("half", sa.bottom);
+    expect(css).toBe(`max(${sa.bottom + 8}px, calc(${SHEET_HALF_VH * 100}dvh + ${PHONE_TABBAR_H + 8}px))`);
+    expect(phoneToolsBottom("full", sa.bottom)).toBe(css);
+  });
+});
+
 describe("shellLayout — snapHeights", () => {
   it("แปลงสัดส่วนเป็นพิกเซลตามความสูงจอ", () => {
-    expect(snapHeights(900)).toEqual({ peek: 240, half: 495, full: 828 });
+    expect(snapHeights(900)).toEqual({ peek: 224, half: 495, full: 828 });
   });
 
   it("จอเตี้ยมาก: half/full ไม่มีทางต่ำกว่า peek", () => {
@@ -136,7 +151,7 @@ describe("shellLayout — snapHeights", () => {
 });
 
 describe("shellLayout — nearestSnap", () => {
-  const heights = snapHeights(900); // peek 240 · half 495 · full 828
+  const heights = snapHeights(900); // peek 224 · half 495 · full 828
 
   it("ปล่อยช้า = สแนปที่ความสูงใกล้ที่สุด", () => {
     expect(nearestSnap(240, 0, heights, "peek")).toBe("peek");
