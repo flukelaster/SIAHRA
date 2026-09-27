@@ -322,11 +322,11 @@ CI (`.github/workflows/ci.yml` job `Build`) รัน `wrangler deploy --dry-run
 ### 4.1 บัญชีกล้อง CCTV (`apps/web/public/cctv/*.json`) — rebuild ด้วยมือ ไม่มี cron
 บัญชีกล้อง (E15/E15.2/E15.3) เป็น static asset ที่ track ใน git และไปกับ `npm run deploy:web` — ไม่มี R2, DO, cron
 หรือ route ใด ๆ (Actions cron ถูกเลื่อนไว้: เป็น meter นอก Cloudflare ที่ฟรีเฉพาะตอน repo public) มีไฟล์ละแหล่ง
-`{sourceId}.json` (`dwr-cctv.json` / `itic-cctv.json` / `doh-cctv.json` — รูป `CameraCatalogue` ของ `packages/shared-types/src/cctv.ts`)
+`{sourceId}.json` (`dwr-cctv.json` / `itic-cctv.json` / `doh-cctv.json` / `bma-cctv.json` — รูป `CameraCatalogue` ของ `packages/shared-types/src/cctv.ts`)
 ซึ่งเว็บอ่านตรง ๆ ตาม `ENABLED_CAMERA_SOURCES` (E15.3 PR B ลบไฟล์รูปเก่าของ E15/E15.2 ทิ้งแล้ว) — rebuild แล้ว deploy web
 = หมุด/ป้าย probe บนเว็บเปลี่ยนตาม
 
-รันจาก `apps/etl` (สคริปต์ npm `build:cctv:dwr` / `build:cctv:itic` / `build:cctv:doh` / `build:cctv` / `probe:cameras` มีอยู่ แต่ยังล้มด้วย
+รันจาก `apps/etl` (สคริปต์ npm `build:cctv:dwr` / `build:cctv:itic` / `build:cctv:doh` / `build:cctv:bma` / `build:cctv` (ทั้งสี่) / `probe:cameras` มีอยู่ แต่ยังล้มด้วย
 "tsx: command not found" เพราะ `tsx` หายจาก `package-lock.json` — เรียก `tsx` ตรงจนกว่าจะแก้):
 ```bash
 cd apps/etl
@@ -336,7 +336,11 @@ NODE_EXTRA_CA_CERTS=$PWD/certs/sectigo-public-server-authentication-ca-dv-r36.pe
   npx -y tsx@4 src/build-doh-cctv.ts --vantage <ป้ายเครือข่าย>   # DOH: หน้า highwaytraffic.go.th → dedupe กับ itic-cctv.json (ต้อง build iTIC ก่อน — ไม่มีไฟล์ = หยุด) + probe
 NODE_EXTRA_CA_CERTS=$PWD/certs/sectigo-public-server-authentication-ca-dv-r36.pem \
   npx -y tsx@4 src/probe-cameras.ts <dwr-cctv|itic-cctv|doh-cctv> --vantage <ป้ายเครือข่าย>   # probe ซ้ำจากไฟล์ที่ build แล้ว ไม่เขียนอะไร
+npx -y tsx@4 src/build-bma-cctv.ts   # กทม.: ตำแหน่งเท่านั้น จาก CKAN data.bangkok.go.th (CSV เดียว, ไม่กี่วินาที) — ไม่มี probe จึงไม่มี --vantage
 ```
+- `bma-cctv` เป็น**ตำแหน่งเท่านั้น** (สตรีม `external-link` ไปหน้าแรก BMA Traffic ทุกกล้อง — ไม่ proxy ไม่ปลอม header ตามที่ owner
+  ตัดสินใจ 2026-09-27) จึงไม่มีอะไรให้ probe และไม่มีโฮสต์ใน CSP; rebuild เมื่อ `metadata_modified` ของชุดข้อมูลเปลี่ยน
+  (2024-06-07 ตอน build 2026-09-27) — ตาราง/จำนวนอยู่ใน `apps/etl/src/build-bma-cctv.README.md`
 - `NODE_EXTRA_CA_CERTS` จำเป็นเฉพาะตอนแตะสตรีมของกรมทางหลวง: `streaming{1,2}.highwaytraffic.go.th` ส่งใบรับรองแค่ leaf ไม่ส่ง
   intermediate — เบราว์เซอร์หาเองผ่าน AIA แล้วเล่นได้ แต่ `fetch` ของ Node ไม่หา จึงต้องป้อน intermediate สาธารณะของ Sectigo
   ที่ track ไว้ใน `apps/etl/certs/` (ที่มา/fingerprint/วันหมดอายุใน `apps/etl/src/build-doh-cctv.README.md`); สคริปต์ npm

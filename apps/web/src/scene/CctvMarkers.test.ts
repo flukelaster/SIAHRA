@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Camera, CameraStream } from "@siahra/shared-types";
-import { markerStyle } from "./CctvMarkers";
+import { isLocationOnly, markerStyle } from "./CctvMarkers";
 
 const ok = { result: "ok" as const, cors: true };
 const cam = (streams: CameraStream[]): Pick<Camera, "streams"> => ({ streams });
@@ -37,5 +37,27 @@ describe("markerStyle — ไอคอนตามชนิดของสตร
       ).verified,
     ).toBe(true);
     expect(markerStyle(cam([]))).toEqual({ kind: "still", verified: false });
+  });
+});
+
+describe("markerStyle — ตำแหน่งเท่านั้น (external-link)", () => {
+  const link: CameraStream = {
+    kind: "external-link",
+    url: "https://cpudapp.bangkok.go.th/bmatraffic/",
+    label: null,
+    captureTime: "none",
+    probe: { result: "not-probed", cors: null },
+  };
+
+  it("ทุกสตรีมเป็น external-link → location และไม่หรี่ (ฝั่งเราไม่มีอะไรให้ยืนยัน) แม้เป็น not-probed", () => {
+    expect(markerStyle(cam([link]))).toEqual({ kind: "location", verified: true });
+    expect(isLocationOnly(cam([link]))).toBe(true);
+  });
+
+  it("กล้องที่มีสตรีมที่ดึงภาพได้ด้วย ไม่ใช่ location — การหรี่ของสตรีมที่ probe ไม่ผ่านยังคงอยู่", () => {
+    const hls: CameraStream = { kind: "hls", url: "https://x/y.m3u8", label: null, captureTime: "none", probe: { result: "unreachable", cors: null } };
+    expect(isLocationOnly(cam([hls, link]))).toBe(false);
+    expect(markerStyle(cam([hls, link]))).toEqual({ kind: "video", verified: false });
+    expect(isLocationOnly(cam([]))).toBe(false);
   });
 });

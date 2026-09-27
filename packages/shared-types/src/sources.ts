@@ -30,7 +30,8 @@ export type SourceId =
   | "dla"
   | "dwr-cctv"
   | "itic-cctv"
-  | "doh-cctv";
+  | "doh-cctv"
+  | "bma-cctv";
 
 export interface SourceDescriptor {
   id: SourceId;
@@ -368,6 +369,25 @@ export const SOURCES: Record<SourceId, SourceDescriptor> = {
       "วิดีโอสดจากกล้องทางหลวงของกรมทางหลวง (highwaytraffic.go.th) — กรมทางหลวงไม่ได้รับรองหรือมีส่วนเกี่ยวข้องกับโครงการนี้",
     // เบราว์เซอร์เล่น HLS จาก streaming{1,2}.highwaytraffic.go.th ตรง ๆ ทีละกล้องเมื่อผู้ใช้คลิก
     // api ไม่เคยถาม จึงไม่มีสถานะใน /api/v1/health (และต้องไม่มี) — บัญชีกล้องเป็นไฟล์คงที่จาก ETL
+    kind: "browser",
+  },
+  "bma-cctv": {
+    id: "bma-cctv",
+    // ชื่อบอกเฉพาะที่ข้อมูลยืนยันได้: กทม. + กล้องจราจร (คอลัมน์ project ของชุดข้อมูลเป็นโครงการกล้อง
+    // "เพื่อการบริหารจัดการจราจร") + ตำแหน่งเท่านั้น — ไม่เอ่ยชื่อสำนักการจราจรและขนส่ง เพราะการระบุว่า
+    // เป็นกล้องของ สจส. เป็นการอนุมาน (ดู apps/etl/src/build-bma-cctv.README.md)
+    nameTh: "กรุงเทพมหานคร — ตำแหน่งกล้องจราจร (ชุดข้อมูลเปิด)",
+    nameEn: "Bangkok Metropolitan Administration — traffic camera locations (open data)",
+    agency: "กรุงเทพมหานคร (Bangkok Metropolitan Administration — BMA); ชุดข้อมูลเผยแพร่โดยกองยุทธศาสตร์ดิจิทัล",
+    homepageUrl: "https://data.bangkok.go.th/dataset/bma-cctv",
+    // ชุดข้อมูลระบุ "License not specified" ตรง ๆ (ตรวจ 2026-09-27) — ห้ามตั้งชื่อสัญญาอนุญาตขึ้นเอง
+    // แสดงโดยให้เครดิต และถอดได้ด้วย VITE_FEATURE_CCTV_DISABLE=bma-cctv ถ้า กทม. ขอ (docs/roadmap.md §4)
+    licenseName: "not specified on data.bangkok.go.th (checked 2026-09-27) — shown with attribution",
+    licenseUrl: "https://data.bangkok.go.th/dataset/bma-cctv",
+    attributionText:
+      "ตำแหน่งกล้อง CCTV จากชุดข้อมูลเปิดของกรุงเทพมหานคร (data.bangkok.go.th) — SIAHRA ไม่ได้แสดงภาพจากกล้องเหล่านี้; กรุงเทพมหานครไม่ได้รับรองหรือมีส่วนเกี่ยวข้องกับโครงการนี้",
+    // SIAHRA ไม่ขออะไรจาก กทม. เลยตอนใช้งาน: ตำแหน่งเป็นไฟล์คงที่จาก ETL และลิงก์ BMA Traffic
+    // ผู้ใช้เปิดเองในแท็บใหม่ — api ไม่เคยถาม จึงไม่มีสถานะใน /api/v1/health (และต้องไม่มี)
     kind: "browser",
   },
 };

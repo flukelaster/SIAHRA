@@ -40,7 +40,9 @@ describe("ทะเบียนแหล่งกล้อง (CAMERA_SOURCES) �
   it("ทุกโฮสต์ในทะเบียนอยู่ใน directive ของ CSP ที่ streamDirective กำหนด (public/_headers)", () => {
     const csp = parseCsp();
     for (const id of CAMERA_SOURCE_IDS) {
-      for (const [d, hosts] of Object.entries(CAMERA_SOURCES[id].hosts) as [CspDirective, readonly string[]][]) {
+      for (const [d, hosts] of Object.entries(CAMERA_SOURCES[id].hosts) as [CspDirective | "link", readonly string[]][]) {
+        // `link` ไม่ใช่ directive ของ CSP — ลิงก์ออกเปิดในแท็บใหม่ ไม่ต้องอยู่ใน _headers (ตรวจแยกข้างล่าง)
+        if (d === "link") continue;
         for (const host of hosts) {
           expect(csp[CSP_DIRECTIVE[d]], `${id} ${host} in ${CSP_DIRECTIVE[d]}`).toContain(host);
         }
@@ -56,9 +58,21 @@ describe("ทะเบียนแหล่งกล้อง (CAMERA_SOURCES) �
     }
   });
 
-  it("ชนิดสตรีมทุกชนิดมี directive อย่างน้อยหนึ่ง", () => {
+  it("ชนิดสตรีมทุกชนิดที่ดึงภาพมี directive อย่างน้อยหนึ่ง; external-link ไม่มี (การนำทาง ไม่ใช่การดึง)", () => {
     for (const kind of ["hls", "jpeg", "jpeg-fetch", "mjpeg", "dwr-snapshot", "dwr-mjpeg"] as const) {
       expect(streamDirective(kind).length).toBeGreaterThan(0);
+    }
+    expect(streamDirective("external-link")).toEqual([]);
+  });
+
+  it("โฮสต์ลิงก์ออก (hosts.link) ไม่ถูกเพิ่มเข้า CSP — SIAHRA ไม่ดึงอะไรจากที่นั่น", () => {
+    const csp = parseCsp();
+    const all = Object.values(csp).flat();
+    for (const id of CAMERA_SOURCE_IDS) {
+      for (const host of CAMERA_SOURCES[id].hosts.link ?? []) {
+        expect(new URL(host).origin).toBe(host);
+        expect(all, `${id} link host ${host} must not be in the CSP`).not.toContain(host);
+      }
     }
   });
 
@@ -95,6 +109,26 @@ describe("isAllowedUrl", () => {
 
   it("แหล่งของกล้องเป็นตัวตัดสิน — HLS ของ iTIC บนกล้องของ DWR ถูกปฏิเสธ", () => {
     expect(isAllowedUrl("dwr-cctv", "hls", HLS)).toBe(false);
+  });
+});
+
+describe("isAllowedUrl — external-link (directive ว่างต้องไม่แปลว่าผ่าน)", () => {
+  const BMA = "https://cpudapp.bangkok.go.th/bmatraffic/";
+
+  it("รับเฉพาะ https บน origin ใน hosts.link ของแหล่งของกล้อง", () => {
+    expect(isAllowedUrl("bma-cctv", "external-link", BMA)).toBe(true);
+    expect(isAllowedUrl("bma-cctv", "external-link", "https://example.org/bmatraffic/")).toBe(false);
+    expect(isAllowedUrl("bma-cctv", "external-link", "https://cpudapp.bangkok.go.th.evil.test/")).toBe(false);
+    expect(isAllowedUrl("bma-cctv", "external-link", "http://cpudapp.bangkok.go.th/bmatraffic/")).toBe(false);
+    expect(isAllowedUrl("bma-cctv", "external-link", "https://u:p@cpudapp.bangkok.go.th/bmatraffic/")).toBe(false);
+    expect(isAllowedUrl("bma-cctv", "external-link", "javascript:alert(1)")).toBe(false);
+    // แหล่งอื่นไม่มี hosts.link — ลิงก์เดียวกันบนกล้อง DWR ถูกปฏิเสธ
+    expect(isAllowedUrl("dwr-cctv", "external-link", BMA)).toBe(false);
+  });
+
+  it("ชนิดที่ดึงภาพบนโฮสต์ลิงก์ออกถูกปฏิเสธ (cpudapp ไม่อยู่ใน connect/img/media)", () => {
+    expect(isAllowedUrl("bma-cctv", "hls", `${BMA}x.m3u8`)).toBe(false);
+    expect(isAllowedUrl("bma-cctv", "jpeg", `${BMA}x.jpg`)).toBe(false);
   });
 });
 
@@ -138,5 +172,11 @@ describe("hasEnabledKind", () => {
     expect(hasEnabledKind("hls", ["dwr-cctv"])).toBe(false);
     expect(hasEnabledKind("hls", [])).toBe(false);
     expect(hasEnabledKind("dwr-snapshot", ["dwr-cctv"])).toBe(true);
+  });
+
+  it("external-link ต้องมีแหล่งที่เปิดอยู่ซึ่งประกาศ hosts.link (directive ว่างไม่ใช่ผ่านเสมอ)", () => {
+    expect(hasEnabledKind("external-link", ["bma-cctv"])).toBe(true);
+    expect(hasEnabledKind("external-link", ["dwr-cctv", "itic-cctv"])).toBe(false);
+    expect(hasEnabledKind("external-link", [])).toBe(false);
   });
 });

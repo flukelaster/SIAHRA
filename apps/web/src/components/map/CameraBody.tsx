@@ -1,4 +1,4 @@
-import { Camera as CameraIcon, ExternalLink, RefreshCw, Video } from "lucide-react";
+import { Camera as CameraIcon, ExternalLink, MapPin, RefreshCw, Video } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SOURCES, cameraKey, type Camera, type CameraStream, type CameraStreamKind, type ProbeResult } from "@siahra/shared-types";
 import { useNow } from "../../hooks/useNow";
@@ -48,6 +48,7 @@ const KIND_LABEL: Record<CameraStreamKind, MessageKey> = {
   mjpeg: "popup.camera.kind.mjpeg",
   jpeg: "popup.camera.kind.jpeg",
   "jpeg-fetch": "popup.camera.kind.jpegFetch",
+  "external-link": "stream.externalLink.kind",
 };
 
 const VIDEO_KINDS: ReadonlySet<CameraStreamKind> = new Set(["hls", "mjpeg", "dwr-mjpeg"]);
@@ -718,6 +719,40 @@ function JpegFetchView({
 }
 
 /* ------------------------------------------------------------------------------------------------
+ * external-link — ตำแหน่งเท่านั้น (E15.3 PR D): **ไม่มี element สื่อใดเลย** (ไม่มี <img>/<video>/fetch) —
+ * บอกตรง ๆ ว่า SIAHRA ไม่แสดงภาพของกล้องนี้ แล้วให้ลิงก์ไปเว็บของเจ้าของ (แท็บใหม่, ผ่าน allowlist
+ * `hosts.link` ก่อน) พร้อมประโยคว่าเราตรวจไม่ได้ว่าเว็บนั้นเปิดได้จากเครือข่ายของเรา และลิงก์ไม่ได้บอกอะไร
+ * เกี่ยวกับกล้องตัวนี้ — ไม่มีแหล่งใดถูกเอ่ยชื่อในโค้ด (ชื่อแหล่งอยู่ที่หัวแผงและเครดิตด้านล่าง จาก `SOURCES`)
+ * ---------------------------------------------------------------------------------------------- */
+
+function ExternalLinkView({ url, allowed, t }: { url: string; allowed: boolean; t: TFunction }) {
+  const host = allowed ? new URL(url).host : null;
+  return (
+    <div data-stream-state="external-link" className="mt-2 rounded-lg bg-white/5 px-2.5 py-2">
+      <p className="text-[11px] leading-snug text-[var(--color-fg)]">
+        {t("stream.externalLink.statement")}
+      </p>
+      {allowed && host ? (
+        <>
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-[var(--color-accent)] px-2 py-1 text-[11px] font-medium text-white hover:brightness-110"
+          >
+            <ExternalLink size={11} aria-hidden="true" />
+            {t("stream.externalLink.open", { host })}
+          </a>
+          <p className="mt-1.5 text-[10px] leading-snug text-[var(--color-fg-subtle)]">{t("stream.externalLink.unchecked")}</p>
+        </>
+      ) : (
+        <p className="mt-1.5 text-[10px] leading-snug text-[var(--color-risk-medium)]">{t("stream.externalLink.rejected")}</p>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------------------------------------
  * สตรีมหนึ่งเส้น → มุมมองตามชนิด (ทุกชนิดตรวจ allowlist ของแหล่งก่อนแตะเครือข่าย)
  * ---------------------------------------------------------------------------------------------- */
 
@@ -789,6 +824,8 @@ function StreamView({
           t={t}
         />
       );
+    case "external-link":
+      return <ExternalLinkView url={stream.url} allowed={allowed} t={t} />;
   }
 }
 
@@ -841,7 +878,9 @@ function ActiveCameraBody({
               title={streamLabel(s)}
             >
               <span className="inline-flex max-w-full items-center gap-1">
-                {VIDEO_KINDS.has(s.kind) ? (
+                {s.kind === "external-link" ? (
+                  <MapPin size={10} aria-label={t("stream.externalLink.kind")} className="shrink-0" />
+                ) : VIDEO_KINDS.has(s.kind) ? (
                   <Video size={10} aria-label={t("popup.camera.kindVideo")} className="shrink-0" />
                 ) : (
                   <CameraIcon size={10} aria-label={t("popup.camera.kindStill")} className="shrink-0" />
@@ -856,8 +895,9 @@ function ActiveCameraBody({
       {/* ผล probe ตอน build — ข้อเท็จจริงของ build นั้น ไม่ใช่สถานะปัจจุบัน และสี่กรณีต้องไม่ปนกัน:
           `not-probed` = ไม่ได้ถาม, `unreachable` = ถามไม่ได้จาก vantage นั้น (ไม่ใช่ต้นทางล่ม),
           `tls-chain` = เครื่องมือ build ตรวจใบรับรองไม่ได้ (เบราว์เซอร์มักเล่นได้ — ไม่ใช่คำตัดสินของกล้อง),
-          ที่เหลือ (`empty`/`not-image`/`http-*`) = ต้นทางตอบแล้วแต่ไม่มีของให้ */}
-      {stream && stream.probe.result !== "ok" ? (
+          ที่เหลือ (`empty`/`not-image`/`http-*`) = ต้นทางตอบแล้วแต่ไม่มีของให้; `external-link` ไม่เคยถูก
+          probe และไม่มีภาพให้ตรวจ — ไม่แสดงป้ายนี้ (ประโยคของมันอยู่ใน `ExternalLinkView`) */}
+      {stream && stream.probe.result !== "ok" && stream.kind !== "external-link" ? (
         <p className="mt-1.5 text-[10px] leading-snug text-[var(--color-risk-medium)]" data-probe={stream.probe.result}>
           {stream.probe.result === "not-probed"
             ? t("popup.camera.notProbed")
@@ -944,7 +984,9 @@ export function CameraBody({
                   title={fullNames[i]}
                 >
                   <span className="inline-flex max-w-full items-center gap-1">
-                    {markerStyle(c).kind === "video" ? (
+                    {markerStyle(c).kind === "location" ? (
+                      <MapPin size={10} aria-label={t("stream.externalLink.kind")} className="shrink-0" />
+                    ) : markerStyle(c).kind === "video" ? (
                       <Video size={10} aria-label={t("popup.camera.kindVideo")} className="shrink-0" />
                     ) : (
                       <CameraIcon size={10} aria-label={t("popup.camera.kindStill")} className="shrink-0" />

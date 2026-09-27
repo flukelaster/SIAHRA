@@ -1,4 +1,4 @@
-import { Camera as CameraIcon, Video, X } from "lucide-react";
+import { Camera as CameraIcon, MapPin, Video, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { SOURCES, cameraKey } from "@siahra/shared-types";
 import { isTypingTarget } from "../../hooks/useShellState";
@@ -226,7 +226,7 @@ function CameraSheetContent({
   const source = SOURCES[active.sourceId];
   const kicker = lang === "th" ? source.nameTh : source.nameEn;
   const style = markerStyle(active);
-  const KickerIcon = style.kind === "video" ? Video : CameraIcon;
+  const KickerIcon = style.kind === "location" ? MapPin : style.kind === "video" ? Video : CameraIcon;
 
   return (
     <>

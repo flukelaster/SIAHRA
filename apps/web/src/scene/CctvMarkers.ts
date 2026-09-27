@@ -13,10 +13,16 @@ export interface CctvMarkerResult {
   dispose: () => void;
 }
 
-/** ไอคอนของหมุด: ชนิดของสตรีมหลัก (วิดีโอ/ภาพนิ่ง) × ตรวจแล้วตอน build (ok) หรือยังไม่ยืนยัน (หรี่) */
+/**
+ * ไอคอนของหมุด: ชนิดของสตรีมหลัก (วิดีโอ/ภาพนิ่ง) × ตรวจแล้วตอน build (ok) หรือยังไม่ยืนยัน (หรี่) —
+ * หรือ `location` = ตำแหน่งเท่านั้น (ทุกสตรีมเป็น `external-link`: SIAHRA ไม่แสดงภาพ ลิงก์ไปเว็บเจ้าของ)
+ */
 export interface MarkerStyle {
-  kind: "video" | "still";
-  /** สตรีมใดสตรีมหนึ่งของกล้องมี `probe.result === "ok"` — `not-probed` นับว่า *ยังไม่ยืนยัน* เช่นกัน */
+  kind: "video" | "still" | "location";
+  /**
+   * สตรีมใดสตรีมหนึ่งของกล้องมี `probe.result === "ok"` — `not-probed` นับว่า *ยังไม่ยืนยัน* เช่นกัน;
+   * `location` เป็น `true` เสมอ: ฝั่งเราไม่มีภาพ/สตรีมให้ยืนยัน การหรี่จะอ่านว่า "ตรวจแล้วไม่ผ่าน" ซึ่งไม่จริง
+   */
   verified: boolean;
 }
 
@@ -29,11 +35,21 @@ const VIDEO_KINDS: ReadonlySet<CameraStreamKind> = new Set(["hls", "mjpeg", "dwr
  * (ไม่มีสีตามความสด: ความสดรู้ได้ต่อเมื่อดึงภาพ ซึ่งเกิดเฉพาะตอนคลิก)
  */
 export function markerStyle(camera: Pick<Camera, "streams">): MarkerStyle {
+  if (isLocationOnly(camera)) return { kind: "location", verified: true };
   const first = camera.streams[0];
   return {
     kind: first && VIDEO_KINDS.has(first.kind) ? "video" : "still",
     verified: camera.streams.some((s) => s.probe.result === "ok"),
   };
+}
+
+/**
+ * กล้องที่ SIAHRA ไม่แสดงภาพเลย — มีสตรีมและทุกเส้นเป็น `external-link` (ลิงก์ไปเว็บเจ้าของ) — ใช้ร่วมกัน
+ * ระหว่างหมุด (`markerStyle`) กับแถว "กล้องใกล้เคียง" ของ popup สถานี (ซึ่งไม่เสนอกล้องแบบนี้ เพราะปุ่ม
+ * "ดูภาพ" จะไม่มีภาพให้ดู)
+ */
+export function isLocationOnly(camera: Pick<Camera, "streams">): boolean {
+  return camera.streams.length > 0 && camera.streams.every((s) => s.kind === "external-link");
 }
 
 const textures = new Map<string, THREE.CanvasTexture>();
@@ -44,8 +60,8 @@ const GLYPH_DIMMED = "#94a3b8";
 
 /**
  * วงกลมพื้นเข้มขอบขาวหนึ่งแบบสำหรับทุกแหล่ง สัญลักษณ์ในวง: สามเหลี่ยม "เล่น" = วิดีโอ, รูปกล้อง =
- * ภาพนิ่ง; หมุดที่ยังไม่ยืนยันวาดจางลงทั้งหมุด (globalAlpha) และ glyph เป็นสีเทา — legend มี swatch
- * ที่ตรงกัน (`MapLegend.tsx` `CamSwatch`)
+ * ภาพนิ่ง, หมุดแผนที่ = ตำแหน่งเท่านั้น (ไม่หรี่เลย); หมุดที่ยังไม่ยืนยันวาดจางลงทั้งหมุด (globalAlpha)
+ * และ glyph เป็นสีเทา — legend มี swatch ที่ตรงกัน (`MapLegend.tsx` `CamSwatch`)
  */
 function markerTexture(style: MarkerStyle): THREE.CanvasTexture {
   const key = `${style.kind}:${style.verified ? "ok" : "dim"}`;
@@ -68,7 +84,19 @@ function markerTexture(style: MarkerStyle): THREE.CanvasTexture {
   ctx.strokeStyle = style.verified ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.55)";
   ctx.stroke();
   const glyph = style.verified ? GLYPH_VERIFIED : GLYPH_DIMMED;
-  if (style.kind === "video") {
+  if (style.kind === "location") {
+    // หมุดแผนที่: หัวกลม + ปลายแหลมลงล่าง สีอ่อน รูตรงกลางสีฟ้า — ไม่มีรูปกล้อง/ปุ่มเล่น เพราะไม่มีภาพ
+    ctx.fillStyle = "#e2e8f0";
+    ctx.beginPath();
+    ctx.arc(32, 27, 10, Math.PI * 0.8, Math.PI * 0.2);
+    ctx.lineTo(32, 47);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = GLYPH_VERIFIED;
+    ctx.beginPath();
+    ctx.arc(32, 27, 4, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (style.kind === "video") {
     ctx.fillStyle = glyph;
     ctx.beginPath();
     ctx.moveTo(25, 20);
@@ -102,7 +130,7 @@ function markerTexture(style: MarkerStyle): THREE.CanvasTexture {
 
 /**
  * หมุดกล้องทุกแหล่งในบัญชีรวมที่ตกในกริดของจังหวัดนี้ (รวมกล้องของจังหวัดข้างเคียงที่อยู่ในกรอบ) —
- * กลุ่มเดียว material สูงสุดสี่แบบ (ชนิด × ยืนยัน) และ `renderOrder` ตาม `markerPriority` ของแหล่ง
+ * กลุ่มเดียว material สูงสุดห้าแบบ (วิดีโอ/ภาพนิ่ง × ยืนยัน + ตำแหน่งเท่านั้น) และ `renderOrder` ตาม `markerPriority` ของแหล่ง
  * (หมุดริมน้ำของ DWR อยู่บนกล้องถนนเมื่อทับกัน)
  */
 export function buildCctvMarkers(
