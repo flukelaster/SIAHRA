@@ -277,3 +277,26 @@ describe("layerGroups — เดินตามหัวข้อ / ปรับ
     expect(nextLayersOnTopicChange(s, "overview")).toBe(s);
   });
 });
+
+describe("layerGroups — เปิดชั้นรายงานจากประชาชนหลังส่งรายงาน (App.tsx `handleReportCreated`)", () => {
+  /** ตัว updater เดียวกับใน App.tsx — App ไม่ import `applyToggle` (chunk แยก) จึงต้องเท่ากันพิสูจน์ด้วยเทสนี้ */
+  const turnOnCommunity = (s: ReturnType<typeof initialLayerState>) =>
+    s.layers.community ? s : { layers: { ...s.layers, community: true }, following: s.following };
+
+  it("community อยู่ใน OPT_IN_LAYERS — เปิดแล้วยังเดินตามหัวข้อ และเท่ากับ applyToggle ทุกกรณี", () => {
+    expect(OPT_IN_LAYERS).toContain("community");
+    for (const following of [true, false]) {
+      for (const on of [true, false]) {
+        const base = { layers: { ...DEFAULT_LAYERS, community: on }, following };
+        const viaApp = turnOnCommunity(base);
+        const viaToggle = applyToggle(base, "community", true);
+        expect(viaApp).toEqual(viaToggle);
+        expect(viaApp.following).toBe(following);
+        expect(viaApp.layers.community).toBe(true);
+        // เปิดอยู่แล้ว = อ็อบเจ็กต์เดิม (ไม่กระเพื่อม permalink)
+        if (on) expect(viaApp).toBe(base);
+      }
+    }
+  });
+});
+

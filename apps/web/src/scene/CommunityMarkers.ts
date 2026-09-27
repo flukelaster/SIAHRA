@@ -5,6 +5,7 @@ import {
   COMMUNITY_CATEGORY_COLOR,
   COMMUNITY_PIN_RIM,
   communityMarkerAlpha,
+  communityRenderOrder,
   primaryCategory,
 } from "../lib/communityReports";
 
@@ -222,7 +223,8 @@ export function buildCommunityMarkers(
     // หางอยู่ล่างสุดของรูป — ยกศูนย์กลางขึ้นให้ปลายหางแตะจุดของรายงาน
     sprite.center.set(0.5, 0.06);
     sprite.position.set(x, groundY, z);
-    sprite.renderOrder = 20 + (count - i) / Math.max(1, count);
+    // เหนือหมุดกล้องทุกแหล่ง (`COMMUNITY_RENDER_ORDER_BASE`) — การคลิกเลือกตัวที่วาดบนสุดเช่นกัน
+    sprite.renderOrder = communityRenderOrder(i, count);
     sprite.userData = { kind: "community", report: r };
     dots.add(sprite);
     placed.push({ sprite, groundY });

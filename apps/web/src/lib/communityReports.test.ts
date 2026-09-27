@@ -1,13 +1,15 @@
 import { describe, expect, it } from "vitest";
-import type { CommunityReport, CommunityReportsResponse } from "@siahra/shared-types";
+import { CAMERA_SOURCES, type CommunityReport, type CommunityReportsResponse } from "@siahra/shared-types";
 import {
   COMMUNITY_DISPUTED_FACTOR,
   COMMUNITY_FLOOR_AGE_MS,
   COMMUNITY_FULL_ALPHA_MS,
   COMMUNITY_MIN_ALPHA,
+  COMMUNITY_RENDER_ORDER_BASE,
   EMPTY_OVERLAY,
   applyOverlay,
   communityMarkerAlpha,
+  communityRenderOrder,
   communityWindow,
   primaryCategory,
   pruneOverlay,
@@ -149,5 +151,20 @@ describe("overlay ในเครื่อง — การกระทำขอ
     expect(pruned.removals.size).toBe(0);
     expect(pruneOverlay(pruned, new Date(NOW).toISOString())).toBe(pruned);
     expect(pruneOverlay(o, "not-a-time")).toBe(o);
+  });
+});
+
+describe("communityRenderOrder — หมุดรายงานวาดทับหมุดกล้องทุกแหล่ง", () => {
+  it("ฐานสูงกว่า markerPriority ของทุกแหล่งกล้อง", () => {
+    for (const src of Object.values(CAMERA_SOURCES)) expect(COMMUNITY_RENDER_ORDER_BASE).toBeGreaterThan(src.markerPriority);
+  });
+  it("ใหม่สุด (index 0) บนสุด และทุกตัวอยู่ใน [ฐาน, ฐาน + 1) — ไม่ข้ามขั้นถัดไป", () => {
+    const orders = [0, 1, 2, 3].map((i) => communityRenderOrder(i, 4));
+    expect([...orders].sort((a, b) => b - a)).toEqual(orders);
+    for (const o of orders) {
+      expect(o).toBeGreaterThan(COMMUNITY_RENDER_ORDER_BASE);
+      expect(o).toBeLessThan(COMMUNITY_RENDER_ORDER_BASE + 1);
+    }
+    expect(communityRenderOrder(0, 1)).toBeLessThan(COMMUNITY_RENDER_ORDER_BASE + 1);
   });
 });

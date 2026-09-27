@@ -1,10 +1,11 @@
 /**
- * Cloudflare Turnstile — ตัวยืนยันว่าเป็นคน ก่อนขอ token นิรนามสำหรับโหวต (`POST /community/session`)
+ * Cloudflare Turnstile — ตัวยืนยันว่าเป็นคน ก่อนขอ token นิรนามสำหรับโหวต (`POST /community/session`) และก่อนส่ง
+ * รายงานใหม่ (token ไปใน multipart ของ `POST /community/reports`)
  *
- * - สคริปต์ `challenges.cloudflare.com/turnstile/v0/api.js?render=explicit` ถูกโหลด **ตอนโหวตครั้งแรกเท่านั้น**
- *   (ไม่ใช่ตอนเปิดหน้า ไม่ใช่ตอนเปิดแผงรายงาน) และครั้งเดียวต่อหน้า — CSP อนุญาตโฮสต์นี้ใน `script-src` +
+ * - สคริปต์ `challenges.cloudflare.com/turnstile/v0/api.js?render=explicit` ถูกโหลด **ตอนโหวตครั้งแรก หรือตอนเปิดฟอร์มรายงาน**
+ *   เท่านั้น (ไม่ใช่ตอนเปิดหน้า ไม่ใช่ตอนเปิดแผงรายงาน) และครั้งเดียวต่อหน้า — CSP อนุญาตโฮสต์นี้ใน `script-src` +
  *   `frame-src` (`public/_headers`, `docs/security.md`)
- * - widget ถูก render ลงกล่องที่ผู้เรียกให้มา (ในแถวโหวตของแผงรายงาน) แบบ `interaction-only`: มองไม่เห็นเว้นแต่
+ * - widget ถูก render ลงกล่องที่ผู้เรียกให้มา (ในแถวโหวตของแผงรายงาน หรือ `data-turnstile-box` ของ `ReportCompose`) แบบ `interaction-only`: มองไม่เห็นเว้นแต่
  *   Cloudflare ต้องให้ผู้ใช้กดยืนยันเอง — token ใช้ได้ครั้งเดียว จึง render ใหม่ทุกครั้งที่ต้องการ token แล้ว
  *   ถอด widget ทิ้งเมื่อได้ token/ล้มเหลว
  * - ไม่มี site key ใน build (`VITE_TURNSTILE_SITE_KEY` ว่าง) = ไม่มี Turnstile เลย: แผงรายงานบอก "ยังไม่เปิดให้

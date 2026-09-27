@@ -10,7 +10,7 @@
  *     30 วิ + memo ใน DO 30 วิ — overlay ถูกทิ้งเมื่อ `fetchedAt` ของคำตอบใหม่ (เวลาที่ DO อ่านจริง)
  *     ใหม่กว่าเวลาที่แก้ในเครื่อง คือเมื่อ server เห็นการเปลี่ยนนั้นแล้ว
  */
-import type { CommunityCategory, CommunityReport, CommunityReportsResponse } from "@siahra/shared-types";
+import { CAMERA_SOURCES, type CommunityCategory, type CommunityReport, type CommunityReportsResponse } from "@siahra/shared-types";
 
 /* ------------------------------------------------------------------ */
 /* หน้าต่างเวลา                                                          */
@@ -86,6 +86,22 @@ export const COMMUNITY_CATEGORY_COLOR: Record<CommunityCategory, string> = {
   "building-damage": "#f87171",
   other: "#cbd5e1",
 };
+
+/**
+ * `renderOrder` ฐานของหมุดรายงาน — เหนือหมุดกล้องทุกแหล่ง (`CAMERA_SOURCES[*].markerPriority` สูงสุด 30) เพราะ
+ * หมุดรายงานมักถูกปักที่ทางแยก/สะพานเดียวกับกล้อง และหมุดที่ถูกกล้องทับจะคลิกไม่ได้ (`chooseMarkerHit` เลือกตัวที่
+ * วาดบนสุด); หมุดรายงานแต่ละตัวบวกเศษ < 1 (ใหม่สุดบนสุด) จึงไม่ทับหมุดสถานีระดับน้ำ (30 + ระดับภัย) หรือเขื่อน (32)
+ * ที่มีระดับสูงกว่า
+ */
+export const COMMUNITY_RENDER_ORDER_BASE =
+  Math.max(...Object.values(CAMERA_SOURCES).map((s) => s.markerPriority)) + 1;
+/** ช่วงของเศษที่บวกเพิ่มตามความใหม่ — ต่ำกว่า 1 เพื่อไม่ข้ามขั้นถัดไป */
+export const COMMUNITY_RENDER_ORDER_SPAN = 0.9;
+
+/** `renderOrder` ของหมุดลำดับที่ `index` (0 = ใหม่สุด ตามที่ API เรียง) จาก `count` ตัว */
+export function communityRenderOrder(index: number, count: number): number {
+  return COMMUNITY_RENDER_ORDER_BASE + (COMMUNITY_RENDER_ORDER_SPAN * (count - index)) / Math.max(1, count);
+}
 
 /** ขอบของหมุดทุกตัว — ชมพูเดียวกับชิป "รายงานจากประชาชน — ยังไม่ได้ตรวจสอบ" */
 export const COMMUNITY_PIN_RIM = "#ec4899";

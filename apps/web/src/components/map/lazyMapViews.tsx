@@ -4,11 +4,12 @@ import { ChunkBoundary } from "../ui/ChunkBoundary";
 import { lazyView } from "../ui/lazyView";
 import type { CameraSheet as CameraSheetType } from "./CameraSheet";
 import type { InfoPopup as InfoPopupType } from "./InfoPopup";
+import type { ReportCompose as ReportComposeType } from "./ReportCompose";
 import type { ReportSheet as ReportSheetType } from "./ReportSheet";
 
 /**
- * ป๊อปอัปของจุดที่คลิก (`InfoPopup`) แผงกล้อง (`CameraSheet`) และแผงรายงานจากประชาชน (`ReportSheet`)
- * เป็น chunk แยก — ใหญ่ (กราฟย้อนหลัง, บล็อก CCTV/iTIC, ช่อง GFM, Turnstile/โหวต) แต่ไม่มีใครเห็นจนกว่าจะ
+ * ป๊อปอัปของจุดที่คลิก (`InfoPopup`) แผงกล้อง (`CameraSheet`) แผงรายงานจากประชาชน (`ReportSheet`) และฟอร์ม
+ * รายงาน (`ReportCompose` — รวมตัวบีบอัดรูป/worker และ Turnstile) เป็น chunk แยก — ใหญ่ (กราฟย้อนหลัง, บล็อก CCTV/iTIC, ช่อง GFM, Turnstile/โหวต) แต่ไม่มีใครเห็นจนกว่าจะ
  * คลิกบนแผนที่ `Map3DCanvas` ใช้ตัวห่อเหล่านี้แทนของจริงโดยส่ง props เหมือนเดิมทุกตัว
  *
  * ตำแหน่งของป๊อปอัปมาจาก div ห่อใน Map3DCanvas (transform ต่อเฟรม เป็น % ของขนาดตัวเอง)
@@ -18,6 +19,7 @@ import type { ReportSheet as ReportSheetType } from "./ReportSheet";
 const InfoPopupView = lazyView(() => import("./InfoPopup").then((m) => m.InfoPopup));
 const CameraSheetView = lazyView(() => import("./CameraSheet").then((m) => m.CameraSheet));
 const ReportSheetView = lazyView(() => import("./ReportSheet").then((m) => m.ReportSheet));
+const ReportComposeView = lazyView(() => import("./ReportCompose").then((m) => m.ReportCompose));
 
 const popupFrame = (content: ReactNode) => (
   <div className="glass pointer-events-auto w-72 rounded-xl px-3 py-2.5 shadow-2xl">{content}</div>
@@ -55,6 +57,14 @@ export function LazyReportSheet(props: ComponentProps<typeof ReportSheetType>) {
   return (
     <ChunkBoundary frame={rightSheetFrame(props.safeArea)}>
       <ReportSheetView {...props} />
+    </ChunkBoundary>
+  );
+}
+
+export function LazyReportCompose(props: ComponentProps<typeof ReportComposeType>) {
+  return (
+    <ChunkBoundary frame={rightSheetFrame(props.safeArea)}>
+      <ReportComposeView {...props} />
     </ChunkBoundary>
   );
 }

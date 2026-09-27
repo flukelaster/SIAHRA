@@ -41,6 +41,9 @@ R2 bucket `siahra-geodata` ตรวจแล้วว่า `/api/v1/health` �
   (`.github/workflows/deploy.yml` job web) อ่านจาก **repo variable** `TURNSTILE_SITE_KEY` (Settings → Secrets and
   variables → Actions → Variables; `gh variable set TURNSTILE_SITE_KEY --body <site key>`) — ยังไม่ตั้ง = เว็บที่ deploy
   ออกไปจะปิดโหวต/ส่งรายงานไว้ (ไม่พัง) ค่านี้ถูกฝังตอน build จึงต้อง deploy web ใหม่หลังตั้ง
+  The widget's hostname list (Cloudflare dashboard → Turnstile → the widget → Hostname management) must include
+  `siahra-radar.co`, otherwise every real vote and report fails Turnstile while the dev test key keeps passing.
+  The `TURNSTILE_SITE_KEY` variable and the three API secrets above were set in production on 2026-09-27.
 
 ## 0.1 สอง Worker แยก deploy กัน
 | Worker | config | เนื้อหา | ผูกกับโดเมนแบบ |
