@@ -13,6 +13,7 @@ import type {
   ObservationsResponse,
   ProvinceExposureResponse,
   RadarFramesResponse,
+  RainfallObservation,
   SourceId,
   WaterLevelObservation,
 } from "@siahra/shared-types";
@@ -197,6 +198,8 @@ export interface MapApi {
    * `obs` ต้องเป็นค่าจาก observations ของจังหวัดที่แสดงอยู่ — popup ใช้ข้อมูลชุดเดียวกับหมุด
    */
   selectWaterlevel: (obs: WaterLevelObservation) => void;
+  /** เปิด popup ของสถานีวัดน้ำฝนจากภายนอก (หัวข้อภาพรวม) — กติกาเดียวกับ `selectWaterlevel` */
+  selectRainfall: (obs: RainfallObservation) => void;
   getPose: () => CameraPose | null;
   setPose: (pose: CameraPose) => void;
   captureImage: (footer: string) => Promise<Blob | null>;
@@ -764,6 +767,10 @@ export function Map3DCanvas({
             const [x, z] = proj.lonLatToLocal(obs.station.lon, obs.station.lat);
             // anchor อยู่ในพิกัดโลกที่ยังไม่คูณ exaggeration (ตัว ticker ของ popup คูณให้เอง)
             setPick({ kind: "waterlevel", obs, anchor: new THREE.Vector3(x, terrain.sample(x, z), z) });
+          },
+          selectRainfall: (obs) => {
+            const [x, z] = proj.lonLatToLocal(obs.station.lon, obs.station.lat);
+            setPick({ kind: "rainfall", obs, anchor: new THREE.Vector3(x, terrain.sample(x, z), z) });
           },
           getPose: () => h0.getPose(),
           setPose: (pose) => h0.setPose(pose),

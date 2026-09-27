@@ -22,6 +22,7 @@ import type { QualityLevel, QualityMode } from "../../scene/quality";
 import { ActiveAlertBanner } from "../hazard/ActiveAlertBanner";
 import { AffectedAuthorityList } from "../hazard/AffectedAuthorityList";
 import { ImpactSummaryCard } from "../hazard/ImpactSummaryCard";
+import { OverviewSources, OverviewSummary } from "../hazard/OverviewSummary";
 import { RainfallCard } from "../hazard/RainfallCard";
 import { WaterLevelCard } from "../hazard/WaterLevelCard";
 import { ApiStatusFooter } from "./ApiStatusFooter";
@@ -87,6 +88,11 @@ export interface PanelContext {
   selectedAuthorityId: string | null;
   setSelectedAuthorityId: (id: string | null) => void;
   apiHealth: HealthResponse | null;
+  /**
+   * `/api/v1/health` ตอบไม่ได้ (`apiDown` ของ hook สถานะ API ตัวเดียวใน App.tsx) — ส่วนแหล่งข้อมูลของ
+   * หัวข้อภาพรวมต้องพูดว่า "ถามสถานะไม่ได้" แยกจาก "ยังไม่ได้คำตอบแรก" (`apiHealth: null`)
+   */
+  apiDown: boolean;
   atIso: string | null;
   /**
    * E14.F5 — ตัวตั้ง `atIso` **ตัวเดียวกับที่ TimelineBar ใช้** (`handleAtIsoChange` ใน
@@ -106,6 +112,12 @@ export interface PanelContext {
 
 /** เป้าหมายของ `focusStation` — พิกัด/จังหวัดมาจากผังเส้นทาง (ใช้ได้แม้ไม่มีค่าล่าสุด) */
 export interface StationFocus {
+  /**
+   * ชนิดสถานี — id ของสถานีวัดน้ำฝนกับสถานีวัดระดับน้ำเป็นคนละเนมสเปซของ ThaiWater จึงต้องบอก
+   * ว่าให้หาใน `rainfall` หรือ `waterlevel` ไม่งั้น id ที่ชนกันจะเปิด popup ของอีกสถานี
+   * (ไม่ระบุ = ระดับน้ำ ตามผู้เรียกเดิมคือแผงเส้นทางน้ำเหนือ)
+   */
+  kind?: "waterlevel" | "rainfall";
   stationId: number;
   provinceCode: string | null;
   lat: number;
@@ -167,6 +179,9 @@ export function ObservationsErrorNotice({ state }: { state: ObservationsState })
 }
 
 /**
+ * หัวข้อภาพรวม (redesign PR 2) — การ์ดสรุปจากค่าตรวจวัด + "ควรดูก่อน" อยู่บนสุด ตามด้วยเนื้อเดิมของ
+ * แผงผลกระทบ (ไม่แก้) และส่วนแหล่งข้อมูลท้ายแผง — ทุกอย่างอ่านจาก `ctx` ไม่มี hook ดึงข้อมูลเพิ่ม
+ *
  * E11.6 — แถบแจ้งเตือน + รายชื่อ อปท. + สรุปผลกระทบ วางต่อกันในแผงเดียว
  * การ derive `authorityNames`/`selectedAuthority`/`selectedAuthorityAlerts` เคย
  * ซ้ำกันใน RightPanel.tsx และ App.tsx — ตอนนี้อยู่ที่นี่ที่เดียว
@@ -181,6 +196,7 @@ export function ImpactPanel({ ctx }: { ctx: PanelContext }) {
     : [];
   return (
     <div className="flex flex-col gap-3">
+      <OverviewSummary observations={ctx.observations} atIso={ctx.atIso} onFocusStation={ctx.focusStation} />
       <ActiveAlertBanner state={activeAlerts} authorityNames={authorityNames} />
       <AffectedAuthorityList
         state={affectedAuthorities}
@@ -198,6 +214,7 @@ export function ImpactPanel({ ctx }: { ctx: PanelContext }) {
           alerts={selectedAuthorityAlerts}
         />
       )}
+      <OverviewSources health={ctx.apiHealth} apiDown={ctx.apiDown} />
     </div>
   );
 }

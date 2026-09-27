@@ -1712,7 +1712,7 @@ New scope, not from the audit: a five-PR redesign of the shell from the design c
 strip listed all ten panels side by side, layers among them. Each PR is one `/implement` run with a
 screenshot in its PR.
 
-#### E18.1 — Navigation IA: topics, sub-tabs, layers button, phone tab bar — *in review* (2026-09-27)
+#### E18.1 — Navigation IA: topics, sub-tabs, layers button, phone tab bar — *done* (2026-09-27, PR #109)
 - Why: group the nine data panels into four labelled topics (the panels become their sub-views),
   and make layers a map-tool button instead of a panel
 - Touches: new `lib/{topics,layerCount}.ts` (+ `topics.test.ts`),
@@ -1742,8 +1742,52 @@ screenshot in its PR.
    an icon (`panelRegistry.test.ts`); the layers button counts only layers that have a legend row in
    the build (`countLayersOn`, `cctv` excluded when no camera source is enabled).
 
-#### E18.2–E18.5 — *planned*
-- **E18.2** — overview summary card.
+#### E18.2 — Overview summary card — *in review* (2026-09-27)
+- Why: the overview topic opened on the alert banner and authority list; it now leads with what the
+  measurements say — counts over published thresholds and a short "ควรดูก่อน" (look at first) list —
+  and ends with the source status, without a single new fetch
+- Touches: new `lib/overviewSummary.ts` (+ `overviewSummary.test.ts`),
+  `components/hazard/OverviewSummary.tsx` (`OverviewSummary`, `OverviewSources`);
+  `components/layout/{panelViews,MobileSheet,Map3DCanvas}.tsx` (`ImpactPanel` renders both,
+  `PanelContext.apiDown`, `StationFocus.kind`, `MapApi.selectRainfall`; on phone the overview topic's
+  panel sits before the map-wide rows), `App.tsx` (focus effect looks the id up by kind),
+  `i18n/{th,en}.ts` (24 `overview.*` keys)
+- Depends: E18.1 (PR #109)
+- Size: M — one PR
+- Cost: devops pre-gate `go`, delta $0 — no new fetching hook instance, no station-history fetch,
+  no archive/snapshot call, nothing outside `apps/web/src`
+- Risk: entry `index-*.js` 88.32 → 87.51 kB gz; entry + vendor + shared 339.32 → 340.31 kB gz
+  (+0.57 kB Thai strings in the entry-path i18n chunk), 94.5 % of the 360 kB guard. The phone sheet
+  puts the panel before the stat pills / exaggeration / flood-age chip / forecast strip for the
+  overview topic only; every other topic keeps the old order until E18.4 moves those rows out
+- Issue: _(not yet filed)_
+
+1. `summarizeOverview` keeps loading, error, never-fetched, no-stations (live) and
+   no-values-at-time (historical) apart; old data stays summarised during a reload, and
+   `fetchedAt: null` is never-fetched even with rows present — never a time (`overviewSummary.test.ts`).
+2. ThaiWater levels 5 and 4 are counted separately and 1–3 not at all; a station with no level uses
+   the marker bank rule (≤ 0 m at bank, ≤ 1 m near bank, farther not counted), counted in its own
+   group, and the rule is chosen per station, not per live/historical mode (`overviewSummary.test.ts`).
+3. A reading exactly 6 h old still counts, 1 ms older is stale; stale and undated readings leave the
+   counts and the list but are counted separately; in history the age is taken from `atIso`, not now
+   (`overviewSummary.test.ts`).
+4. The local copies `OVERVIEW_MAX_READING_AGE_MS` and `FREEBOARD_NEAR_M` equal
+   `SHEET_MAX_READING_AGE_MS` and `lib/northRoute.ts`'s `FREEBOARD_NEAR_M` (`overviewSummary.test.ts`).
+5. TMD rain bands are strict `>`: 35 not counted, 35.1 high, 90 high, 90.1 severe, null = no value,
+   counted separately; no rainfall rows at a time is `rainMissing`, not zero rain — rain back-filled
+   from the hourly archive still counts by band (`overviewSummary.test.ts`).
+6. `compareWatch`: water before rain; water by severity, then freeboard ascending, then id; rain by
+   severity, then `rain24h` descending, then id — independent of the API's order
+   (`overviewSummary.test.ts`).
+7. The module is pure — no fetch, WebSocket, timer, dynamic import or console
+   (`overviewSummary.test.ts`).
+
+Not test-backed, design facts checked by QA: ≤ 5 watch rows with the ordering rule printed and an
+overflow line; rows are ≥ 44 px buttons with no `aria-label` (the visible text is the accessible
+name, "open on the map" is a `title`) that call `ctx.focusStation` only on click; the sources block
+dims non-ok rows, keeps never-fetched and API-unreachable apart and omits browser-kind sources.
+
+#### E18.3–E18.5 — *planned*
 - **E18.3** — per-topic layer presets, a grouped layer list, and the `?layers=` permalink semantics
   that go with them.
 - **E18.4** — time chip, a ⋯ menu, the forecast strip moved into weather, and the exaggeration
