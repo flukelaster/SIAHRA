@@ -24,7 +24,8 @@ describe("cameraLayerDescriptor (E15/E15.3)", () => {
   it("หลายแหล่ง: fetchedAt = builtAt ที่เก่าที่สุด, sourceIds เฉพาะที่โหลดได้ ตามลำดับ CAMERA_SOURCE_IDS", () => {
     const d = cameraLayerDescriptor({ "itic-cctv": iticAt, "dwr-cctv": dwrAt });
     expect(d?.fetchedAt).toBe(iticAt);
-    expect(d?.sourceIds).toEqual([...CAMERA_SOURCE_IDS]);
+    // เฉพาะสองแหล่งที่ให้ builtAt — ไม่ใช่ทุก id ในทะเบียน (doh-cctv ไม่ได้โหลดในเคสนี้) — ตามลำดับทะเบียน
+    expect(d?.sourceIds).toEqual(CAMERA_SOURCE_IDS.filter((id) => id === "dwr-cctv" || id === "itic-cctv"));
     expect(d?.id).toBe("cctv-catalogues");
     expect(d?.publishedAt).toBeNull();
     // สลับว่าใครเก่ากว่า — ยังเป็นตัวเก่าสุด ไม่ใช่ตัวแรกในลำดับ

@@ -16,14 +16,17 @@ import {
 } from "@siahra/shared-types";
 import {
   assembleCatalogue,
+  classifyFetchError,
   classifyProbe,
   corsCovers,
   DWR_API,
   firstPlaylistRef,
+  formatProbeTable,
   NOT_PROBED,
   parseBuildArgs,
   probeStreams,
   probeVantageLabel,
+  progressHeartbeat,
   serializeCatalogue,
   validateCatalogue,
   writeCatalogue,
@@ -63,7 +66,7 @@ const PROBED_META: CatalogueMeta = { ...META, probedAt: "2026-09-26T00:01:00.000
 
 describe("shared-types camera registry", () => {
   it("every camera source is a browser source (the API never probes it) and its hosts are https origins", () => {
-    expect(CAMERA_SOURCE_IDS).toEqual(["dwr-cctv", "itic-cctv"]);
+    expect(CAMERA_SOURCE_IDS).toEqual(["dwr-cctv", "itic-cctv", "doh-cctv"]);
     for (const id of CAMERA_SOURCE_IDS) {
       expect(SOURCES[id].kind).toBe("browser");
       expect(CAMERA_SOURCES[id].id).toBe(id);
@@ -190,6 +193,53 @@ describe("probeStreams", () => {
     expect(stats.cors.unknown).toBe(2);
   });
 
+  it("classifyFetchError: an OpenSSL verification code is tls-chain (a tooling verdict), anything else unreachable", () => {
+    const wrapped = (code: string) => Object.assign(new TypeError("fetch failed"), { cause: Object.assign(new Error(code), { code }) });
+    // undici ห่อรหัสจริงไว้ที่ cause.code — สี่ตระกูลที่แปลว่า "ตรวจใบรับรองไม่ผ่าน" ไม่ใช่ "ต่อไม่ติด"
+    for (const code of ["UNABLE_TO_VERIFY_LEAF_SIGNATURE", "CERT_HAS_EXPIRED", "SELF_SIGNED_CERT_IN_CHAIN", "DEPTH_ZERO_SELF_SIGNED_CERT"]) {
+      expect(classifyFetchError(wrapped(code))).toBe("tls-chain");
+      expect(classifyFetchError(Object.assign(new Error(code), { code }))).toBe("tls-chain");
+    }
+    for (const code of ["ECONNREFUSED", "ENOTFOUND", "ETIMEDOUT", "ECONNRESET", "UND_ERR_CONNECT_TIMEOUT", "ERR_TLS_CERT_ALTNAME_INVALID"]) {
+      expect(classifyFetchError(wrapped(code))).toBe("unreachable");
+    }
+    expect(classifyFetchError(new DOMException("Aborted", "AbortError"))).toBe("unreachable");
+    expect(classifyFetchError(new TypeError("fetch failed"))).toBe("unreachable");
+    expect(classifyFetchError(null)).toBe("unreachable");
+    expect(classifyFetchError("boom")).toBe("unreachable");
+  });
+
+  it("an incomplete certificate chain is tls-chain with cors null — never unreachable (streaming1.highwaytraffic.go.th, 2026-09-27)", async () => {
+    const DOH = "https://streaming1.highwaytraffic.go.th/Phase10/PER_10_014.stream/playlist.m3u8";
+    const fetchImpl = (async () => {
+      throw Object.assign(new TypeError("fetch failed"), { cause: Object.assign(new Error("unable to verify the first certificate"), { code: "UNABLE_TO_VERIFY_LEAF_SIGNATURE" }) });
+    }) as unknown as typeof globalThis.fetch;
+    const { cameras, stats } = await probeStreams([camera({ sourceId: "doh-cctv", owner: null }, [hls(DOH), jpeg()])], { fetch: fetchImpl, perHostGapMs: 0 });
+    expect(cameras[0]!.streams.map((s) => s.probe)).toEqual([
+      { result: "tls-chain", cors: null },
+      { result: "tls-chain", cors: null },
+    ]);
+    expect(cameras[0]!.streams[0]).toMatchObject({ captureTime: "none" });
+    expect(stats.byKind.hls?.["tls-chain"]).toBe(1);
+    expect(stats.byKind.hls?.unreachable).toBe(0);
+    expect(stats.cors.unknown).toBe(2);
+    // ตารางแยกคอลัมน์ tls-chain ออกจาก unreachable
+    const table = formatProbeTable(stats, cameras);
+    expect(table).toContain("| tls-chain (certificate chain the tool could not verify) |");
+    expect(table).toMatch(/\| hls \| 1 \| 1\/1 \| 0\/0\/1 \| 0 \| 0 \| 0 \| 0 \| 0 \| 0 \| 1 \| 0 \|/);
+  });
+
+  it("hls: master ok but chunklist failing verification is tls-chain, keeping the master's cors", async () => {
+    const { fetch: table } = fakeFetch({ [HLS]: { body: MASTER, headers: { "access-control-allow-origin": "*" } } });
+    const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url === CHUNKLIST) throw Object.assign(new TypeError("fetch failed"), { cause: { code: "CERT_HAS_EXPIRED" } });
+      return table(input, init);
+    }) as typeof globalThis.fetch;
+    const { cameras } = await probeStreams([camera({}, [hls()])], { fetch: fetchImpl, perHostGapMs: 0 });
+    expect(cameras[0]!.streams[0]!.probe).toEqual({ result: "tls-chain", cors: true });
+  });
+
   it("jpeg: reads only the first bytes and classifies by content-type/magic", async () => {
     const { fetch } = fakeFetch({ [JPEG]: { body: JPEG_BYTES, headers: { "content-type": "image/jpeg" } } });
     const { cameras } = await probeStreams([camera({}, [jpeg()])], { fetch, perHostGapMs: 0 });
@@ -281,7 +331,7 @@ describe("writeCatalogue / validateCatalogue", () => {
       provinces: 1,
       streams: 2,
       byKind: { hls: 1, jpeg: 1 },
-      byResult: { ok: 0, empty: 0, "not-image": 0, "http-4xx": 0, "http-5xx": 0, unreachable: 0, "not-probed": 2 },
+      byResult: { ok: 0, empty: 0, "not-image": 0, "http-4xx": 0, "http-5xx": 0, unreachable: 0, "tls-chain": 0, "not-probed": 2 },
       cors: { yes: 0, no: 0, unknown: 2 },
     });
   });
@@ -338,6 +388,28 @@ describe("writeCatalogue / validateCatalogue", () => {
 });
 
 describe("CLI helpers", () => {
+  it("progressHeartbeat logs every 25 streams or every 30 s, and always on the last one — counts only", () => {
+    let t = 0;
+    const lines: string[] = [];
+    const beat = progressHeartbeat({ now: () => t, log: (l) => lines.push(l) });
+    for (let i = 1; i <= 24; i++) beat(i, 100);
+    expect(lines).toEqual([]);
+    beat(25, 100);
+    expect(lines).toEqual(["  probe progress: 25/100 streams"]);
+    // ยังไม่ครบ 25 เส้นถัดไป แต่เวลาผ่านไป 30 วิ → พิมพ์ (โฮสต์ที่ timeout ทั้งชุดเงียบได้หลายนาที)
+    t = 29_999;
+    beat(30, 100);
+    expect(lines).toHaveLength(1);
+    t = 30_000;
+    beat(31, 100);
+    expect(lines).toEqual(["  probe progress: 25/100 streams", "  probe progress: 31/100 streams"]);
+    beat(40, 100);
+    expect(lines).toHaveLength(2);
+    beat(100, 100);
+    expect(lines.at(-1)).toBe("  probe progress: 100/100 streams");
+    for (const l of lines) expect(l).toMatch(/^ {2}probe progress: \d+\/\d+ streams$/);
+  });
+
   it("parseBuildArgs: --no-probe and --vantage in both spellings", () => {
     expect(parseBuildArgs([])).toEqual({ probe: true, vantage: null });
     expect(parseBuildArgs(["--no-probe"])).toEqual({ probe: false, vantage: null });

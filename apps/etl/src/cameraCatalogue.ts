@@ -13,6 +13,8 @@
  *
  * ข้อตกลง (AGENTS.md):
  *   - `unreachable` = **ถามไม่ได้จากเครือข่ายที่รัน** ไม่ใช่แหล่งตาย — รายงานแยกคอลัมน์เสมอ
+ *   - `tls-chain` = **เครื่องมือตรวจใบรับรองไม่ได้** (เซิร์ฟเวอร์ส่ง chain ไม่ครบ) — คำตัดสินของเครื่องมือ
+ *     ไม่ใช่ของเครือข่าย ห้ามปนกับ `unreachable` (`classifyFetchError`); build ผ่าน `NODE_EXTRA_CA_CERTS`
  *   - ไม่ได้ยิง (`--no-probe`) = `not-probed` — **ห้ามใช้ `ok` เป็นค่าตั้งต้น**
  *   - log เฉพาะจำนวน — ไม่มี url, id หรือระเบียนใดใน console/ข้อความ error (DWR มีลิงก์ที่ฝัง
  *     รหัสผ่านอยู่ใน payload ต้นทาง)
@@ -45,6 +47,7 @@ export const PROBE_RESULTS: readonly ProbeResult[] = [
   "http-4xx",
   "http-5xx",
   "unreachable",
+  "tls-chain",
   "not-probed",
 ];
 export const STREAM_KINDS: readonly CameraStreamKind[] = ["hls", "jpeg", "jpeg-fetch", "mjpeg", "dwr-snapshot", "dwr-mjpeg"];
@@ -123,6 +126,34 @@ export interface ProbeOptions {
   skip?: boolean;
   origin?: string;
   now?: () => number;
+  /**
+   * เรียกทุกครั้งที่สตรีมหนึ่งเส้น probe เสร็จ (จำนวนเท่านั้น) — ให้สคริปต์ build พิมพ์ heartbeat
+   * (`progressHeartbeat`): โฮสต์ที่ timeout ทั้งชุด (streaming2 81 เส้น × 15 วิ / 8) เงียบได้หลายนาที
+   * ดูเหมือนค้าง
+   */
+  onProgress?: (done: number, total: number) => void;
+}
+
+/**
+ * heartbeat ของ probe ที่ทุกสคริปต์ build และ `probe-cameras` ใช้ร่วมกัน: พิมพ์ `done/total` ทุก ~`everyN`
+ * เส้น **หรือ** ทุก `everyMs` แล้วแต่อะไรถึงก่อน และตอนเส้นสุดท้ายเสมอ — จำนวนเท่านั้น ไม่มี url/id
+ */
+export function progressHeartbeat(
+  opts: { everyN?: number; everyMs?: number; now?: () => number; log?: (line: string) => void } = {},
+): (done: number, total: number) => void {
+  const everyN = opts.everyN ?? 25;
+  const everyMs = opts.everyMs ?? 30_000;
+  const now = opts.now ?? (() => Date.now());
+  const log = opts.log ?? ((line) => console.log(line));
+  let lastBeatAt = now();
+  let lastBeatDone = 0;
+  return (done, total) => {
+    const t = now();
+    if (done !== total && done - lastBeatDone < everyN && t - lastBeatAt < everyMs) return;
+    lastBeatAt = t;
+    lastBeatDone = done;
+    log(`  probe progress: ${done}/${total} streams`);
+  };
 }
 
 export interface StreamProbeOutcome {
@@ -160,16 +191,42 @@ interface RawResponse {
   text: string;
 }
 
+/** ไม่มีคำตอบ HTTP — แยกว่า *ถามไม่ได้* (`unreachable`) หรือ *เครื่องมือตรวจใบรับรองไม่ได้* (`tls-chain`) */
+export interface RequestFailure {
+  failure: "unreachable" | "tls-chain";
+}
+
+export const isFailure = (r: RawResponse | RequestFailure): r is RequestFailure => "failure" in r;
+
+/** รหัสข้อผิดพลาดของ OpenSSL/Node ที่แปลว่า "ตรวจใบรับรองไม่ผ่าน" — ไม่ใช่ "ต่อไม่ติด" */
+const TLS_VERIFY_CODE = /^(UNABLE_TO_VERIFY|CERT_|SELF_SIGNED|DEPTH_ZERO)/;
+
+/**
+ * จำแนกข้อผิดพลาดของ `fetch` (ล้วน, มีเทสต์): undici ห่อ `TypeError: fetch failed` โดยรหัสจริงอยู่ที่
+ * `err.cause.code` — `UNABLE_TO_VERIFY_LEAF_SIGNATURE` (เซิร์ฟเวอร์ส่ง chain ไม่ครบ: `streaming{1,2}.
+ * highwaytraffic.go.th` วัด 2026-09-27) / `CERT_HAS_EXPIRED` / `SELF_SIGNED_CERT_IN_CHAIN` /
+ * `DEPTH_ZERO_SELF_SIGNED_CERT` = `tls-chain` (คำตัดสินของเครื่องมือ เบราว์เซอร์มักเล่นได้); ที่เหลือ
+ * (timeout/DNS/ECONNREFUSED/TLS filter ตัดการเชื่อมต่อ) = `unreachable`
+ */
+export function classifyFetchError(err: unknown): RequestFailure["failure"] {
+  const codeOf = (v: unknown): string | null =>
+    typeof v === "object" && v !== null && typeof (v as { code?: unknown }).code === "string" ? (v as { code: string }).code : null;
+  const cause = typeof err === "object" && err !== null ? (err as { cause?: unknown }).cause : undefined;
+  const code = codeOf(cause) ?? codeOf(err);
+  return code !== null && TLS_VERIFY_CODE.test(code) ? "tls-chain" : "unreachable";
+}
+
 /**
  * ยิงหนึ่งคำขอแล้วอ่านแค่ชิ้นแรกของ body (หรือทั้งหมดเมื่อ `mode = "text"`) แล้วตัดการเชื่อมต่อ —
- * MJPEG ไม่มีวันจบ, ภาพนิ่งไม่ต้องอ่านครบ; ข้อผิดพลาดทุกแบบ (timeout/DNS/TLS) → null
+ * MJPEG ไม่มีวันจบ, ภาพนิ่งไม่ต้องอ่านครบ; ข้อผิดพลาดทุกแบบ (timeout/DNS/TLS) → `RequestFailure`
+ * ที่บอกว่าเป็นแบบไหน (`classifyFetchError`)
  */
 async function request(
   ctx: FetchCtx,
   url: string,
   init: RequestInit,
   mode: "first-chunk" | "text",
-): Promise<RawResponse | null> {
+): Promise<RawResponse | RequestFailure> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ctx.timeoutMs);
   try {
@@ -201,18 +258,19 @@ async function request(
     }
     // 200 กับ content-length: 0 = ตอบมาว่างจริง แม้ body ไม่มีชิ้นให้อ่าน
     return { status: res.status, contentType, acao, bytes, firstLine, text };
-  } catch {
-    return null;
+  } catch (err) {
+    return { failure: classifyFetchError(err) };
   } finally {
     clearTimeout(timer);
     controller.abort();
   }
 }
 
-const unreachable = (): StreamProbeOutcome => ({ result: "unreachable", cors: null, programDateTime: null });
+/** ไม่มีคำตอบ = ไม่มี CORS ให้ดู — `failure` เป็นผลตรง ๆ (`unreachable` / `tls-chain`) */
+const failed = (f: RequestFailure): StreamProbeOutcome => ({ result: f.failure, cors: null, programDateTime: null });
 
-function outcomeFrom(kind: CameraStreamKind, r: RawResponse | null, origin: string): StreamProbeOutcome {
-  if (r === null) return unreachable();
+function outcomeFrom(kind: CameraStreamKind, r: RawResponse | RequestFailure, origin: string): StreamProbeOutcome {
+  if (isFailure(r)) return failed(r);
   return {
     result: classifyProbe({ kind, status: r.status, contentType: r.contentType, bytes: r.bytes, firstLine: r.firstLine, acao: r.acao }),
     cors: corsCovers(r.acao, origin),
@@ -239,7 +297,7 @@ export const hasProgramDateTime = (text: string): boolean => /^#EXT-X-PROGRAM-DA
  */
 async function probeHls(ctx: FetchCtx, url: string): Promise<StreamProbeOutcome> {
   const master = await request(ctx, url, {}, "text");
-  if (master === null) return unreachable();
+  if (isFailure(master)) return failed(master);
   const masterOutcome = outcomeFrom("hls", master, ctx.origin);
   if (masterOutcome.result !== "ok") return masterOutcome;
   if (isMediaPlaylist(master.text)) return { ...masterOutcome, programDateTime: hasProgramDateTime(master.text) };
@@ -252,7 +310,7 @@ async function probeHls(ctx: FetchCtx, url: string): Promise<StreamProbeOutcome>
     return { ...masterOutcome, result: "not-image" };
   }
   const chunklist = await request(ctx, chunklistUrl, {}, "text");
-  if (chunklist === null) return { result: "unreachable", cors: masterOutcome.cors, programDateTime: null };
+  if (isFailure(chunklist)) return { result: chunklist.failure, cors: masterOutcome.cors, programDateTime: null };
   const outcome = outcomeFrom("hls", chunklist, ctx.origin);
   return {
     ...outcome,
@@ -268,7 +326,7 @@ async function probeHls(ctx: FetchCtx, url: string): Promise<StreamProbeOutcome>
  */
 async function probeDwrSnapshot(ctx: FetchCtx, cameraId: string): Promise<StreamProbeOutcome> {
   const meta = await request(ctx, `${DWR_API}/public/reportCctv/snapshot/${encodeURIComponent(cameraId)}`, {}, "text");
-  if (meta === null) return unreachable();
+  if (isFailure(meta)) return failed(meta);
   // 404 ในขั้นใดของ DWR = "DWR ตอบแล้วว่าไม่มีภาพ" (web: `no-image`) ไม่ใช่ API พัง → `empty`
   if (meta.status === 404) return { result: "empty", cors: corsCovers(meta.acao, ctx.origin), programDateTime: null };
   if (meta.status < 200 || meta.status >= 300) {
@@ -289,7 +347,7 @@ async function probeDwrSnapshot(ctx: FetchCtx, cameraId: string): Promise<Stream
     { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ path: value }) },
     "first-chunk",
   );
-  if (image?.status === 404) return { result: "empty", cors: corsCovers(image.acao, ctx.origin), programDateTime: null };
+  if (!isFailure(image) && image.status === 404) return { result: "empty", cors: corsCovers(image.acao, ctx.origin), programDateTime: null };
   return outcomeFrom("dwr-snapshot", image, ctx.origin);
 }
 
@@ -410,10 +468,18 @@ export async function probeStreams(
   };
   const tasks: Task<StreamProbeOutcome>[] = [];
   const slots: { ci: number; si: number }[] = [];
+  let done = 0;
   cameras.forEach((c, ci) =>
     c.streams.forEach((s, si) => {
       slots.push({ ci, si });
-      tasks.push({ host: streamHost(s), run: () => probeStream(c, s, ctx) });
+      tasks.push({
+        host: streamHost(s),
+        run: async () => {
+          const o = await probeStream(c, s, ctx);
+          opts.onProgress?.(++done, slots.length);
+          return o;
+        },
+      });
     }),
   );
   const outcomes = await runThrottled(tasks, {
@@ -608,7 +674,16 @@ export function writeCatalogue(
   return { path: file, stats: catalogueStats(catalogue, duplicates) };
 }
 
-/** ตาราง markdown ของผล probe — คอลัมน์ `unreachable` อ่านว่า "ถามไม่ได้จาก vantage นี้" ไม่ใช่ตาย */
+/** คำอธิบายคอลัมน์ที่ไม่ใช่คำตัดสินของกล้อง — CLI พิมพ์ต่อท้ายตาราง */
+export const PROBE_TABLE_LEGEND = [
+  "`unreachable` = could not be reached from this vantage (a network verdict, not a verdict on the source).",
+  "`tls-chain` = certificate chain the tool could not verify (the server sends no intermediate) — a tooling verdict, not a network one; browsers usually recover it via AIA. Run with NODE_EXTRA_CA_CERTS=<intermediate .pem> (apps/etl/certs/) to verify.",
+].join("\n");
+
+/**
+ * ตาราง markdown ของผล probe — คอลัมน์ `unreachable` อ่านว่า "ถามไม่ได้จาก vantage นี้" ไม่ใช่ตาย,
+ * `tls-chain` = เครื่องมือตรวจใบรับรองไม่ได้ (ไม่ใช่เครือข่าย ไม่ใช่กล้อง)
+ */
 export function formatProbeTable(stats: ProbeStats, cameras: readonly Camera[]): string {
   const httpsByKind = new Map<CameraStreamKind, { https: number; total: number }>();
   for (const c of cameras) {
@@ -620,8 +695,8 @@ export function formatProbeTable(stats: ProbeStats, cameras: readonly Camera[]):
     }
   }
   const lines = [
-    "| kind | streams | https | cors yes/no/unknown | ok | empty | not-image | http-4xx | http-5xx | unreachable (could not be reached from this vantage) | not-probed | timestamp evidence |",
-    "|---|---|---|---|---|---|---|---|---|---|---|---|",
+    "| kind | streams | https | cors yes/no/unknown | ok | empty | not-image | http-4xx | http-5xx | unreachable (could not be reached from this vantage) | tls-chain (certificate chain the tool could not verify) | not-probed | timestamp evidence |",
+    "|---|---|---|---|---|---|---|---|---|---|---|---|---|",
   ];
   for (const kind of STREAM_KINDS) {
     const row = stats.byKind[kind];
@@ -647,7 +722,7 @@ export function formatProbeTable(stats: ProbeStats, cameras: readonly Camera[]):
               ? "Last-Modified header (needs CORS)"
               : "none";
     lines.push(
-      `| ${kind} | ${https.total} | ${https.https}/${https.total} | ${cors.yes}/${cors.no}/${cors.unknown} | ${row.ok} | ${row.empty} | ${row["not-image"]} | ${row["http-4xx"]} | ${row["http-5xx"]} | ${row.unreachable} | ${row["not-probed"]} | ${evidence} |`,
+      `| ${kind} | ${https.total} | ${https.https}/${https.total} | ${cors.yes}/${cors.no}/${cors.unknown} | ${row.ok} | ${row.empty} | ${row["not-image"]} | ${row["http-4xx"]} | ${row["http-5xx"]} | ${row.unreachable} | ${row["tls-chain"]} | ${row["not-probed"]} | ${evidence} |`,
     );
   }
   return lines.join("\n");

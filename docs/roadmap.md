@@ -1551,7 +1551,7 @@ Owner decisions (2026-09-26):
 Deferred (not in v1): drawing storms in the 3D scene; a national view; a JTWC fallback when JMA is
 down; following several provinces at once; Web Push notifications.
 
-### E15.3 — CCTV: N-source catalogue contract + ETL (PR A) — *done* (2026-09-26); PR B web switch — *done* (2026-09-26); PR C Department of Highways — *planned*
+### E15.3 — CCTV: N-source catalogue contract + ETL (PR A) — *done* (2026-09-26); PR B web switch — *done* (2026-09-26); PR C Department of Highways — *done* (2026-09-27)
 
 Scope decided 2026-09-26 after a survey of public camera sources (the plan file of that day): the
 two-source UI hard-codes DWR vs iTIC in ~15 files, so a third source needs a generic contract first.
@@ -1597,11 +1597,37 @@ Three PRs, each its own `/implement` run:
     `ENABLED_CAMERA_SOURCES` behind an `oxlint-disable-next-line react/rules-of-hooks` — safe only
     because that list's length cannot change at runtime, which is why it must never be filtered by
     runtime state.
-- **PR C — Department of Highways `doh-cctv` (planned).** From the 2026-09-26 survey of
-  `highwaytraffic.go.th`: 190 sites nationwide, at most ~140 not already in iTIC (a ceiling before
-  dedupe by the `PER-x-yyy` code), HLS on `streaming1` answered with `Access-Control-Allow-Origin: *`
-  and no `EXT-X-PROGRAM-DATE-TIME`, `streaming2` timed out from both probe vantages, 4 raw-IP hosts
-  to be cut at build. Ships with attribution + kill switch per the §4 decision.
+- **PR C — Department of Highways `doh-cctv` (done, 2026-09-27).** `SourceId` `doh-cctv` (kind
+  `"browser"`, no published terms — checked 2026-09-26 — credited as กรมทางหลวง) + `CAMERA_SOURCES["doh-cctv"]`
+  (`connect` + `media` = `streaming1`/`streaming2.highwaytraffic.go.th`, `defaultEnabled: true`,
+  `markerPriority 29`); `apps/etl/src/build-doh-cctv.ts` (+ test + README) reads the site list and the
+  two page methods of `highwaytraffic.go.th/DOHWeb/home.aspx`, refuses raw-IP hosts, collapses the
+  two tabs that point at one playlist into one stream, deduplicates against the built `itic-cctv.json`
+  (by `PER-x-yyy` code, then by ≤ 50 m from an iTIC DOH camera) and probes with the shared
+  `probeStreams`. Build of 2026-09-27 from `fortinet-lan`: 190 sites → 187 projected → 50 already in
+  iTIC → **137 cameras, 167 HLS streams in 61 provinces**; `streaming1` 86 streams = 60 `ok` (all with
+  `Access-Control-Allow-Origin: *`, none with `EXT-X-PROGRAM-DATE-TIME`) + 26 `http-4xx` (Wowza 404 at
+  probe time, a come-and-go); `streaming2` 81 `unreachable` (timed out from this network on 09-26 and
+  09-27 and from an off-network vantage on 09-26 — **kept, dimmed, labelled**, never dropped). Two
+  things learned on the way, both now in the contract: the streaming hosts send a leaf-only certificate
+  chain, so Node's `fetch` failed every probe with `UNABLE_TO_VERIFY_LEAF_SIGNATURE` while browsers
+  play fine — `ProbeResult` gained **`tls-chain`** ("the tool could not verify the chain", never
+  `unreachable`; `CameraBody` says so in both languages) and the build loads the public Sectigo
+  intermediate `apps/etl/certs/…dv-r36.pem` through `NODE_EXTRA_CA_CERTS`; and `probeStreams` now
+  prints a heartbeat every 25 streams / 30 s in every build. Web change limited to `CameraBody.tsx`,
+  i18n and tests — the N-source UI of PR B needed nothing else. CSP: both hosts in `connect-src` +
+  `media-src` (`public/_headers`, `docs/security.md`).
+  - *Open (owner):* open `https://streaming2.highwaytraffic.go.th/Phase11/PER_11_006.stream/playlist.m3u8`
+    on a phone on a Thai consumer network and record the result in
+    `apps/etl/src/build-doh-cctv.README.md` under a vantage column — until then the 68 `streaming2`-only
+    cameras stay dimmed with the build-time note.
+  - *Open (owner):* the two DOH hosts in `connect-src` + `media-src` have not been run under the
+    enforcing CSP (the dev server does not apply `_headers`) — play one `streaming1` camera on the
+    production build and confirm zero violations (`docs/security.md`, last paragraph of the CSP section).
+  - *Known / accepted (QA, 2026-09-27 build):* `CameraBody.tsx` exports the pure `probeNoteKey` next
+    to its components so `CameraBody.test.ts` can cover the three-way wording; oxlint reports
+    `react(only-export-components)` on it (warning-level — Fast Refresh may reload the whole module
+    on edit, nothing at runtime — and oxlint exits 0 on warnings, so CI stays green).
 
 Zero Cloudflare cost at every step: the catalogues are static assets of the web Worker, the browser
 asks upstream itself, nothing touches `/api`, DO, R2 or cron.
@@ -1666,8 +1692,9 @@ Tracked as one pinned `needs-user` checklist issue, not as tasks.
 | **blocker: R2 storage past the free tier** — E9.2's versioned prefix means the same 5.174 GiB / 303,260 objects exist twice (the old prefix is served `immutable` for a year and can never be deleted), taking the bucket to about 10.35 GiB against a 10 GB free allowance. Server-side copy, so nothing is re-uploaded from a laptop; 303k Class A operations stay inside the free 1M/month | E9.2, E9.3 | **resolved 2026-08-20: copy all 303,260 objects** — accepted the overage. Server-side copy only, proved on one province (11, 903 files) with a 200 through `siahra-radar.co` before the other 76 |
 | **DWR permission** — the Department of Water Resources publishes no terms for its telemetry CCTV API | shipping E15 in production | **resolved 2026-09-26: ship with attribution** — owner's call (a request would likely go unanswered); DWR credited in every camera popup and the always-mounted credit line, and `VITE_FEATURE_CCTV=0` at build time removes the layer if DWR objects |
 | **iTIC / Longdo permission** — no licence is granted for the iTIC road-camera streams (Department of Highways and partner cameras), and Longdo's API terms restrict redisplay of its camera list | shipping E15.2 in production | **resolved 2026-09-26: ship with attribution** — owner's call, accepting the risk that Longdo's terms restrict redisplay; iTIC, the camera owner and Longdo credited in every camera popup and the always-mounted credit line, and `VITE_FEATURE_ITIC=0` at build time removes the iTIC cameras if any of them objects |
-| **Government CCTV sources in general** — the Department of Highways (`highwaytraffic.go.th`) publishes no terms for its camera pages (checked 2026-09-26); BMA Drainage and Sewerage (`dds.bangkok.go.th`), EGAT (`egatwater.egat.co.th`) and the municipal portals were surveyed the same day for reachability and format only — their terms have **not** been checked yet | E15.3 PR C and every later camera source | **resolved 2026-09-26: every government CCTV source ships with attribution + a build-time kill switch**, the DWR/iTIC rule applied once for all — the source and the camera owner credited in the popup and the always-mounted credit line, each source's terms checked and dated in its `CAMERA_SOURCES[id].licenceNote` before it ships; today's switches are `VITE_FEATURE_CCTV=0` (whole layer) and `VITE_FEATURE_ITIC=0`, a per-source disable is part of PR B. Sources that embed credentials (`wmsc.rid.go.th`, the ThaiWater `*.dyndns.org` links) stay out permanently, whatever the terms |
+| **Government CCTV sources in general** — the Department of Highways (`highwaytraffic.go.th`) publishes no terms for its camera pages (checked 2026-09-26); BMA Drainage and Sewerage (`dds.bangkok.go.th`), EGAT (`egatwater.egat.co.th`) and the municipal portals were surveyed the same day for reachability and format only — their terms have **not** been checked yet | E15.3 PR C and every later camera source | **resolved 2026-09-26: every government CCTV source ships with attribution + a build-time kill switch**, the DWR/iTIC rule applied once for all — the source and the camera owner credited in the popup and the always-mounted credit line, each source's terms checked and dated in its `CAMERA_SOURCES[id].licenceNote` before it ships; today's switches are `VITE_FEATURE_CCTV=0` (whole layer) and `VITE_FEATURE_CCTV_DISABLE=<id,…>` per source (PR B; `VITE_FEATURE_ITIC=0` one release as an alias). **DOH shipped under this rule in E15.3 PR C (2026-09-27)** as `doh-cctv`, `defaultEnabled: true`, credited as กรมทางหลวง in the camera sheet and the credit line, removable with `VITE_FEATURE_CCTV_DISABLE=doh-cctv`. Sources that embed credentials (`wmsc.rid.go.th`, the ThaiWater `*.dyndns.org` links) stay out permanently, whatever the terms |
 | **BMA Traffic needs a Thai-network vantage** — `bmatraffic.com` refused connections from both probe vantages on 2026-09-26 (ECONNREFUSED; a Cloudflare challenge is reported), so nothing about its camera list, image format, CORS or coordinates is known; the owner records a HAR from a phone on a Thai consumer network (load the index, open one camera, wait 30 s — cookies/tokens are never copied into the repo). The same phone check settles the 9 iTIC stills on `camera1.iticfoundation.org` and `streaming2.highwaytraffic.go.th`, both `unreachable` only from the filtered network | a BMA Traffic source (PR D), and the 6 BMA DDS drainage cameras that have no coordinates of their own and would take them from BMA's list — otherwise `hand-placed` with a per-camera `SOURCE.md`, or not emitted | **open** — owner action; if the images turn out to need a challenge cookie the source is unusable and is reported as such |
+| **DOH CSP hosts not yet exercised under the enforcing policy** — `streaming1`/`streaming2.highwaytraffic.go.th` were added to `connect-src` + `media-src` on 2026-09-27, but the dev server does not apply `_headers`, so no DOH stream has played under the enforcing CSP yet | E15.3 PR C in production | **open** — owner action at the next production verification: play one `streaming1` camera on `siahra-radar.co` and confirm zero CSP violations (`docs/security.md`); the same visit can settle `streaming2` if done from a Thai consumer network |
 | **blocker: GISTDA API key** — the GISTDA flood WFS has answered `401` since 2026-09-10 and the newer gateway answers `407`; register for a key and `wrangler secret put GISTDA_API_KEY` for `siahra-api` | E16.PR0 | **open** — user action; `gistda-flood` shows `down` in `/api/v1/health` and the layer stays dimmed until then |
 | Is a GitHub blob URL acceptable as the methodology URL? | E3.4, E10.1 | **resolved 2026-08-18: no — a `/methodology` page on the web app**, rendering the Markdown in `docs/methodology/` |
 

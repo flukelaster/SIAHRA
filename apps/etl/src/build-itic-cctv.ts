@@ -40,7 +40,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as z from "zod/mini";
 import type { Camera, CameraStream } from "@siahra/shared-types";
-import { formatProbeTable, NOT_PROBED, parseBuildArgs, probeStreams, probeVantageLabel, writeCatalogue } from "./cameraCatalogue.js";
+import { formatProbeTable, NOT_PROBED, parseBuildArgs, probeStreams, probeVantageLabel, progressHeartbeat, writeCatalogue } from "./cameraCatalogue.js";
 import { assignProvince, loadProvincePolygons, type ProvincePolygon } from "./provincePolygons.js";
 
 export const SOURCE_ID = "itic-cctv" as const;
@@ -304,7 +304,7 @@ async function main() {
 
   // probe จาก vantage ที่รัน — ผลเป็นของเวลานั้น/เครือข่ายนั้น ไม่ใช่สถานะปัจจุบัน
   const probeVantage = args.probe ? probeVantageLabel(args.vantage) : null;
-  const probed = await probeStreams(cameras, { skip: !args.probe });
+  const probed = await probeStreams(cameras, { skip: !args.probe, onProgress: progressHeartbeat() });
   const probedAt = args.probe ? new Date().toISOString() : null;
   console.log(args.probe ? `probe (${probeVantage}, ${probedAt}):` : "probe skipped (--no-probe): every stream is not-probed");
   console.log(formatProbeTable(probed.stats, probed.cameras));

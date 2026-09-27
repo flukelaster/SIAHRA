@@ -8,13 +8,15 @@
  *
  * `unreachable` = **ถามไม่ได้จาก vantage นี้** (เครือข่ายนี้มี TLS filter; camera1.iticfoundation.org
  * และ streaming2.highwaytraffic.go.th ตอบต่างกันตามเครือข่าย) — ไม่ใช่แหล่งตาย ให้ owner เปิดจาก
- * มือถือเครือข่ายไทยยืนยัน; log เฉพาะจำนวน ไม่มีระเบียนดิบ
+ * มือถือเครือข่ายไทยยืนยัน; `tls-chain` = เครื่องมือตรวจใบรับรองไม่ได้ (โฮสต์ที่ส่ง chain ไม่ครบ เช่น
+ * streaming{1,2}.highwaytraffic.go.th) — รันด้วย `NODE_EXTRA_CA_CERTS=certs/<intermediate>.pem` (สคริปต์
+ * `probe:cameras` ใส่ให้แล้ว); log เฉพาะจำนวน ไม่มีระเบียนดิบ
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { CAMERA_SOURCE_IDS, type Camera, type CameraCatalogue, type CameraSourceId, type CameraStream } from "@siahra/shared-types";
-import { formatProbeTable, NOT_PROBED, OUT_DIR, parseBuildArgs, probeStreams, probeVantageLabel } from "./cameraCatalogue.js";
+import { formatProbeTable, NOT_PROBED, OUT_DIR, parseBuildArgs, PROBE_TABLE_LEGEND, probeStreams, probeVantageLabel, progressHeartbeat } from "./cameraCatalogue.js";
 
 /** เดาชนิดจากนามสกุล — `--url` ใช้กับการสำรวจแหล่งใหม่ที่ยังไม่มี build script */
 export function streamForUrl(url: string): CameraStream {
@@ -77,13 +79,13 @@ async function main() {
   }
   const vantage = probeVantageLabel(args.vantage);
   const startedAt = new Date().toISOString();
-  const { cameras: probed, stats } = await probeStreams(cameras);
+  const { cameras: probed, stats } = await probeStreams(cameras, { onProgress: progressHeartbeat() });
   console.log(`## probe — ${title}`);
   console.log(`vantage: ${vantage} · probed at ${startedAt} · ${stats.streams} streams`);
   console.log("");
   console.log(formatProbeTable(stats, probed));
   console.log("");
-  console.log("`unreachable` = could not be reached from this vantage (a network verdict, not a verdict on the source).");
+  console.log(PROBE_TABLE_LEGEND);
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
