@@ -1742,7 +1742,7 @@ screenshot in its PR.
    an icon (`panelRegistry.test.ts`); the layers button counts only layers that have a legend row in
    the build (`countLayersOn`, `cctv` excluded when no camera source is enabled).
 
-#### E18.2 — Overview summary card — *in review* (2026-09-27)
+#### E18.2 — Overview summary card — *done* (2026-09-27, PR #110)
 - Why: the overview topic opened on the alert banner and authority list; it now leads with what the
   measurements say — counts over published thresholds and a short "ควรดูก่อน" (look at first) list —
   and ends with the source status, without a single new fetch
@@ -1787,9 +1787,63 @@ overflow line; rows are ≥ 44 px buttons with no `aria-label` (the visible text
 name, "open on the map" is a `title`) that call `ctx.focusStation` only on click; the sources block
 dims non-ok rows, keeps never-fetched and API-unreachable apart and omits browser-kind sources.
 
-#### E18.3–E18.5 — *planned*
-- **E18.3** — per-topic layer presets, a grouped layer list, and the `?layers=` permalink semantics
-  that go with them.
+#### E18.3 — Per-topic layer presets + grouped layer list — *in review* (2026-09-27)
+- Why: the layer list was one flat run of 20 switches; it now groups them into observed /
+  illustrative / basemap, and switching topic sets the hazard layers that topic is about — until the
+  user picks layers themselves
+- Owner decision (2026-09-27): `DEFAULT_LAYERS` stays as it was (18 of 20 on, `exposure` and `cctv`
+  off) and so does the meaning of `?layers=` — every existing link opens exactly as before;
+  `lib/permalink.ts` / `hooks/usePermalink.ts` are untouched. This settles the "`?layers=` permalink
+  semantics" the planned E18.3 left open
+- Touches: new `lib/defaultLayers.ts` (`DEFAULT_LAYERS` moved out of `App.tsx` with identical values,
+  `LayerPresetState`, `initialLayerState`), `lib/layerGroups.ts` (+ `layerGroups.test.ts`),
+  `lib/layerPresetStatus.ts`, `components/layout/LayerPresetCard.tsx` (+ `LayerPresetCard.test.ts`);
+  `App.tsx` (layer state + follow flag, `import()` of `layerGroups` on a topic change,
+  `presetLoadError`), `components/layout/{MapLegend,panelViews,LayersSurface}.tsx` (+
+  `MapLegend.test.ts`; `PanelContext.toggleLayer` → `PanelContext.layerPreset`), `i18n/{th,en}.ts`
+  (`layers.preset.{title,following,pending,custom,reset,loadFailed}`, `layers.group.basemap`)
+- Depends: E18.2 (PR #110)
+- Size: M — one PR
+- Cost: not cost-bearing — nothing outside `apps/web/src`, no new fetch
+- Risk: entry `index-*.js` 87.60 → 87.82 kB gz; entry + vendor + shared 340.40 → 340.84 kB gz,
+  ~94.7 % of the 360 kB guard. The preset rules are a lazy chunk loaded on a topic change; if it
+  fails to load, the layers stay as they were and the card shows a red `layers.preset.loadFailed`
+  line until the next successful load or a reset. One old `MapLegend.test.ts` ordering assertion
+  changed: `floodDepth` (illustrative) now follows `floodExtent` (observed)
+- Issue: _(not yet filed)_
+
+1. `GROUP_LAYERS` covers every `MapLayers` / `DEFAULT_LAYERS` key exactly once — observed: stations,
+   hazard, radar, floodGfm, floodExtent, northRoute, dams, cctv; illustrative: stationSheet,
+   gistdaDepth, floodDepth, lowland, exposure; basemap: imagery, buildings, trees, roads, water,
+   sunlight, localAuthorities — and a key in no group is a tsc error; `DEFAULT_LAYERS` still has 18
+   of 20 on, only `exposure` and `cctv` off (`layerGroups.test.ts`).
+2. Presets set only `PRESET_LAYERS` = observed + illustrative minus `cctv` / `exposure`: overview =
+   `DEFAULT_LAYERS`; water = all of them except `radar` and `lowland`; weather = `radar`, `stations`,
+   `hazard`; quake = none; no topic turns `cctv` or `exposure` on, and a preset that changes nothing
+   returns the same object (`layerGroups.test.ts`).
+3. No `?layers=` → `DEFAULT_LAYERS`, following, with no preset applied at startup; `?layers=` →
+   exactly those layers, customised, and a link with `?layers=` serialises back to the same link
+   character for character (`layerGroups.test.ts`).
+4. While following, a topic change applies that topic's preset; toggling a `PRESET_LAYERS` key
+   customises and later topic changes leave the layers alone; a basemap, `cctv` or `exposure`
+   toggle (on or off) keeps following, and later presets keep the user's value for it; a
+   toggle to the current value changes nothing; reset applies the current topic's preset, resumes
+   following and leaves a user-set `cctv` / `exposure` alone; a remembered non-overview topic at
+   startup is following but not yet that topic's preset (`pending`) (`layerGroups.test.ts`).
+5. The card shows the three statuses in both languages, the reset button absent only while
+   following and matching, and the `layers.preset.loadFailed` line only when a load error is set
+   (`LayerPresetCard.test.ts`).
+6. Every legend row sits inside its group's `<section data-layer-group>` box with its name, note,
+   freshness line and the error / note lines it had before, in both languages; the layers button's
+   count (`countLayersOn`) equals the switches on in the grouped list (`MapLegend.test.ts`).
+
+Not test-backed, design facts checked by QA: presets fire only on a user topic change (rail, phone
+tab bar, a notification's open-panel landing on another topic), never on a sub-view change; the
+follow flag is in memory only (neither permalink nor localStorage); presets, toggles and reset all
+go through the one `setLayerState`, so the permalink updates the same way for each; the
+illustrative group is tinted violet and rows are ≥ 44 px (`min-h-11`) below md.
+
+#### E18.4–E18.5 — *planned*
 - **E18.4** — time chip, a ⋯ menu, the forecast strip moved into weather, and the exaggeration
   control into a basemap control.
 - **E18.5** — fonts and colour tokens.

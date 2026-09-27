@@ -424,6 +424,13 @@ export const en: Record<keyof typeof th, string> = {
   "layers.button.aria": "Layers ({n} on)",
   "layers.close": "Close layers",
   "layers.done": "Done",
+  "layers.preset.title": "“{topic}” topic set",
+  "layers.preset.following": "Layers follow the topic",
+  "layers.preset.pending": "Still the default set; changes when you switch topic",
+  "layers.preset.custom": "Customised; switching topic keeps your layers",
+  "layers.preset.reset": "Reset to topic set",
+  "layers.preset.loadFailed": "Could not apply the topic set ({error}); layers are unchanged — reload the page to try again",
+  "layers.group.basemap": "Base map",
 
   // ── Mobile sheet ──────────────────────────────────────────────────────
   "sheet.collapse": "Collapse panel",

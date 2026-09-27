@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "./components/layout/AppShell";
-import type { MapApi, MapInfo, MapLayers } from "./components/layout/Map3DCanvas";
+import type { MapApi, MapInfo } from "./components/layout/Map3DCanvas";
 import { MapViewport } from "./components/layout/MapViewport";
 import type { PanelContext } from "./components/layout/panelRegistry";
 import type { StationFocus } from "./components/layout/panelViews";
@@ -43,56 +43,9 @@ import { formatNumber } from "./lib/number";
 import { buildSearchIndex, type SearchPlace } from "./lib/searchIndex";
 import { useLang } from "./i18n/context";
 import { ENABLED_CAMERA_SOURCES } from "./lib/featureFlags";
+import { DEFAULT_LAYERS, initialLayerState, type LayerPresetState } from "./lib/defaultLayers";
 
 const DEFAULT_PROVINCE_CODE = "10"; // Bangkok
-
-const DEFAULT_LAYERS: MapLayers = {
-  imagery: true,
-  lowland: true,
-  /**
-   * E10.4 — ชั้นเดียวที่ **ปิดไว้เป็นค่าเริ่มต้น** ชั้นนี้เป็นสิ่งที่เราคำนวณเอง
-   * ไม่ใช่สิ่งที่ใครวัดมา จึงต้องเป็นการกดเปิดของผู้ใช้เสมอ ไม่ใช่ของแถมที่ติดมา
-   * (ผลข้างเคียงที่ตั้งใจ: `?layers=` จะปรากฏใน permalink เสมอ เพราะมีชั้นที่ปิดอยู่
-   *  หนึ่งชั้น — ซึ่งเป็นความหมายเดิมของพารามิเตอร์นั้นทุกประการ)
-   */
-  exposure: false,
-  hazard: true,
-  stations: true,
-  buildings: true,
-  roads: true,
-  water: true,
-  floodExtent: true,
-  // E14.F4 — ฉาก Sentinel-1 (Copernicus GFM) เป็นของที่ดาวเทียมเห็น เปิดได้เหมือน
-  // GISTDA; ความลึก FwDET เปิดตามเพราะเป็น *การแสดงผล* ของฉากนั้น (ป้าย "ภาพประกอบ"
-  // ใน legend บอกชนิด) และมีผลเฉพาะเมื่อ floodGfm เปิดอยู่
-  floodGfm: true,
-  floodDepth: true,
-  dams: true,
-  /**
-   * E15/E15.3 — กล้อง CCTV ทุกแหล่ง (`ENABLED_CAMERA_SOURCES`) **ปิดเป็นค่าเริ่มต้น** (เจ้าของตัดสินใจ
-   * 2026-09-26): หมุดและบัญชีกล้อง (`/cctv/{sourceId}.json`) ถูกโหลดก็ต่อเมื่อผู้ใช้เปิดชั้นนี้เอง
-   * (`useCameraCatalogues` ได้ `enabled` = มีแหล่งเปิด + `layers.cctv`) — ปิดอยู่ = ไม่มี request ใดใต้
-   * `/cctv/` เลย; ภาพ/สตรีมจากต้นทางยังขอก็ต่อเมื่อคลิกหมุดเท่านั้น
-   * แฟล็ก `VITE_FEATURE_CCTV=0` (ทั้งชั้น) / `VITE_FEATURE_CCTV_DISABLE=<id,...>` (รายแหล่ง) ตอน build =
-   * ถอดออกทั้งหมด แม้ permalink จะตั้ง `cctv` ไว้
-   */
-  cctv: false,
-  radar: true,
-  sunlight: true,
-  trees: true,
-  // ครอบคลุมไม่ครบทุกจังหวัด/อปท. (E11.2) แต่เป็นของจริงที่ OSM แม็ปไว้ ไม่ใช่ข้อมูล
-  // เสื่อมคุณภาพที่ต้องซ่อนไว้ก่อน — เปิดเป็นค่าเริ่มต้นได้ ตราบใดที่ legend บอก
-  // caveat ความไม่ครบทุกครั้งที่ชั้นนี้แสดงอยู่ (ดู MapLegend.tsx)
-  localAuthorities: true,
-  // E16 B-1 — "ล้นตลิ่งตอนนี้" ใน 3 มิติ: GISTDA ไม่ได้ข้อมูลตั้งแต่ 2026-09-10 และ Sentinel-1 ผ่าน
-  // ทุก 6–12 วัน ระดับน้ำเทียบตลิ่งจึงเป็นสัญญาณที่สดที่สุดที่มี — แผ่นน้ำจำลอง (illustrative) เปิด
-  // เป็นค่าเริ่มต้นได้ตราบใดที่ legend บอก caveat ทุกครั้งที่แสดง (แบบเดียวกับ localAuthorities)
-  stationSheet: true,
-  // E16 B-2 — แผ่นน้ำ 3 มิติบนขอบเขต GISTDA: ขอบเขตเป็นของที่ดาวเทียมเห็น ความลึกเป็นภาพประกอบ
-  // (legend บอกชนิด + ข้อสมมติทุกครั้ง) มีผลเฉพาะเมื่อ floodExtent เปิดอยู่ — แบบเดียวกับ floodDepth
-  gistdaDepth: true,
-  northRoute: true,
-};
 
 /**
  * ค่าเริ่มต้นในรูป `Record` สำหรับ permalink codec — สร้างครั้งเดียวที่โมดูล ไม่ใช่
@@ -106,11 +59,15 @@ const INITIAL = readPermalink();
 export default function App() {
   const { lang, t } = useLang();
   const [provinceCode, setProvinceCode] = useState(INITIAL.provinceCode ?? DEFAULT_PROVINCE_CODE);
-  const [layers, setLayers] = useState<MapLayers>(() => {
-    if (!INITIAL.layers) return DEFAULT_LAYERS;
-    const on = new Set(INITIAL.layers);
-    return Object.fromEntries(Object.keys(DEFAULT_LAYERS).map((k) => [k, on.has(k)])) as unknown as MapLayers;
-  });
+  // ชั้นข้อมูล + "เดินตามหัวข้อไหม" (redesign PR 3, `lib/defaultLayers.ts` + `lib/layerGroups.ts`) — ไม่มี
+  // `?layers=` = DEFAULT_LAYERS และเดินตามหัวข้อ; มี = ชั้นตามลิงก์พอดีและถือว่าปรับเองแล้ว
+  // ธง `following` อยู่ในหน่วยความจำเท่านั้น: ไม่ลง permalink (ลิงก์พกแค่ `?layers=` ความหมายเดิม)
+  // และไม่ลง localStorage — เปิดหน้าใหม่ = เริ่มจากกฎข้างบนเสมอ
+  const [layerState, setLayerState] = useState<LayerPresetState>(() => initialLayerState(INITIAL.layers));
+  const layers = layerState.layers;
+  // โหลดกฎของชุดหัวข้อ (lazy) ไม่สำเร็จตอนเปลี่ยนหัวข้อ = ข้อความของความล้มเหลว (ชั้นไม่ถูกเปลี่ยน) — การ์ดหัว
+  // รายการชั้นแสดงเป็นบรรทัดแดง ไม่กลืนเงียบ; ล้างเมื่อโหลดครั้งถัดไปสำเร็จหรือผู้ใช้กดคืนค่าชุดของหัวข้อ
+  const [presetLoadError, setPresetLoadError] = useState<string | null>(null);
   /** null = live; otherwise an ISO time the map is scrubbed back to. */
   const [atIso, setAtIso] = useState<string | null>(INITIAL.atIso);
   // E12.4a — ขั้นพยากรณ์ TMD ที่กำลังเลือกอยู่ใน ForecastStrip; null = ยังไม่ได้
@@ -342,9 +299,26 @@ export default function App() {
     provenance: mapInfo?.provenance ?? null,
   });
 
-  const toggleLayer = useCallback((key: keyof MapLayers, value: boolean) => {
-    setLayers((l) => ({ ...l, [key]: value }));
-  }, []);
+  // ผู้ใช้เปลี่ยนหัวข้อ (rail / แถบแท็บล่าง / ปุ่มเปิดแผงของแจ้งเตือน) → ชุดของหัวข้อ ถ้ายังเดินตามอยู่
+  // ทุกทางที่ `shell.topic` เปลี่ยนเป็นการกดของผู้ใช้ (`useShellState`; แท็บย่อยอยู่ในหัวข้อเดิมเสมอ)
+  // ค่าตอน mount ถูกข้าม — เปิดหน้าไม่ใช้ชุดของหัวข้อที่จำไว้ ผ่านตัวตั้งเดียวกับสวิตช์ permalink จึงตามไป
+  //
+  // กฎของชุดหัวข้อโหลดแบบ lazy (chunk เล็กของตัวเอง ที่รายการชั้นใน `panelViews` import อยู่แล้ว) เพื่อไม่ให้
+  // entry โต — updater แบบฟังก์ชันอ่านสถานะล่าสุดตอน chunk มาถึง เปลี่ยนหัวข้อติดกันหลายครั้ง = ใช้ตามลำดับ
+  // ตัวสุดท้ายชนะ; โหลด chunk ไม่ได้ = ชั้นไม่เปลี่ยน และเก็บข้อความไว้ใน `presetLoadError` ให้การ์ดบอก
+  const shellTopic = shell.topic;
+  const prevTopicRef = useRef(shellTopic);
+  useEffect(() => {
+    if (prevTopicRef.current === shellTopic) return;
+    prevTopicRef.current = shellTopic;
+    import("./lib/layerGroups").then(
+      (m) => {
+        setPresetLoadError(null);
+        setLayerState((s) => m.nextLayersOnTopicChange(s, shellTopic));
+      },
+      (err: unknown) => setPresetLoadError(err instanceof Error ? err.message : String(err)),
+    );
+  }, [shellTopic]);
 
   // E12.4a — atIso (ย้อนหลัง) กับ forecastAtIso (พยากรณ์ล่วงหน้า) แยกกันคนละ
   // useState แต่ต้องกันไม่ให้ทั้งคู่ non-null พร้อมกัน: เลือกฝั่งไหน อีกฝั่งกลับ
@@ -506,7 +480,13 @@ export default function App() {
     provinceName,
     lang,
     layers,
-    toggleLayer,
+    layerPreset: {
+      topic: shellTopic,
+      following: layerState.following,
+      setState: setLayerState,
+      loadError: presetLoadError,
+      clearLoadError: () => setPresetLoadError(null),
+    },
     layerDescriptors,
     quality,
     qualityLevel,

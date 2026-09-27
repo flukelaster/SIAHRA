@@ -8,7 +8,8 @@ import type { LayerDescriptors } from "../../hooks/useLayerDescriptors";
 import { useNow } from "../../hooks/useNow";
 import { useLang } from "../../i18n/context";
 import type { Lang, MessageKey, TFunction } from "../../i18n";
-import { describeLayerFreshness } from "../../lib/layerFreshness";
+import { EPISTEMIC_BADGE, describeLayerFreshness } from "../../lib/layerFreshness";
+import { GROUP_LAYERS, layerGroupOf, type LayerGroup } from "../../lib/layerGroups";
 import type { TerrainIntegrity } from "../../scene/loadAoiManifest";
 import {
   ILLUSTRATIVE_HATCH_ANGLE_DEG,
@@ -809,12 +810,18 @@ function cameraSourceNames(lang: Lang): string {
   return ENABLED_CAMERA_SOURCES.map((id) => (lang === "th" ? SOURCES[id].nameTh : SOURCES[id].nameEn)).join(" · ");
 }
 
-const LAYER_ROWS: {
+interface LayerRow {
   key: keyof MapLayers;
   labelKey: MessageKey;
   noteKey: MessageKey;
   swatch: React.ReactNode;
-}[] = [
+}
+
+/**
+ * แถวทุกชั้น — ลำดับในกลุ่ม (redesign PR 3, `lib/layerGroups.ts`) ตามลำดับของรายการนี้; `cctv` แสดงเฉพาะเมื่อ
+ * มีแหล่งกล้องเปิดอยู่ใน build (ตัวนับบนปุ่มชั้นข้อมูล `countLayersOn` ใช้กฎเดียวกัน)
+ */
+const LAYER_ROWS: LayerRow[] = [
   {
     key: "imagery",
     labelKey: "legend.layer.imagery",
@@ -1001,6 +1008,18 @@ const LAYER_ROWS: {
   },
 ];
 
+const visibleRows = LAYER_ROWS.filter((row) => row.key !== "cctv" || ENABLED_CAMERA_SOURCES.length > 0);
+
+/**
+ * ป้ายหัวกลุ่ม — observed/illustrative ใช้ชิปชุดเดียวกับป้ายชนิดความรู้ของแต่ละแถว (`EPISTEMIC_BADGE`:
+ * "ตรวจวัดจริง" / "ภาพประกอบ" สีม่วงเดียวกัน) แผนที่ฐานใช้สีของ static-reference
+ */
+const GROUP_BADGE: Record<LayerGroup, { labelKey: MessageKey; titleKey: MessageKey | null; className: string }> = {
+  observed: EPISTEMIC_BADGE.observed,
+  illustrative: EPISTEMIC_BADGE.illustrative,
+  basemap: { labelKey: "layers.group.basemap", titleKey: null, className: EPISTEMIC_BADGE["static-reference"].className },
+};
+
 /**
  * ลิงก์ไปหน้า `/methodology/...` พร้อม `?lang=` ปัจจุบัน — หน้านั้นเป็นคนละ route
  * ที่ไม่ได้ mount `usePermalinkSync` จึงอ่านภาษาได้จาก query string เท่านั้น
@@ -1159,7 +1178,10 @@ export function MapLegend({
   stationSheet = null,
   cameraErrors,
   layerLoadErrors,
+  header = null,
 }: {
+  /** redesign PR 3 — การ์ดชุดของหัวข้อ วางใต้หัว legend ก่อนกลุ่มชั้น */
+  header?: ReactNode;
   layers: MapLayers;
   onToggle: (key: keyof MapLayers, value: boolean) => void;
   /** `HazardLayerDescriptor` ต่อชั้น (useLayerDescriptors) — ไม่มี = ไม่ใช่ข้อมูล */
@@ -1192,6 +1214,139 @@ export function MapLegend({
 }) {
   const nowMs = useNow();
   const { lang, t } = useLang();
+  // แถวของชั้นหนึ่ง — เนื้อเดิมทุกบรรทัด (redesign PR 3 แค่ย้ายแถวเข้ากลุ่ม) + แถวสูง ≥ 44 px บนมือถือ
+  const renderRow = (row: LayerRow) => {
+    const entry = descriptors[row.key];
+    // ชั้นพื้นที่ลุ่มต่ำเป็นอนุพันธ์ของ terrain.bin โดยตรง จึงเป็นแถวเดียว
+    // ที่ต้องบอกผลตรวจลายเซ็น และเป็นแถวเดียวที่ถูกปิดเมื่อไม่ผ่าน
+    const integrityKey = row.key === "lowland" ? INTEGRITY_NOTE[terrainIntegrity] : null;
+    // ชั้นอาคารแบบเก่า (E8.3) โหลดพลาด = ไม่มีอาคารบนแผนที่ทั้งที่สวิตช์ยัง
+    // เปิดอยู่ — ต้องบอกเหตุผล ไม่ใช่ปล่อยให้ผู้ใช้เดาว่า AOI นี้ไม่มีอาคารเลย
+    const showBuildingsError = row.key === "buildings" && buildingsError !== null;
+    // สองแถว GFM หรี่ลง (ไม่หายไป) เมื่อไม่มีฉากในหน้าต่าง / จังหวัดไม่มีฉาก /
+    // แหล่งค้าง — เหตุผลอยู่ใน FloodGfmDetails ข้างล่างเสมอ
+    const isGfmRow = row.key === "floodGfm" || row.key === "floodDepth";
+    const dimmed =
+      (isGfmRow &&
+        floodGfm !== undefined &&
+        (floodGfm.dimmed || floodGfm.missing || floodGfm.reason === "no-scene-in-window")) ||
+      // E16 B-2 — แถวแผ่นน้ำ GISTDA หรี่ตามแผ่นบนแผนที่ (แหล่งค้าง/ไม่ปกติ) พร้อมเหตุผลข้างล่าง
+      (row.key === "gistdaDepth" && gistdaDepth !== undefined && gistdaDepth.dimmed);
+    return (
+      <li key={row.key}>
+        <label
+          className={`flex min-h-11 cursor-pointer items-start gap-2 rounded-lg px-1.5 py-1 hover:bg-white/5 md:min-h-0 ${
+            dimmed ? "opacity-60" : ""
+          }`}
+        >
+          <input
+            type="checkbox"
+            checked={layers[row.key]}
+            onChange={(e) => onToggle(row.key, e.target.checked)}
+            className="mt-0.5 h-3.5 w-3.5 shrink-0 cursor-pointer accent-[var(--color-accent)]"
+          />
+          <span className="mt-0.5 flex w-6 shrink-0 items-center" aria-hidden="true">
+            {row.swatch}
+          </span>
+          <span className="min-w-0 leading-tight">
+            <span className="block text-xs text-[var(--color-fg)]">{t(row.labelKey)}</span>
+            {row.key === "cctv" ? (
+              <>
+                <span className="block text-[10px] text-[var(--color-fg-subtle)]">
+                  {t("legend.layer.cctv.note", { sources: cameraSourceNames(lang) })}
+                </span>
+                <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-[var(--color-fg-subtle)]">
+                  <span className="inline-flex items-center gap-1">
+                    <CamSwatch kind="video" />
+                    {t("legend.layer.cctv.video")}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <CamSwatch kind="still" />
+                    {t("legend.layer.cctv.still")}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <CamSwatch kind="location" />
+                    {t("legend.layer.cctv.locationOnly")}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <CamSwatch kind="video" dimmed />
+                    <CamSwatch kind="still" dimmed />
+                    {t("legend.layer.cctv.unverified")}
+                  </span>
+                </span>
+              </>
+            ) : (
+              <span className="block text-[10px] text-[var(--color-fg-subtle)]">
+                {t(row.noteKey, { km: DETAIL_TILE_ALTITUDE_GATE_M / 1000, radiusKm: SHEET_MAX_RADIUS_M / 1000 })}
+              </span>
+            )}
+            {integrityKey ? (
+              <span
+                className={`mt-0.5 block text-[10px] ${
+                  terrainIntegrity === "mismatch"
+                    ? "text-[var(--color-risk-extreme)]"
+                    : "text-[var(--color-fg-subtle)]"
+                }`}
+              >
+                {t(integrityKey)}
+              </span>
+            ) : null}
+            {row.key === "cctv" && cameraErrors
+              ? ENABLED_CAMERA_SOURCES.filter((id) => cameraErrors[id]).map((id) => (
+                  <span key={id} className="mt-0.5 block text-[10px] text-[var(--color-risk-extreme)]">
+                    {t("legend.layer.cctv.error", {
+                      source: lang === "th" ? SOURCES[id].nameTh : SOURCES[id].nameEn,
+                      error: resolveError(t, cameraErrors[id] ?? null) ?? "",
+                    })}
+                  </span>
+                ))
+              : null}
+            {(row.key === "stationSheet" || row.key === "northRoute" || row.key === "gistdaDepth") &&
+            layerLoadErrors?.[row.key] ? (
+              <span className="mt-0.5 block text-[10px] text-[var(--color-risk-extreme)]">
+                {t("legend.layer.loadFailed", { error: resolveError(t, layerLoadErrors[row.key] ?? null) ?? "" })}
+              </span>
+            ) : null}
+            {showBuildingsError ? (
+              <span className="mt-0.5 block text-[10px] text-[var(--color-risk-extreme)]">
+                {t("legend.layer.buildings.error")}
+              </span>
+            ) : null}
+            {entry ? <LayerMeta entry={entry} nowMs={nowMs} lang={lang} t={t} /> : null}
+            {entry?.secondary ? <LayerMeta entry={entry.secondary} nowMs={nowMs} lang={lang} t={t} /> : null}
+          </span>
+        </label>
+        {/* รายละเอียดของชั้นการเผชิญน้ำอยู่นอก <label> โดยตั้งใจ — ไม่งั้นการกด
+            อ่านสเกลจะไปสลับสวิตช์ของชั้นเข้าให้ */}
+        {row.key === "exposure" ? (
+          <ExposureDetails
+            exposure={exposure}
+            enabled={layers.exposure}
+            nowMs={nowMs}
+            lang={lang}
+            t={t}
+            terrainIntegrity={terrainIntegrity}
+          />
+        ) : null}
+        {row.key === "floodGfm" && floodGfm ? <FloodGfmDetails state={floodGfm} lang={lang} t={t} /> : null}
+        {row.key === "floodDepth" ? (
+          <FloodDepthDetails state={floodGfm} gfmEnabled={layers.floodGfm} lang={lang} t={t} />
+        ) : null}
+        {row.key === "gistdaDepth" && gistdaDepth ? (
+          <GistdaDepthDetails
+            state={gistdaDepth}
+            extentEnabled={layers.floodExtent}
+            enabled={layers.gistdaDepth}
+            lang={lang}
+            t={t}
+          />
+        ) : null}
+        {row.key === "stationSheet" && layers.stationSheet && stationSheet ? (
+          <StationSheetDetails info={stationSheet} lang={lang} t={t} />
+        ) : null}
+      </li>
+    );
+  };
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
@@ -1199,140 +1354,36 @@ export function MapLegend({
         <p className="text-xs font-semibold text-[var(--color-fg)]">{t("legend.title")}</p>
       </div>
 
-      <ul className="flex flex-col gap-1">
-        {LAYER_ROWS.filter((row) => row.key !== "cctv" || ENABLED_CAMERA_SOURCES.length > 0).map((row) => {
-          const entry = descriptors[row.key];
-          // ชั้นพื้นที่ลุ่มต่ำเป็นอนุพันธ์ของ terrain.bin โดยตรง จึงเป็นแถวเดียว
-          // ที่ต้องบอกผลตรวจลายเซ็น และเป็นแถวเดียวที่ถูกปิดเมื่อไม่ผ่าน
-          const integrityKey = row.key === "lowland" ? INTEGRITY_NOTE[terrainIntegrity] : null;
-          // ชั้นอาคารแบบเก่า (E8.3) โหลดพลาด = ไม่มีอาคารบนแผนที่ทั้งที่สวิตช์ยัง
-          // เปิดอยู่ — ต้องบอกเหตุผล ไม่ใช่ปล่อยให้ผู้ใช้เดาว่า AOI นี้ไม่มีอาคารเลย
-          const showBuildingsError = row.key === "buildings" && buildingsError !== null;
-          // สองแถว GFM หรี่ลง (ไม่หายไป) เมื่อไม่มีฉากในหน้าต่าง / จังหวัดไม่มีฉาก /
-          // แหล่งค้าง — เหตุผลอยู่ใน FloodGfmDetails ข้างล่างเสมอ
-          const isGfmRow = row.key === "floodGfm" || row.key === "floodDepth";
-          const dimmed =
-            (isGfmRow &&
-              floodGfm !== undefined &&
-              (floodGfm.dimmed || floodGfm.missing || floodGfm.reason === "no-scene-in-window")) ||
-            // E16 B-2 — แถวแผ่นน้ำ GISTDA หรี่ตามแผ่นบนแผนที่ (แหล่งค้าง/ไม่ปกติ) พร้อมเหตุผลข้างล่าง
-            (row.key === "gistdaDepth" && gistdaDepth !== undefined && gistdaDepth.dimmed);
-          return (
-          <li key={row.key}>
-            <label
-              className={`flex cursor-pointer items-start gap-2 rounded-lg px-1.5 py-1 hover:bg-white/5 ${
-                dimmed ? "opacity-60" : ""
-              }`}
-            >
-              <input
-                type="checkbox"
-                checked={layers[row.key]}
-                onChange={(e) => onToggle(row.key, e.target.checked)}
-                className="mt-0.5 h-3.5 w-3.5 shrink-0 cursor-pointer accent-[var(--color-accent)]"
-              />
-              <span className="mt-0.5 flex w-6 shrink-0 items-center" aria-hidden="true">
-                {row.swatch}
+      {header}
+
+      {(Object.keys(GROUP_LAYERS) as LayerGroup[]).map((group) => {
+        const rows = visibleRows.filter((row) => layerGroupOf(row.key) === group);
+        if (rows.length === 0) return null;
+        const badge = GROUP_BADGE[group];
+        return (
+          <section
+            key={group}
+            data-layer-group={group}
+            aria-labelledby={`siahra-layer-group-${group}`}
+            // กลุ่มภาพประกอบย้อมม่วงอ่อน ๆ ด้วยเฉดเดียวกับชิป "ภาพประกอบ" (`EPISTEMIC_BADGE.illustrative`)
+            className={
+              group === "illustrative"
+                ? "flex flex-col gap-1 rounded-xl bg-[#8b5cf6]/[0.07] p-1 ring-1 ring-[#8b5cf6]/25 ring-inset"
+                : "flex flex-col gap-1"
+            }
+          >
+            <h3 id={`siahra-layer-group-${group}`} className="px-1.5 pt-0.5">
+              <span
+                className={`rounded px-1.5 py-px text-[10px] font-medium ring-1 ring-inset ${badge.className}`}
+                title={badge.titleKey ? t(badge.titleKey) : undefined}
+              >
+                {t(badge.labelKey)}
               </span>
-              <span className="min-w-0 leading-tight">
-                <span className="block text-xs text-[var(--color-fg)]">{t(row.labelKey)}</span>
-                {row.key === "cctv" ? (
-                  <>
-                    <span className="block text-[10px] text-[var(--color-fg-subtle)]">
-                      {t("legend.layer.cctv.note", { sources: cameraSourceNames(lang) })}
-                    </span>
-                    <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-[var(--color-fg-subtle)]">
-                      <span className="inline-flex items-center gap-1">
-                        <CamSwatch kind="video" />
-                        {t("legend.layer.cctv.video")}
-                      </span>
-                      <span className="inline-flex items-center gap-1">
-                        <CamSwatch kind="still" />
-                        {t("legend.layer.cctv.still")}
-                      </span>
-                      <span className="inline-flex items-center gap-1">
-                        <CamSwatch kind="location" />
-                        {t("legend.layer.cctv.locationOnly")}
-                      </span>
-                      <span className="inline-flex items-center gap-1">
-                        <CamSwatch kind="video" dimmed />
-                        <CamSwatch kind="still" dimmed />
-                        {t("legend.layer.cctv.unverified")}
-                      </span>
-                    </span>
-                  </>
-                ) : (
-                  <span className="block text-[10px] text-[var(--color-fg-subtle)]">
-                    {t(row.noteKey, { km: DETAIL_TILE_ALTITUDE_GATE_M / 1000, radiusKm: SHEET_MAX_RADIUS_M / 1000 })}
-                  </span>
-                )}
-                {integrityKey ? (
-                  <span
-                    className={`mt-0.5 block text-[10px] ${
-                      terrainIntegrity === "mismatch"
-                        ? "text-[var(--color-risk-extreme)]"
-                        : "text-[var(--color-fg-subtle)]"
-                    }`}
-                  >
-                    {t(integrityKey)}
-                  </span>
-                ) : null}
-                {row.key === "cctv" && cameraErrors
-                  ? ENABLED_CAMERA_SOURCES.filter((id) => cameraErrors[id]).map((id) => (
-                      <span key={id} className="mt-0.5 block text-[10px] text-[var(--color-risk-extreme)]">
-                        {t("legend.layer.cctv.error", {
-                          source: lang === "th" ? SOURCES[id].nameTh : SOURCES[id].nameEn,
-                          error: resolveError(t, cameraErrors[id] ?? null) ?? "",
-                        })}
-                      </span>
-                    ))
-                  : null}
-                {(row.key === "stationSheet" || row.key === "northRoute" || row.key === "gistdaDepth") &&
-                layerLoadErrors?.[row.key] ? (
-                  <span className="mt-0.5 block text-[10px] text-[var(--color-risk-extreme)]">
-                    {t("legend.layer.loadFailed", { error: resolveError(t, layerLoadErrors[row.key] ?? null) ?? "" })}
-                  </span>
-                ) : null}
-                {showBuildingsError ? (
-                  <span className="mt-0.5 block text-[10px] text-[var(--color-risk-extreme)]">
-                    {t("legend.layer.buildings.error")}
-                  </span>
-                ) : null}
-                {entry ? <LayerMeta entry={entry} nowMs={nowMs} lang={lang} t={t} /> : null}
-                {entry?.secondary ? <LayerMeta entry={entry.secondary} nowMs={nowMs} lang={lang} t={t} /> : null}
-              </span>
-            </label>
-            {/* รายละเอียดของชั้นการเผชิญน้ำอยู่นอก <label> โดยตั้งใจ — ไม่งั้นการกด
-                อ่านสเกลจะไปสลับสวิตช์ของชั้นเข้าให้ */}
-            {row.key === "exposure" ? (
-              <ExposureDetails
-                exposure={exposure}
-                enabled={layers.exposure}
-                nowMs={nowMs}
-                lang={lang}
-                t={t}
-                terrainIntegrity={terrainIntegrity}
-              />
-            ) : null}
-            {row.key === "floodGfm" && floodGfm ? <FloodGfmDetails state={floodGfm} lang={lang} t={t} /> : null}
-            {row.key === "floodDepth" ? (
-              <FloodDepthDetails state={floodGfm} gfmEnabled={layers.floodGfm} lang={lang} t={t} />
-            ) : null}
-            {row.key === "gistdaDepth" && gistdaDepth ? (
-              <GistdaDepthDetails
-                state={gistdaDepth}
-                extentEnabled={layers.floodExtent}
-                enabled={layers.gistdaDepth}
-                lang={lang}
-                t={t}
-              />
-            ) : null}
-            {row.key === "stationSheet" && layers.stationSheet && stationSheet ? (
-              <StationSheetDetails info={stationSheet} lang={lang} t={t} />
-            ) : null}
-          </li>
-          );
-        })}
-      </ul>
+            </h3>
+            <ul className="flex flex-col gap-1">{rows.map(renderRow)}</ul>
+          </section>
+        );
+      })}
 
       {forecast?.atIso ? (
         <>
