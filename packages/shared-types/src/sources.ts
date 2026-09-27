@@ -29,7 +29,8 @@ export type SourceId =
   | "eox-s2cloudless"
   | "dla"
   | "dwr-cctv"
-  | "itic-cctv";
+  | "itic-cctv"
+  | "doh-cctv";
 
 export interface SourceDescriptor {
   id: SourceId;
@@ -350,6 +351,23 @@ export const SOURCES: Record<SourceId, SourceDescriptor> = {
       "วิดีโอสดและภาพนิ่งจากกล้องที่เผยแพร่ผ่านมูลนิธิสถาบันส่งเสริมการจัดการความรู้เพื่อความปลอดภัยในการเดินทาง (iTIC) — เจ้าของกล้องคือกรมทางหลวงและหน่วยงานพันธมิตรตามที่ระบุในแต่ละกล้อง; รายการกล้องจาก Longdo (camera.longdo.com) — ไม่มีหน่วยงานใดรับรองหรือมีส่วนเกี่ยวข้องกับโครงการนี้",
     // เบราว์เซอร์เล่นสตรีม/ขอภาพนิ่งจาก iTIC ตรง ๆ ทีละกล้องเมื่อผู้ใช้คลิก api ไม่เคยถาม iTIC
     // จึงไม่มีสถานะใน /api/v1/health (และต้องไม่มี) — บัญชีกล้องเป็นไฟล์คงที่จาก ETL
+    kind: "browser",
+  },
+  "doh-cctv": {
+    id: "doh-cctv",
+    nameTh: "กรมทางหลวง — กล้องทางหลวง",
+    nameEn: "Department of Highways — highway cameras",
+    agency: "กรมทางหลวง (Department of Highways — DOH)",
+    homepageUrl: "https://www.highwaytraffic.go.th/DOHWeb/home.aspx",
+    // หน้ากล้องของกรมทางหลวงไม่ได้เผยแพร่เงื่อนไขการใช้ใด (ตรวจ 2026-09-26) — ห้ามตั้งชื่อสัญญา
+    // อนุญาตขึ้นเอง บอกตามจริงว่าไม่มี — แสดงโดยให้เครดิต และถอดได้ด้วย
+    // VITE_FEATURE_CCTV_DISABLE=doh-cctv ถ้ากรมทางหลวงขอ (docs/roadmap.md §4)
+    licenseName: "ไม่ได้เผยแพร่เงื่อนไขการใช้ (ตรวจ 2026-09-26) — แสดงโดยให้เครดิตกรมทางหลวง",
+    licenseUrl: "https://www.highwaytraffic.go.th/DOHWeb/home.aspx",
+    attributionText:
+      "วิดีโอสดจากกล้องทางหลวงของกรมทางหลวง (highwaytraffic.go.th) — กรมทางหลวงไม่ได้รับรองหรือมีส่วนเกี่ยวข้องกับโครงการนี้",
+    // เบราว์เซอร์เล่น HLS จาก streaming{1,2}.highwaytraffic.go.th ตรง ๆ ทีละกล้องเมื่อผู้ใช้คลิก
+    // api ไม่เคยถาม จึงไม่มีสถานะใน /api/v1/health (และต้องไม่มี) — บัญชีกล้องเป็นไฟล์คงที่จาก ETL
     kind: "browser",
   },
 };
