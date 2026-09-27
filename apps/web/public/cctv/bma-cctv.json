@@ -1,0 +1,5859 @@
+{
+  "sourceId": "bma-cctv",
+  "builtAt": "2026-09-27T07:35:31.398Z",
+  "sourceUrl": "https://data.bangkok.go.th/api/3/action/package_show?id=bma-cctv",
+  "probedAt": null,
+  "probeVantage": null,
+  "cameras": [
+    {
+      "id": "1",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางด่วนยกระดับฝั่งปิ่นเกล้า ขาเข้า",
+      "nameEn": null,
+      "lat": 13.769933,
+      "lon": 100.48476,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-01",
+      "placeTh": "เขตบางพลัด",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "10",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางขึ้น ด่วนยกระดับฝั่งปิ่นเกล้า ขาออก",
+      "nameEn": null,
+      "lat": 13.766808,
+      "lon": 100.47082,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-10",
+      "placeTh": "เขตบางกอกน้อย",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "100",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.สุขาภิบาล 5 ตัด ซ.32 วัชรพล",
+      "nameEn": null,
+      "lat": 13.80525,
+      "lon": 100.71225,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-MB-05-01",
+      "placeTh": "เขตมีนบุรี",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "101",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.ฉลองกรุง ตัด มอเตอร์เวย์",
+      "nameEn": null,
+      "lat": 13.73201,
+      "lon": 100.78434,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-LK-01-01",
+      "placeTh": "เขตลาดกะบัง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "102",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.ร่มเกล้า ตัด ถ.เจ้าคุณทหาร แยกเจ้าคุณทหาร",
+      "nameEn": null,
+      "lat": 13.75617,
+      "lon": 100.74617,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-LK-02-01",
+      "placeTh": "เขตลาดกะบัง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "103",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.ลาดกระบัง (ทางเข้าสนามบินสุวรรณภูมิ)",
+      "nameEn": null,
+      "lat": 13.72168,
+      "lon": 100.77646,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-LK-03-01",
+      "placeTh": "เขตลาดกะบัง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "104",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.ร่มเกล้า ตัด ถ.ลาดกระบัง แยกลาดกระบัง",
+      "nameEn": null,
+      "lat": 13.7225,
+      "lon": 100.74658,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-LK-04-01",
+      "placeTh": "เขตลาดกะบัง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "105",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.ร่มเกล้า ตัด มอเตอร์เวย์ แยกต่างระดับร่มเกล้า",
+      "nameEn": null,
+      "lat": 13.73067,
+      "lon": 100.74628,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-LK-05-01",
+      "placeTh": "เขตลาดกะบัง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "106",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.ลาดกระบัง ตัด ถ.กิ่งแก้ว แยกกิ่งแก้ว",
+      "nameEn": null,
+      "lat": 13.72264,
+      "lon": 100.73957,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-LK-06-01",
+      "placeTh": "เขตลาดกะบัง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "107",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.รามคำแหง ตัด ถ.มีนพัฒนา (แยกลาดบัวขาว)",
+      "nameEn": null,
+      "lat": 13.79956,
+      "lon": 100.71557,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-LK-07-01",
+      "placeTh": "เขตลาดกะบัง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "108",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกร่มเกล้า (ถ.ร่มเกล้า ตัด ถ.รามคำแหง)",
+      "nameEn": null,
+      "lat": 13.81214,
+      "lon": 100.73678,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-LK-08-01",
+      "placeTh": "เขตลาดกะบัง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "109",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.ศรีนครินทร์ ตัด ถ.กรุงเทพกรีฑา แยกกรุงเทพกรีฑา",
+      "nameEn": null,
+      "lat": 13.75187,
+      "lon": 100.64524,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TR1-BKP-01-01",
+      "placeTh": "เขตบางกะปิ",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "11",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางขึ้น ด่วนยกระดับฝั่งปิ่นเกล้า ขาออก",
+      "nameEn": null,
+      "lat": 13.7668082,
+      "lon": 100.4708202,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-11",
+      "placeTh": "เขตบางกอกน้อย",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "110",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกแบริ่ง",
+      "nameEn": null,
+      "lat": 13.66245,
+      "lon": 100.60256,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-BN-01-01",
+      "placeTh": "เขตบางนา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "111",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.ศรีนครินทร์ ตัด ถ.บางนา ตราด",
+      "nameEn": null,
+      "lat": 13.66612,
+      "lon": 100.64437,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-BN-02-01",
+      "placeTh": "เขตบางนา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "112",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.เพชรเกษม ตัด ถ.พุทธมณฑล 3",
+      "nameEn": null,
+      "lat": 13.70716,
+      "lon": 100.36409,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-NK-01-01",
+      "placeTh": "เขตหนองแขม",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "113",
+      "sourceId": "bma-cctv",
+      "nameTh": "ซอยเพชรเกษม 81",
+      "nameEn": null,
+      "lat": 13.70561,
+      "lon": 100.34322,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-NK-02-01",
+      "placeTh": "เขตหนองแขม",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "114",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกบางขุนนนท์",
+      "nameEn": null,
+      "lat": 13.76394,
+      "lon": 100.47387,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-BN-01-01",
+      "placeTh": "เขตบางกอกน้อย",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "115",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกพานิชย์ธนฯ",
+      "nameEn": null,
+      "lat": 13.74146,
+      "lon": 100.47059,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-BN-02-01",
+      "placeTh": "เขตบางกอกน้อย",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "116",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.นราธิวาส ตัด ถ.พระราม 3",
+      "nameEn": null,
+      "lat": 13.69546,
+      "lon": 100.54674,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-YW-01-01",
+      "placeTh": "เขตยานนาวา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "117",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.พระราม 3 ตัด ถ.รัชดาภิเษก",
+      "nameEn": null,
+      "lat": 13.68585,
+      "lon": 100.52076,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-YW-02-01",
+      "placeTh": "เขตยานนาวา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "118",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.พระราม 3 ตัด ถ.วงแหวนอุสาหกรรม",
+      "nameEn": null,
+      "lat": 13.67328,
+      "lon": 100.53876,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-YW-03-01",
+      "placeTh": "เขตยานนาวา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "119",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.พระราม 3 ตัด ถ.สาธุประดิษฐ์ แยกสาธุประดิษฐ์",
+      "nameEn": null,
+      "lat": 13.67918,
+      "lon": 100.52925,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-YW-04-01",
+      "placeTh": "เขตยานนาวา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "12",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางด่วนยกระดับฝั่งปิ่นเกล้า ขาออก",
+      "nameEn": null,
+      "lat": 13.769933,
+      "lon": 100.484642,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-12",
+      "placeTh": "เขตบางกอกน้อย",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "120",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.บรมราชชนนี ตัด ถ.ทวีวัฒนา",
+      "nameEn": null,
+      "lat": 13.78823,
+      "lon": 100.33515,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-TW-01-01",
+      "placeTh": "เขตทวีวัฒนา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "121",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.ทวีวัฒนา ตัด ถ.อุทยาน",
+      "nameEn": null,
+      "lat": 13.77725,
+      "lon": 100.34022,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-TW-02-01",
+      "placeTh": "เขตทวีวัฒนา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "122",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.บรมราชชนนี ตัด ถ.พุทธมณฑล 2",
+      "nameEn": null,
+      "lat": 13.78432,
+      "lon": 100.39478,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-TW-03-01",
+      "placeTh": "เขตทวีวัฒนา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "123",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.เพชรเกษม ตัด ถ.ทวีวัฒนา",
+      "nameEn": null,
+      "lat": 13.70807,
+      "lon": 100.37338,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-TW-04-01",
+      "placeTh": "เขตทวีวัฒนา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "124",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.บรมราชชนนี ตัด ถ.พุทธมณฑล 1",
+      "nameEn": null,
+      "lat": 13.75338,
+      "lon": 100.42732,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-TC-01-01",
+      "placeTh": "เขตตลิ่งชัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "125",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.บรมราชชนนี ตัด ถ.ราชพฤกษ์",
+      "nameEn": null,
+      "lat": 13.77969,
+      "lon": 100.44289,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-TC-02-01",
+      "placeTh": "เขตตลิ่งชัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "126",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.รามอินทรา ซอยรามอินทรา 39",
+      "nameEn": null,
+      "lat": 13.85747,
+      "lon": 100.62727,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-BA-01-01",
+      "placeTh": "เขตบางเขน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "127",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกวัชรพล (ปากทาง ถ.วัชรพล ตัด ถ.รามอินทรา)",
+      "nameEn": null,
+      "lat": 13.86688,
+      "lon": 100.64654,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-BA-02-01",
+      "placeTh": "เขตบางเขน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "128",
+      "sourceId": "bma-cctv",
+      "nameTh": "หน้าสำนักงานเขตหนองจอก",
+      "nameEn": null,
+      "lat": 13.85514,
+      "lon": 100.86263,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TR1-NC-01-01",
+      "placeTh": "เขตหนองจอก",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "129",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.เชื่อมสัมพันธ์ ตัด ถ.สุวินทวงศ์",
+      "nameEn": null,
+      "lat": 13.8072,
+      "lon": 100.83775,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TR1-NC-02-01",
+      "placeTh": "เขตหนองจอก",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "13",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางด่วนยกระดับฝั่งปิ่นเกล้า ขาออก",
+      "nameEn": null,
+      "lat": 13.7699332,
+      "lon": 100.4846422,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-13",
+      "placeTh": "เขตบางกอกน้อย",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "130",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.ประดิษฐมนูญธรรม ตัด ถ.ประชาอุทิศ (1)",
+      "nameEn": null,
+      "lat": 13.76687,
+      "lon": 100.60224,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-WL-01-01",
+      "placeTh": "เขตวังทองหลาง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "131",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.ลาดพร้าว ตัด ถ.ประดิษฐ์มนูธรรม",
+      "nameEn": null,
+      "lat": 13.7862,
+      "lon": 100.60898,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-WL-02-01",
+      "placeTh": "เขตวังทองหลาง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "132",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.ประเสริฐมนูกิจ ตัด ถ.สุขาภิบาล 1 (แยกสวนน้ำ)",
+      "nameEn": null,
+      "lat": 13.81572,
+      "lon": 100.64256,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-WL-03-01",
+      "placeTh": "เขตวังทองหลาง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "133",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.ลำลูกกา ตัด ถ.พหลโยธิน",
+      "nameEn": null,
+      "lat": 13.95057,
+      "lon": 100.62218,
+      "coordSource": "upstream",
+      "provinceCode": "13",
+      "owner": null,
+      "code": "TF1-DM-01-01",
+      "placeTh": "เขตดอนเมือง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "134",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.สุขุมวิท 77 ตัด ถ.กาญจนาภิเษก (วงแหวนรอบนอก)",
+      "nameEn": null,
+      "lat": 13.72179,
+      "lon": 100.70044,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-PW-01-01",
+      "placeTh": "เขตประเวศ",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "135",
+      "sourceId": "bma-cctv",
+      "nameTh": "แนวถนนจตุรทิศ (1) ระบายน้ำ",
+      "nameEn": null,
+      "lat": 13.75421,
+      "lon": 100.55874,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-RW-01-01",
+      "placeTh": "เขตราชเทวี",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "136",
+      "sourceId": "bma-cctv",
+      "nameTh": "แนวถนนจตุรทิศ (2) พระราม 9",
+      "nameEn": null,
+      "lat": 13.75476,
+      "lon": 100.57921,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-RW-02-01",
+      "placeTh": "เขตราชเทวี",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "137",
+      "sourceId": "bma-cctv",
+      "nameTh": "แนวถนนจตุรทิศ (3) KPN",
+      "nameEn": null,
+      "lat": 13.75389,
+      "lon": 100.58605,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-RW-03-01",
+      "placeTh": "เขตราชเทวี",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "138",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.ราชปรารภ ตัด ถ.ศรีอยุธยา แยกหมอเหล็ง",
+      "nameEn": null,
+      "lat": 13.75613,
+      "lon": 100.54233,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-RW-04-01",
+      "placeTh": "เขตราชเทวี",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "139",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.พระราม 3 ตัด ถ.เจริญกรุง แยกถนนตก",
+      "nameEn": null,
+      "lat": 13.69733,
+      "lon": 100.49711,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-BL-01-01",
+      "placeTh": "เขตบางคอแหลม",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "14",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางด่วนยกระดับฝั่งปิ่นเกล้า ช่วงทางลงศิริราช",
+      "nameEn": null,
+      "lat": 13.767693,
+      "lon": 100.484972,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-14",
+      "placeTh": "เขตบางกอกน้อย",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "140",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.พระราม 2 ตัด (หน้าบริเวณโรงพยาบาลบางมด)",
+      "nameEn": null,
+      "lat": 13.67266,
+      "lon": 100.45635,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-BL-02-01",
+      "placeTh": "เขตบางคอแหลม",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "141",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.พระราม 2 ตัด ถ.บางขุนเทียน",
+      "nameEn": null,
+      "lat": 13.65635,
+      "lon": 100.4301,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-BL-03-01",
+      "placeTh": "เขตบางคอแหลม",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "142",
+      "sourceId": "bma-cctv",
+      "nameTh": "ต่างระดับราชพฤกษ์ ตัด ถ.กัลปพฤกษ์",
+      "nameEn": null,
+      "lat": 13.71266,
+      "lon": 100.45928,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-CT-01-01",
+      "placeTh": "เขตจอมทอง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "143",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.จอมทอง ตัด ถ.สมเด็จพระเจ้าตากสิน (ย้ายมาหน้าเขตจอมทอง)",
+      "nameEn": null,
+      "lat": 13.68064,
+      "lon": 100.47173,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-CT-02-01",
+      "placeTh": "เขตจอมทอง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "144",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.เอกชัย ตัด ถ.บางขุนเทียน แยกบางขุนเทียน",
+      "nameEn": null,
+      "lat": 13.67367,
+      "lon": 100.42552,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-BB-01-01",
+      "placeTh": "เขตบางบอน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "145",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.เอกชัย ตัด ถ.กาญจนาภิเษก (วงแหวนรอบนอก)",
+      "nameEn": null,
+      "lat": 13.66318,
+      "lon": 100.40585,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-BB-02-01",
+      "placeTh": "เขตบางบอน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "146",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.กัลปพฤกษ์ ตัด ถ.บางบอน 1 (แยกบางพฤกษ์)",
+      "nameEn": null,
+      "lat": 13.68661,
+      "lon": 100.42607,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-BB-03-01",
+      "placeTh": "เขตบางบอน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "147",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.กัลปพฤกษ์ ตัด ถ.กาญจนาภิเษก (วงแหวนรอบนอก)",
+      "nameEn": null,
+      "lat": 13.68212,
+      "lon": 100.40735,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-BE-01-01",
+      "placeTh": "เขตบางแค",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "148",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.เพชรเกษม ตัด ถ.พุทธมณฑล 2",
+      "nameEn": null,
+      "lat": 13.70972,
+      "lon": 100.39577,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-BE-02-01",
+      "placeTh": "เขตบางแค",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "149",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.เพชรเกษม ตัด ถ.พุทธมณฑล 1",
+      "nameEn": null,
+      "lat": 13.71249,
+      "lon": 100.42836,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-PC-01-01",
+      "placeTh": "เขตภาษีเจริญ",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "15",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางด่วนยกระดับฝั่งปิ่นเกล้า ช่วงทางลงศิริราช",
+      "nameEn": null,
+      "lat": 13.7676932,
+      "lon": 100.4849722,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-15",
+      "placeTh": "เขตบางกอกน้อย",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "150",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.เพชรเกษม ตัด ถ.ราชพฤกษ์",
+      "nameEn": null,
+      "lat": 13.72104,
+      "lon": 100.45824,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-PC-02-01",
+      "placeTh": "เขตภาษีเจริญ",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "151",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกดินแดง",
+      "nameEn": null,
+      "lat": 13.763933,
+      "lon": 100.547847,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-DD-01-01",
+      "placeTh": "เขตดินแดง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "152",
+      "sourceId": "bma-cctv",
+      "nameTh": "อนุสาวรีย์ชัยสมรภูมิ",
+      "nameEn": null,
+      "lat": 13.764712,
+      "lon": 100.539239,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-RW-01-01",
+      "placeTh": "เขตราชเทวี",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "153",
+      "sourceId": "bma-cctv",
+      "nameTh": "ร.พ.พญาไท 2",
+      "nameEn": null,
+      "lat": 13.769826,
+      "lon": 100.540925,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-PY-01-01",
+      "placeTh": "เขตพญาไท",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "154",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกลาดพร้าว",
+      "nameEn": null,
+      "lat": 13.808516,
+      "lon": 100.557552,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-JJ-01-01",
+      "placeTh": "เขตจตุจักร",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "155",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกจันทรเกษม",
+      "nameEn": null,
+      "lat": 13.805504,
+      "lon": 100.574799,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-JJ-02-01",
+      "placeTh": "เขตจตุจักร",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "156",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกศรีอยุธยา",
+      "nameEn": null,
+      "lat": 13.761596,
+      "lon": 100.525917,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-RW-02-01",
+      "placeTh": "เขตราชเทวี",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "157",
+      "sourceId": "bma-cctv",
+      "nameTh": "พระรูป ร.5",
+      "nameEn": null,
+      "lat": 13.768064,
+      "lon": 100.511345,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-DS-01-01",
+      "placeTh": "เขตดุสิต",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "158",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกซังฮี้",
+      "nameEn": null,
+      "lat": 13.778269,
+      "lon": 100.508433,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-DS-02-01",
+      "placeTh": "เขตดุสิต",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "159",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกบางพลัด",
+      "nameEn": null,
+      "lat": 13.784756,
+      "lon": 100.494567,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-BP-01-01",
+      "placeTh": "เขตบางพลัด",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "16",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางด่วนยกระดับฝั่งปิ่นเกล้า ช่วงทางลงศิริราช",
+      "nameEn": null,
+      "lat": 13.7676934,
+      "lon": 100.4849724,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-16",
+      "placeTh": "เขตบางกอกน้อย",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "160",
+      "sourceId": "bma-cctv",
+      "nameTh": "ผ่านพิภพลีลา",
+      "nameEn": null,
+      "lat": 13.757213,
+      "lon": 100.495215,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-PN-01-01",
+      "placeTh": "เขตพระนคร",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "161",
+      "sourceId": "bma-cctv",
+      "nameTh": "หลักเมือง",
+      "nameEn": null,
+      "lat": 13.752404,
+      "lon": 100.493634,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-PN-02-01",
+      "placeTh": "เขตพระนคร",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "162",
+      "sourceId": "bma-cctv",
+      "nameTh": "ป้อมมหากาฬ",
+      "nameEn": null,
+      "lat": 13.75604,
+      "lon": 100.505263,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-PN-03-01",
+      "placeTh": "เขตพระนคร",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "163",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกเอส เอ บี",
+      "nameEn": null,
+      "lat": 13.745634,
+      "lon": 100.505705,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-PP-01-01",
+      "placeTh": "เขตป้อมปราบศัตรูพ่าย",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "164",
+      "sourceId": "bma-cctv",
+      "nameTh": "สาทร",
+      "nameEn": null,
+      "lat": 13.718427,
+      "lon": 100.519354,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-BR-01-01",
+      "placeTh": "เขตบางรัก",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "165",
+      "sourceId": "bma-cctv",
+      "nameTh": "วงเวียนใหญ่",
+      "nameEn": null,
+      "lat": 13.726388,
+      "lon": 100.492132,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-KS-01-01",
+      "placeTh": "เขตคลองสาน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "166",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกมไหสวรรย์",
+      "nameEn": null,
+      "lat": 13.704617,
+      "lon": 100.485581,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-TR-01-01",
+      "placeTh": "เขตธนบุรี",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "167",
+      "sourceId": "bma-cctv",
+      "nameTh": "สะพานควาย",
+      "nameEn": null,
+      "lat": 13.789851,
+      "lon": 100.548176,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-PY-02-01",
+      "placeTh": "เขตพญาไท",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "168",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกโชคชัย 4",
+      "nameEn": null,
+      "lat": 13.795003,
+      "lon": 100.593677,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-WL-01-01",
+      "placeTh": "เขตวังทองหลาง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "169",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกเกษตร",
+      "nameEn": null,
+      "lat": 13.83979,
+      "lon": 100.57565,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-JJ-03-01",
+      "placeTh": "เขตจตุจักร",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "17",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางขึ้นสะพานพระราม 8",
+      "nameEn": null,
+      "lat": 13.76962,
+      "lon": 100.495982,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-17",
+      "placeTh": "เขตบางพลัด",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "170",
+      "sourceId": "bma-cctv",
+      "nameTh": "วงเวียนหลักสี่",
+      "nameEn": null,
+      "lat": 13.875586,
+      "lon": 100.596491,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-BA-01-01",
+      "placeTh": "เขตบางเขน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "171",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกหลักสี่",
+      "nameEn": null,
+      "lat": 13.884191,
+      "lon": 100.581585,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-LS-01-01",
+      "placeTh": "เขตหลักสี่",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "172",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกบางเขน",
+      "nameEn": null,
+      "lat": 13.846478,
+      "lon": 100.56215,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-JJ-04-01",
+      "placeTh": "เขตจตุจักร",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "173",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกประชานุกูล",
+      "nameEn": null,
+      "lat": 13.830553,
+      "lon": 100.539072,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-BS-01-01",
+      "placeTh": "เขตบางซื่อ",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "174",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกประชาชื่น",
+      "nameEn": null,
+      "lat": 13.805594,
+      "lon": 100.533172,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-BS-02-01",
+      "placeTh": "เขตบางซื่อ",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "175",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกบางโพ",
+      "nameEn": null,
+      "lat": 13.806418,
+      "lon": 100.521537,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-BS-03-01",
+      "placeTh": "เขตบางซื่อ",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "176",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกสะพานแดง",
+      "nameEn": null,
+      "lat": 13.793422,
+      "lon": 100.529958,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-DS-03-01",
+      "placeTh": "เขตดุสิต",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "177",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกเกียกกาย",
+      "nameEn": null,
+      "lat": 13.797144,
+      "lon": 100.521066,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-DS-04-01",
+      "placeTh": "เขตดุสิต",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "178",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกประดิพัทธ",
+      "nameEn": null,
+      "lat": 13.791922,
+      "lon": 100.537838,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-PY-03-01",
+      "placeTh": "เขตพญาไท",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "179",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกสุทธิสาร",
+      "nameEn": null,
+      "lat": 13.789165,
+      "lon": 100.56197,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-DD-02-01",
+      "placeTh": "เขตดินแดง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "18",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางขึ้นสะพานพระราม 8",
+      "nameEn": null,
+      "lat": 13.7696202,
+      "lon": 100.4959822,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-18",
+      "placeTh": "เขตบางพลัด",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "180",
+      "sourceId": "bma-cctv",
+      "nameTh": "บางกะปิ",
+      "nameEn": null,
+      "lat": 13.766476,
+      "lon": 100.647673,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-KP-01-01",
+      "placeTh": "เขตบางกะปิ",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "181",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกลำสาลี",
+      "nameEn": null,
+      "lat": 13.762843,
+      "lon": 100.645466,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-KP-02-01",
+      "placeTh": "เขตบางกะปิ",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "182",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกพัฒนาการ",
+      "nameEn": null,
+      "lat": 13.735159,
+      "lon": 100.641326,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-SL-01-01",
+      "placeTh": "เขตสวนหลวง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "183",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกสวนหลวง",
+      "nameEn": null,
+      "lat": 13.712597,
+      "lon": 100.644089,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-SL-02-01",
+      "placeTh": "เขตสวนหลวง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "184",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกบางนา",
+      "nameEn": null,
+      "lat": 13.673713,
+      "lon": 100.60714,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-BN-01-01",
+      "placeTh": "เขตบางนา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "185",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกพระโขนง",
+      "nameEn": null,
+      "lat": 13.71305,
+      "lon": 100.59411,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-PK-01-01",
+      "placeTh": "เขตพระโขนง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "186",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกเอกมัย-สุขุม",
+      "nameEn": null,
+      "lat": 13.719923,
+      "lon": 100.584384,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-WT-01-01",
+      "placeTh": "เขตวัฒนา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "187",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกคลองตัน",
+      "nameEn": null,
+      "lat": 13.74221,
+      "lon": 100.601166,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-SL-03-01",
+      "placeTh": "เขตสวนหลวง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "188",
+      "sourceId": "bma-cctv",
+      "nameTh": "รามคำแหง-พระราม 9",
+      "nameEn": null,
+      "lat": 13.747605,
+      "lon": 100.605913,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-KP-03-01",
+      "placeTh": "เขตบางกะปิ",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "189",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกมหาดไทย",
+      "nameEn": null,
+      "lat": 13.760609,
+      "lon": 100.624671,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-KP-04-01",
+      "placeTh": "เขตบางกะปิ",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "19",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางขึ้นสะพานพระราม 8",
+      "nameEn": null,
+      "lat": 13.7696204,
+      "lon": 100.4959824,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-19",
+      "placeTh": "เขตบางพลัด",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "190",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกอโศก-เพชร",
+      "nameEn": null,
+      "lat": 13.749041,
+      "lon": 100.563519,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-RW-03-01",
+      "placeTh": "เขตราชเทวี",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "191",
+      "sourceId": "bma-cctv",
+      "nameTh": "ใต้ด่วนเพชร",
+      "nameEn": null,
+      "lat": 13.749672,
+      "lon": 100.548582,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-RW-04-01",
+      "placeTh": "เขตราชเทวี",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "192",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกประตูน้ำ",
+      "nameEn": null,
+      "lat": 13.75007,
+      "lon": 100.541106,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-RW-05-01",
+      "placeTh": "เขตราชเทวี",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "193",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกราชประสงค์",
+      "nameEn": null,
+      "lat": 13.744406,
+      "lon": 100.539974,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-PT-01-01",
+      "placeTh": "เขตปทุมวัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "194",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกปทุมวัน",
+      "nameEn": null,
+      "lat": 13.746275,
+      "lon": 100.530922,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-PT-02-01",
+      "placeTh": "เขตปทุมวัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "195",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกพงษ์พระราม",
+      "nameEn": null,
+      "lat": 13.747899,
+      "lon": 100.52075,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-PT-03-01",
+      "placeTh": "เขตปทุมวัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "196",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกยมราช",
+      "nameEn": null,
+      "lat": 13.757264,
+      "lon": 100.520476,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-DS-05-01",
+      "placeTh": "เขตดุสิต",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "197",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกตึกชัย",
+      "nameEn": null,
+      "lat": 13.769445,
+      "lon": 100.528637,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-RW-06-01",
+      "placeTh": "เขตราชเทวี",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "198",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกพานิช",
+      "nameEn": null,
+      "lat": 13.763211,
+      "lon": 100.513451,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-DS-06-01",
+      "placeTh": "เขตดุสิต",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "199",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกสิรินธร",
+      "nameEn": null,
+      "lat": 13.78773,
+      "lon": 100.470473,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-BP-02-01",
+      "placeTh": "เขตบางพลัด",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางด่วนยกระดับฝั่งปิ่นเกล้า ขาเข้า",
+      "nameEn": null,
+      "lat": 13.7699332,
+      "lon": 100.484762,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-02",
+      "placeTh": "เขตบางพลัด",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "20",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางขึ้นสะพานพระราม 8",
+      "nameEn": null,
+      "lat": 13.7696206,
+      "lon": 100.4959826,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-20",
+      "placeTh": "เขตบางพลัด",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "200",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกบรมราชชนนี",
+      "nameEn": null,
+      "lat": 13.774146,
+      "lon": 100.48174,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-BP-03-01",
+      "placeTh": "เขตบางพลัด",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "201",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกหัวลำโพง",
+      "nameEn": null,
+      "lat": 13.737883,
+      "lon": 100.516287,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-PT-04-01",
+      "placeTh": "เขตปทุมวัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "202",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกสามย่าน",
+      "nameEn": null,
+      "lat": 13.732965,
+      "lon": 100.528981,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-PT-05-01",
+      "placeTh": "เขตปทุมวัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "203",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกศาลาแดง",
+      "nameEn": null,
+      "lat": 13.729291,
+      "lon": 100.536727,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-PT-06-01",
+      "placeTh": "เขตปทุมวัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "204",
+      "sourceId": "bma-cctv",
+      "nameTh": "รัชดา-พระราม 4",
+      "nameEn": null,
+      "lat": 13.72043,
+      "lon": 100.558976,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-KT-01-01",
+      "placeTh": "เขตคลองเตย",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "205",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกบางรัก",
+      "nameEn": null,
+      "lat": 13.722125,
+      "lon": 100.516657,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-BR-02-01",
+      "placeTh": "เขตบางรัก",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "206",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกถนนตก",
+      "nameEn": null,
+      "lat": 13.697111,
+      "lon": 100.496872,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-KL-01-01",
+      "placeTh": "เขตบางคอแหลม",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "207",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกท่าพระ",
+      "nameEn": null,
+      "lat": 13.729599,
+      "lon": 100.474266,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-KY-01-01",
+      "placeTh": "เขตบางกอกใหญ่",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "208",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกไฟฉาย",
+      "nameEn": null,
+      "lat": 13.754855,
+      "lon": 100.469487,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-KN-01-01",
+      "placeTh": "เขตบางกอกน้อย",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "209",
+      "sourceId": "bma-cctv",
+      "nameTh": "เพชรเกษม-บางแค",
+      "nameEn": null,
+      "lat": 13.711588,
+      "lon": 100.420938,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-BE-01-01",
+      "placeTh": "เขตบางแค",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "21",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัดถนน จรัญสนิทวงศ์ ขาเข้า",
+      "nameEn": null,
+      "lat": 13.773388,
+      "lon": 100.481916,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-21",
+      "placeTh": "เขตบางพลัด",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "210",
+      "sourceId": "bma-cctv",
+      "nameTh": "ด่วนสุขสวัสดิ์",
+      "nameEn": null,
+      "lat": 13.672022,
+      "lon": 100.508293,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-RN-01-01",
+      "placeTh": "เขตราษฎร์บูรณะ",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "211",
+      "sourceId": "bma-cctv",
+      "nameTh": "ข้าวสาร",
+      "nameEn": null,
+      "lat": 13.759709,
+      "lon": 100.495641,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-PN-04-01",
+      "placeTh": "เขตพระนคร",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "212",
+      "sourceId": "bma-cctv",
+      "nameTh": "อุโมงค์ทางลอดท่าพระ",
+      "nameEn": null,
+      "lat": 13.728484,
+      "lon": 100.474631,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-KY-02-01",
+      "placeTh": "เขตบางกอกใหญ่",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "213",
+      "sourceId": "bma-cctv",
+      "nameTh": "อุโมงค์ทางลอดบางพลัด",
+      "nameEn": null,
+      "lat": 13.784348,
+      "lon": 100.494117,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-BP-04-01",
+      "placeTh": "เขตบางพลัด",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "214",
+      "sourceId": "bma-cctv",
+      "nameTh": "อุโมงค์ทางลอดพระราม 9",
+      "nameEn": null,
+      "lat": 13.741959,
+      "lon": 100.615924,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-SL-04-01",
+      "placeTh": "เขตสวนหลวง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "215",
+      "sourceId": "bma-cctv",
+      "nameTh": "สะพานพระราม 8",
+      "nameEn": null,
+      "lat": 13.7705,
+      "lon": 100.493843,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-BP-05-01",
+      "placeTh": "เขตบางพลัด",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "216",
+      "sourceId": "bma-cctv",
+      "nameTh": "วงเวียนใหญ่",
+      "nameEn": null,
+      "lat": 13.725476,
+      "lon": 100.493052,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-KS-02-01",
+      "placeTh": "เขตคลองสาน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "217",
+      "sourceId": "bma-cctv",
+      "nameTh": "อุโมงค์ลาดปลาเค้า",
+      "nameEn": null,
+      "lat": 13.859158,
+      "lon": 100.587127,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-BA-02-01",
+      "placeTh": "เขตบางเขน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "218",
+      "sourceId": "bma-cctv",
+      "nameTh": "สะพานพระราม 3",
+      "nameEn": null,
+      "lat": 13.701191,
+      "lon": 100.492527,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-KL-02-01",
+      "placeTh": "เขตบางคอแหลม",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "219",
+      "sourceId": "bma-cctv",
+      "nameTh": "พระราม 9",
+      "nameEn": null,
+      "lat": 13.755908,
+      "lon": 100.56477,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HK-01-01",
+      "placeTh": "เขตห้วยขวาง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "22",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัดถนน จรัญสนิทวงศ์ ขาเข้า",
+      "nameEn": null,
+      "lat": 13.7733882,
+      "lon": 100.4819162,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-22",
+      "placeTh": "เขตบางพลัด",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "220",
+      "sourceId": "bma-cctv",
+      "nameTh": "ประชาสงเคราะห์",
+      "nameEn": null,
+      "lat": 13.760548,
+      "lon": 100.554969,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-DD-03-01",
+      "placeTh": "เขตดินแดง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "221",
+      "sourceId": "bma-cctv",
+      "nameTh": "อรุณอัมรินทร์",
+      "nameEn": null,
+      "lat": 13.76854,
+      "lon": 100.48599,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-BP-06-01",
+      "placeTh": "เขตบางพลัด",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "222",
+      "sourceId": "bma-cctv",
+      "nameTh": "กำแพงเพชร 3",
+      "nameEn": null,
+      "lat": 13.814556,
+      "lon": 100.558941,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-JJ-05-01",
+      "placeTh": "เขตจตุจักร",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "223",
+      "sourceId": "bma-cctv",
+      "nameTh": "แจ้งวัฒนะ 14",
+      "nameEn": null,
+      "lat": 13.893072,
+      "lon": 100.560902,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-LS-02-01",
+      "placeTh": "เขตหลักสี่",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "224",
+      "sourceId": "bma-cctv",
+      "nameTh": "ประชาสงเคราะห์ 24",
+      "nameEn": null,
+      "lat": 13.775546,
+      "lon": 100.563896,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-DD-04-01",
+      "placeTh": "เขตดินแดง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "225",
+      "sourceId": "bma-cctv",
+      "nameTh": "วิชัยยุทธ",
+      "nameEn": null,
+      "lat": 13.780067,
+      "lon": 100.533104,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-DS-07-01",
+      "placeTh": "เขตดุสิต",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "226",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกสะพานควาย",
+      "nameEn": null,
+      "lat": 13.789401,
+      "lon": 100.548146,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-PY-04-01",
+      "placeTh": "เขตพญาไท",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "227",
+      "sourceId": "bma-cctv",
+      "nameTh": "สนามเป้า",
+      "nameEn": null,
+      "lat": 13.771665,
+      "lon": 100.541672,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-PY-05-01",
+      "placeTh": "เขตพญาไท",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "228",
+      "sourceId": "bma-cctv",
+      "nameTh": "ซีคอนสแควร์",
+      "nameEn": null,
+      "lat": 13.694824,
+      "lon": 100.64738,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-SL-05-01",
+      "placeTh": "เขตสวนหลวง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "229",
+      "sourceId": "bma-cctv",
+      "nameTh": "สุขุมวิท 55",
+      "nameEn": null,
+      "lat": 13.723474,
+      "lon": 100.579477,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-KT-02-01",
+      "placeTh": "เขตคลองเตย",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "23",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัดถนน จรัญสนิทวงศ์ ขาเข้า",
+      "nameEn": null,
+      "lat": 13.7733884,
+      "lon": 100.4819164,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-23",
+      "placeTh": "เขตบางพลัด",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "230",
+      "sourceId": "bma-cctv",
+      "nameTh": "สุขุมวิท 62",
+      "nameEn": null,
+      "lat": 13.695807,
+      "lon": 100.605936,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-PK-02-01",
+      "placeTh": "เขตพระโขนง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "231",
+      "sourceId": "bma-cctv",
+      "nameTh": "หน้าม.รามคำแหง",
+      "nameEn": null,
+      "lat": 13.759256,
+      "lon": 100.617943,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-KP-05-01",
+      "placeTh": "เขตบางกะปิ",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "232",
+      "sourceId": "bma-cctv",
+      "nameTh": "แม็คโครบางกะปิ",
+      "nameEn": null,
+      "lat": 13.769025,
+      "lon": 100.640136,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-KP-06-01",
+      "placeTh": "เขตบางกะปิ",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "233",
+      "sourceId": "bma-cctv",
+      "nameTh": "คลองบางกะปิ",
+      "nameEn": null,
+      "lat": 13.748268,
+      "lon": 100.569294,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-WT-02-01",
+      "placeTh": "เขตวัฒนา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "234",
+      "sourceId": "bma-cctv",
+      "nameTh": "สวนพลู 1(ศรีไทย)",
+      "nameEn": null,
+      "lat": 13.722626,
+      "lon": 100.536955,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-BR-03-01",
+      "placeTh": "เขตบางรัก",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "235",
+      "sourceId": "bma-cctv",
+      "nameTh": "สวนพลู 2(บ้านเลขที่460)",
+      "nameEn": null,
+      "lat": 13.720218,
+      "lon": 100.537919,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-BR-04-01",
+      "placeTh": "เขตบางรัก",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "236",
+      "sourceId": "bma-cctv",
+      "nameTh": "หน้าสนามกีฬาแห่งชาติ",
+      "nameEn": null,
+      "lat": 13.746499,
+      "lon": 100.528581,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-PT-07-01",
+      "placeTh": "เขตปทุมวัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "237",
+      "sourceId": "bma-cctv",
+      "nameTh": "เซนต์หลุยส์ 3",
+      "nameEn": null,
+      "lat": 13.706289,
+      "lon": 100.526804,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-ST-01-01",
+      "placeTh": "เขตสาธร",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "238",
+      "sourceId": "bma-cctv",
+      "nameTh": "วงแหวนเพชรเกษม",
+      "nameEn": null,
+      "lat": 13.710375,
+      "lon": 100.403509,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-BE-02-01",
+      "placeTh": "เขตบางแค",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "24",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัดถนน จรัญสนิทวงศ์ ขาออก",
+      "nameEn": null,
+      "lat": 13.773268,
+      "lon": 100.481836,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-24",
+      "placeTh": "เขตบางกอกน้อย",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "25",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัดถนน จรัญสนิทวงศ์ ขาออก",
+      "nameEn": null,
+      "lat": 13.7732682,
+      "lon": 100.4818362,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-25",
+      "placeTh": "เขตบางกอกน้อย",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "26",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัดถนน จรัญสนิทวงศ์ ขาออก",
+      "nameEn": null,
+      "lat": 13.7732684,
+      "lon": 100.4818364,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-26",
+      "placeTh": "เขตบางกอกน้อย",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "27",
+      "sourceId": "bma-cctv",
+      "nameTh": "หน้ากระทรวงวัฒนะธรรม",
+      "nameEn": null,
+      "lat": 13.782696,
+      "lon": 100.47317,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-27",
+      "placeTh": "เขตบางพลัด",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "28",
+      "sourceId": "bma-cctv",
+      "nameTh": "หน้ากระทรวงวัฒนะธรรม",
+      "nameEn": null,
+      "lat": 13.7826962,
+      "lon": 100.473172,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-28",
+      "placeTh": "เขตบางพลัด",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "29",
+      "sourceId": "bma-cctv",
+      "nameTh": "หน้าห้างเซ็นทรัลปิ่นเกล้า",
+      "nameEn": null,
+      "lat": 13.778473,
+      "lon": 100.476946,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-29",
+      "placeTh": "เขตบางกอกน้อย",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางด่วนยกระดับฝั่งปิ่นเกล้า ช่วงทางลง ถนนพระรามที่ 8 ขาออก",
+      "nameEn": null,
+      "lat": 13.769281,
+      "lon": 100.486376,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-03",
+      "placeTh": "เขตบางพลัด",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "30",
+      "sourceId": "bma-cctv",
+      "nameTh": "หน้าห้างเซ็นทรัลปิ่นเกล้า",
+      "nameEn": null,
+      "lat": 13.7784732,
+      "lon": 100.4769462,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-30",
+      "placeTh": "เขตบางกอกน้อย",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "31",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางลง ถนนศิรินธร",
+      "nameEn": null,
+      "lat": 13.786906,
+      "lon": 100.469155,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-31",
+      "placeTh": "เขตบางพลัด",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "32",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางลง ถนนศิรินธร",
+      "nameEn": null,
+      "lat": 13.7869062,
+      "lon": 100.4691552,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-32",
+      "placeTh": "เขตบางพลัด",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "35",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางลงตลิ่งชันฝั่ง ขาเข้า",
+      "nameEn": null,
+      "lat": 13.786898,
+      "lon": 100.465867,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-35",
+      "placeTh": "เขตตลิ่งชัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "36",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางลงตลิ่งชันฝั่ง ขาเข้า",
+      "nameEn": null,
+      "lat": 13.7868982,
+      "lon": 100.4658672,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-36",
+      "placeTh": "เขตตลิ่งชัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "37",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางลงตลิ่งชันฝั่ง ขาเข้า",
+      "nameEn": null,
+      "lat": 13.7868984,
+      "lon": 100.4658674,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-37",
+      "placeTh": "เขตตลิ่งชัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "38",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางลงตลิ่งชันฝั่ง ขาเข้า",
+      "nameEn": null,
+      "lat": 13.7868986,
+      "lon": 100.4658676,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-38",
+      "placeTh": "เขตตลิ่งชัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "39",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางลงตลิ่งชันฝั่ง ขาออก",
+      "nameEn": null,
+      "lat": 13.78657,
+      "lon": 100.465224,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-39",
+      "placeTh": "เขตตลิ่งชัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางด่วนยกระดับฝั่งปิ่นเกล้า ช่วงทางลง ถนนพระรามที่ 8 ขาออก",
+      "nameEn": null,
+      "lat": 13.7692812,
+      "lon": 100.4863762,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-04",
+      "placeTh": "เขตบางพลัด",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "40",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางลงตลิ่งชันฝั่ง ขาออก",
+      "nameEn": null,
+      "lat": 13.7865702,
+      "lon": 100.4652242,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-40",
+      "placeTh": "เขตตลิ่งชัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "41",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางลงตลิ่งชันฝั่ง ขาออก",
+      "nameEn": null,
+      "lat": 13.7865704,
+      "lon": 100.4652244,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-41",
+      "placeTh": "เขตตลิ่งชัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "42",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางลงตลิ่งชันฝั่ง ขาออก",
+      "nameEn": null,
+      "lat": 13.7865706,
+      "lon": 100.4652246,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-42",
+      "placeTh": "เขตตลิ่งชัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "43",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัดถนนราชพฤกษ์ ฝั่งขาเข้า",
+      "nameEn": null,
+      "lat": 13.780201,
+      "lon": 100.442918,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-43",
+      "placeTh": "เขตตลิ่งชัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "44",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัดถนนราชพฤกษ์ ฝั่งขาเข้า",
+      "nameEn": null,
+      "lat": 13.7802012,
+      "lon": 100.4429182,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-44",
+      "placeTh": "เขตตลิ่งชัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "45",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัดถนนราชพฤกษ์ ฝั่งขาเข้า",
+      "nameEn": null,
+      "lat": 13.7802014,
+      "lon": 100.4429184,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-45",
+      "placeTh": "เขตตลิ่งชัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "46",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัดถนนราชพฤกษ์ ฝั่งขาออก",
+      "nameEn": null,
+      "lat": 13.7801,
+      "lon": 100.44294,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-46",
+      "placeTh": "เขตตลิ่งชัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "47",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัดถนนราชพฤกษ์ ฝั่งขาออก",
+      "nameEn": null,
+      "lat": 13.7801002,
+      "lon": 100.4429402,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-47",
+      "placeTh": "เขตตลิ่งชัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "48",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัดถนนราชพฤกษ์ ฝั่งขาออก",
+      "nameEn": null,
+      "lat": 13.7801004,
+      "lon": 100.4429404,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-48",
+      "placeTh": "เขตตลิ่งชัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "49",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัดถนนพุทธมณฑลสาย1 ฝั่งขาออก",
+      "nameEn": null,
+      "lat": 13.781245,
+      "lon": 100.426544,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-49",
+      "placeTh": "เขตตลิ่งชัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางด่วนยกระดับฝั่งปิ่นเกล้า ช่วงทางลง ถนนพระรามที่ 8 ขาออก",
+      "nameEn": null,
+      "lat": 13.7692814,
+      "lon": 100.4863764,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-05",
+      "placeTh": "เขตบางพลัด",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "50",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัดถนนพุทธมณฑลสาย1 ฝั่งขาออก",
+      "nameEn": null,
+      "lat": 13.7812452,
+      "lon": 100.4265442,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-50",
+      "placeTh": "เขตตลิ่งชัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "51",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัดถนนพุทธมณฑลสาย1 ฝั่งขาออก",
+      "nameEn": null,
+      "lat": 13.7812454,
+      "lon": 100.4265444,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-51",
+      "placeTh": "เขตตลิ่งชัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "52",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัถนนพุทธมณฑลสาย1 ฝั่งขาเข้า",
+      "nameEn": null,
+      "lat": 13.781347,
+      "lon": 100.426536,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-52",
+      "placeTh": "เขตตลิ่งชัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "53",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัถนนพุทธมณฑลสาย1 ฝั่งขาเข้า",
+      "nameEn": null,
+      "lat": 13.7813472,
+      "lon": 100.4265362,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-53",
+      "placeTh": "เขตตลิ่งชัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "54",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัถนนพุทธมณฑลสาย1 ฝั่งขาเข้า",
+      "nameEn": null,
+      "lat": 13.7813474,
+      "lon": 100.4265364,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-54",
+      "placeTh": "เขตตลิ่งชัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "55",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางขึ้นถนนกาญจนาภิเษก ฝั่งขาเข้า",
+      "nameEn": null,
+      "lat": 13.781739,
+      "lon": 100.423452,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-55",
+      "placeTh": "เขตตลิ่งชัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "56",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางขึ้นถนนกาญจนาภิเษก ฝั่งขาเข้า",
+      "nameEn": null,
+      "lat": 13.7817392,
+      "lon": 100.4234522,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-56",
+      "placeTh": "เขตตลิ่งชัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "59",
+      "sourceId": "bma-cctv",
+      "nameTh": "หน้าขนส่งสายใต้ใหม่ ฝั่งขาเข้า",
+      "nameEn": null,
+      "lat": 13.78182,
+      "lon": 100.422631,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-57",
+      "placeTh": "เขตตลิ่งชัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "6",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางด่วนยกระดับฝั่งปิ่นเกล้า ช่วงทางลง ถนนพระรามที่ 8 ขาเข้า",
+      "nameEn": null,
+      "lat": 13.770915,
+      "lon": 100.488096,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-06",
+      "placeTh": "เขตบางพลัด",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "60",
+      "sourceId": "bma-cctv",
+      "nameTh": "หน้าขนส่งสายใต้ใหม่ ฝั่งขาเข้า",
+      "nameEn": null,
+      "lat": 13.7818202,
+      "lon": 100.4226312,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-58",
+      "placeTh": "เขตตลิ่งชัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "61",
+      "sourceId": "bma-cctv",
+      "nameTh": "หน้าขนส่งสายใต้ใหม่ ฝั่งขาออก",
+      "nameEn": null,
+      "lat": 13.781628,
+      "lon": 100.422618,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-61",
+      "placeTh": "เขตตลิ่งชัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "62",
+      "sourceId": "bma-cctv",
+      "nameTh": "หน้าขนส่งสายใต้ใหม่ ฝั่งขาออก",
+      "nameEn": null,
+      "lat": 13.7816282,
+      "lon": 100.4226182,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-62",
+      "placeTh": "เขตตลิ่งชัน",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "63",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัดถนนกาญจนาภิเษก ฝั่งขาเข้า",
+      "nameEn": null,
+      "lat": 13.781245,
+      "lon": 100.426544,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-63",
+      "placeTh": "เขตทวีวัฒนา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "64",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัดถนนกาญจนาภิเษก ฝั่งขาเข้า",
+      "nameEn": null,
+      "lat": 13.7812452,
+      "lon": 100.4265442,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-64",
+      "placeTh": "เขตทวีวัฒนา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "65",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัดถนนกาญจนาภิเษก ฝั่งขาเข้า",
+      "nameEn": null,
+      "lat": 13.7812454,
+      "lon": 100.4265444,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-65",
+      "placeTh": "เขตทวีวัฒนา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "66",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัดถนนกาญจนาภิเษก ฝั่งขาออก",
+      "nameEn": null,
+      "lat": 13.782974,
+      "lon": 100.409249,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-66",
+      "placeTh": "เขตทวีวัฒนา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "67",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัดถนนกาญจนาภิเษก ฝั่งขาออก",
+      "nameEn": null,
+      "lat": 13.7829742,
+      "lon": 100.4092492,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-67",
+      "placeTh": "เขตทวีวัฒนา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "68",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัดถนนกาญจนาภิเษก ฝั่งขาออก",
+      "nameEn": null,
+      "lat": 13.7829744,
+      "lon": 100.4092494,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-68",
+      "placeTh": "เขตทวีวัฒนา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "69",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัดถนนพุทธมณฑลสาย2 ฝั่งขาเข้า",
+      "nameEn": null,
+      "lat": 13.784662,
+      "lon": 100.394609,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-69",
+      "placeTh": "เขตทวีวัฒนา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "7",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางด่วนยกระดับฝั่งปิ่นเกล้า ช่วงทางลง ถนนพระรามที่ 8 ขาเข้า",
+      "nameEn": null,
+      "lat": 13.7709152,
+      "lon": 100.4880962,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-07",
+      "placeTh": "เขตบางพลัด",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "70",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัดถนนพุทธมณฑลสาย2 ฝั่งขาเข้า",
+      "nameEn": null,
+      "lat": 13.7846622,
+      "lon": 100.3946092,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-70",
+      "placeTh": "เขตทวีวัฒนา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "71",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัดถนนพุทธมณฑลสาย2 ฝั่งขาเข้า",
+      "nameEn": null,
+      "lat": 13.7846624,
+      "lon": 100.3946094,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-71",
+      "placeTh": "เขตทวีวัฒนา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "72",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัดถนนพุทธมณฑลสาย2 ฝั่งขาออก",
+      "nameEn": null,
+      "lat": 13.784426,
+      "lon": 100.394615,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-72",
+      "placeTh": "เขตทวีวัฒนา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "73",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัดถนนพุทธมณฑลสาย2 ฝั่งขาออก",
+      "nameEn": null,
+      "lat": 13.7844262,
+      "lon": 100.3946152,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-73",
+      "placeTh": "เขตทวีวัฒนา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "74",
+      "sourceId": "bma-cctv",
+      "nameTh": "จุดตัดถนนพุทธมณฑลสาย2 ฝั่งขาออก",
+      "nameEn": null,
+      "lat": 13.7844264,
+      "lon": 100.3946154,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-74",
+      "placeTh": "เขตทวีวัฒนา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "75",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางขึ้นทางด่วนถนนพุทธมณฑลสาย3 ฝั่งขาเข้า",
+      "nameEn": null,
+      "lat": 13.786132,
+      "lon": 100.379505,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-75",
+      "placeTh": "เขตทวีวัฒนา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "76",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางขึ้นทางด่วนถนนพุทธมณฑลสาย3 ฝั่งขาเข้า",
+      "nameEn": null,
+      "lat": 13.7861322,
+      "lon": 100.3795052,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-76",
+      "placeTh": "เขตทวีวัฒนา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "77",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางขึ้นทางด่วนถนนพุทธมณฑลสาย3 ฝั่งขาเข้า",
+      "nameEn": null,
+      "lat": 13.7861324,
+      "lon": 100.3795054,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-77",
+      "placeTh": "เขตทวีวัฒนา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "78",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางลงทางด่วน ถนนพุทธมณฑลสาย3 ฝั่งขาออก",
+      "nameEn": null,
+      "lat": 13.786019,
+      "lon": 100.379508,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-78",
+      "placeTh": "เขตทวีวัฒนา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "79",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางลงทางด่วน ถนนพุทธมณฑลสาย3 ฝั่งขาออก",
+      "nameEn": null,
+      "lat": 13.7860192,
+      "lon": 100.3795082,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-79",
+      "placeTh": "เขตทวีวัฒนา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "8",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางลง ด่วนยกระดับฝั่งปิ่นเกล้า ขาเข้า",
+      "nameEn": null,
+      "lat": 13.766918,
+      "lon": 100.487156,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-08",
+      "placeTh": "เขตบางกอกน้อย",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "80",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางลงทางด่วน ถนนพุทธมณฑลสาย3 ฝั่งขาออก",
+      "nameEn": null,
+      "lat": 13.7860194,
+      "lon": 100.3795084,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-80",
+      "placeTh": "เขตทวีวัฒนา",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "81",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.เกษตรนวมินทร์ ตัด ถ.มัยลาภ",
+      "nameEn": null,
+      "lat": 13.83278,
+      "lon": 100.61111,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-LP-01-01",
+      "placeTh": "เขตลาดพร้าว",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "82",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.เกษตรนวมินทร์ ตัด ถ.สุคนธสวัสดิ์",
+      "nameEn": null,
+      "lat": 13.82943,
+      "lon": 100.62319,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-LP-02-01",
+      "placeTh": "เขตลาดพร้าว",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "83",
+      "sourceId": "bma-cctv",
+      "nameTh": "ปากทางลาดพร้าว ตัด ถ.วิภาวดีรังสิต",
+      "nameEn": null,
+      "lat": 13.81323,
+      "lon": 100.55968,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-JJ-01-01",
+      "placeTh": "เขตจตุจักร",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "84",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.งามวงศ์วาน ตัด ถ.วิภาวดี แยกบางเขน",
+      "nameEn": null,
+      "lat": 13.84737,
+      "lon": 100.56164,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-JJ-02-01",
+      "placeTh": "เขตจตจักร",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "85",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.วิภาวดีรังสิต (บริเวณหน้า สนง.จตุจักร)",
+      "nameEn": null,
+      "lat": 13.82826,
+      "lon": 100.55813,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-JJ-03-01",
+      "placeTh": "เขตจตจักร",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "86",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.ประชานิเวศน์ 1 ตัด ถ.วิภาวดีรังสิต (แยกวัดเสมียนนารี)",
+      "nameEn": null,
+      "lat": 13.83842,
+      "lon": 100.55716,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-JJ-04-01",
+      "placeTh": "เขตจตุจักร",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "87",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.แจ้งวัฒนะ (บริเวณหน้าศูนย์ราชการ ฯ)",
+      "nameEn": null,
+      "lat": 13.89055,
+      "lon": 100.56768,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-LS-01-01",
+      "placeTh": "เขตหลักสี่",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "88",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.แจ้งวัฒนะ ตัด ถ.เลียบคลองประปา",
+      "nameEn": null,
+      "lat": 13.89484,
+      "lon": 100.55497,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-LS-02-01",
+      "placeTh": "เขตหลักสี่",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "89",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.พระราม 9 ตัด ถ.ประดิษฐ์มนูญธรรม (รวมศูนย์)",
+      "nameEn": null,
+      "lat": 13.75077,
+      "lon": 100.59334,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-HK-01-01",
+      "placeTh": "เขตห้วยขวาง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "9",
+      "sourceId": "bma-cctv",
+      "nameTh": "ทางลง ด่วนยกระดับฝั่งปิ่นเกล้า ขาเข้า",
+      "nameEn": null,
+      "lat": 13.7669182,
+      "lon": 100.4871562,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF-HW-01-02-09",
+      "placeTh": "เขตบางกอกน้อย",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "90",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.พระราม 9 ตัด ถ.ตัดใหม่",
+      "nameEn": null,
+      "lat": 13.74167,
+      "lon": 100.61586,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-HK-02-01",
+      "placeTh": "เขตห้วยขวาง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "91",
+      "sourceId": "bma-cctv",
+      "nameTh": "บริเวณหน้ากรมโยธาธิการและผังเมือง",
+      "nameEn": null,
+      "lat": 13.7556,
+      "lon": 100.57338,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-HK-03-01",
+      "placeTh": "เขตห้วยขวาง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "92",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.เพชรบุรี ตัด ถ.เอกมัย (หน้า Food Land)",
+      "nameEn": null,
+      "lat": 13.74102,
+      "lon": 100.60046,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-HK-04-01",
+      "placeTh": "เขตห้วยขวาง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "93",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.ประชาอุทิศ ตัด ถ.เทียนร่วมมิตร (แยกเหม่งจ๋าย)",
+      "nameEn": null,
+      "lat": 13.76989,
+      "lon": 100.58642,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-HK-05-01",
+      "placeTh": "เขตห้วยขวาง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "94",
+      "sourceId": "bma-cctv",
+      "nameTh": "หน้าบริเวณ ปณ.พัฒนาการ",
+      "nameEn": null,
+      "lat": 13.73662,
+      "lon": 100.61657,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-SL-01-01",
+      "placeTh": "เขตสวนหลวง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "95",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.รามคำแหง บริเวณซอยมิสทีน",
+      "nameEn": null,
+      "lat": 13.7926,
+      "lon": 100.70225,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-SS-01-01",
+      "placeTh": "เขตสะพานสูง",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "96",
+      "sourceId": "bma-cctv",
+      "nameTh": "บริเวณตลาดมีนบุรี",
+      "nameEn": null,
+      "lat": 13.81254,
+      "lon": 100.7259,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-MB-01-01",
+      "placeTh": "เขตมีนบุรี",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "97",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.รามอินทรา ตัด ถ.สวนสยาม (แยก รพ.นพรัตน์)",
+      "nameEn": null,
+      "lat": 13.81448,
+      "lon": 100.68747,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-MB-02-01",
+      "placeTh": "เขตมีนบุรี",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "98",
+      "sourceId": "bma-cctv",
+      "nameTh": "แยกการไฟฟ้ามีนบุรี",
+      "nameEn": null,
+      "lat": 13.81667,
+      "lon": 100.74432,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-MB-03-01",
+      "placeTh": "เขตมีนบุรี",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "99",
+      "sourceId": "bma-cctv",
+      "nameTh": "ถ.เสรีไทย ตัด ถ.มีนพัฒนา (แยกบางชัน)",
+      "nameEn": null,
+      "lat": 13.80525,
+      "lon": 100.71225,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "TF1-MB-04-01",
+      "placeTh": "เขตมีนบุรี",
+      "streams": [
+        {
+          "kind": "external-link",
+          "url": "https://cpudapp.bangkok.go.th/bmatraffic/",
+          "label": null,
+          "captureTime": "none",
+          "probe": {
+            "result": "not-probed",
+            "cors": null
+          }
+        }
+      ]
+    }
+  ]
+}

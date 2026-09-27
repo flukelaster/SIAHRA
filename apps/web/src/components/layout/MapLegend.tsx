@@ -781,15 +781,21 @@ function ForecastBandLegendRow({
 
 /**
  * สัญลักษณ์หมุดกล้อง (E15.3) — ตรงกับ `markerTexture()` ใน scene/CctvMarkers.ts: วงกลมพื้นเข้มขอบขาว
- * สามเหลี่ยม "เล่น" = วิดีโอ, รูปกล้อง = ภาพนิ่ง; `dimmed` = ยังไม่ยืนยันตอน build (จางทั้งหมุด glyph เทา)
+ * สามเหลี่ยม "เล่น" = วิดีโอ, รูปกล้อง = ภาพนิ่ง, หมุดแผนที่ = ตำแหน่งเท่านั้น (ไม่มีแบบหรี่ — ฝั่งเรา
+ * ไม่มีอะไรให้ยืนยัน); `dimmed` = ยังไม่ยืนยันตอน build (จางทั้งหมุด glyph เทา)
  */
-function CamSwatch({ kind, dimmed = false }: { kind: "video" | "still"; dimmed?: boolean }) {
+function CamSwatch({ kind, dimmed = false }: { kind: "video" | "still" | "location"; dimmed?: boolean }) {
   const glyph = dimmed ? "#94a3b8" : "#38bdf8";
   return (
     <span
       className={`flex h-3.5 w-3.5 items-center justify-center rounded-full border bg-[#0a101e] ${dimmed ? "border-white/50 opacity-55" : "border-white/80"}`}
     >
-      {kind === "video" ? (
+      {kind === "location" ? (
+        <svg viewBox="0 0 10 12" className="h-2.5 w-2" aria-hidden="true">
+          <path d="M5 11.5 1.3 6.6A4 4 0 1 1 8.7 6.6Z" fill="#e2e8f0" />
+          <circle cx="5" cy="4.6" r="1.6" fill="#38bdf8" />
+        </svg>
+      ) : kind === "video" ? (
         <span className="h-0 w-0 border-y-[3px] border-l-[5px] border-y-transparent" style={{ borderLeftColor: glyph }} />
       ) : (
         <span className="h-1.5 w-2 rounded-[1px]" style={{ background: dimmed ? glyph : "#e2e8f0" }} />
@@ -1242,6 +1248,10 @@ export function MapLegend({
                       <span className="inline-flex items-center gap-1">
                         <CamSwatch kind="still" />
                         {t("legend.layer.cctv.still")}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <CamSwatch kind="location" />
+                        {t("legend.layer.cctv.locationOnly")}
                       </span>
                       <span className="inline-flex items-center gap-1">
                         <CamSwatch kind="video" dimmed />

@@ -288,6 +288,7 @@ describe("MapLegend — แถวกล้อง CCTV (E15.3: N แหล่ง)
     expect(html).toContain(t("legend.layer.cctv.unverified"));
     expect(html).toContain(t("legend.layer.cctv.video"));
     expect(html).toContain(t("legend.layer.cctv.still"));
+    expect(html).toContain(t("legend.layer.cctv.locationOnly"));
   });
 
   it.each(LANGS)("โหลดบัญชีของแหล่งหนึ่งไม่ได้ = บรรทัดแดงที่ระบุชื่อแหล่งนั้น แหล่งอื่นไม่ถูกพูดถึง (%s)", (lang) => {

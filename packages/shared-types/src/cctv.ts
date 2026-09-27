@@ -11,7 +11,7 @@ import type { SourceId } from "./sources.js";
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** แหล่งกล้องที่ลงทะเบียนแล้ว — ต้องเป็น `SourceId` ที่ `SOURCES[id].kind === "browser"` */
-export type CameraSourceId = Extract<SourceId, "dwr-cctv" | "itic-cctv" | "doh-cctv">;
+export type CameraSourceId = Extract<SourceId, "dwr-cctv" | "itic-cctv" | "doh-cctv" | "bma-cctv">;
 
 /**
  * ผล probe ของสตรีมหนึ่งเส้น **ตอน build** จาก vantage เดียว (ดู `CameraCatalogue.probedAt`/
@@ -62,9 +62,14 @@ export interface StreamProbe {
  *                    `apps/web/src/lib/cctv.ts`); เวลาถ่ายอ่านจาก path ของภาพ (+07:00)
  * - `dwr-mjpeg`    — ภาพสด MJPEG ของ DWR: ไม่มี url — derive จาก `stationCode`
  *                    (`public/cctv/mjpegStream?stnCode=`), แสดงด้วย `<img src>`
+ * - `external-link` — **SIAHRA ไม่แสดงภาพของกล้องนี้เลย** มีแค่ตำแหน่ง: `url` คือหน้าเว็บของเจ้าของ
+ *                    ที่ผู้ใช้เปิดเอง (แท็บใหม่ — การนำทางไม่ต้องมีโฮสต์ใน CSP) ไม่มีเวลาถ่าย
+ *                    (`"none"`) และ **ไม่มีการ probe** (`not-probed`) — ลิงก์ไม่ได้บอกว่าเปิดดูกล้อง
+ *                    ตัวนี้ได้ (E15.3 PR D, กทม.: ไม่ proxy ไม่ปลอม header — ส่งผู้ใช้ไปที่เว็บเจ้าของ)
  *
  * ชนิดที่มี `url` ต้องเป็น `https:` ไม่มี userinfo และ origin อยู่ใน `CAMERA_SOURCES[sourceId].hosts`
- * ของ directive ที่ `streamDirective(kind)` กำหนด — ETL ปฏิเสธทั้งไฟล์ถ้าไม่ตรง และ web ตรวจซ้ำก่อนเปิด
+ * ของ directive ที่ `streamDirective(kind)` กำหนด (`external-link`: `hosts.link`) — ETL ปฏิเสธทั้งไฟล์
+ * ถ้าไม่ตรง และ web ตรวจซ้ำก่อนเปิด
  */
 export type CameraStream = { label: string | null; probe: StreamProbe } & (
   | { kind: "hls"; url: string; captureTime: "program-date-time" | "none" }
@@ -73,6 +78,7 @@ export type CameraStream = { label: string | null; probe: StreamProbe } & (
   | { kind: "mjpeg"; url: string; captureTime: "none" }
   | { kind: "dwr-snapshot"; captureTime: "path" }
   | { kind: "dwr-mjpeg"; stationCode: string; captureTime: "none" }
+  | { kind: "external-link"; url: string; captureTime: "none" }
 );
 
 export type CameraStreamKind = CameraStream["kind"];
@@ -126,8 +132,11 @@ export interface CameraSourceMeta {
   /**
    * origin ที่สตรีมของแหล่งนี้ใช้ได้ แยกตาม directive ของ CSP — ต้องตรงกับ
    * `apps/web/public/_headers` (`docs/security.md`); ETL ปฏิเสธ url นอกรายการ, web ตรวจซ้ำ
+   *
+   * `link` **ไม่ใช่ directive ของ CSP** — origin (https) ที่สตรีม `external-link` ชี้ออกไปได้
+   * (ผู้ใช้เปิดเองในแท็บใหม่ SIAHRA ไม่ดึงอะไรจากที่นั่น) จึงไม่อยู่ใน `_headers`
    */
-  hosts: Partial<Record<CspDirective, readonly string[]>>;
+  hosts: Partial<Record<CspDirective, readonly string[]>> & { link?: readonly string[] };
   /** รูปแบบ url เพิ่มเติมที่ต้องตรงทั้งเส้น (ยึดหัว-ท้าย) — เช่นกลุ่มภาพนิ่งเดียวของ iTIC ที่วัดแล้ว */
   urlPattern?: RegExp;
   /** เปิดในบิลด์ปกติไหม (ปิดรายแหล่งด้วย `VITE_FEATURE_CCTV_DISABLE=<id,...>` — `apps/web/src/lib/featureFlags.ts`) */
@@ -145,7 +154,7 @@ export interface CameraSourceMeta {
 /**
  * ลำดับการประกาศ = ลำดับเครดิตในบรรทัด attribution และใน legend — เพิ่มแหล่งใหม่ต่อท้าย
  */
-export const CAMERA_SOURCE_IDS = ["dwr-cctv", "itic-cctv", "doh-cctv"] as const satisfies readonly CameraSourceId[];
+export const CAMERA_SOURCE_IDS = ["dwr-cctv", "itic-cctv", "doh-cctv", "bma-cctv"] as const satisfies readonly CameraSourceId[];
 
 export const CAMERA_SOURCES: Record<CameraSourceId, CameraSourceMeta> = {
   "dwr-cctv": {
@@ -193,6 +202,20 @@ export const CAMERA_SOURCES: Record<CameraSourceId, CameraSourceMeta> = {
       "กรมทางหลวงไม่ได้เผยแพร่เงื่อนไขการใช้หน้ากล้อง highwaytraffic.go.th (ตรวจ 2026-09-26) — แสดงโดยให้เครดิตกรมทางหลวง ตามการตัดสินใจของ owner ใน docs/roadmap.md §4 แถว \"Government CCTV sources in general\"",
     readme: "apps/etl/src/build-doh-cctv.README.md",
   },
+  "bma-cctv": {
+    id: "bma-cctv",
+    // ตำแหน่งเท่านั้น (สตรีม `external-link`) — ไม่มี connect/img/media: SIAHRA ไม่ดึงภาพ/สตรีมของ กทม.
+    // เลย ภาพอยู่ที่ BMA Traffic ซึ่งเสิร์ฟเฉพาะ origin ของตัวเอง; owner ตัดสินใจไม่ proxy/ไม่ปลอม header
+    // (docs/roadmap.md §4) — `link` คือหน้าเว็บทางการที่ผู้ใช้เปิดเอง
+    hosts: { link: ["https://cpudapp.bangkok.go.th"] },
+    defaultEnabled: true,
+    // ต่ำกว่าทุกแหล่ง: หมุดที่มีภาพให้ดูอยู่บนหมุดตำแหน่งเมื่อทับกัน
+    markerPriority: 20,
+    coordinatesDoc: null,
+    licenceNote:
+      "ชุดข้อมูล bma-cctv บน data.bangkok.go.th ระบุสัญญาอนุญาตว่า \"License not specified\" (ตรวจ 2026-09-27) — แสดงตำแหน่งโดยให้เครดิตกรุงเทพมหานคร ตามการตัดสินใจของ owner ใน docs/roadmap.md §4 แถว \"Government CCTV sources in general\"",
+    readme: "apps/etl/src/build-bma-cctv.README.md",
+  },
 };
 
 /** path ของบัญชีกล้อง (static asset ของ Worker web) */
@@ -209,6 +232,9 @@ export function cameraKey(c: Pick<Camera, "sourceId" | "id">): string {
  * directive ของ CSP ที่ origin ของสตรีมชนิดนี้ต้องอยู่ — สตรีมที่ไม่มี url (`dwr-*`) ก็มี directive
  * เพราะ web ยัง derive url จาก `hosts` ของแหล่ง: snapshot ผ่าน `fetch` (connect), MJPEG ผ่าน
  * `<img src>` (img)
+ *
+ * `external-link` = `[]` — การนำทางไปแท็บใหม่ไม่ต้องมีโฮสต์ใน CSP; **ห้ามถือว่ารายการว่าง = ผ่าน**:
+ * ผู้ตรวจ url ทุกตัว (ETL `validateCatalogue`, web `isAllowedUrl`) ต้องตรวจ origin กับ `hosts.link` แยก
  */
 export function streamDirective(kind: CameraStreamKind): readonly CspDirective[] {
   switch (kind) {
@@ -221,5 +247,7 @@ export function streamDirective(kind: CameraStreamKind): readonly CspDirective[]
     case "jpeg-fetch":
     case "dwr-snapshot":
       return ["connect"];
+    case "external-link":
+      return [];
   }
 }

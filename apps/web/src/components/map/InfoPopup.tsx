@@ -8,7 +8,7 @@ import type { StationSheetCellPick } from "../../scene/StationSheet";
 import type { GistdaDepthCellPick } from "../../lib/gistdaDepthField";
 import { useStationHistory } from "../../hooks/useStationHistory";
 import { nearestCamera } from "../../lib/cctv";
-import { markerStyle } from "../../scene/CctvMarkers";
+import { isLocationOnly, markerStyle } from "../../scene/CctvMarkers";
 import { Sparkline } from "../hazard/Sparkline";
 import { floodDepthMaxLabel } from "../../lib/floodStyle";
 import { formatNumber } from "../../lib/number";
@@ -202,8 +202,15 @@ function WaterLevelBody({
   const qmaxPct = percentOfQmax(dischargeM3s, qmaxM3s);
   const history = useStationHistory(obs.station.id, true, hours);
   // E15/E15.3 — กล้องที่ใกล้ที่สุดภายใน 3 กม. จากทุกแหล่งในรายการรวม คิดจากบัญชีที่โหลดไว้แล้ว
-  // ไม่ส่ง request ใด — ภาพ/สตรีมถูกขอเมื่อผู้ใช้กดปุ่มเท่านั้น
-  const nearest = cameras ? nearestCamera(obs.station.lat, obs.station.lon, cameras.cameras) : null;
+  // ไม่ส่ง request ใด — ภาพ/สตรีมถูกขอเมื่อผู้ใช้กดปุ่มเท่านั้น; กล้องที่มีแค่ตำแหน่ง (`external-link`) ไม่ถูก
+  // เสนอ เพราะปุ่ม "ดูภาพ" จะพาไปแผงที่ไม่มีภาพ (ยังเห็นเป็นหมุดบนแผนที่ตามปกติ)
+  const nearest = cameras
+    ? nearestCamera(
+        obs.station.lat,
+        obs.station.lon,
+        cameras.cameras.filter((c) => !isLocationOnly(c)),
+      )
+    : null;
   const nearestSource = nearest ? SOURCES[nearest.camera.sourceId] : null;
   // กล้องเปิดในแผงด้านขวา (`CameraSheet`) ไม่ใช่ใน popup เล็ก ๆ นี้ — popup ของสถานียังเปิดอยู่
   // (บริบทของกล้อง) และเป็นที่ที่โฟกัสกลับมาเมื่อปิดแผง

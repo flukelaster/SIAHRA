@@ -265,9 +265,10 @@ export const en: Record<keyof typeof th, string> = {
   "legend.layer.dams.note": "% of capacity as reported (ThaiWater)",
   "legend.layer.cctv": "CCTV cameras",
   "legend.layer.cctv.note":
-    "Sources: {sources} — a play glyph is video, a camera glyph is a still image · the source is asked only when you click a marker",
+    "Sources: {sources} — a play glyph is video, a camera glyph is a still image, a map pin is a location only (we show no image) · the source is asked only when you click a marker",
   "legend.layer.cctv.video": "Video",
   "legend.layer.cctv.still": "Still image",
+  "legend.layer.cctv.locationOnly": "Location only (view images on the owner’s site)",
   "legend.layer.cctv.unverified":
     "Dimmed marker = unverified when the list was built (could not be reached from the build network, its certificate chain could not be verified by the build tool, answered with no usable image/stream, or was not probed) — not its current state; it can still be opened",
   "legend.layer.cctv.error": "Could not load the camera list of {source} ({error}) — so no markers of this source are drawn",
@@ -754,6 +755,12 @@ export const en: Record<keyof typeof th, string> = {
   "stream.jpegFetch.noTime": "The source gives no capture time for this image, so none is shown (the time below is when your browser received it)",
   "stream.jpegFetch.fetchedAt": "Image fetched",
   "stream.jpegFetch.refresh": "New image",
+  "stream.externalLink.kind": "Location only",
+  "stream.externalLink.statement": "SIAHRA does not show images from this camera — only its location, as listed by the source credited below",
+  "stream.externalLink.open": "Open the official site ({host})",
+  "stream.externalLink.unchecked":
+    "We could not check from our network whether the official site is reachable, and this link says nothing about whether this camera has a picture or is in service",
+  "stream.externalLink.rejected": "The link to the owner's site failed our check, so it is not shown",
   "popup.status": "Status",
   "popup.statusAutomatic": "Detected automatically, not reviewed",
   "popup.statusReviewed": "Reviewed",

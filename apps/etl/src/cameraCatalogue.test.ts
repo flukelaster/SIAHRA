@@ -42,6 +42,7 @@ const JPEG = "https://camera1.iticfoundation.org/jpeg2.php?camid=10.8.0.99:8001"
 const MASTER = "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-STREAM-INF:BANDWIDTH=221996,CODECS=\"avc1.77.31\",RESOLUTION=1280x720\nchunklist_w1.m3u8\n";
 const MEDIA = "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:24\n#EXT-X-MEDIA-SEQUENCE:67\n#EXTINF:9.6,\nmedia_w1_67.ts\n";
 const MEDIA_PDT = "#EXTM3U\n#EXT-X-TARGETDURATION:10\n#EXT-X-PROGRAM-DATE-TIME:2026-09-26T13:10:00.000+07:00\n#EXTINF:9.6,\nmedia_1.ts\n";
+const BMA_LINK = "https://cpudapp.bangkok.go.th/bmatraffic/";
 const JPEG_BYTES = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46]);
 
 const camera = (over: Partial<Camera> = {}, streams: CameraStream[] = []): Camera => ({
@@ -66,7 +67,7 @@ const PROBED_META: CatalogueMeta = { ...META, probedAt: "2026-09-26T00:01:00.000
 
 describe("shared-types camera registry", () => {
   it("every camera source is a browser source (the API never probes it) and its hosts are https origins", () => {
-    expect(CAMERA_SOURCE_IDS).toEqual(["dwr-cctv", "itic-cctv", "doh-cctv"]);
+    expect(CAMERA_SOURCE_IDS).toEqual(["dwr-cctv", "itic-cctv", "doh-cctv", "bma-cctv"]);
     for (const id of CAMERA_SOURCE_IDS) {
       expect(SOURCES[id].kind).toBe("browser");
       expect(CAMERA_SOURCES[id].id).toBe(id);
@@ -84,6 +85,8 @@ describe("shared-types camera registry", () => {
     expect(streamDirective("mjpeg")).toEqual(["img"]);
     expect(streamDirective("dwr-snapshot")).toEqual(["connect"]);
     expect(streamDirective("dwr-mjpeg")).toEqual(["img"]);
+    // ลิงก์ออก = การนำทาง ไม่ต้องมีโฮสต์ใน CSP — origin ตรวจกับ hosts.link แยก (validateCatalogue)
+    expect(streamDirective("external-link")).toEqual([]);
     expect(DWR_API).toBe("https://telemetry.dwr.go.th/api");
   });
 });
@@ -295,6 +298,15 @@ describe("probeStreams", () => {
     expect(stats.byKind.hls?.ok).toBe(0);
   });
 
+  it("external-link: never requested — the owner's page says nothing about this camera", async () => {
+    const link: CameraStream = { kind: "external-link", url: BMA_LINK, label: null, captureTime: "none", probe: { ...NOT_PROBED } };
+    const { fetch, calls } = fakeFetch({});
+    const { cameras, stats } = await probeStreams([camera({ sourceId: "bma-cctv", owner: null }, [link])], { fetch, perHostGapMs: 0 });
+    expect(calls).toHaveLength(0);
+    expect(cameras[0]!.streams[0]!.probe).toEqual({ result: "not-probed", cors: null });
+    expect(stats.byKind["external-link"]?.["not-probed"]).toBe(1);
+  });
+
   it("does not mutate the input cameras", async () => {
     const input = [camera({}, [hls()])];
     const { fetch } = fakeFetch({ [HLS]: { body: MEDIA } });
@@ -336,7 +348,7 @@ describe("writeCatalogue / validateCatalogue", () => {
     });
   });
 
-  const refusal = (cams: Camera[], meta = META, sourceId: "itic-cctv" | "dwr-cctv" = "itic-cctv") => {
+  const refusal = (cams: Camera[], meta = META, sourceId: "itic-cctv" | "dwr-cctv" | "bma-cctv" = "itic-cctv") => {
     const { catalogue } = assembleCatalogue(sourceId, cams, meta);
     return () => serializeCatalogue(catalogue);
   };
@@ -370,6 +382,18 @@ describe("writeCatalogue / validateCatalogue", () => {
     // probedAt ตั้งแล้ว → ok ผ่านได้
     expect(refusal([camera({}, [hls(HLS, { result: "ok", cors: true })])], PROBED_META)).not.toThrow();
     expect(refusal([camera({}, [hls(HLS, { result: "great" as never, cors: true })])], PROBED_META)).toThrow(/unknown probe result/);
+  });
+
+  it("external-link: an empty directive list is not a pass — the origin must be in hosts.link, and it is never probed", () => {
+    const link = (url: string, probe: StreamProbe = { ...NOT_PROBED }): CameraStream => ({ kind: "external-link", url, label: null, captureTime: "none", probe });
+    const bma = (s: CameraStream) => [camera({ sourceId: "bma-cctv", owner: null }, [s])];
+    expect(refusal(bma(link(BMA_LINK)), META, "bma-cctv")).not.toThrow();
+    expect(refusal(bma(link("https://example.org/bmatraffic/")), META, "bma-cctv")).toThrow(/outside the source's link hosts/);
+    expect(refusal(bma(link("http://cpudapp.bangkok.go.th/bmatraffic/")), META, "bma-cctv")).toThrow(/not https/);
+    expect(refusal(bma(link("https://u:p@cpudapp.bangkok.go.th/bmatraffic/")), META, "bma-cctv")).toThrow(/userinfo/);
+    expect(refusal(bma(link(BMA_LINK, { result: "ok", cors: null })), PROBED_META, "bma-cctv")).toThrow(/never probed/);
+    // แหล่งอื่นไม่มี hosts.link — ลิงก์เดียวกันบนกล้อง iTIC ถูกปฏิเสธ
+    expect(refusal([camera({}, [link(BMA_LINK)])])).toThrow(/outside the source's link hosts/);
   });
 
   it("accepts DWR streams without a url and keeps unreachable streams (dimmed later, never dropped)", () => {
