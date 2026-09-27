@@ -53,6 +53,19 @@ export const health = policy("health", "public, max-age=15");
  */
 export const storms = policy("storms", "public, max-age=60, s-maxage=300");
 
+/**
+ * รายการรายงานจากประชาชนรายจังหวัด — แคชขอบ 30 วิ เท่ากับ memo ของ `CommunityReportDO` (devops LIST-1)
+ * **ทุก** 200 ถูกแคช รวมรายการว่าง บอดี้มี `fetchedAt` (เวลาที่ DO อ่าน) อายุที่แสดงจึงคิดจากค่าจริง
+ * หมุดที่ผู้ใช้เพิ่งส่งเองเว็บใส่ลง state ทันที ไม่ต้องรอแคชหมดอายุ
+ */
+export const communityList = policy("communityList", "public, max-age=30, s-maxage=30");
+
+/**
+ * รูปของรายงาน — หนึ่งชั่วโมง **ไม่ immutable**: รูปที่ถูกลบ (เจ้าของ/ผู้ดูแล/retention) ค้างในแคช
+ * ได้ไม่เกินอายุนี้ จึงตั้งสั้นโดยตั้งใจ
+ */
+export const communityImage = policy("communityImage", "public, max-age=3600");
+
 /** เฟรมเรดาร์ล่าสุด (รายการเฟรม) */
 export const radarFrames = policy("radarFrames", "public, max-age=60");
 

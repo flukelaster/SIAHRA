@@ -27,3 +27,12 @@ TMD_NWP_TOKEN=""
 # and /api/v1/health reports gistda-flood as down with lastError
 # "GISTDA_API_KEY not configured — no request sent to GISTDA".
 GISTDA_API_KEY=""
+
+# Community report pins — all three optional. Without TURNSTILE_SECRET_KEY or
+# COMMUNITY_HMAC_KEY, POST /api/v1/community/reports and /community/session answer
+# 503 {reason:"reporting-disabled"}; without COMMUNITY_ADMIN_TOKEN the admin
+# endpoints answer 503 {reason:"admin-disabled"}. For local dev use Turnstile's
+# test secret 1x0000000000000000000000000000000AA (always passes).
+TURNSTILE_SECRET_KEY=""
+COMMUNITY_HMAC_KEY=""
+COMMUNITY_ADMIN_TOKEN=""

@@ -7,7 +7,8 @@
  *
  * Adding a source: add the id to `SourceId`, then `SOURCES` (tsc lists every
  * missing field), then a `SourceStatus` in /api/v1/health if `kind` is "live".
- * A "browser" source gets no `SourceStatus`: the API never asks it anything.
+ * A "browser" source gets no `SourceStatus`: the API never asks it anything, and
+ * neither does a "community" source: it is our own store of user submissions.
  */
 export type SourceId =
   | "thaiwater"
@@ -31,7 +32,8 @@ export type SourceId =
   | "dwr-cctv"
   | "itic-cctv"
   | "doh-cctv"
-  | "bma-cctv";
+  | "bma-cctv"
+  | "community-report";
 
 export interface SourceDescriptor {
   id: SourceId;
@@ -65,8 +67,13 @@ export interface SourceDescriptor {
    *           state). Freshness is shown per item where it was fetched (E15:
    *           the CCTV popup's capture time and fetch time; E15.2: the live
    *           stream's own timestamp, or a plain "no timestamp")
+   * community = submitted by members of the public and stored by our own API
+   *           (community report pins) — there is no upstream to probe, so it is
+   *           outside `LIVE_SOURCE_IDS` and /api/v1/health claims nothing for it;
+   *           freshness is the list's own `fetchedAt` (when our DO read it) plus
+   *           the web's poll state, and every item is unverified
    */
-  kind: "live" | "static" | "browser";
+  kind: "live" | "static" | "browser" | "community";
 }
 
 export const SOURCES: Record<SourceId, SourceDescriptor> = {
@@ -389,6 +396,22 @@ export const SOURCES: Record<SourceId, SourceDescriptor> = {
     // SIAHRA ไม่ขออะไรจาก กทม. เลยตอนใช้งาน: ตำแหน่งเป็นไฟล์คงที่จาก ETL และลิงก์ BMA Traffic
     // ผู้ใช้เปิดเองในแท็บใหม่ — api ไม่เคยถาม จึงไม่มีสถานะใน /api/v1/health (และต้องไม่มี)
     kind: "browser",
+  },
+  "community-report": {
+    id: "community-report",
+    nameTh: "รายงานผลกระทบจากประชาชน (ยังไม่ได้ตรวจสอบ)",
+    nameEn: "Community impact reports (unverified)",
+    // ไม่ใช่หน่วยงาน: ผู้ใช้ทั่วไปส่งผ่านแอปนี้ SIAHRA แค่เก็บและแสดง ไม่ได้ตรวจสอบเนื้อหา
+    agency: "ผู้ใช้ SIAHRA ทั่วไป — รวบรวมและแสดงโดย SIAHRA ไม่มีหน่วยงานใดตรวจสอบ",
+    homepageUrl: "https://siahra-radar.co/",
+    // ผู้ส่งไม่ได้ให้สัญญาอนุญาตใด ๆ กับเนื้อหาของตน — บอกตามจริง ไม่ตั้งชื่อสัญญาอนุญาตขึ้นเอง
+    licenseName: "เนื้อหาของผู้ใช้ เผยแพร่สาธารณะ 30 วันแล้วลบ — ไม่มีสัญญาอนุญาตให้นำไปใช้ต่อ",
+    licenseUrl: "https://siahra-radar.co/",
+    attributionText:
+      "รายงานผลกระทบที่ผู้ใช้ทั่วไปส่งผ่าน SIAHRA — ยังไม่ได้ตรวจสอบ ไม่ใช่ข้อมูลจากหน่วยงานหรือเครื่องมือวัด และคะแนนโหวตเป็นความเห็นของผู้ใช้ ไม่ใช่การยืนยัน",
+    // เก็บใน CommunityReportDO ของ api เอง ไม่มีต้นทางภายนอกให้ probe → ไม่อยู่ใน LIVE_SOURCE_IDS
+    // และ /api/v1/health ไม่เรียก DO นี้เลย (devops HEALTH-1)
+    kind: "community",
   },
 };
 

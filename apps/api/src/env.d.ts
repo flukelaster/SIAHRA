@@ -29,4 +29,17 @@ interface __BaseEnv_Env {
    * `lastError: "GISTDA_API_KEY not configured — …"` (ไม่ใช่ "ไม่มีน้ำท่วม")
    */
   GISTDA_API_KEY?: string;
+  /**
+   * รายงานจากประชาชน — `wrangler secret put TURNSTILE_SECRET_KEY` (secret ของ Cloudflare Turnstile)
+   * ไม่มี (หรือไม่มี COMMUNITY_HMAC_KEY) = `POST /community/reports` และ `/community/session` ตอบ 503
+   * `{reason: "reporting-disabled"}` — รายการ/รูปยังอ่านได้ตามปกติ
+   */
+  TURNSTILE_SECRET_KEY?: string;
+  /**
+   * กุญแจ HMAC ของ voterToken/ownerToken — `wrangler secret put COMMUNITY_HMAC_KEY` (สุ่ม ≥ 32 ไบต์)
+   * เปลี่ยนกุญแจ = token เดิมทุกใบใช้ไม่ได้ ไม่มี = รายงาน/โหวต/ลบของเจ้าของตอบ 503
+   */
+  COMMUNITY_HMAC_KEY?: string;
+  /** bearer ของ endpoint ผู้ดูแล (hide/unhide/delete) — ไม่มี = endpoint ผู้ดูแลตอบ 503 */
+  COMMUNITY_ADMIN_TOKEN?: string;
 }

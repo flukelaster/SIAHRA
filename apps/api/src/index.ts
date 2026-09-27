@@ -15,12 +15,22 @@ import {
 import { handleObservations } from "./routes/observations.js";
 import { handleRadarFrame, handleRadarFrames } from "./routes/radar.js";
 import { handleStorms } from "./routes/storms.js";
+import {
+  handleCommunityAdmin,
+  handleCommunityCreate,
+  handleCommunityImage,
+  handleCommunityList,
+  handleCommunityOwnerDelete,
+  handleCommunitySession,
+  handleCommunityVote,
+} from "./routes/community.js";
 import { handleNorthRoute } from "./routes/rivers.js";
 import { handleDams, handleStationHistory } from "./routes/stations.js";
 import { handleArchiveDays, handleArchiveSnapshot } from "./routes/archive.js";
 import type { AppEnv } from "./types.js";
 
 export { AlertEngineDO } from "./durable-objects/alert-engine.js";
+export { CommunityReportDO } from "./durable-objects/community-report.js";
 export { EarthquakeFeedDO } from "./durable-objects/earthquake-feed.js";
 export { FloodExtentDO } from "./durable-objects/flood-extent.js";
 export { ForecastNwpDO } from "./durable-objects/forecast-nwp.js";
@@ -151,6 +161,57 @@ export const routes: Route[] = [
     pattern: /^\/api\/v1\/alerts\/rules$/,
     handler: (req, env) => handleAlertRules(req, env),
     limit: { perMinute: 300 },
+  },
+  // ── รายงานจากประชาชน (routes/community.ts) — งบต่อ IP ตาม devops LIMITS; id ของรายงานถูกบังคับรูป
+  // ตั้งแต่ตารางเส้นทาง (`YYYYMMDD-<22 base64url>`) ขยะจึงเป็น 404 ของ router ก่อนแตะ DO/R2
+  {
+    method: "GET",
+    pattern: /^\/api\/v1\/community\/([0-9]{2})\/reports$/,
+    handler: handleCommunityList,
+    limit: { perMinute: 60 },
+    limitScope: "community-list",
+  },
+  {
+    method: "POST",
+    pattern: /^\/api\/v1\/community\/reports$/,
+    handler: (req, env) => handleCommunityCreate(req, env),
+    limit: { perMinute: 5 },
+    limitScope: "community-report",
+  },
+  {
+    method: "POST",
+    pattern: /^\/api\/v1\/community\/session$/,
+    handler: (req, env) => handleCommunitySession(req, env),
+    limit: { perMinute: 10 },
+    limitScope: "community-session",
+  },
+  {
+    method: "POST",
+    pattern: /^\/api\/v1\/community\/reports\/([0-9]{8}-[A-Za-z0-9_-]{22})\/vote$/,
+    handler: (req, env, params) => handleCommunityVote(req, env, params),
+    limit: { perMinute: 30 },
+    limitScope: "community-vote",
+  },
+  {
+    method: "POST",
+    pattern: /^\/api\/v1\/community\/reports\/([0-9]{8}-[A-Za-z0-9_-]{22})\/delete$/,
+    handler: (req, env, params) => handleCommunityOwnerDelete(req, env, params),
+    limit: { perMinute: 10 },
+    limitScope: "community-owner-delete",
+  },
+  {
+    method: "POST",
+    pattern: /^\/api\/v1\/community\/admin\/reports\/([0-9]{8}-[A-Za-z0-9_-]{22})\/(hide|unhide|delete)$/,
+    handler: (req, env, params) => handleCommunityAdmin(req, env, params),
+    limit: { perMinute: 30 },
+    limitScope: "community-admin",
+  },
+  {
+    method: "GET",
+    pattern: /^\/api\/v1\/community\/image\/([0-9]{8}-[A-Za-z0-9_-]{22})$/,
+    handler: handleCommunityImage,
+    limit: { perMinute: 120 },
+    limitScope: "community-image",
   },
 ];
 
