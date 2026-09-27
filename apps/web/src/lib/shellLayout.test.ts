@@ -3,6 +3,7 @@ import {
   ATTRIBUTION_MAX_H,
   DRAWER_W,
   GUTTER,
+  PHONE_TABBAR_H,
   RAIL_W,
   SHEET_FLING_PX_PER_MS,
   SHEET_FULL_VH,
@@ -38,7 +39,8 @@ describe("shellLayout — ค่าคงที่ตามสเปก", () => 
   it("ตัวเลขทุกตัวตรงกับที่ตกลงไว้", () => {
     expect(GUTTER).toBe(12);
     expect(TOPBAR_H).toBe(48);
-    expect(RAIL_W).toBe(48);
+    expect(RAIL_W).toBe(80);
+    expect(PHONE_TABBAR_H).toBe(56);
     expect(TOOLS_W).toBe(48);
     expect(DRAWER_W).toEqual({ tablet: 320, laptop: 352, wide: 360 });
     expect(SHEET_PEEK_H).toBe(240);
@@ -53,6 +55,10 @@ describe("shellLayout — ค่าคงที่ตามสเปก", () => 
     const worstCase =
       SHEET_GRIP_H + SHEET_SUMMARY_MAX_H + TIMELINE_DENSE_H + ATTRIBUTION_MAX_H + SHEET_PEEK_GAPS;
     expect(SHEET_PEEK_H).toBeGreaterThanOrEqual(worstCase);
+    // แผ่นเลื่อนวางอยู่บนแถบแท็บหัวข้อ — inset ล่างของแผนที่ต้องคลุมทั้งสองชั้น
+    // (peek ที่แย่ที่สุด + แถบแท็บ) ไม่งั้นกล้องจัดกรอบจังหวัดไปไว้ใต้บรรทัดเครดิต
+    const phone = computeSafeArea({ tier: "phone", drawerOpen: false, dockHeight: 0 });
+    expect(phone.bottom).toBeGreaterThanOrEqual(worstCase + PHONE_TABBAR_H);
   });
 
   it("drawer เปิดเป็นค่าเริ่มต้นเฉพาะ wide", () => {
@@ -70,13 +76,14 @@ describe("shellLayout — computeSafeArea", () => {
     }
   });
 
-  it("phone: ซ้าย/ขวา 8 และ bottom = ความสูง peek + 8", () => {
+  it("phone: ซ้าย/ขวา 8 และ bottom = เพดาน peek + แถบแท็บหัวข้อ + 8", () => {
     expect(computeSafeArea({ tier: "phone", drawerOpen: true, dockHeight: 0 })).toEqual({
       left: 8,
       right: 8,
       top: 72,
-      bottom: SHEET_PEEK_H + 8,
+      bottom: SHEET_PEEK_H + PHONE_TABBAR_H + 8,
     });
+    expect(computeSafeArea({ tier: "phone", drawerOpen: false, dockHeight: 0 }).bottom).toBe(304);
   });
 
   it("phone ไม่ขึ้นกับ dockHeight เลย — ลูป sheet → dock → safeArea ถูกตัดแล้ว", () => {
@@ -95,19 +102,24 @@ describe("shellLayout — computeSafeArea", () => {
     expect(360 - sa.left - sa.right).toBeGreaterThanOrEqual(200);
   });
 
-  it("≥ tablet: ซ้าย = 12+48+drawer+12, ขวา = 72, bottom = 12 + dock (drawer ไม่ถูกวัด แต่เป็นค่าคงที่)", () => {
+  it("≥ tablet: ซ้าย = 12+80+drawer+12, ขวา = 72, bottom = 12 + dock (drawer ไม่ถูกวัด แต่เป็นค่าคงที่)", () => {
     expect(
       computeSafeArea({ tier: "tablet", drawerOpen: false, dockHeight: 60 }),
-    ).toEqual({ left: 72, right: 72, top: 72, bottom: 72 });
+    ).toEqual({ left: 104, right: 72, top: 72, bottom: 72 });
     expect(computeSafeArea({ tier: "tablet", drawerOpen: true, dockHeight: 60 }).left).toBe(
-      12 + 48 + 320 + 12,
+      12 + 80 + 320 + 12,
     );
     expect(computeSafeArea({ tier: "laptop", drawerOpen: true, dockHeight: 60 }).left).toBe(
-      12 + 48 + 352 + 12,
+      12 + 80 + 352 + 12,
     );
     expect(computeSafeArea({ tier: "wide", drawerOpen: true, dockHeight: 60 }).left).toBe(
-      12 + 48 + 360 + 12,
+      12 + 80 + 360 + 12,
     );
+  });
+
+  it("tablet แคบสุด (768) ที่ drawer เปิด ยังเหลือแผนที่เกินพื้น 200px ของ frameTerrain", () => {
+    const sa = computeSafeArea({ tier: "tablet", drawerOpen: true, dockHeight: 60 });
+    expect(768 - sa.left - sa.right).toBeGreaterThanOrEqual(200);
   });
 });
 

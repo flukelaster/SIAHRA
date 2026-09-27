@@ -396,7 +396,7 @@ export const en: Record<keyof typeof th, string> = {
   "viewport.historical": "Historical view {time}",
 
   // ── Panels (rail + drawer on wide screens / sheet tabs on phones) ──────
-  "rail.aria": "Data panels",
+  "rail.aria": "Data topics",
   "drawer.close": "Close panel",
   "panel.layers": "Layers",
   "panel.flood": "Flood",
@@ -407,6 +407,23 @@ export const en: Record<keyof typeof th, string> = {
   "panel.dams": "Dams",
   "panel.quake": "Earthquakes",
   "panel.storm": "Storms",
+
+  // ── Topics (rail on wide screens / bottom tab bar on phones) — the panels above are their sub-views ──
+  "topic.overview": "Overview",
+  "topic.overview.short": "Overview",
+  "topic.water": "Water",
+  "topic.water.short": "Water",
+  "topic.weather": "Rain & storms",
+  "topic.weather.short": "Rain/Storms",
+  "topic.quake": "Earthquakes",
+  "topic.quake.short": "Quakes",
+  "tabbar.aria": "Data topics",
+  "subtabs.aria": "{topic} views",
+
+  // ── The map's "Layers" button + its popover / bottom sheet ─────────────
+  "layers.button.aria": "Layers ({n} on)",
+  "layers.close": "Close layers",
+  "layers.done": "Done",
 
   // ── Mobile sheet ──────────────────────────────────────────────────────
   "sheet.collapse": "Collapse panel",

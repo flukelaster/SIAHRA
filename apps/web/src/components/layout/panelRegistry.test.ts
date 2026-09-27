@@ -3,7 +3,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ChunkBoundary } from "../ui/ChunkBoundary";
 import { lazyView } from "../ui/lazyView";
-import { PANEL_KEYS, PANELS, panelByKey } from "./panelRegistry";
+import { TOPIC_KEYS } from "../../lib/topics";
+import { LAYERS_VIEW, PANEL_KEYS, PANELS, TOPIC_ICONS, panelByKey } from "./panelRegistry";
 
 describe("panelRegistry — ทุกแผงเป็น chunk แยก", () => {
   it("มีครบทุกคีย์ ตามลำดับเดิม", () => {
@@ -14,6 +15,15 @@ describe("panelRegistry — ทุกแผงเป็น chunk แยก", () 
   it.each(PANELS.map((p) => [p.key, p] as const))("แผง %s โหลด chunk ได้ และได้คอมโพเนนต์กลับมา", async (_key, def) => {
     const loaded = await def.view.preload();
     expect(typeof loaded).toBe("function");
+  });
+
+  it("ชั้นข้อมูลไม่ใช่แผงแล้ว แต่เนื้อของมันยังเป็น chunk แยก", async () => {
+    expect(PANELS.map((p) => p.key)).not.toContain("layers");
+    expect(typeof (await LAYERS_VIEW.preload())).toBe("function");
+  });
+
+  it("ทุกหัวข้อมีไอคอน", () => {
+    for (const k of TOPIC_KEYS) expect(TOPIC_ICONS[k]).toBeTruthy();
   });
 });
 

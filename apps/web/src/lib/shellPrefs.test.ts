@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_PANEL,
   PANEL_KEYS,
   SHELL_STORAGE_KEY,
   isPanelKey,
@@ -21,32 +22,58 @@ function memoryStorage(initial: Record<string, string> = {}): StorageLike & { st
 }
 
 describe("shellPrefs — parseShellPrefs", () => {
-  it("รับเฉพาะรูปร่าง v:1 ที่ชนิดถูกและแผงรู้จัก", () => {
+  it("รับรูปร่าง v:1 ที่ชนิดถูกและแผงรู้จัก", () => {
     expect(parseShellPrefs('{"v":1,"drawerOpen":true,"panel":"impact"}')).toEqual({
+      drawerOpen: true,
+      panel: "impact",
+    });
+    expect(parseShellPrefs('{"v":1,"drawerOpen":false,"panel":"storm"}')).toEqual({
+      drawerOpen: false,
+      panel: "storm",
+    });
+  });
+
+  it("แผง \"layers\" ของรุ่นก่อน → ภาพรวม/impact (drawerOpen ที่จำไว้ยังถูกเคารพ) ไม่ใช่ null", () => {
+    expect(DEFAULT_PANEL).toBe("impact");
+    expect(parseShellPrefs('{"v":1,"drawerOpen":true,"panel":"layers"}')).toEqual({
       drawerOpen: true,
       panel: "impact",
     });
     expect(parseShellPrefs('{"v":1,"drawerOpen":false,"panel":"layers"}')).toEqual({
       drawerOpen: false,
-      panel: "layers",
+      panel: "impact",
     });
   });
 
-  it("ปฏิเสธ null / JSON พัง / รุ่นอื่น / ชนิดผิด / แผงที่ไม่รู้จัก — คืน null ทั้งก้อน", () => {
+  it("คีย์สตริงเก่า/ไม่รู้จักอื่น ๆ → impact เช่นกัน", () => {
+    expect(parseShellPrefs('{"v":1,"drawerOpen":true,"panel":"province"}')).toEqual({
+      drawerOpen: true,
+      panel: "impact",
+    });
+    expect(parseShellPrefs('{"v":1,"drawerOpen":false,"panel":""}')).toEqual({
+      drawerOpen: false,
+      panel: "impact",
+    });
+  });
+
+  it("ปฏิเสธ null / JSON พัง / รุ่นอื่น / ชนิดผิด / ไม่มี panel — คืน null ทั้งก้อน", () => {
     expect(parseShellPrefs(null)).toBeNull();
     expect(parseShellPrefs("")).toBeNull();
     expect(parseShellPrefs("{not json")).toBeNull();
     expect(parseShellPrefs("null")).toBeNull();
-    expect(parseShellPrefs('"layers"')).toBeNull();
-    expect(parseShellPrefs('{"v":2,"drawerOpen":true,"panel":"layers"}')).toBeNull();
-    expect(parseShellPrefs('{"drawerOpen":true,"panel":"layers"}')).toBeNull();
-    expect(parseShellPrefs('{"v":1,"drawerOpen":"true","panel":"layers"}')).toBeNull();
-    expect(parseShellPrefs('{"v":1,"drawerOpen":true,"panel":"province"}')).toBeNull();
+    expect(parseShellPrefs('"impact"')).toBeNull();
+    expect(parseShellPrefs('{"v":2,"drawerOpen":true,"panel":"impact"}')).toBeNull();
+    expect(parseShellPrefs('{"drawerOpen":true,"panel":"impact"}')).toBeNull();
+    expect(parseShellPrefs('{"v":1,"drawerOpen":"true","panel":"impact"}')).toBeNull();
+    expect(parseShellPrefs('{"v":1,"drawerOpen":true,"panel":3}')).toBeNull();
+    expect(parseShellPrefs('{"v":1,"drawerOpen":true,"panel":null}')).toBeNull();
     expect(parseShellPrefs('{"v":1,"drawerOpen":true}')).toBeNull();
   });
 
-  it("isPanelKey รู้จักทั้งแปดแผงและไม่รับอย่างอื่น", () => {
+  it("isPanelKey รู้จักทั้งเก้ามุมมองย่อย และไม่รับ layers (ย้ายไปเป็นปุ่มบนแผนที่แล้ว)", () => {
+    expect(PANEL_KEYS).toHaveLength(9);
     for (const k of PANEL_KEYS) expect(isPanelKey(k)).toBe(true);
+    expect(isPanelKey("layers")).toBe(false);
     expect(isPanelKey("province")).toBe(false);
     expect(isPanelKey(1)).toBe(false);
     expect(isPanelKey(undefined)).toBe(false);
@@ -74,7 +101,7 @@ describe("shellPrefs — read/write ผ่าน getter ของ storage", () =
       throw new Error("storage ถูกปิดโดยนโยบาย");
     };
     expect(readShellPrefs(throwing)).toBeNull();
-    expect(() => writeShellPrefs(throwing, { drawerOpen: false, panel: "layers" })).not.toThrow();
+    expect(() => writeShellPrefs(throwing, { drawerOpen: false, panel: "impact" })).not.toThrow();
   });
 
   it("getItem/setItem เอง throw ก็ยังไม่ล้ม", () => {

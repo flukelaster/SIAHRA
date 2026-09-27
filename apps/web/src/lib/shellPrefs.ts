@@ -11,8 +11,18 @@
  * storage / นโยบายองค์กร) getter จึงถูกเรียก **ใน** `try` เดียวกับ `.getItem()`
  * ตามแบบเดียวกับ `i18n/initialLang.ts`
  */
-export const PANEL_KEYS = ["layers", "flood", "impact", "water", "north", "rain", "forecast", "dams", "storm", "quake"] as const;
+/**
+ * คีย์ของแผง = **มุมมองย่อย** ของหัวข้อ (`lib/topics.ts`) เรียงตามลำดับหัวข้อ:
+ * ภาพรวม (impact) · น้ำ (water north dams flood) · ฝนและพายุ (rain forecast storm) · แผ่นดินไหว (quake)
+ *
+ * "ชั้นข้อมูล" ไม่ใช่แผงอีกแล้ว (ย้ายไปเป็นปุ่มเครื่องมือบนแผนที่) — ค่า `"layers"` ที่
+ * จำไว้จากรุ่นก่อนจึงถูกแปลงเป็นแผงเริ่มต้นใน `parseShellPrefs` ไม่ใช่ทิ้งทั้งก้อน
+ */
+export const PANEL_KEYS = ["impact", "water", "north", "dams", "flood", "rain", "forecast", "storm", "quake"] as const;
 export type PanelKey = (typeof PANEL_KEYS)[number];
+
+/** แผงของผู้มาครั้งแรก และปลายทางของคีย์เก่า/ไม่รู้จักที่จำไว้ = ภาพรวม/ผลกระทบรายพื้นที่ */
+export const DEFAULT_PANEL: PanelKey = "impact";
 
 export const SHELL_STORAGE_KEY = "siahra.shell";
 
@@ -32,8 +42,12 @@ export interface StorageLike {
 }
 
 /**
- * แปลงข้อความดิบเป็น prefs — อะไรที่ไม่ใช่รูปร่าง v:1 เป๊ะ (ชนิดผิด คีย์แผงที่
- * ไม่รู้จัก JSON พัง รุ่นอื่น) คืน null ทั้งก้อน ไม่เดาบางส่วน
+ * แปลงข้อความดิบเป็น prefs — อะไรที่ไม่ใช่รูปร่าง v:1 (ชนิดผิด JSON พัง รุ่นอื่น
+ * ไม่มี `panel`) คืน null ทั้งก้อน ไม่เดาบางส่วน
+ *
+ * ข้อยกเว้นเดียว: `panel` เป็นสตริงแต่ไม่ใช่แผงที่มีอยู่ (เช่น `"layers"` ของรุ่นที่ชั้นข้อมูลยัง
+ * เป็นแผง) → `DEFAULT_PANEL` — รูปร่างยังถูกต้อง แค่แผงนั้นเลิกมีไปแล้ว `drawerOpen` ที่ผู้ใช้
+ * ตั้งไว้จึงยังควรถูกเคารพ
  */
 export function parseShellPrefs(raw: string | null): ShellPrefs | null {
   if (raw === null) return null;
@@ -47,8 +61,8 @@ export function parseShellPrefs(raw: string | null): ShellPrefs | null {
   const o = parsed as Record<string, unknown>;
   if (o.v !== 1) return null;
   if (typeof o.drawerOpen !== "boolean") return null;
-  if (!isPanelKey(o.panel)) return null;
-  return { drawerOpen: o.drawerOpen, panel: o.panel };
+  if (typeof o.panel !== "string") return null;
+  return { drawerOpen: o.drawerOpen, panel: isPanelKey(o.panel) ? o.panel : DEFAULT_PANEL };
 }
 
 /** null = ไม่เคยจำ / อ่านไม่ได้ / storage ถูกปิด — ผู้เรียกใช้ค่าเริ่มต้นตาม tier */

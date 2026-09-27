@@ -14,17 +14,19 @@ import {
 import type { SearchPlace } from "../../lib/searchIndex";
 import { bangkokDateKey } from "../../lib/time";
 import { DRAWER_W, GUTTER, RAIL_W, TOPBAR_H } from "../../lib/shellLayout";
-import type { PanelKey } from "../../lib/shellPrefs";
+import type { TopicKey } from "../../lib/topics";
 import { AlertToast } from "./AlertToast";
 import { BottomDock } from "./BottomDock";
 import type { MapInfo } from "./Map3DCanvas";
 import { MobileSheet } from "./MobileSheet";
 import { LazyNotificationCenter as NotificationCenter } from "./LazyNotificationCenter";
+import { LayersPopover, LayersSheet } from "./LayersSurface";
 import type { PanelContext } from "./panelRegistry";
 import { SideDrawer } from "./SideDrawer";
 import { SideRail } from "./SideRail";
 import type { TimelineMark } from "./TimelineBar";
 import { TopBar } from "./TopBar";
+import { TopicTabBar } from "./TopicTabBar";
 
 const getLocalStorage = () => window.localStorage;
 
@@ -50,15 +52,17 @@ export interface AppShellProps {
 
 /**
  * เลือกเปลือกตาม tier — ไม่มี data hook ที่นี่ (ทั้งหมดอยู่ใน App.tsx)
- *   ≥ tablet: TopBar + rail + drawer เดียว + dock ล่างเต็มความกว้าง + toast
- *   phone   : TopBar + แผ่นเลื่อนชั้นเดียว (ทะเบียนแผงเดียวกัน) + toast
- *             แผนที่เต็มจอ ทุกอย่างที่ไม่ใช่ TopBar/ปุ่มเครื่องมืออยู่ในแผ่นทั้งหมด
+ *   ≥ tablet: TopBar + rail หัวข้อ + drawer เดียว (แท็บย่อยของหัวข้อ) + dock ล่างเต็มความกว้าง
+ *             + toast + popover ชั้นข้อมูล (เปิดจากปุ่มบนคอลัมน์เครื่องมือของแผนที่)
+ *   phone   : TopBar + แผ่นเลื่อนชั้นเดียว (ทะเบียนแผงเดียวกัน) บนแถบแท็บหัวข้อ + toast
+ *             + แผ่นล่าง modal ของชั้นข้อมูล — แผนที่เต็มจอ ทุกอย่างที่ไม่ใช่ TopBar/ปุ่มเครื่องมือ
+ *             อยู่ในแผ่นทั้งหมด
  */
 export function AppShell(props: AppShellProps) {
   const { ctx, shell } = props;
-  const railButtons = useRef<Partial<Record<PanelKey, HTMLButtonElement | null>>>({});
-  const focusRail = useCallback((key: PanelKey) => {
-    railButtons.current[key]?.focus();
+  const railButtons = useRef<Partial<Record<TopicKey, HTMLButtonElement | null>>>({});
+  const focusRail = useCallback((topic: TopicKey) => {
+    railButtons.current[topic]?.focus();
   }, []);
 
   // ── ศูนย์การแจ้งเตือน: สร้างจาก state ของ hook ที่ App.tsx รันอยู่แล้ว (ผ่าน ctx)
@@ -150,8 +154,8 @@ export function AppShell(props: AppShellProps) {
         {topBar}
         <MobileSheet
           ctx={ctx}
-          active={shell.panel}
-          onActiveChange={shell.setPanel}
+          panel={shell.panel}
+          onPanelChange={shell.setPanel}
           snap={shell.sheetSnap}
           onSnapChange={shell.setSheetSnap}
           apiHealth={props.apiHealth}
@@ -163,8 +167,18 @@ export function AppShell(props: AppShellProps) {
           forecastAtIso={props.forecastAtIso}
           onForecastAtIsoChange={props.onForecastAtIsoChange}
         />
+        <TopicTabBar ctx={ctx} topic={shell.topic} sheetOpen={shell.sheetSnap !== "peek"} onTap={shell.tapTopic} />
         {toast}
         {notificationCenter}
+        {shell.layersOpen ? (
+          <LayersSheet
+            ctx={ctx}
+            mapInfo={props.mapInfo}
+            exaggeration={props.exaggeration}
+            buttonRef={shell.layersButtonRef}
+            onClose={shell.closeLayers}
+          />
+        ) : null}
       </>
     );
   }
@@ -188,15 +202,16 @@ export function AppShell(props: AppShellProps) {
       >
         <SideRail
           ctx={ctx}
-          panel={shell.panel}
+          topic={shell.topic}
           drawerOpen={shell.drawerOpen}
-          onToggle={shell.togglePanel}
+          onToggle={shell.toggleTopic}
           buttonRefs={railButtons}
         />
         {shell.drawerOpen ? (
           <SideDrawer
             ctx={ctx}
             panel={shell.panel}
+            onPanelChange={shell.setPanel}
             width={drawerWidth}
             onClose={shell.closeDrawer}
             onClosed={focusRail}
@@ -218,6 +233,14 @@ export function AppShell(props: AppShellProps) {
       />
       {toast}
       {notificationCenter}
+      {shell.layersOpen ? (
+        <LayersPopover
+          ctx={ctx}
+          safeArea={shell.safeArea}
+          buttonRef={shell.layersButtonRef}
+          onClose={shell.closeLayers}
+        />
+      ) : null}
     </>
   );
 }

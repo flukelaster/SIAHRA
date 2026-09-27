@@ -10,14 +10,18 @@
  * ถูกตั้งแต่เรนเดอร์แรกแบบ synchronous ก่อน manifest จะโหลดเสร็จและ `frameTerrain`
  * ทำงาน (มันอ่าน safe area ครั้งเดียวตอน AOI โหลด ไม่ได้อ่านซ้ำตอน resize)
  * ส่วนความสูงของ dock ล่างวัดจริงด้วย ResizeObserver (`BottomDock`) — เฉพาะ tablet
- * ขึ้นไป บนมือถือ inset ล่างเป็นค่าคงที่ `SHEET_PEEK_H` (ดู `computeSafeArea`)
+ * ขึ้นไป บนมือถือ inset ล่างเป็นค่าคงที่ `SHEET_PEEK_H + PHONE_TABBAR_H` (ดู `computeSafeArea`)
  */
 export type Tier = "phone" | "tablet" | "laptop" | "wide";
 
 /** ระยะขอบระหว่างแผงกับขอบ viewport (CSS px) */
 export const GUTTER = 12;
 export const TOPBAR_H = 48;
-export const RAIL_W = 48;
+/**
+ * rail หัวข้อ (ไอคอน + ป้ายสั้นใต้ไอคอน) — ปุ่มกว้าง 72 + ขอบซ้าย/ขวา 4 (ความกว้างภายใน
+ * ไม่รวมเส้นคั่น 1 px ของ rail — กล่องกระจกใน AppShell บวกเส้นขอบเอง)
+ */
+export const RAIL_W = 80;
 /** กลุ่มปุ่มเข็มทิศ/ซูมด้านขวา */
 export const TOOLS_W = 48;
 export const DRAWER_W: Record<Exclude<Tier, "phone">, number> = {
@@ -52,6 +56,13 @@ export const SHEET_PEEK_GAPS = 4 * 8;
  * จึงต้องเป็นเพดานเสมอ — ดูเทสต์ที่ยืนยันผลรวมข้างบน
  */
 export const SHEET_PEEK_H = 240;
+/**
+ * แถบแท็บหัวข้อด้านล่างของมือถือ (ไม่รวม `env(safe-area-inset-bottom)` ซึ่งเป็น 0 ตราบใดที่
+ * `index.html` ไม่ได้ตั้ง `viewport-fit=cover`) — แผ่นเลื่อนวางอยู่ **บน** แถบนี้ ไม่ใช่ใต้
+ * มัน ส่วน peek (รวมบรรทัดเครดิต) จึงไม่มีวันถูกแถบบัง `SHEET_PEEK_H` ยังเป็นเพดานของ
+ * peek อย่างเดียว ส่วน inset ของแผนที่บวกแถบนี้เพิ่ม (`computeSafeArea`)
+ */
+export const PHONE_TABBAR_H = 56;
 export const SHEET_HALF_VH = 0.55;
 export const SHEET_FULL_VH = 0.92;
 /** เร็วกว่านี้ (px/ms) = สะบัด → ไปสแนปถัดไปตามทิศ ไม่ใช่สแนปที่ใกล้ที่สุด */
@@ -134,7 +145,7 @@ export interface SafeAreaInput {
 
 /**
  *   top    = GUTTER + TOPBAR_H + GUTTER                                   // 72 ทุก tier
- *   phone  : left/right 8; bottom = SHEET_PEEK_H + 8                      // **คงที่**
+ *   phone  : left/right 8; bottom = SHEET_PEEK_H + PHONE_TABBAR_H + 8     // **คงที่**
  *   ≥tablet: left  = GUTTER + RAIL_W + (drawerOpen ? DRAWER_W[tier] : 0) + GUTTER
  *            right = GUTTER + TOOLS_W + GUTTER                            // 72
  *            bottom= GUTTER + dockHeight
@@ -148,7 +159,7 @@ export interface SafeAreaInput {
 export function computeSafeArea({ tier, drawerOpen, dockHeight }: SafeAreaInput): ShellSafeArea {
   const top = GUTTER + TOPBAR_H + GUTTER;
   if (tier === "phone") {
-    return { left: 8, right: 8, top, bottom: SHEET_PEEK_H + 8 };
+    return { left: 8, right: 8, top, bottom: SHEET_PEEK_H + PHONE_TABBAR_H + 8 };
   }
   return {
     left: GUTTER + RAIL_W + (drawerOpen ? DRAWER_W[tier] : 0) + GUTTER,
