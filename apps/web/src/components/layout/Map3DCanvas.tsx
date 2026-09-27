@@ -38,7 +38,13 @@ import {
 import { createFloodSurface, type FloodSurface } from "../../scene/FloodSurface";
 import { RadarOverlay } from "../../scene/RadarOverlay";
 import { pickAt, type PickResult } from "../../scene/picking";
-import { QualityManager, type QualityLevel, type QualityMode } from "../../scene/quality";
+import {
+  QualityManager,
+  currentDeviceClass,
+  memoryBudgetsFor,
+  type QualityLevel,
+  type QualityMode,
+} from "../../scene/quality";
 import { LazyCameraSheet as CameraSheet, LazyInfoPopup as InfoPopup } from "../map/lazyMapViews";
 import { isClickRelease, type CameraContext, type CameraSelection } from "../../lib/cameraSheet";
 import type { CatalogueProbe } from "../../hooks/useCameraCatalogues";
@@ -348,6 +354,8 @@ export function Map3DCanvas({
   });
   const [imageryProgress, setImageryProgress] = useState<number | null>(null);
   const [tileStats, setTileStats] = useState<TerrainTileStats | null>(null);
+  /** context WebGL ถูกเบราว์เซอร์ทิ้ง (มักเพราะหน่วยความจำ GPU บนมือถือ) — ลูปวาดหยุดแล้ว */
+  const [contextLost, setContextLost] = useState(false);
 
   // Terrain is loaded once per AOI; markers refresh independently as
   // observations poll, so they need their own handles rather than a reload.
@@ -531,10 +539,26 @@ export function Map3DCanvas({
         handles = setupScene(container);
         sceneRef.current = handles;
         onSceneReady?.(handles);
-        const quality = new QualityManager(handles, null);
+        // ชั้นของอุปกรณ์ตัดสินครั้งเดียวต่อฉาก: preset เริ่มต้น + งบหน่วยความจำของไทล์
+        // (มือถือ = งบแคบของ iOS; เปลี่ยนแค่การวาด ไม่ตัดหมุด/ป้าย/legend/เครดิต)
+        const deviceClass = currentDeviceClass();
+        const budgets = memoryBudgetsFor(deviceClass);
+        const quality = new QualityManager(handles, null, deviceClass);
         quality.onLevel = (level, mode) => qualityCbRef.current?.(level, mode);
         qualityRef.current = quality;
         handles.addTicker(() => quality.tick(performance.now()));
+        // context WebGL หาย (หน่วยความจำ GPU ไม่พอ) → ลูปหยุดแล้ว ต้องบอกผู้ใช้ ไม่ใช่จอว่างเงียบ ๆ
+        handles.onContextLost(() => {
+          if (!cancelled) setContextLost(true);
+        });
+        if (import.meta.env.DEV) {
+          handles.debug.register("quality", () => ({
+            level: quality.currentLevel,
+            mode: quality.currentMode,
+            deviceClass,
+            budgets,
+          }));
+        }
 
         // Click/tap-to-inspect: a press+release with little movement.
         //
@@ -646,6 +670,8 @@ export function Map3DCanvas({
             shared,
             minZ: pyramid.minZ,
             maxZ: pyramid.maxZ,
+            textureBudgetBytes: budgets.terrainTextureBytes,
+            geometryBudgetBytes: budgets.terrainGeometryBytes,
           });
           tree.onStats = (st) => {
             if (!cancelled) setTileStats(st);
@@ -658,11 +684,19 @@ export function Map3DCanvas({
             const t = tree;
             handles.debug.register("lod", () => t.lodCounters);
             handles.debug.register("lodDisposedTrees", () => disposedTreeCounters);
+            handles.debug.register("terrain", () => t.debugStats());
           }
           handles.world.add(tree.group);
           if (manifest.buildings?.tiles) {
-            buildingTiles = new BuildingTileLayer(manifest, terrain.projection);
-            handles.world.add(buildingTiles.group);
+            const bt = new BuildingTileLayer(manifest, terrain.projection, {
+              budgetBytes: budgets.buildingBytes,
+              shadows: handles.getShadows(),
+            });
+            buildingTiles = bt;
+            // castShadow ตามเงาจริง — ปิดเงา (มือถือ/low) = อาคารไม่ถูกวาดลง shadow map
+            handles.onShadowsChange((on) => bt.setShadows(on));
+            if (import.meta.env.DEV) handles.debug.register("buildings", () => bt.debugStats());
+            handles.world.add(bt.group);
           }
           if (manifest.features) {
             featureTiles = new FeatureTileLayer(
@@ -671,6 +705,10 @@ export function Map3DCanvas({
               shared.uTime,
               shared.uOverlay,
             );
+            if (import.meta.env.DEV) {
+              const ft = featureTiles;
+              handles.debug.register("features", () => ft.debugStats());
+            }
             handles.world.add(featureTiles.roadsGroup);
             handles.world.add(featureTiles.waterGroup);
           }
@@ -1712,6 +1750,26 @@ export function Map3DCanvas({
           <p className="text-xs text-[var(--color-fg-subtle)]">
             {t("scene.notBuiltBody")}
           </p>
+        </div>
+      ) : null}
+
+      {contextLost ? (
+        // ทับเฉพาะพื้นที่แผนที่ (ไม่มี z-index) — แถบบน แผงข้าง จุดสถานะ และบรรทัดเครดิตยังอยู่เหนือมัน
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/50 px-6">
+          <div
+            role="alert"
+            className="pointer-events-auto relative z-30 max-w-sm rounded-xl border border-amber-400/30 bg-black/85 px-4 py-3 text-center shadow-lg"
+          >
+            <p className="text-sm font-medium text-amber-200">{t("scene.contextLostTitle")}</p>
+            <p className="mt-1 text-xs text-white/70">{t("scene.contextLostBody")}</p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="mt-3 rounded-full bg-[var(--color-accent)] px-4 py-1.5 text-xs font-medium text-white"
+            >
+              {t("scene.contextLostReload")}
+            </button>
+          </div>
         </div>
       ) : null}
 
