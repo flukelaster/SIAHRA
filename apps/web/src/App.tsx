@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "./components/layout/AppShell";
-import type { CommunityMapState, MapApi, MapInfo } from "./components/layout/Map3DCanvas";
+import type { CommunityReport } from "@siahra/shared-types";
+import type { CommunityActions, CommunityMapState, MapApi, MapInfo } from "./components/layout/Map3DCanvas";
 import { MapViewport } from "./components/layout/MapViewport";
 import type { PanelContext } from "./components/layout/panelRegistry";
 import type { StationFocus } from "./components/layout/panelViews";
@@ -117,14 +118,37 @@ export default function App() {
     const win = communityWindow(atIso, communityRangeHours, Date.now());
     return { shown: reportsInWindow(communityData.reports, win), all: communityData.reports, refMs: win.endMs };
   }, [layers.community, communityData, atIso, communityRangeHours]);
-  const { patchVotes: communityPatchVotes, removeLocal: communityRemoveLocal } = community;
+  const {
+    patchVotes: communityPatchVotes,
+    removeLocal: communityRemoveLocal,
+    upsertLocal: communityUpsertLocal,
+  } = community;
   const communityDimmed = community.error !== null;
   const communityMap = useMemo<CommunityMapState | null>(
-    () =>
-      communityWindowed
-        ? { ...communityWindowed, dimmed: communityDimmed, onVotes: communityPatchVotes, onRemoved: communityRemoveLocal }
-        : null,
-    [communityWindowed, communityDimmed, communityPatchVotes, communityRemoveLocal],
+    () => (communityWindowed ? { ...communityWindowed, dimmed: communityDimmed } : null),
+    [communityWindowed, communityDimmed],
+  );
+  // ส่งรายงานสำเร็จ (ฟอร์มบนแผนที่): หมุดขึ้นทันทีทั้งที่รายการถูกแคชที่ขอบ 30 วิ — เฉพาะเมื่อ server ระบุจังหวัด
+  // เดียวกับที่ดูอยู่ (overlay ผูกกับจังหวัด; หมุดของจังหวัดอื่นจะหายในรอบถามถัดไปแบบไม่มีเหตุผลให้เห็น) แล้วเปิดชั้น
+  // ถ้าปิดอยู่ผ่านตัวตั้งเดียวกับสวิตช์ — `community` อยู่ใน `OPT_IN_LAYERS` จึงไม่เปลี่ยน `following` (ตรงกับ
+  // `applyToggle` ของ `lib/layerGroups.ts` ซึ่งเป็น chunk แยก — `layerGroups.test.ts` ยืนยันว่าเท่ากัน)
+  const handleReportCreated = useCallback(
+    (report: CommunityReport) => {
+      if (report.provinceCode === provinceCode) communityUpsertLocal(report);
+      setLayerState((s) =>
+        s.layers.community ? s : { layers: { ...s.layers, community: true }, following: s.following },
+      );
+    },
+    [provinceCode, communityUpsertLocal],
+  );
+  const communityActions = useMemo<CommunityActions>(
+    () => ({
+      provinceCode,
+      onCreated: handleReportCreated,
+      onVotes: communityPatchVotes,
+      onRemoved: communityRemoveLocal,
+    }),
+    [provinceCode, handleReportCreated, communityPatchVotes, communityRemoveLocal],
   );
   const communityLegend: CommunityLegendState = {
     fetched: communityData !== null,
@@ -597,6 +621,7 @@ export default function App() {
         northRouteTopology={northTopology}
         northRouteStations={northStations}
         community={communityMap}
+        communityActions={communityActions}
         floodAge={floodAge}
         initialPose={initialPoseRef.current}
         exaggeration={exaggeration}

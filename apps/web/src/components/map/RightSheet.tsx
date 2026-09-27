@@ -30,7 +30,8 @@ interface SwipeSession {
 }
 
 /**
- * กรอบของแผงด้านขวา — ใช้ร่วมกันโดยแผงกล้อง (`CameraSheet`) และแผงรายงานจากประชาชน (`ReportSheet`);
+ * กรอบของแผงด้านขวา — ใช้ร่วมกันโดยแผงกล้อง (`CameraSheet`) แผงรายงานจากประชาชน (`ReportSheet`) และฟอร์ม
+ * รายงาน (`ReportCompose`);
  * มีได้ทีละหนึ่งแผง (Map3DCanvas ล้างอีกฝั่งเมื่อเปิดฝั่งหนึ่ง) เนื้อหา (หัวแผง + ตัวแผง) เป็นของผู้ใช้กรอบ
  *
  * - ≥ tablet: ใต้ TopBar เหนือ dock อยู่ซ้ายของคอลัมน์เข็มทิศ/ซูม (`rightSheetBox`)
@@ -52,7 +53,7 @@ export function RightSheet({
   children,
 }: {
   /** ชนิดของแผง — `data-right-sheet` (ให้ QA/เทสหาเจอ) */
-  kind: "camera" | "report";
+  kind: "camera" | "report" | "compose";
   /** คีย์ของสิ่งที่แสดงอยู่ — เปลี่ยน = จับ element ที่จะคืนโฟกัสให้ใหม่ */
   selKey: string;
   /** id ของ h2 ใน `RightSheetHeader` (`aria-labelledby`) */

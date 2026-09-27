@@ -1,5 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { castVote, deleteOwnReport, failureFor, type VoteDeps } from "./communityApi";
+import {
+  buildReportForm,
+  castVote,
+  deleteOwnReport,
+  failureFor,
+  reportFailureFor,
+  submitReport,
+  type ReportDraft,
+  type VoteDeps,
+} from "./communityApi";
 
 const ID = "20260927-AAAAAAAAAAAAAAAAAAAAAA";
 
@@ -145,3 +154,113 @@ describe("deleteOwnReport", () => {
     expect(bad.ok ? null : bad.failure).toBe("unauthorized");
   });
 });
+
+describe("reportFailureFor — ทุกคำตอบของ POST /community/reports มีชื่อของมัน", () => {
+  it("503: ปิดรับ ≠ ถามบริการยืนยันไม่ได้ ≠ เก็บไม่สำเร็จ ≠ อย่างอื่น", () => {
+    expect(reportFailureFor(503, "reporting-disabled")).toBe("disabled");
+    expect(reportFailureFor(503, "turnstile-unreachable")).toBe("turnstile-unreachable");
+    expect(reportFailureFor(503, "storage-failed")).toBe("storage");
+    expect(reportFailureFor(503, undefined)).toBe("server");
+  });
+  it("429: เพดานรายวันทั้งประเทศ ≠ ตัวจำกัดอัตราต่อ IP (router ไม่ส่ง reason)", () => {
+    expect(reportFailureFor(429, "report-cap")).toBe("report-cap");
+    expect(reportFailureFor(429, undefined)).toBe("rate-limit");
+  });
+  it("403: Turnstile ไม่ผ่าน ≠ ด่าน same-origin (ไม่มี reason)", () => {
+    expect(reportFailureFor(403, "turnstile-failed")).toBe("turnstile");
+    expect(reportFailureFor(403, undefined)).toBe("server");
+  });
+  it("422 / 413 / 415 / 400", () => {
+    expect(reportFailureFor(422, "outside-thailand")).toBe("outside-thailand");
+    expect(reportFailureFor(422, "image-metadata")).toBe("image-metadata");
+    expect(reportFailureFor(422, "image-invalid")).toBe("image-invalid");
+    expect(reportFailureFor(422, "invalid-categories")).toBe("invalid");
+    expect(reportFailureFor(422, "description-too-long")).toBe("invalid");
+    expect(reportFailureFor(422, "invalid-location")).toBe("invalid");
+    expect(reportFailureFor(413, "body-too-large")).toBe("too-large");
+    expect(reportFailureFor(413, "image-too-large")).toBe("too-large");
+    expect(reportFailureFor(415, "image-type")).toBe("image-type");
+    expect(reportFailureFor(400, "bad-request")).toBe("invalid");
+    expect(reportFailureFor(500, undefined)).toBe("server");
+  });
+});
+
+const REPORT = {
+  id: ID,
+  lat: 13.75,
+  lon: 100.5,
+  provinceCode: "10",
+  categories: ["flood"],
+  description: "น้ำท่วมถนน",
+  imageUrl: `/api/v1/community/image/${ID}`,
+  createdAt: "2026-09-27T10:00:00.000Z",
+  up: 0,
+  down: 0,
+};
+
+const draft = (image: Blob | null = null): ReportDraft => ({
+  lat: 13.7512345678,
+  lon: 100.4987654321,
+  categories: ["flood", "road-blocked"],
+  description: "น้ำท่วมถนน",
+  image,
+});
+
+describe("buildReportForm — ฟิลด์ตามที่ parseReportFields ของ API อ่าน", () => {
+  it("lat/lon ทศนิยม 6 ตำแหน่ง, หมวดเป็นฟิลด์ซ้ำ, token, ไม่แนบรูป = ไม่มีฟิลด์ image", () => {
+    const f = buildReportForm(draft(), "ts");
+    expect(f.get("lat")).toBe("13.751235");
+    expect(f.get("lon")).toBe("100.498765");
+    expect(f.getAll("categories")).toEqual(["flood", "road-blocked"]);
+    expect(f.get("description")).toBe("น้ำท่วมถนน");
+    expect(f.get("turnstileToken")).toBe("ts");
+    expect(f.has("image")).toBe(false);
+  });
+  it("แนบรูป = ไฟล์ชื่อตามชนิด", () => {
+    const webp = buildReportForm(draft(new Blob([new Uint8Array(4)], { type: "image/webp" })), "ts").get("image");
+    const jpg = buildReportForm(draft(new Blob([new Uint8Array(4)], { type: "image/jpeg" })), "ts").get("image");
+    expect(webp instanceof File && webp.name).toBe("photo.webp");
+    expect(jpg instanceof File && jpg.name).toBe("photo.jpg");
+  });
+});
+
+describe("submitReport — POST เดียวต่อการกดส่ง ไม่ลองซ้ำ", () => {
+  it("201 = รายงาน + ownerToken", async () => {
+    const fetchMock = vi.fn(async () => json(201, { report: REPORT, ownerToken: "own" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const res = await submitReport(draft(), "ts");
+    expect(res).toEqual({ ok: true, value: { report: REPORT, ownerToken: "own" } });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("/api/v1/community/reports");
+    expect(init.method).toBe("POST");
+    expect(init.body).toBeInstanceOf(FormData);
+  });
+
+  it("4xx/5xx ถูกแปลตาม reason และถามครั้งเดียวเท่านั้น", async () => {
+    const fetchMock = vi.fn(async () => json(503, { error: "x", reason: "reporting-disabled" }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await submitReport(draft(), "ts")).toEqual({ ok: false, failure: "disabled", status: 503 });
+    vi.stubGlobal("fetch", vi.fn(async () => json(429, { error: "Too many requests", retryAfterSeconds: 12 })));
+    expect(await submitReport(draft(), "ts")).toEqual({ ok: false, failure: "rate-limit", status: 429 });
+    vi.stubGlobal("fetch", vi.fn(async () => json(422, { error: "x", reason: "outside-thailand" })));
+    expect(await submitReport(draft(), "ts")).toEqual({ ok: false, failure: "outside-thailand", status: 422 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("เครือข่ายล้ม = network; 201 รูปร่างผิด (id ผิดรูป / ไม่มี ownerToken) = server", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("Failed to fetch");
+      }),
+    );
+    expect(await submitReport(draft(), "ts")).toEqual({ ok: false, failure: "network", status: null });
+    vi.stubGlobal("fetch", vi.fn(async () => json(201, { report: { ...REPORT, id: "abc" }, ownerToken: "own" })));
+    expect((await submitReport(draft(), "ts")).ok).toBe(false);
+    vi.stubGlobal("fetch", vi.fn(async () => json(201, { report: REPORT })));
+    const res = await submitReport(draft(), "ts");
+    expect(res.ok ? null : res.failure).toBe("server");
+  });
+});
+

@@ -43,6 +43,7 @@ export function ReportSheet({
   report,
   gone,
   stale,
+  submitted = null,
   safeArea,
   onClose,
   onVotes,
@@ -54,6 +55,11 @@ export function ReportSheet({
   gone: boolean;
   /** รอบล่าสุดของรายการล้มเหลว — ตัวเลขโหวตอาจไม่ใช่ของล่าสุด */
   stale: boolean;
+  /**
+   * รายงานนี้เพิ่งถูกส่งจากเครื่องนี้ (ฟอร์ม `ReportCompose`) — `here` = อยู่จังหวัดที่ดูอยู่, `elsewhere` = server
+   * ระบุจังหวัดอื่นจากตำแหน่งหมุด (หมุดจึงไม่อยู่ในรายการของจังหวัดนี้); null = เปิดจากหมุดตามปกติ
+   */
+  submitted?: "here" | "elsewhere" | null;
   safeArea: ShellSafeArea;
   onClose: () => void;
   /** ตัวนับจาก server หลังโหวต — ใส่ทับรายการในเครื่องทันที (`useCommunityReports.patchVotes`) */
@@ -69,6 +75,7 @@ export function ReportSheet({
         report={report}
         gone={gone}
         stale={stale}
+        submitted={submitted}
         onClose={onClose}
         onVotes={onVotes}
         onRemoved={onRemoved}
@@ -82,6 +89,7 @@ function ReportSheetContent({
   report,
   gone,
   stale,
+  submitted,
   onClose,
   onVotes,
   onRemoved,
@@ -90,6 +98,7 @@ function ReportSheetContent({
   report: CommunityReport;
   gone: boolean;
   stale: boolean;
+  submitted: "here" | "elsewhere" | null;
   onClose: () => void;
   onVotes: (id: string, counts: { up: number; down: number; hidden: boolean }) => void;
   onRemoved: (id: string) => void;
@@ -212,6 +221,13 @@ function ReportSheetContent({
         className={`flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-3.5 py-3 ${inactive ? "opacity-70" : ""}`}
       >
         {deleted ? <p className="text-xs text-[var(--color-fg)]">{t("community.delete.done")}</p> : null}
+        {submitted && !deleted ? (
+          <p className="rounded-lg bg-white/6 px-2.5 py-2 text-xs text-[var(--color-fg)] ring-1 ring-white/10 ring-inset" role="status">
+            {t(submitted === "here" ? "community.submitted.here" : "community.submitted.elsewhere", {
+              province: t("viewport.province", { name: provinceName }),
+            })}
+          </p>
+        ) : null}
         {hiddenAfterVote ? (
           <p className="text-xs text-[var(--color-risk-medium)]" role="status">
             {t("community.vote.hidden")}

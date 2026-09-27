@@ -50,6 +50,7 @@ import {
 import {
   LazyCameraSheet as CameraSheet,
   LazyInfoPopup as InfoPopup,
+  LazyReportCompose as ReportCompose,
   LazyReportSheet as ReportSheet,
 } from "../map/lazyMapViews";
 import { isClickRelease, type CameraContext, type CameraSelection } from "../../lib/cameraSheet";
@@ -72,6 +73,7 @@ import type { StationSheetInfo, StationSheetLayer } from "../../scene/StationShe
 import type { GistdaSheetInfo, GistdaSheetLayer } from "../../scene/GistdaSheet";
 import type { NorthRouteRiversResult } from "../../scene/NorthRouteRivers";
 import type { CommunityMarkerResult } from "../../scene/CommunityMarkers";
+import { buildDraftPin, type DraftPin } from "../../scene/DraftPin";
 import { lazyModule } from "../../lib/lazyModule";
 import { buildTerrainMesh, type TerrainField } from "../../scene/TerrainMesh";
 import { createTerrainSharedUniforms } from "../../scene/terrainMaterial";
@@ -215,8 +217,26 @@ export interface CommunityMapState {
   refMs: number;
   /** รอบล่าสุดของรายการล้มเหลว → หมุดหรี่ลง ไม่หายไป */
   dimmed: boolean;
+}
+
+/**
+ * การกระทำของผู้ใช้กับรายงานจากประชาชน — App.tsx ผูกกับ `useCommunityReports` + ตัวตั้งชั้นตัวเดียวกับสวิตช์
+ * (มีเสมอแม้ชั้นปิด: แผงรายงานที่เพิ่งส่งเปิดได้ก่อนรายการแรกของจังหวัดจะมาถึง)
+ */
+export interface CommunityActions {
+  /** จังหวัดที่เลือกอยู่ — รายงานที่ server ระบุว่าอยู่จังหวัดอื่นไม่ถูกนับว่า "หายจากรายการ" */
+  provinceCode: string;
+  /** ส่งรายงานสำเร็จ — ใส่หมุดลงรายการในเครื่อง (ถ้าอยู่จังหวัดนี้) + เปิดชั้นถ้าปิดอยู่ */
+  onCreated: (report: CommunityReport) => void;
   onVotes: (id: string, counts: { up: number; down: number; hidden: boolean }) => void;
   onRemoved: (id: string) => void;
+}
+
+/** จุดที่ผู้ใช้ปักไว้ในโหมดรายงาน — `anchor` = จุดบนพื้น (ความสูงจริง ยังไม่คูณ exaggeration) */
+interface DraftPoint {
+  lon: number;
+  lat: number;
+  anchor: THREE.Vector3;
 }
 
 /** Imperative map controls exposed to the shell (search fly-to, permalink, capture). */
@@ -306,6 +326,11 @@ export function Map3DCanvas({
   northRouteTopology = null,
   northRouteStations = null,
   community = null,
+  communityActions = null,
+  placing = false,
+  onPlacingEnd,
+  onPlaceMiss,
+  onDraftChange,
   initialPose,
   quality,
   onQualityLevel,
@@ -380,6 +405,18 @@ export function Map3DCanvas({
   northRouteStations?: readonly NorthRouteStationState[] | null;
   /** รายงานจากประชาชน — null = ชั้นปิด/ยังไม่เคยได้รายการ */
   community?: CommunityMapState | null;
+  /** การกระทำกับรายงานจากประชาชน (ส่ง/โหวต/ลบ) — null = ไม่มีฟอร์มรายงาน */
+  communityActions?: CommunityActions | null;
+  /**
+   * โหมดปักหมุดรายงาน (สถานะอยู่ที่ `MapViewport`) — แตะพื้น = วาง/ย้ายหมุดชั่วคราวแล้วเปิดฟอร์ม ไม่เปิด popup/
+   * แผงกล้อง/แผงรายงาน; ไม่โดนภูมิประเทศ = `onPlaceMiss` (ยังอยู่ในโหมด)
+   */
+  placing?: boolean;
+  /** ฟอร์มปิด/ส่งสำเร็จ/เปิดแผงอื่น — ให้ `MapViewport` ออกจากโหมดปักหมุด */
+  onPlacingEnd?: () => void;
+  onPlaceMiss?: () => void;
+  /** หมุดชั่วคราวถูกวาง/ย้าย (true) หรือถอด (false) — แถบคำแนะนำเปลี่ยนเป็น "แตะอีกครั้งเพื่อย้ายหมุด" */
+  onDraftChange?: (placed: boolean) => void;
   onSceneReady?: (handles: SceneHandles | null) => void;
   onInfo?: (info: MapInfo | null) => void;
 }) {
@@ -475,6 +512,18 @@ export function Map3DCanvas({
    * อัปเดตโดยไม่ remount) และใช้สำเนาเมื่อรายงานหายจากรายการ มีแผงด้านขวาได้ทีละแผง: เปิดแผงหนึ่ง = ล้างอีกแผง
    */
   const [reportSel, setReportSel] = useState<CommunityReport | null>(null);
+  /**
+   * รายงานที่เพิ่งส่งจากเครื่องนี้ (id) — แผงรายงานบอก "ส่งแล้ว" + จังหวัดที่ server ระบุ; หายเมื่อเปิดรายงานอื่น
+   */
+  const [justSubmittedId, setJustSubmittedId] = useState<string | null>(null);
+  /** หมุดชั่วคราวของฟอร์มรายงาน — มี = ฟอร์ม (`ReportCompose`) เปิดอยู่ในแผงด้านขวา */
+  const [draft, setDraft] = useState<DraftPoint | null>(null);
+  const draftPinRef = useRef<DraftPin | null>(null);
+  /** อ่านใน closure ของ pointerup (สร้างครั้งเดียวตอนตั้งฉาก) — ต้องเป็น ref */
+  const placingRef = useRef(placing);
+  placingRef.current = placing;
+  const placeMissRef = useRef(onPlaceMiss);
+  placeMissRef.current = onPlaceMiss;
   const popupDivRef = useRef<HTMLDivElement | null>(null);
   const pickRef = useRef<PickResult | null>(null);
   pickRef.current = pick;
@@ -647,6 +696,7 @@ export function Map3DCanvas({
           const fp = floodPickRef.current;
           const { width, height, cellSizeM } = loaded.manifest.terrain;
           const { gridWidthM, gridHeightM } = loaded.terrain.projection;
+          const placingNow = placingRef.current;
           const result = pickAt(h, ndc, {
             projection: loaded.terrain.projection,
             terrainObjects,
@@ -661,7 +711,21 @@ export function Map3DCanvas({
                   scene: { sceneId: fp.sceneId, observedAt: fp.observedAt },
                 }
               : null,
+            groundOnly: placingNow,
           });
+          // โหมดปักหมุดรายงาน: พื้น = วาง/ย้ายหมุดชั่วคราว (ฟอร์มเปิดในแผงด้านขวา — แผงอื่นปิด) ไม่เปิดอะไรอื่น;
+          // ไม่โดนภูมิประเทศ (ท้องฟ้า/นอกกริด) = บอกให้แตะบนพื้น และยังอยู่ในโหมด
+          if (placingNow) {
+            if (result?.kind === "ground") {
+              setPick(null);
+              setCameraSel(null);
+              setReportSel(null);
+              setDraft({ lon: result.lon, lat: result.lat, anchor: result.anchor.clone() });
+            } else {
+              placeMissRef.current?.();
+            }
+            return;
+          }
           // กล้องเปิดในแผงด้านขวา ไม่ใช่ popup ที่เกาะหมุด — popup ที่เปิดอยู่ (เช่นสถานี) ไม่ถูกแตะ
           // แผงด้านขวามีได้ทีละแผง: เปิดกล้อง = ปิดแผงรายงาน และกลับกัน
           if (result?.kind === "camera") {
@@ -671,6 +735,7 @@ export function Map3DCanvas({
           }
           if (result?.kind === "community") {
             setCameraSel(null);
+            setJustSubmittedId(null);
             setReportSel(result.report);
             return;
           }
@@ -1342,11 +1407,75 @@ export function Map3DCanvas({
   const closePopup = useCallback(() => setPick(null), []);
   const closeCamera = useCallback(() => setCameraSel(null), []);
   const closeReport = useCallback(() => setReportSel(null), []);
-  /** "ดูภาพ" ของกล้องใกล้สถานี (popup) — แผงด้านขวามีได้ทีละแผง จึงปิดแผงรายงานก่อน */
+  const placingEndRef = useRef(onPlacingEnd);
+  placingEndRef.current = onPlacingEnd;
+  /** "ดูภาพ" ของกล้องใกล้สถานี (popup) — แผงด้านขวามีได้ทีละแผง จึงปิดแผงรายงานและฟอร์มรายงานก่อน */
   const openCamera = useCallback((sel: CameraSelection) => {
     setReportSel(null);
+    if (placingRef.current) placingEndRef.current?.();
     setCameraSel(sel);
   }, []);
+  /** ปิดฟอร์มรายงาน (X / Escape / ปัดขวา) = ออกจากโหมดปักหมุด → หมุดชั่วคราวหายตาม (เอฟเฟกต์ข้างล่าง) */
+  const closeCompose = useCallback(() => placingEndRef.current?.(), []);
+  const communityActionsRef = useRef(communityActions);
+  communityActionsRef.current = communityActions;
+  /**
+   * ส่งรายงานสำเร็จ: ใส่หมุด + เปิดชั้น (App) → ปิดฟอร์ม/ออกจากโหมด → เปิดแผงของรายงานใหม่ — ทุก setState อยู่ใน
+   * callback เดียว React จึงรวมเป็นรอบเดียว (ชั้นเปิดพร้อมกับแผง เอฟเฟกต์ "ปิดชั้น = ปิดแผง" จึงไม่ปิดมัน)
+   */
+  const handleCreated = useCallback((report: CommunityReport) => {
+    communityActionsRef.current?.onCreated(report);
+    setDraft(null);
+    placingEndRef.current?.();
+    setCameraSel(null);
+    setJustSubmittedId(report.id);
+    setReportSel(report);
+  }, []);
+
+  // ออกจากโหมดปักหมุด (ยกเลิก / Escape / ปิดฟอร์ม / ส่งแล้ว) = ไม่มีหมุดชั่วคราวและฟอร์มอีก; เข้าโหมด = ปิด popup
+  useEffect(() => {
+    if (placing) setPick(null);
+    else setDraft(null);
+  }, [placing]);
+  const draftChangeRef = useRef(onDraftChange);
+  draftChangeRef.current = onDraftChange;
+  // ทุกครั้งที่หมุดชั่วคราวถูกวาง/ย้าย/ถอด (ไม่ใช่แค่ตอนมี↔ไม่มี) — แถบคำแนะนำล้างข้อความ "แตะพลาด" ได้ทันที
+  useEffect(() => {
+    draftChangeRef.current?.(draft !== null);
+  }, [draft]);
+
+  // หมุดชั่วคราว — sprite เดียว ย้ายตามจุดที่แตะ; ไม่มีหมุดชั่วคราว = ถอดออกจากฉาก
+  useEffect(() => {
+    const handles = sceneRef.current;
+    if (!handles || !draft) return;
+    let pin = draftPinRef.current;
+    if (!pin) {
+      pin = buildDraftPin(handles.viewportHeightPx());
+      draftPinRef.current = pin;
+    }
+    // ฉากถูกตั้งใหม่ (handles ใหม่) ระหว่างที่หมุดยังอยู่ = ย้ายเข้ากลุ่มของฉากปัจจุบัน
+    if (pin.sprite.parent !== handles.markers) handles.markers.add(pin.sprite);
+    pin.applyExaggeration(handles.getExaggeration());
+    pin.setGround(draft.anchor.x, draft.anchor.y, draft.anchor.z);
+  }, [draft, state.status]);
+  useEffect(() => {
+    if (draft) return;
+    const pin = draftPinRef.current;
+    if (!pin) return;
+    pin.sprite.removeFromParent();
+    pin.dispose();
+    draftPinRef.current = null;
+  }, [draft]);
+  useEffect(
+    () => () => {
+      const pin = draftPinRef.current;
+      if (!pin) return;
+      pin.sprite.removeFromParent();
+      pin.dispose();
+      draftPinRef.current = null;
+    },
+    [],
+  );
 
   useEffect(() => {
     qualityRef.current?.setMode(quality);
@@ -1704,6 +1833,7 @@ export function Map3DCanvas({
     damsRef.current?.applyExaggeration(exaggeration);
     cctvRef.current?.applyExaggeration(exaggeration);
     communityRef.current?.applyExaggeration(exaggeration);
+    draftPinRef.current?.applyExaggeration(exaggeration);
     exposureRef.current?.applyExaggeration(exaggeration);
   }, [exaggeration, state.status]);
 
@@ -1815,15 +1945,36 @@ export function Map3DCanvas({
           onClose={closeCamera}
         />
       ) : null}
-      {reportSel && community ? (
+      {reportSel && communityActions ? (
         <ReportSheet
-          report={community.all.find((r) => r.id === reportSel.id) ?? reportSel}
-          gone={!community.all.some((r) => r.id === reportSel.id)}
-          stale={community.dimmed}
+          report={community?.all.find((r) => r.id === reportSel.id) ?? reportSel}
+          // ยังไม่มีรายการของจังหวัดนี้ (ชั้นเพิ่งเปิดหลังส่ง) หรือรายงานอยู่จังหวัดอื่น = ไม่รู้ ไม่ใช่ "หายไป"
+          gone={
+            community !== null &&
+            reportSel.provinceCode === communityActions.provinceCode &&
+            !community.all.some((r) => r.id === reportSel.id)
+          }
+          stale={community?.dimmed ?? false}
+          submitted={
+            justSubmittedId === reportSel.id
+              ? reportSel.provinceCode === communityActions.provinceCode
+                ? "here"
+                : "elsewhere"
+              : null
+          }
           safeArea={safeArea}
           onClose={closeReport}
-          onVotes={community.onVotes}
-          onRemoved={community.onRemoved}
+          onVotes={communityActions.onVotes}
+          onRemoved={communityActions.onRemoved}
+        />
+      ) : null}
+      {draft && communityActions ? (
+        <ReportCompose
+          lon={draft.lon}
+          lat={draft.lat}
+          safeArea={safeArea}
+          onClose={closeCompose}
+          onCreated={handleCreated}
         />
       ) : null}
 
