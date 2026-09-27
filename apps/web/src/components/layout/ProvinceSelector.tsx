@@ -55,7 +55,7 @@ export function ProvinceSelector({
                 aria-current={isSelected ? "true" : undefined}
                 className={`flex w-full cursor-pointer items-center justify-between gap-1.5 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] ${
                   isSelected
-                    ? "bg-[var(--color-accent)]/15 text-[var(--color-accent-fg)]"
+                    ? "bg-[var(--color-accent)]/15 text-[var(--color-fg)]"
                     : "text-[var(--color-fg-muted)] hover:bg-[var(--color-panel-2)] hover:text-[var(--color-fg)]"
                 }`}
               >

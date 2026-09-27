@@ -49,7 +49,7 @@ export function AlertToast({
         className={`glass pointer-events-auto flex max-w-full cursor-pointer items-center gap-2 rounded-full px-3 py-1.5 text-xs ring-1 ring-inset transition-colors hover:bg-white/8 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] ${tone}`}
       >
         <BellRing size={14} className="shrink-0" aria-hidden="true" />
-        <span className="min-w-0 truncate">{text}</span>
+        <span className="min-w-0 truncate leading-thai">{text}</span>
         <span className="shrink-0 text-[var(--color-fg-muted)] underline decoration-white/30 underline-offset-2">
           {t("alert.toast.open")}
         </span>

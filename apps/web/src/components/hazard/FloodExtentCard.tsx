@@ -131,10 +131,10 @@ export function FloodExtentBody({ state, atIso = null }: { state: FloodExtentSta
                   {formatNumber(lang, Math.round(m2ToRai(g.areaM2)))}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs text-[var(--color-fg)]">
+                  <p className="truncate leading-thai text-xs text-[var(--color-fg)]">
                     {g.tambonTh ?? t("flood.unknownTambon")}
                   </p>
-                  <p className="truncate text-[11px] text-[var(--color-fg-subtle)]">
+                  <p className="truncate leading-thai text-[11px] text-[var(--color-fg-subtle)]">
                     {g.amphoeTh ?? ""}
                     {legacy ? "" : ` · ${t("flood.tambonCells", { n: formatNumber(lang, g.cells) })}`}
                     {g.observedAt !== null

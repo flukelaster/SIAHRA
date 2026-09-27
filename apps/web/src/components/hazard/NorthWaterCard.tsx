@@ -156,7 +156,7 @@ function StationRow({
       >
         <span className="mt-1 h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: color }} aria-hidden="true" />
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-xs text-[var(--color-fg)]">{stationLabel(station, state, lang)}</span>
+          <span className="block truncate leading-thai text-xs text-[var(--color-fg)]">{stationLabel(station, state, lang)}</span>
           <span className="block text-[11px] leading-snug text-[var(--color-fg-subtle)] tabular-nums">
             {reading.missing
               ? view.mode === "live" && !state?.latest

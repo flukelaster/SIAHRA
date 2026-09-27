@@ -77,7 +77,7 @@ export function TimeChip({
         <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${tone.dot}`} aria-hidden="true" />
         {/* คำนำหน้ายอมถูกตัด (`truncate`) ส่วนค่า (เวลา) ห้ามหด — ข้อความเต็มอยู่ใน title/aria-label */}
         <span className="flex min-w-0 items-center whitespace-nowrap">
-          <span className={sheet ? "min-w-0 truncate whitespace-pre" : "whitespace-pre"}>{parts.prefix}</span>
+          <span className={sheet ? "min-w-0 truncate whitespace-pre leading-thai" : "whitespace-pre"}>{parts.prefix}</span>
           <span className="shrink-0">
             {parts.value}
             {parts.suffix}

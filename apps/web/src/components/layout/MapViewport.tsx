@@ -207,7 +207,7 @@ export function MapViewport({
       }`}
     >
       <Layers size={16} aria-hidden="true" />
-      <span className="max-w-full truncate px-0.5 text-[10px] leading-normal" aria-hidden="true">
+      <span className="max-w-full truncate px-0.5 text-[10px] leading-thai" aria-hidden="true">
         {t("panel.layers")}
       </span>
       <span

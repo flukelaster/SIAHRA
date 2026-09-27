@@ -1843,7 +1843,7 @@ follow flag is in memory only (neither permalink nor localStorage); presets, tog
 go through the one `setLayerState`, so the permalink updates the same way for each; the
 illustrative group is tinted violet and rows are ≥ 44 px (`min-h-11`) below md.
 
-#### E18.4 — Time chip, ⋯ menu, forecast strip into weather, exaggeration into layers — *in review* (2026-09-27)
+#### E18.4 — Time chip, ⋯ menu, forecast strip into weather, exaggeration into layers — *done* (2026-09-27, PR #114)
 - Why: the dock and the phone peek carried a dense timeline, the forecast strip and the
   vertical-scale switch side by side; "which time am I looking at" now lives in one chip (live /
   historical / TMD forecast) that opens the full timeline, the forecast strip moves to the forecast
@@ -1899,7 +1899,46 @@ control sits in the layers basemap group with the permalink `ex` unchanged, and 
 vertical-scale note shows on every tier whenever it is not 1; the forecast strip heads the weather
 topic's forecast view, and its tick row hides odd non-final ticks below `@min-[16rem]`.
 
-#### E18.5 — Fonts and colour tokens — *planned*
+#### E18.5 — Fonts and colour tokens — *in review* (2026-09-28)
+- Why: the muted/subtle text tiers and the borders were below WCAG contrast on the lighter panels,
+  and the UI font moves to the design's IBM Plex Sans Thai
+- Touches: `apps/web/public/fonts/` (Sarabun's 12 woff2 + `Sarabun-OFL.txt` replaced by 12
+  `ibm-plex-sans-thai-{thai,latin,latin-ext}-{400,500,600,700}.woff2` from
+  `@fontsource/ibm-plex-sans-thai` 5.3.0 via `npm pack` — no `package.json` dependency — +
+  `IBMPlexSansThai-OFL.txt`; 184,836 → 202,592 B of woff2), `src/fonts.css`, `index.html` (preloads
+  thai 400/600), `src/index.css` (`--font-sans`, new `--leading-thai: 1.8`, colour tokens),
+  `scene/setupScene.ts` (snapshot footer font), `og/{og-image.template.html,build.mjs}` (family and
+  load guard; `og-image.jpg` not regenerated), new `lib/contrast.ts` (+ `contrast.test.ts`),
+  `lib/shellLayout.ts` (comment only), `leading-thai` on truncated Thai labels across
+  `components/{hazard,layout}/*`, `ProvinceSelector.tsx` (selected row `--color-accent-fg` →
+  `--color-fg`)
+- Depends: E18.4 (PR #114)
+- Size: M — one PR
+- Cost: not cost-bearing — nothing outside `apps/web`, no new fetch; CSP `font-src 'self'` unchanged
+- Risk: IBM Plex Sans Thai's stacked tone marks rise ~0.17 em above its ascent, so a `truncate`d Thai
+  label at the default `text-xs`/`text-sm` leading clipped them by up to ~2 px (Sarabun already by
+  ~1 px) — `leading-thai` fixes the labels it was applied to; a truncated Thai label without it still
+  clips. The Thai attribution line wraps one row more (85 px), still under `ATTRIBUTION_MAX_H` 99
+- Issue: _(not yet filed)_
+
+1. Tokens: `fg-muted` #94a3b8 → #9eacc1, `fg-subtle` #64748b → #8391a9, `border` #263148 → #34425e,
+   `border-strong` #3a4864 → #475673, `accent-fg` #eaf1ff → #050a14 (no light colour reaches 4.5:1
+   on #3b82f6). `accent` #3b82f6, `risk-*`, `success`, `danger` and every illustrative / forecast /
+   epistemic badge colour unchanged.
+2. `contrast.test.ts` reads `index.css` and asserts: `fg` / `fg-muted` / `fg-subtle` ≥ 4.5:1 on
+   `bg`, `bg-elevated`, `panel`, `panel-2` and `.glass` composited over `bg`, and stay ordered
+   fg > muted > subtle; `border` ≥ 1.5:1 and `border-strong` ≥ 2:1 against `panel` / `panel-2`;
+   `accent` ≥ 3:1 on `panel`; `accent-fg` on `accent` ≥ 4.5:1; `accent` / `risk-*` / `success` /
+   `danger` pinned to their values.
+3. `SHEET_PEEK_H` 224 and `ATTRIBUTION_MAX_H` 99 unchanged — worst case re-measured with the new
+   font at 222.75 / 98.75 px (`shellLayout.test.ts`).
+
+Not test-backed: the Thai preloads in `index.html` name real files, the snapshot footer and the og
+template use the new family, and IBM Plex Mono is unchanged.
+
+Follow-up (not in this PR): hardcoded `bg-[var(--color-accent)] text-white` in about 15 places
+across 11 files is 3.68:1, and `text-white` on the `risk-high` badges is 2.80:1 — both below 4.5:1
+and not covered by `contrast.test.ts`, which checks tokens only.
 
 ## 3. Suggested first two weeks
 

@@ -75,7 +75,7 @@ export function ProvinceChip({
             ยาวชื่อจังหวัด (น่าน vs พระนครศรีอยุธยา) ดูไม่นิ่งข้างช่องค้นหาที่กว้าง
             คงที่ — ความกว้างคงที่ทำให้ชื่อสั้นเหลือที่ว่าง ชื่อยาวถูกตัด (`truncate`)
             แทน ซึ่งเป็นพฤติกรรมเดียวกับ `<select>` ทั่วไป */}
-        <span className="min-w-0 truncate">{name}</span>
+        <span className="min-w-0 truncate leading-thai">{name}</span>
         <ChevronDown size={14} className="shrink-0 text-[var(--color-fg-muted)]" aria-hidden="true" />
       </button>
       {open ? (

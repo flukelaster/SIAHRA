@@ -67,7 +67,7 @@ export function SideDrawer({
           id={`${DRAWER_ID}-title`}
           ref={headingRef}
           tabIndex={-1}
-          className="min-w-0 truncate text-sm font-semibold text-[var(--color-fg)] outline-none"
+          className="min-w-0 truncate text-sm leading-thai font-semibold text-[var(--color-fg)] outline-none"
         >
           {t(topicDef.labelKey)}
         </h2>

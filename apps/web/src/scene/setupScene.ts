@@ -447,7 +447,7 @@ export function setupScene(container: HTMLDivElement): SceneHandles {
     ctx.drawImage(src, 0, 0);
     const scale = renderer.getPixelRatio();
     const pad = 12 * scale;
-    ctx.font = `${12 * scale}px Sarabun, sans-serif`;
+    ctx.font = `${12 * scale}px "IBM Plex Sans Thai", sans-serif`;
     const w = ctx.measureText(footer).width + pad * 2;
     ctx.fillStyle = "rgba(0,0,0,0.55)";
     ctx.fillRect(0, out.height - 28 * scale, w, 28 * scale);

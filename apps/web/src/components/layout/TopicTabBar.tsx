@@ -56,7 +56,7 @@ export function TopicTabBar({
               >
                 <Icon size={18} aria-hidden="true" />
               </span>
-              <span className={`max-w-full truncate text-[11px] leading-normal ${active ? "font-semibold" : ""}`} aria-hidden="true">
+              <span className={`max-w-full truncate text-[11px] leading-thai ${active ? "font-semibold" : ""}`} aria-hidden="true">
                 {t(def.shortLabelKey)}
               </span>
             </button>

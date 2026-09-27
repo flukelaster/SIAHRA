@@ -224,13 +224,14 @@ try {
   await pw("close").catch(() => {});
   await pw("open", url);
   await pw("resize", String(WIDTH * SCALE), String(HEIGHT * SCALE));
-  // The fonts must be in before the screenshot, otherwise Sarabun falls back to the system sans.
+  // The fonts must be in before the screenshot, otherwise IBM Plex Sans Thai falls back to the system sans.
+  // Match the exact family: `includes("IBM Plex")` would pass on IBM Plex Mono alone.
   const fonts = await pw(
     "eval",
     "() => document.fonts.ready.then(() => Array.from(document.fonts).filter(f => f.status === 'loaded').map(f => f.family + ' ' + f.weight).join(', '))",
   );
-  const loaded = fonts.split("\n").find((l) => l.includes("Sarabun"));
-  if (!loaded) throw new Error("Sarabun did not load from public/fonts/ — the render would fall back to a system font; check that the woff2 files are present");
+  const loaded = fonts.split("\n").find((l) => l.includes("IBM Plex Sans Thai"));
+  if (!loaded) throw new Error("IBM Plex Sans Thai did not load from public/fonts/ — the render would fall back to a system font; check that the woff2 files are present");
   console.log("fonts:", loaded);
   await pw("screenshot", `--filename=${outPng}`);
   await pw("close");

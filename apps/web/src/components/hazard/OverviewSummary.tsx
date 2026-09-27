@@ -105,7 +105,7 @@ function WatchButton({ row, onFocus }: { row: WatchRow; onFocus: (target: Statio
       >
         <span className={`h-2 w-2 shrink-0 rounded-full ${TONE_DOT[row.tone]}`} aria-hidden="true" />
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-xs text-[var(--color-fg)]">{name}</span>
+          <span className="block truncate leading-thai text-xs text-[var(--color-fg)]">{name}</span>
           {/* ค่าที่วัดได้มาก่อนและห้ามถูกตัด — ชื่ออำเภอ/ลุ่มน้ำตามหลังได้ */}
           <span className="block text-[11px] text-[var(--color-fg-subtle)]">
             <span className="tabular-nums text-[var(--color-fg-muted)]">{rowValue(row, lang, t)}</span>
