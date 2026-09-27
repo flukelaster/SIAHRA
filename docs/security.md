@@ -79,8 +79,10 @@ worker-src 'self'; manifest-src 'self'; media-src blob: https://camerai1.iticfou
   `<video>` through Media Source Extensions, which the element loads from a `blob:` URL; Safari/iOS
   play the same playlist natively, which is a media load of the playlist host itself. Nothing else is
   allowed as media.
-- **Camera hosts (E15 / E15.2 / E15.3)** — one bullet per host in `CAMERA_SOURCES[id].hosts`
-  (`packages/shared-types/src/cctv.ts`). `streamDirective(kind)` says which directive a stream kind
+- **Camera hosts (E15 / E15.2 / E15.3)** — one bullet per CSP-directive host in
+  `CAMERA_SOURCES[id].hosts` (`packages/shared-types/src/cctv.ts`); `hosts.link` (E15.3 PR D,
+  `bma-cctv` → `https://cpudapp.bangkok.go.th`) is a link-out allowlist, not a CSP directive, and is
+  deliberately absent from `_headers` — `cameraSources.test.ts` asserts that. `streamDirective(kind)` says which directive a stream kind
   needs; `apps/web/src/lib/cameraSources.test.ts` reads `public/_headers` and asserts every registry
   host appears under each of those directives, and `lib/cameraSources.ts` refuses any stream URL
   whose origin is not in the registry (plus `https:` only, no userinfo, the source's `urlPattern`).

@@ -50,7 +50,7 @@ export const PROBE_RESULTS: readonly ProbeResult[] = [
   "tls-chain",
   "not-probed",
 ];
-export const STREAM_KINDS: readonly CameraStreamKind[] = ["hls", "jpeg", "jpeg-fetch", "mjpeg", "dwr-snapshot", "dwr-mjpeg"];
+export const STREAM_KINDS: readonly CameraStreamKind[] = ["hls", "jpeg", "jpeg-fetch", "mjpeg", "dwr-snapshot", "dwr-mjpeg", "external-link"];
 
 export const NOT_PROBED = { result: "not-probed", cors: null } as const;
 
@@ -106,6 +106,9 @@ export function classifyProbe(e: ProbeEvidence): ProbeResult {
     case "mjpeg":
     case "dwr-mjpeg":
       return (ct?.startsWith("multipart/x-mixed-replace") ?? false) || isImageBody(ct, e.firstLine) ? "ok" : "not-image";
+    case "external-link":
+      // ลิงก์ออกไปเว็บเจ้าของไม่ถูก probe (`probeStream`) — ไม่มีคำตอบให้ตัดสิน
+      return "not-probed";
   }
 }
 
@@ -380,6 +383,9 @@ export async function probeStream(camera: Pick<Camera, "id">, s: CameraStream, c
       return probeDwrSnapshot(ctx, camera.id);
     case "dwr-mjpeg":
       return probeDwrMjpeg(ctx, s.stationCode);
+    case "external-link":
+      // ไม่ยิง: หน้าเว็บของเจ้าของไม่ใช่ภาพ/สตรีม และคำตอบของมันไม่ได้บอกอะไรเกี่ยวกับกล้องตัวนี้
+      return { ...NOT_PROBED, programDateTime: null };
   }
 }
 
@@ -587,7 +593,8 @@ function refuse(sourceId: string, kind: string, why: string): never {
  * ตรวจก่อนเขียน — ทุกข้อเป็น bug ของสคริปต์ build (มันกรองมาก่อนแล้ว) จึง **โยนทิ้งทั้งไฟล์** ไม่ใช่ตัดทิ้งแล้วนับ:
  *   - `sourceId` ของทุกกล้องตรงกับ catalogue
  *   - สตรีมที่มี url: parse ได้, `https:` เท่านั้น, ไม่มี username/password, origin อยู่ใน
- *     `CAMERA_SOURCES[id].hosts[d]` ของทุก d ใน `streamDirective(kind)`; `jpeg` ต้องตรง `urlPattern` ถ้ามี
+ *     `CAMERA_SOURCES[id].hosts[d]` ของทุก d ใน `streamDirective(kind)`; `jpeg` ต้องตรง `urlPattern` ถ้ามี;
+ *     `external-link` (directive ว่าง) ต้องอยู่ใน `hosts.link` และเป็น `not-probed` เสมอ
  *   - `probe.result` เป็นค่าที่รู้จัก; `probedAt: null` ⇒ ทุกสตรีมเป็น `not-probed` (ไม่มี `ok` ที่ไม่มีที่มา)
  *   - กล้อง `hand-placed` ต้องมี `coordinatesDoc` ของแหล่ง
  */
@@ -614,6 +621,9 @@ export function validateCatalogue(cat: CameraCatalogue): void {
       }
       if (u.protocol !== "https:") refuse(cat.sourceId, s.kind, "is not https");
       if (u.username || u.password) refuse(cat.sourceId, s.kind, "carries userinfo");
+      // `streamDirective("external-link")` ว่าง — ห้ามให้ลูปข้างล่างผ่านแบบว่าง ๆ: ตรวจกับ `hosts.link`
+      if (s.kind === "external-link" && !(meta.hosts.link ?? []).includes(u.origin)) refuse(cat.sourceId, s.kind, "is on an origin outside the source's link hosts");
+      if (s.kind === "external-link" && s.probe.result !== "not-probed") refuse(cat.sourceId, s.kind, "claims a probe result although links are never probed");
       for (const d of streamDirective(s.kind)) {
         if (!(meta.hosts[d] ?? []).includes(u.origin)) refuse(cat.sourceId, s.kind, `is on an origin outside the source's ${d}-src hosts`);
       }
@@ -720,7 +730,9 @@ export function formatProbeTable(stats: ProbeStats, cameras: readonly Camera[]):
             ? "burned into the image, not data"
             : kind === "jpeg-fetch"
               ? "Last-Modified header (needs CORS)"
-              : "none";
+              : kind === "external-link"
+                ? "none — a link out, never probed"
+                : "none";
     lines.push(
       `| ${kind} | ${https.total} | ${https.https}/${https.total} | ${cors.yes}/${cors.no}/${cors.unknown} | ${row.ok} | ${row.empty} | ${row["not-image"]} | ${row["http-4xx"]} | ${row["http-5xx"]} | ${row.unreachable} | ${row["tls-chain"]} | ${row["not-probed"]} | ${evidence} |`,
     );

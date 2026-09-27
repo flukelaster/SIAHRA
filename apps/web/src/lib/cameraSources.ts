@@ -31,6 +31,8 @@ export const DWR_API = `${DWR_ORIGIN}/api`;
  *   - แหล่งต้องเปิดอยู่ใน build นี้ (`ENABLED_CAMERA_SOURCES`)
  *   - `https:` เท่านั้น ไม่มี userinfo
  *   - origin อยู่ใน `hosts[d]` ของแหล่ง **ทุก** directive `d` ที่ `streamDirective(kind)` ต้องการ
+ *   - `external-link` (directive ว่าง — การนำทางไม่ต้องมีโฮสต์ใน CSP): origin ต้องอยู่ใน `hosts.link`
+ *     ของแหล่ง — รายการ directive ว่างต้องไม่แปลว่า "ผ่านทุก origin"
  *   - ตรง `urlPattern` ของแหล่ง (ถ้ามี) — ยึดหัว-ท้าย
  */
 export function isAllowedUrl(sourceId: CameraSourceId, kind: CameraStreamKind, url: string): boolean {
@@ -43,6 +45,7 @@ export function isAllowedUrl(sourceId: CameraSourceId, kind: CameraStreamKind, u
     return false;
   }
   if (u.protocol !== "https:" || u.username !== "" || u.password !== "") return false;
+  if (kind === "external-link") return (meta.hosts.link ?? []).includes(u.origin);
   for (const d of streamDirective(kind)) {
     if (!(meta.hosts[d] ?? []).includes(u.origin)) return false;
   }
@@ -77,6 +80,8 @@ export function isAllowedStreamUrl(camera: Pick<Camera, "sourceId">, stream: Cam
  * ของ hls.js: ถอดทุกแหล่งที่เล่น HLS ได้ = ไม่มี `import("hls.js")` เกิดขึ้นเลย
  */
 export function hasEnabledKind(kind: CameraStreamKind, enabled: readonly CameraSourceId[] = ENABLED_CAMERA_SOURCES): boolean {
+  // directive ว่างของ `external-link` จะทำให้ `every` จริงเสมอ — ลิงก์ออกได้ก็ต่อเมื่อแหล่งประกาศ `hosts.link`
+  if (kind === "external-link") return enabled.some((id) => (CAMERA_SOURCES[id].hosts.link?.length ?? 0) > 0);
   const directives: readonly CspDirective[] = streamDirective(kind);
   return enabled.some((id) => directives.every((d) => (CAMERA_SOURCES[id].hosts[d]?.length ?? 0) > 0));
 }
