@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { bboxContains, featureBbox } from "../lib/gistdaFlood";
 import type {
   Camera,
+  CommunityReport,
   DamObservation,
   EarthquakeEvent,
   FloodExtentFeature,
@@ -39,6 +40,11 @@ export type PickResult =
    * เปิดเท่านั้น ไม่ใช่ตอนวาดหมุด
    */
   | { kind: "camera"; camera: Camera; anchor: THREE.Vector3 }
+  /**
+   * รายงานจากประชาชน — เปิดในแผงด้านขวา (`ReportSheet`) แบบเดียวกับกล้อง ไม่ใช่ popup ที่เกาะหมุด;
+   * รูปถูกขอเมื่อแผงเปิดเท่านั้น
+   */
+  | { kind: "community"; report: CommunityReport; anchor: THREE.Vector3 }
   | { kind: "quake"; event: EarthquakeEvent; anchor: THREE.Vector3 }
   | {
       kind: "ground";
@@ -74,7 +80,7 @@ export interface StationSheetPickSource {
 const raycaster = new THREE.Raycaster();
 
 /** ชนิดหมุดที่ `pickAt` ตอบกลับตรง ๆ จาก `userData` ของ sprite ใน `handles.markers` */
-const MARKER_KINDS = new Set(["waterlevel", "rainfall", "dam", "camera"]);
+const MARKER_KINDS = new Set(["waterlevel", "rainfall", "dam", "camera", "community"]);
 
 /**
  * `userData` ของหมุดที่โดน → PickResult — null = ไม่ใช่หมุดที่คลิกได้ (เช่นฮาโลรอบสถานี)
@@ -84,6 +90,26 @@ export function markerPickFromUserData(ud: unknown, anchor: THREE.Vector3): Pick
   const kind = (ud as { kind?: unknown } | null)?.kind;
   if (typeof kind !== "string" || !MARKER_KINDS.has(kind)) return null;
   return { ...(ud as object), anchor } as PickResult;
+}
+
+/**
+ * หมุดที่ถูกเลือกจากทุกหมุดที่รังสีผ่าน — **ตัวที่วาดอยู่บนสุด** (`renderOrder` สูงสุด) ไม่ใช่ตัวที่ใกล้กล้องที่สุด:
+ * หมุดทุกชนิดเป็น sprite ขนาดคงที่บนจอที่ปิด depthTest ลำดับการวาดจึงเป็นตัวตัดสินว่าผู้ใช้เห็นตัวไหนทับตัวไหน
+ * (เช่นหมุดรายงานจากประชาชนทับหมุดกล้อง) — การคลิกต้องได้ตัวที่เห็น; `renderOrder` เท่ากัน = ตัวที่ใกล้กว่า
+ * (`hits` เรียงใกล้ → ไกลตามที่ raycaster คืน) สิ่งที่คลิกไม่ได้ (ฮาโลรอบสถานี) ไม่ถูกนับเลย
+ */
+export function chooseMarkerHit(hits: readonly Pick<THREE.Intersection, "object">[]): PickResult | null {
+  let best: PickResult | null = null;
+  let bestOrder = -Infinity;
+  for (const hit of hits) {
+    const picked = markerPickFromUserData(hit.object.userData, hit.object.getWorldPosition(new THREE.Vector3()));
+    if (!picked) continue;
+    if (hit.object.renderOrder > bestOrder) {
+      best = picked;
+      bestOrder = hit.object.renderOrder;
+    }
+  }
+  return best;
 }
 
 function pointInRing(lon: number, lat: number, ring: number[][]): boolean {
@@ -130,17 +156,21 @@ export function pickAt(
     stationSheet?: StationSheetPickSource | null;
     /** แผ่นน้ำ GISTDA 3 มิติ (E16 B-2) — ไม่ส่ง/null = ชั้นซ่อนหรือไม่มีแผ่น */
     gistdaSheet?: GistdaSheetPickSource | null;
+    /**
+     * โหมดปักหมุดรายงาน — ข้ามหมุดและแผ่นดินไหว ตอบเฉพาะพื้นดิน (หรือ null เมื่อไม่โดนภูมิประเทศ) เพื่อให้แตะ
+     * ตรงหมุดกล้อง/รายงานเดิมก็ยังปักตำแหน่งบนพื้นใต้หมุดนั้นได้
+     */
+    groundOnly?: boolean;
   },
 ): PickResult | null {
   raycaster.setFromCamera(ndc, handles.camera);
-  // Sprites ignore sizeAttenuation in raycasting only in recent three; use a
-  // generous threshold via the sprite's own bounds (three handles it).
-  const markerHits = raycaster.intersectObjects(handles.markers.children, true);
-  for (const hit of markerHits) {
-    const picked = markerPickFromUserData(hit.object.userData, hit.object.getWorldPosition(new THREE.Vector3()));
+  if (!opts.groundOnly) {
+    // Sprites ignore sizeAttenuation in raycasting only in recent three; use a
+    // generous threshold via the sprite's own bounds (three handles it).
+    const picked = chooseMarkerHit(raycaster.intersectObjects(handles.markers.children, true));
     if (picked) return picked;
   }
-  if (opts.quakeGroup) {
+  if (opts.quakeGroup && !opts.groundOnly) {
     const qh = raycaster.intersectObject(opts.quakeGroup, true).find((h) => (h.object.userData as { kind?: string }).kind === "quake");
     if (qh) return { kind: "quake", event: (qh.object.userData as { event: EarthquakeEvent }).event, anchor: qh.object.getWorldPosition(new THREE.Vector3()) };
   }

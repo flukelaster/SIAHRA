@@ -50,6 +50,12 @@ export interface AppShellProps {
   onAtIsoChange: (atIso: string | null) => void;
   /** E14.F5 — ขีดรอบบิน Sentinel-1 บน TimelineBar (แผงแถบเวลาที่กางจากชิปเวลา) */
   timelineMarks?: TimelineMark[];
+  /**
+   * ช่วงของแถบเวลา (ดัชนีใน `TIMELINE_RANGES`) — ถือใน App.tsx เพราะหน้าต่างของหมุดรายงานจากประชาชนใช้ช่วงเดียวกัน
+   * ไม่ส่ง = เปลือกถือเอง (ตามเดิมของ E18.4)
+   */
+  timelineRangeIdx?: number;
+  onTimelineRangeChange?: (rangeIdx: number) => void;
   forecastAtIso: string | null;
   onForecastAtIsoChange: (forecastAtIso: string | null) => void;
 }
@@ -137,7 +143,9 @@ export function AppShell(props: AppShellProps) {
 
   // ── ชิปเวลา + แผงแถบเวลา (E18.4)
   const [timelineOpen, setTimelineOpen] = useState(false);
-  const [timelineRangeIdx, setTimelineRangeIdx] = useState(DEFAULT_TIMELINE_RANGE_INDEX);
+  const [ownTimelineRangeIdx, setOwnTimelineRangeIdx] = useState(DEFAULT_TIMELINE_RANGE_INDEX);
+  const timelineRangeIdx = props.timelineRangeIdx ?? ownTimelineRangeIdx;
+  const setTimelineRangeIdx = props.onTimelineRangeChange ?? setOwnTimelineRangeIdx;
   const chipRef = useRef<HTMLButtonElement | null>(null);
   const closeTimeline = useCallback(() => setTimelineOpen(false), []);
   const { onAtIsoChange, onForecastAtIsoChange } = props;

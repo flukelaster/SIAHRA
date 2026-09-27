@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
 import type { Camera } from "@siahra/shared-types";
-import { markerPickFromUserData } from "./picking";
+import { chooseMarkerHit, markerPickFromUserData } from "./picking";
 
 const dwr: Camera = {
   id: "cam-1",
@@ -61,9 +61,49 @@ describe("markerPickFromUserData", () => {
     expect(markerPickFromUserData({ kind: "waterlevel", obs: {} }, anchor)?.kind).toBe("waterlevel");
   });
 
+  it("returns a community report pin with its report (opened in the right sheet, not the popup)", () => {
+    const report = { id: "20260927-AAAAAAAAAAAAAAAAAAAAAA" };
+    const p = markerPickFromUserData({ kind: "community", report }, anchor);
+    expect(p?.kind).toBe("community");
+    expect(p && p.kind === "community" ? p.report : null).toBe(report);
+  });
+
   it("ignores sprites that are not clickable markers", () => {
     expect(markerPickFromUserData({}, anchor)).toBeNull();
     expect(markerPickFromUserData({ kind: "halo" }, anchor)).toBeNull();
     expect(markerPickFromUserData(null, anchor)).toBeNull();
   });
 });
+
+describe("chooseMarkerHit — การคลิกได้หมุดที่วาดอยู่บนสุด", () => {
+  const sprite = (userData: object, renderOrder: number, z: number) => {
+    const s = new THREE.Sprite();
+    s.userData = userData;
+    s.renderOrder = renderOrder;
+    s.position.set(0, 0, z);
+    return { object: s };
+  };
+  const report = { id: "20260927-AAAAAAAAAAAAAAAAAAAAAA" };
+
+  it("หมุดรายงาน (renderOrder สูงกว่า) ชนะหมุดกล้องที่อยู่ใกล้กล้องกว่า", () => {
+    // raycaster เรียงใกล้ → ไกล: กล้องมาก่อน แต่รายงานถูกวาดทับ
+    const hits = [sprite({ kind: "camera", camera: dwr }, 30, 1), sprite({ kind: "community", report }, 31.5, 5)];
+    const p = chooseMarkerHit(hits);
+    expect(p?.kind).toBe("community");
+    expect(p?.anchor.z).toBe(5);
+  });
+
+  it("renderOrder เท่ากัน = ตัวที่ใกล้กว่า (ตัวแรก)", () => {
+    const hits = [sprite({ kind: "camera", camera: dwr }, 30, 1), sprite({ kind: "camera", camera: road }, 30, 2)];
+    const p = chooseMarkerHit(hits);
+    expect(p && p.kind === "camera" ? p.camera : null).toBe(dwr);
+  });
+
+  it("สิ่งที่คลิกไม่ได้ไม่ถูกนับ แม้ renderOrder สูงสุด; ไม่มีหมุดเลย = null", () => {
+    const hits = [sprite({ kind: "halo" }, 99, 0), sprite({ kind: "dam", dam: {} }, 32, 3)];
+    expect(chooseMarkerHit(hits)?.kind).toBe("dam");
+    expect(chooseMarkerHit([sprite({}, 50, 0)])).toBeNull();
+    expect(chooseMarkerHit([])).toBeNull();
+  });
+});
+

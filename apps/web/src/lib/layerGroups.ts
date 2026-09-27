@@ -1,10 +1,12 @@
 /**
  * กลุ่มของชั้นข้อมูล + ชุดชั้นต่อหัวข้อ (redesign PR 3) — pure module ไม่มี React/DOM
  *
- * สามกลุ่ม (ทุกคีย์ของ `MapLayers` อยู่ในกลุ่มเดียวเท่านั้น — คีย์ใหม่ที่ไม่ได้จัดกลุ่มเป็น error ของ tsc
+ * สี่กลุ่ม (ทุกคีย์ของ `MapLayers` อยู่ในกลุ่มเดียวเท่านั้น — คีย์ใหม่ที่ไม่ได้จัดกลุ่มเป็น error ของ tsc
  * ที่ `everyLayerGrouped` และเทสตรวจคีย์ขาด/ซ้ำซ้ำอีกชั้นตอนรัน):
  *   observed     — ของที่เครื่องมือ/ดาวเทียมวัดมา
  *   illustrative — ของที่เราคำนวณเอง (ป้าย "ภาพประกอบ")
+ *   crowdsourced — รายงานที่ผู้ใช้ทั่วไปส่งมา ยังไม่มีใครตรวจสอบ (ป้าย "รายงานจากประชาชน — ยังไม่ได้ตรวจสอบ")
+ *                  ไม่อยู่ใต้หัว observed เพราะจะขัดกับป้ายของมันเอง
  *   basemap      — แผนที่ฐาน/ข้อมูลอ้างอิง ชุดของหัวข้อ **ไม่แตะกลุ่มนี้เลย**
  *
  * ชุดของหัวข้อ (preset) ตั้งเฉพาะชั้น observed + illustrative:
@@ -14,7 +16,8 @@
  *   weather  — เรดาร์ · สถานี · ฮาโล เปิด; ชั้นอื่นปิด
  *   quake    — ปิดทุกชั้น
  *
- * กฎของชั้นที่ต้องกดเปิดเอง (`cctv`, `exposure` — เจ้าของตัดสินใจให้ปิดเป็นค่าเริ่มต้น): ชุดของ
+ * กฎของชั้นที่ชุดของหัวข้อไม่แตะ (`OPT_IN_LAYERS`: `cctv`, `exposure` — เจ้าของตัดสินใจให้ปิดเป็นค่าเริ่มต้น —
+ * และ `community` ที่เปิดเป็นค่าเริ่มต้นแต่เจ้าของตัดสินใจให้อยู่นอกชุดของหัวข้อเช่นกัน): ชุดของ
  * หัวข้อ **ไม่แตะเลย** ทั้งไม่เปิดและไม่ปิด — ค่ายังเป็นตามที่ผู้ใช้ตั้งไว้ (ไม่มีหัวข้อไหนเปิดกล้องหรือ
  * ชั้นที่เราคำนวณเองให้โดยที่ผู้ใช้ไม่ได้กด และไม่มีหัวข้อไหนปิดสิ่งที่ผู้ใช้เพิ่งเปิดเองทิ้ง) และเพราะชุด
  * ไม่แตะมัน การกดสวิตช์ของสองชั้นนี้จึง **ไม่** ทำให้เป็น "ปรับเองแล้ว" (เหมือนแผนที่ฐาน) — เปิดกล้องแล้ว
@@ -34,16 +37,17 @@ import { DEFAULT_LAYERS, type LayerPresetState } from "./defaultLayers";
 import type { TopicKey } from "./topics";
 
 export type LayerKey = keyof MapLayers;
-export type LayerGroup = "observed" | "illustrative" | "basemap";
+export type LayerGroup = "observed" | "illustrative" | "crowdsourced" | "basemap";
 
 /**
- * สมาชิกของแต่ละกลุ่ม ตามลำดับกลุ่มในรายการชั้นข้อมูล (observed → illustrative → basemap) — โมดูลนี้เป็น
+ * สมาชิกของแต่ละกลุ่ม ตามลำดับกลุ่มในรายการชั้นข้อมูล (observed → illustrative → crowdsourced → basemap) — โมดูลนี้เป็น
  * chunk แยก (App.tsx โหลดด้วย `import()` ตอนเปลี่ยนหัวข้อ, chunk ของ panelViews/MapLegend import ตรง)
  * จึงเก็บเป็นรายการสั้น ๆ ชุดเดียว ไม่มีตารางซ้ำ
  */
 export const GROUP_LAYERS = {
   observed: ["stations", "hazard", "radar", "floodGfm", "floodExtent", "northRoute", "dams", "cctv"],
   illustrative: ["stationSheet", "gistdaDepth", "floodDepth", "lowland", "exposure"],
+  crowdsourced: ["community"],
   basemap: ["imagery", "buildings", "trees", "roads", "water", "sunlight", "localAuthorities"],
 } as const satisfies Record<LayerGroup, readonly LayerKey[]>;
 
@@ -60,10 +64,16 @@ export const layerGroupOf = (key: LayerKey): LayerGroup =>
     ? "observed"
     : (GROUP_LAYERS.illustrative as readonly LayerKey[]).includes(key)
       ? "illustrative"
-      : "basemap";
+      : (GROUP_LAYERS.crowdsourced as readonly LayerKey[]).includes(key)
+        ? "crowdsourced"
+        : "basemap";
 
-/** ชั้นที่ต้องกดเปิดเอง — ชุดของหัวข้อไม่แตะ (ดูหัวไฟล์) */
-export const OPT_IN_LAYERS: readonly LayerKey[] = ["cctv", "exposure"];
+/**
+ * ชั้นที่ชุดของหัวข้อไม่แตะ (ดูหัวไฟล์) — `cctv`/`exposure` ต้องกดเปิดเอง; `community` เปิดเป็นค่าเริ่มต้นแต่
+ * เจ้าของตัดสินใจให้อยู่นอกชุดของหัวข้อ (กลุ่ม crowdsourced ไม่อยู่ใน `PRESET_LAYERS` อยู่แล้ว — ใส่ไว้ที่นี่
+ * ด้วยเพื่อให้กฎ "สวิตช์ไม่ทำให้เป็นปรับเองแล้ว" อ่านได้จากรายการเดียว)
+ */
+export const OPT_IN_LAYERS: readonly LayerKey[] = ["cctv", "exposure", "community"];
 
 /** ชั้นที่ชุดของหัวข้อตั้งค่าให้ = observed + illustrative ยกเว้นชั้นที่ต้องกดเปิดเอง */
 export const PRESET_LAYERS: readonly LayerKey[] = [...GROUP_LAYERS.observed, ...GROUP_LAYERS.illustrative].filter(
@@ -105,7 +115,7 @@ export function nextLayersOnTopicChange(state: LayerPresetState, topic: TopicKey
 
 /**
  * ผู้ใช้กดสวิตช์ของชั้นหนึ่ง: ชั้นที่ชุดของหัวข้อตั้งค่า (`PRESET_LAYERS`) = ปรับเองแล้ว; แผนที่ฐาน และชั้น
- * ที่ต้องกดเปิดเอง (`cctv`/`exposure` — ชุดไม่แตะ) = ยังเดินตามหัวข้อเหมือนเดิม
+ * ที่ชุดไม่แตะ (`cctv`/`exposure`/`community`) = ยังเดินตามหัวข้อเหมือนเดิม
  */
 export function applyToggle(state: LayerPresetState, key: LayerKey, value: boolean): LayerPresetState {
   if (state.layers[key] === value) return state;

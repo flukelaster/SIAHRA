@@ -1,4 +1,4 @@
-import { Hand, Layers, Maximize2, Minimize2, Minus, MousePointer2, Navigation, Plus } from "lucide-react";
+import { Hand, Layers, MapPinPlus, Maximize2, Minimize2, Minus, MousePointer2, Navigation, Plus } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import * as THREE from "three";
 import type {
@@ -18,7 +18,14 @@ import type { CameraPose, MapTool, SafeArea, SceneHandles } from "../../scene/se
 import type { CatalogueProbe } from "../../hooks/useCameraCatalogues";
 import type { FloodField } from "../../scene/floodField";
 import { IconButton } from "../ui/Panel";
-import { Map3DCanvas, type MapApi, type MapInfo, type MapLayers } from "./Map3DCanvas";
+import {
+  Map3DCanvas,
+  type CommunityActions,
+  type CommunityMapState,
+  type MapApi,
+  type MapInfo,
+  type MapLayers,
+} from "./Map3DCanvas";
 import { StatPills } from "./StatPills";
 import { FloodSourceAgeChip } from "./FloodSourceAgeChip";
 import type { FloodSourceAgeInput } from "../../lib/floodSourceAge";
@@ -32,8 +39,13 @@ import { stationSheetCss } from "../../lib/floodStyle";
 import type { QualityLevel, QualityMode } from "../../scene/quality";
 import { formatDateTime, formatTime } from "../../lib/time";
 import { useLang } from "../../i18n/context";
+import { isTypingTarget } from "../../hooks/useShellState";
 
 const ZOOM_FACTOR = 0.75;
+/** "แตะบนพื้นที่แผนที่" ค้างไว้นานเท่านี้หลังแตะพลาด (ท้องฟ้า/นอกกริด) */
+const PLACE_MISS_MS = 2500;
+/** มือถือ: ความสูงของป้าย "แผ่นน้ำจำลอง" ที่มุมซ้ายล่าง + ช่องไฟ — แถบคำแนะนำอยู่เหนือมัน */
+const PHONE_BADGE_CLEARANCE_PX = 34;
 /** ความกว้างเส้นของลายบนป้าย "แผ่นน้ำจำลอง" — คาบ/สัดส่วนเดียวกับลายบนแผ่นจริง */
 const SHEET_BADGE_STRIPE_PX = ILLUSTRATIVE_HATCH_PERIOD_PX * ILLUSTRATIVE_HATCH_DUTY;
 
@@ -70,6 +82,8 @@ export function MapViewport({
   observationsStale = false,
   northRouteTopology = null,
   northRouteStations = null,
+  community = null,
+  communityActions = null,
   floodAge = null,
   initialPose,
   exaggeration,
@@ -140,6 +154,10 @@ export function MapViewport({
   /** เส้นทางน้ำเหนือ (E16 B-1) — ส่งต่อให้ Map3DCanvas ตรง ๆ */
   northRouteTopology?: NorthRouteTopology | null;
   northRouteStations?: readonly NorthRouteStationState[] | null;
+  /** รายงานจากประชาชน — ส่งต่อให้ Map3DCanvas ตรง ๆ (null = ชั้นปิด/ยังไม่เคยได้รายการ) */
+  community?: CommunityMapState | null;
+  /** ส่ง/โหวต/ลบรายงาน — null = ไม่มีปุ่ม "รายงานผลกระทบ" */
+  communityActions?: CommunityActions | null;
   /** ชิปอายุแหล่งน้ำท่วมจากดาวเทียม — null = ไม่แสดง (ชั้นน้ำท่วมทั้งสองปิดอยู่) */
   floodAge?: FloodSourceAgeInput | null;
   onInfo?: (info: MapInfo | null) => void;
@@ -160,6 +178,46 @@ export function MapViewport({
   const [info, setInfo] = useState<MapInfo | null>(null);
   const sceneRef = useRef<SceneHandles | null>(null);
   const unsubHeading = useRef<(() => void) | null>(null);
+
+  // โหมดปักหมุดรายงาน — ไม่ใช่ `MapTool` ตัวที่สาม (เครื่องมือเปลี่ยนแค่การลากของเมาส์ ส่วนนี้เปลี่ยนความหมายของ
+  // การแตะ) ผูกกับจังหวัดที่เปิดโหมด: สลับจังหวัด = แผนที่ถูก remount (หมุดชั่วคราว/ฟอร์มหาย) และโหมดจบไปด้วย
+  const [placingAoi, setPlacingAoi] = useState<string | null>(null);
+  const placing = communityActions !== null && placingAoi === aoiId;
+  const [draftPlaced, setDraftPlaced] = useState(false);
+  const [placeMiss, setPlaceMiss] = useState(false);
+  const endPlacing = useCallback(() => {
+    setPlacingAoi(null);
+    setPlaceMiss(false);
+    setDraftPlaced(false);
+  }, []);
+  const handlePlaceMiss = useCallback(() => setPlaceMiss(true), []);
+  const handleDraftChange = useCallback((placed: boolean) => {
+    setDraftPlaced(placed);
+    setPlaceMiss(false);
+  }, []);
+  useEffect(() => {
+    if (!placeMiss) return;
+    const timer = window.setTimeout(() => setPlaceMiss(false), PLACE_MISS_MS);
+    return () => window.clearTimeout(timer);
+  }, [placeMiss]);
+  // Escape ยกเลิกโหมด (ไม่ทำงานขณะพิมพ์) — ฟอร์มที่เปิดอยู่ปิดตัวเองก่อนใน capture (`RightSheet`) แล้ว
+  // preventDefault ไว้; ที่นี่ฟังบน document แบบ bubble จึงวิ่งก่อนตัวของ `useShellState` บน window และ
+  // preventDefault เองเช่นกัน: Escape หนึ่งครั้งไม่หุบ drawer/แผ่นเลื่อนไปด้วย
+  useEffect(() => {
+    if (!placing) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented || isTypingTarget(e.target)) return;
+      e.preventDefault();
+      endPlacing();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [placing, endPlacing]);
+  const togglePlacing = () => {
+    setPlaceMiss(false);
+    setDraftPlaced(false);
+    setPlacingAoi((cur) => (cur === aoiId ? null : aoiId));
+  };
 
   // ป้าย "แผ่นน้ำจำลอง" — ติดแผนที่ตลอดที่แผ่นถูกวาดอยู่จริง (ชั้น illustrative ต้องบอกตัวเองบนภาพ
   // ไม่ใช่แค่ใน legend) บนมือถือแตะแล้วเปิดแผงชั้นข้อมูล (legend + หมายเหตุเต็ม)
@@ -302,6 +360,12 @@ export function MapViewport({
         observationsStale={observationsStale}
         northRouteTopology={northRouteTopology}
         northRouteStations={northRouteStations}
+        community={community}
+        communityActions={communityActions}
+        placing={placing}
+        onPlacingEnd={endPlacing}
+        onPlaceMiss={handlePlaceMiss}
+        onDraftChange={handleDraftChange}
         initialPose={initialPose}
         quality={quality}
         onQualityLevel={onQualityLevel}
@@ -364,6 +428,37 @@ export function MapViewport({
           {sheetBadge}
         </div>
       ) : null}
+      {placing ? (
+        // แถบคำแนะนำของโหมดปักหมุด — กลางล่างเหนือ dock/ส่วน peek ของแผ่นเลื่อน (ด้านบนเป็นที่ของ AlertToast ซึ่งทับ
+        // มันจนมองไม่เห็น) บนมือถือยกขึ้นเหนือป้าย "แผ่นน้ำจำลอง" ที่มุมซ้ายล่าง; เว้นคอลัมน์เครื่องมือทางขวา
+        // ฟอร์มเปิดแล้ว (จอกว้าง): ชิดซ้าย — แผงด้านขวากินครึ่งขวาของแผนที่และจะทับแถบที่อยู่กลาง
+        <div
+          className={`pointer-events-none absolute z-20 flex ${draftPlaced && !compact ? "justify-start" : "justify-center"}`}
+          style={{
+            bottom: safeArea.bottom + 8 + (compact && sheetBadge ? PHONE_BADGE_CLEARANCE_PX : 0),
+            left: leftEdge,
+            right: titleRight,
+          }}
+        >
+          <div
+            className="pointer-events-auto flex max-w-md items-center gap-2 rounded-full bg-black/80 py-1 pr-1 pl-3 text-xs text-white shadow-lg ring-1 ring-[#ec4899]/60 ring-inset backdrop-blur-md"
+            role="status"
+            data-report-placing-hint=""
+          >
+            <MapPinPlus size={14} className="shrink-0 text-[#f9a8d4]" aria-hidden="true" />
+            <span className={placeMiss ? "text-[var(--color-risk-medium)]" : undefined}>
+              {placeMiss ? t("community.place.miss") : draftPlaced ? t("community.place.move") : t("community.place.hint")}
+            </span>
+            <button
+              type="button"
+              onClick={endPlacing}
+              className="min-h-11 shrink-0 cursor-pointer rounded-full bg-white/10 px-3 md:min-h-8 text-xs text-white hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]"
+            >
+              {t("community.place.cancel")}
+            </button>
+          </div>
+        </div>
+      ) : null}
       {compact ? (
         <div
           className="absolute z-10 flex flex-col items-center gap-1.5"
@@ -375,6 +470,20 @@ export function MapViewport({
           }}
         >
           {layersButton}
+          {communityActions ? (
+            <button
+              type="button"
+              onClick={togglePlacing}
+              aria-label={t("community.place.button")}
+              title={t("community.place.button")}
+              aria-pressed={placing}
+              className={`glass-soft flex h-11 w-11 cursor-pointer items-center justify-center rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] ${
+                placing ? "text-white ring-1 ring-[#ec4899] ring-inset" : "text-white/90 hover:text-white"
+              }`}
+            >
+              <MapPinPlus size={18} aria-hidden="true" />
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => sceneRef.current?.resetNorth()}
@@ -414,6 +523,14 @@ export function MapViewport({
           </button>
 
           <div className="glass-soft flex flex-col gap-1.5 rounded-xl p-1.5">
+            {communityActions ? (
+              <>
+                <IconButton label={t("community.place.button")} active={placing} onClick={togglePlacing}>
+                  <MapPinPlus size={16} />
+                </IconButton>
+                <div className="my-0.5 h-px bg-white/10" />
+              </>
+            ) : null}
             <IconButton label={t("viewport.orbit")} active={tool === "select"} onClick={() => setTool("select")}>
               <MousePointer2 size={16} />
             </IconButton>
