@@ -14,13 +14,17 @@ import type { SourceId } from "./sources.js";
  * - forecast:          a named, cited, third-party DETERMINISTIC model forecast (e.g. TMD NWP);
  *                      never computed here, and never a probability — a value valid for a future
  *                      instant is still not a statement about how likely anything is
+ * - crowdsourced:      submitted by members of the public through SIAHRA (community report pins) and
+ *                      NOT verified by anyone — not an instrument reading (so not `observed`), not an
+ *                      agency dataset, not a model; votes on it are users' opinions, never a confirmation
  */
 export type EpistemicClass =
   | "observed"
   | "static-reference"
   | "illustrative"
   | "probabilistic"
-  | "forecast";
+  | "forecast"
+  | "crowdsourced";
 
 /**
  * A layer carries three distinct timestamps, and conflating any two of them is

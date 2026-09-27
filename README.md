@@ -166,6 +166,7 @@ The Worker exposes a versioned JSON API under `/api/v1`:
 | `GET /api/v1/local-authorities/:id/impact` | Real `turf.intersect()` between the current GISTDA flood scene and the authority's real E11.2 boundary — flooded area/fraction and facilities-in-flood are observed, population/buildings exposed are an illustrative area-weighted share of the E11.3 baseline |
 | `GET /api/v1/alerts/active` | Currently active threshold alerts (real ThaiWater stations bound to local authorities, hysteresis-evaluated) — read-only, GET-only |
 | `GET /api/v1/alerts/rules` | The baked threshold-rule table (rainfall/water-level, real stations and boundaries) an alert can fire from |
+| `GET /api/v1/community/:code/reports` · `/community/image/:id` · `POST /community/reports` · `/community/session` · `/community/reports/:id/vote` · `/:id/delete` | Community report pins — impact reports submitted by the public, **unverified** (`crowdsourced`, votes are opinions, not confirmation), province derived server-side, Turnstile-gated submission, kept 30 days; plus bearer-token admin hide/unhide/delete |
 
 ## CI & contributing
 

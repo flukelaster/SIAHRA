@@ -28,7 +28,11 @@ export default defineConfig({
       // E16.PR0: pool อ่าน `.dev.vars` ของเครื่อง dev ด้วย — กุญแจ GISTDA จริงจึงห้ามหลุดเข้า
       // เทส (alarm ที่ cron ในเทสอื่นตั้งไว้จะยิงต้นทางจริง 77 จังหวัด) เทสที่ต้องการกุญแจ
       // ใส่ค่าปลอมเองผ่าน test/helpers/gistdaApi.ts `setGistdaKey`
-      miniflare: { bindings: { GISTDA_API_KEY: "" } },
+      // รายงานจากประชาชน: secret ทั้งสามว่างเป็นค่าตั้งต้นเหมือนกัน — เทสที่ต้องการใส่ค่าปลอมเอง
+      // (test/community.test.ts) ไม่พึ่งว่าเครื่องที่รันมี `.dev.vars` หรือไม่
+      miniflare: {
+        bindings: { GISTDA_API_KEY: "", TURNSTILE_SECRET_KEY: "", COMMUNITY_HMAC_KEY: "", COMMUNITY_ADMIN_TOKEN: "" },
+      },
     }),
   ],
   test: {
