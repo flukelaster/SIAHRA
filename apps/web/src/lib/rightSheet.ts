@@ -66,3 +66,24 @@ export function rightSheetBox(
   const width = Math.max(RIGHT_SHEET_MIN_W, Math.min(RIGHT_SHEET_W, room));
   return { top: safeArea.top, right, bottom, left: null, width: Math.min(width, viewportW - right - GUTTER) };
 }
+
+/** หมุดที่อยู่ห่างขอบซ้ายของแผงน้อยกว่านี้ (px) ถือว่าถูกบัง — หัวหมุด + เงาต้องพ้นขอบแผงให้เห็นชัด */
+export const SHEET_CLEARANCE_PX = 48;
+
+/**
+ * จุด x บนจอ (CSS px เทียบ viewport) ที่ควรเลื่อนแผนที่ให้หมุดไปอยู่ เมื่อหมุดตกใต้แผงด้านขวาหรือชิดขอบมันเกินไป
+ * — กลางช่วงที่มองเห็นระหว่าง `safeArea.left` (rail/drawer) กับขอบซ้ายของแผง; `null` = ไม่ต้องเลื่อน
+ * (มือถือ: แผงเต็มจอ เลื่อนไปก็ไม่เห็น)
+ */
+export function clearOfSheetX(
+  pinX: number,
+  tier: Tier,
+  safeArea: ShellSafeArea,
+  viewportW: number,
+): number | null {
+  if (tier === "phone") return null;
+  const box = rightSheetBox(tier, safeArea, viewportW);
+  const sheetLeft = viewportW - box.right - (box.width ?? 0);
+  if (pinX < sheetLeft - SHEET_CLEARANCE_PX) return null;
+  return Math.round((safeArea.left + sheetLeft) / 2);
+}

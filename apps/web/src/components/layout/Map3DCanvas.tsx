@@ -54,6 +54,8 @@ import {
   LazyReportSheet as ReportSheet,
 } from "../map/lazyMapViews";
 import { isClickRelease, type CameraContext, type CameraSelection } from "../../lib/cameraSheet";
+import { clearOfSheetX } from "../../lib/rightSheet";
+import { tierFor } from "../../lib/shellLayout";
 import type { CatalogueProbe } from "../../hooks/useCameraCatalogues";
 import { buildEarthquakeMarkers, type EarthquakeMarkerResult } from "../../scene/EarthquakeMarkers";
 import { buildExposureMarkers, type ExposureMarkerResult } from "../../scene/ExposureMarkers";
@@ -721,6 +723,21 @@ export function Map3DCanvas({
               setCameraSel(null);
               setReportSel(null);
               setDraft({ lon: result.lon, lat: result.lat, anchor: result.anchor.clone() });
+              // ฟอร์มเปิดในแผงด้านขวา — หมุดที่ตกใต้แผง (หรือชิดขอบ) ถูกบัง: เลื่อนแผนที่ในแนวราบให้หมุดไปอยู่
+              // กลางส่วนที่มองเห็น (ระยะ/มุมกล้องเดิม) ด้วย flyTo ตัวเดียวกับการ focus สถานี; มือถือแผงเต็มจอ = ไม่เลื่อน
+              const vw = window.innerWidth;
+              const toX = clearOfSheetX(e.clientX, tierFor(vw), safeAreaRef.current, vw);
+              if (toX !== null) {
+                const to = new THREE.Vector2(((toX - rect.left) / rect.width) * 2 - 1, ndc.y);
+                const ray = new THREE.Raycaster();
+                ray.setFromCamera(to, h.camera);
+                const ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), -result.anchor.y);
+                const under = new THREE.Vector3();
+                if (ray.ray.intersectPlane(ground, under)) {
+                  const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+                  h.flyTo(h.controls.target.clone().add(result.anchor.clone().sub(under)), undefined, reduce ? 1 : 600);
+                }
+              }
             } else {
               placeMissRef.current?.();
             }
