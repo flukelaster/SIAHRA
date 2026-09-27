@@ -126,7 +126,7 @@ export function TimelineBar({
   variant = "full",
   marks = [],
   rangeIdx: rangeIdxProp,
-  onRangeChange,
+  onRangeIdxChange,
 }: {
   atIso: string | null;
   onChange: (atIso: string | null) => void;
@@ -139,21 +139,20 @@ export function TimelineBar({
   /** รอบบินของ Sentinel-1 (E14.F5) — วาดเฉพาะที่อยู่ในช่วงของแถบ กดแล้วเลือกเวลาของฉากนั้น */
   marks?: TimelineMark[];
   /**
-   * ช่วงของแถบที่ผู้ถือภายนอกคุม (App.tsx — หน้าต่างของหมุดรายงานจากประชาชนใช้ช่วงเดียวกัน) ไม่ส่ง = แถบถือเอง
-   * ตามเดิม; เปลี่ยนช่วงยังผ่าน `applyRangeChange` (หยุดเล่น + เลื่อน viewport ไม่แตะ atIso)
+   * E18.4 — ช่วงที่เลือก (ดัชนีของ `TIMELINE_RANGES`) แบบควบคุมจากภายนอก: แผงแถบเวลาถูก unmount
+   * ทุกครั้งที่หุบ (C5) เปลือกจึงถือค่านี้ไว้ให้ช่วงคงอยู่ข้ามการกาง/หุบ — สถานะการแสดงผลล้วน ๆ
+   * ไม่อยู่ใน permalink ไม่ทำให้เกิดคำขอ และ **ไม่แตะ atIso** (`applyRangeChange`)
+   * ไม่ส่ง = แถบถือช่วงเอง (เริ่มที่ `DEFAULT_TIMELINE_RANGE_INDEX`)
    */
   rangeIdx?: number;
-  onRangeChange?: (rangeIdx: number) => void;
+  onRangeIdxChange?: (rangeIdx: number) => void;
 }) {
   const { lang, t } = useLang();
   const [playing, setPlaying] = useState(false);
-  const [ownRangeIdx, setOwnRangeIdx] = useState(DEFAULT_TIMELINE_RANGE_INDEX);
-  const rangeIdx = rangeIdxProp ?? ownRangeIdx;
-  const setRangeIdx = (i: number) => {
-    setOwnRangeIdx(i);
-    onRangeChange?.(i);
-  };
-  const range = RANGES[rangeIdx] ?? RANGES[DEFAULT_TIMELINE_RANGE_INDEX];
+  const [localRangeIdx, setLocalRangeIdx] = useState(DEFAULT_TIMELINE_RANGE_INDEX);
+  const rangeIdx = rangeIdxProp ?? localRangeIdx;
+  const setRangeIdx = onRangeIdxChange ?? setLocalRangeIdx;
+  const range = RANGES[rangeIdx];
   const RANGE_HOURS = range.hours;
   const STEP_MIN = range.stepMin;
   const steps = (RANGE_HOURS * 60) / STEP_MIN;
@@ -399,7 +398,11 @@ export function TimelineBar({
             return (
               <span
                 key={h}
-                className="absolute top-0 whitespace-nowrap tabular-nums"
+                // ขีดกลางซ่อนเมื่อแผงแคบ (มือถือ, E18.4) — ไม่งั้น "-2 วัน" กับ "-36 ชม." ทับกันจนอ่านผิด
+                // ปลายสองข้าง (ต้นช่วง / ตอนนี้) ยังอยู่เสมอ ตำแหน่งจริงของหัวเลื่อนบอกด้วยป้ายเวลาด้านบน
+                className={`absolute top-0 whitespace-nowrap tabular-nums ${
+                  i === 0 || last ? "" : "hidden @md:inline"
+                }`}
                 style={{
                   left: `${pct}%`,
                   transform: i === 0 ? "none" : last ? "translateX(-100%)" : "translateX(-50%)",

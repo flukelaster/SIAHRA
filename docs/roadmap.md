@@ -1787,7 +1787,7 @@ overflow line; rows are ≥ 44 px buttons with no `aria-label` (the visible text
 name, "open on the map" is a `title`) that call `ctx.focusStation` only on click; the sources block
 dims non-ok rows, keeps never-fetched and API-unreachable apart and omits browser-kind sources.
 
-#### E18.3 — Per-topic layer presets + grouped layer list — *in review* (2026-09-27)
+#### E18.3 — Per-topic layer presets + grouped layer list — *done* (2026-09-27, PR #111)
 - Why: the layer list was one flat run of 20 switches; it now groups them into observed /
   illustrative / basemap, and switching topic sets the hazard layers that topic is about — until the
   user picks layers themselves
@@ -1843,10 +1843,63 @@ follow flag is in memory only (neither permalink nor localStorage); presets, tog
 go through the one `setLayerState`, so the permalink updates the same way for each; the
 illustrative group is tinted violet and rows are ≥ 44 px (`min-h-11`) below md.
 
-#### E18.4–E18.5 — *planned*
-- **E18.4** — time chip, a ⋯ menu, the forecast strip moved into weather, and the exaggeration
-  control into a basemap control.
-- **E18.5** — fonts and colour tokens.
+#### E18.4 — Time chip, ⋯ menu, forecast strip into weather, exaggeration into layers — *in review* (2026-09-27)
+- Why: the dock and the phone peek carried a dense timeline, the forecast strip and the
+  vertical-scale switch side by side; "which time am I looking at" now lives in one chip (live /
+  historical / TMD forecast) that opens the full timeline, the forecast strip moves to the forecast
+  view it belongs to, the exaggeration control to the basemap layers, and the TopBar's icon actions
+  into a ⋯ menu that also exists on phone
+- Touches: new `lib/timeChip.ts` (+ `timeChip.test.ts`), `lib/forecastAutoSelect.ts` (+
+  `forecastAutoSelect.test.ts`), `lib/langUrl.ts` (`syncLangInUrl`, moved out of `LanguageToggle`),
+  `components/layout/{TimeChip,TimelinePanel,MoreMenu}.tsx`; `App.tsx`,
+  `components/layout/{AppShell,BottomDock,ForecastStrip,LanguageToggle,MapAttribution,MapLegend,MapViewport,MobileSheet,ProvinceChip,TimelineBar,TopBar,panelRegistry,panelViews}.ts(x)`
+  (`PanelContext.{forecastAtIso,setForecastAtIso,exaggeration,setExaggeration}`, `MapViewport`
+  `sheetSnap`, `MapLegend` `basemapFooter`), `lib/shellLayout.ts` (+ test; `phoneToolsBottom`),
+  `i18n/{th,en}.ts` (`timeChip.{live,failed,noObservationTime,open,close}`, `forecast.chip.label`,
+  `topbar.more`)
+- Depends: E18.3 (PR #111)
+- Size: L — one PR
+- Cost: devops pre-gate `go-with-constraints`, delta $0 — C1–C7 met: hook call sites unchanged, no
+  new I/O, at most one `TimelineBar` and one `ForecastStrip` mounted, closing the timeline panel
+  unmounts it, nothing changes the time on its own
+- Risk: entry `index-*.js` 87.82 → 86.76 kB gz (`TimelineBar` and `ForecastStrip` are now lazy
+  chunks); entry + vendor + shared 340.84 → 339.88 kB gz. The TopBar's raise to `z-30` while a
+  dropdown is open needs CSS `:has()`; an older browser keeps the previous stacking, where the
+  `AlertToast` can cover an open dropdown
+- Issue: _(not yet filed)_
+
+1. `timeChipState`: `atIso` → historical and beats `forecastAtIso` (the permalink rule);
+   `forecastAtIso` → forecast; otherwise live at `latestObservedAt`, never `fetchedAt`; the
+   back-to-live button is offered only outside live (`timeChip.test.ts`).
+2. Live never shows a time that does not exist: `fetchedAt` null → never-received, not a time;
+   `fetchedAt` present but `latestObservedAt` null → no observation time, not `fetchedAt`; a request
+   in flight → loading, not the time of the frame still in hand; our request failed → failed; no
+   answer yet → loading, not never (`timeChip.test.ts`).
+3. The forecast strip's single-step auto-select never fires while `atIso` is set; with `atIso` null
+   it fires once; an already-selected step is not selected again; zero or several steps select
+   nothing; a new poll with the same step after the user cleared it does not re-select it; and a
+   step skipped while viewing history is not selected on returning to live
+   (`forecastAutoSelect.test.ts`).
+4. `SHEET_PEEK_H` 224 covers the worst-case peek — `SHEET_GRIP_H` 24 + `SHEET_SUMMARY_MAX_H` 32 +
+   `TIME_CHIP_ROW_H` 36 + `ATTRIBUTION_MAX_H` 99 + gaps 32; the phone safe-area bottom is
+   224 + 56 + 8 = 288 and still independent of `dockHeight`; `snapHeights(900).peek` is 224
+   (`shellLayout.test.ts`).
+5. `phoneToolsBottom`: at peek the tool column sits 8 px above the safe-area bottom; at half and
+   full it is `max(that, calc(55dvh + 64px))` (`shellLayout.test.ts`).
+
+Not test-backed, design facts checked by QA: the chip sits in the TopBar from tablet up and in the
+phone peek, where it replaces the dense timeline and the old historical badge; the forecast chip
+uses the `EPISTEMIC_BADGE.forecast` colours with a dashed border and no probability wording, and a
+narrow chip truncates the prefix, never the time; the timeline panel opens inside the dock (tablet
+up) or above the tab bar with its own compact attribution (phone), closes on X / Escape and returns
+focus to the chip, unmounts on close, and closes on a sheet-snap change or topic tap; the range
+choice is display state only, not in the permalink; the ⋯ menu (share, snapshot on tablet up,
+language, ThaiWater sources) follows the menu-button pattern on every tier; the exaggeration
+control sits in the layers basemap group with the permalink `ex` unchanged, and the attribution's
+vertical-scale note shows on every tier whenever it is not 1; the forecast strip heads the weather
+topic's forecast view, and its tick row hides odd non-final ticks below `@min-[16rem]`.
+
+#### E18.5 — Fonts and colour tokens — *planned*
 
 ## 3. Suggested first two weeks
 

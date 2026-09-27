@@ -79,7 +79,7 @@ export function ProvinceChip({
         <ChevronDown size={14} className="shrink-0 text-[var(--color-fg-muted)]" aria-hidden="true" />
       </button>
       {open ? (
-        <div ref={popRef} className="glass absolute top-full left-0 z-50 mt-1.5 w-72 rounded-2xl p-3.5">
+        <div ref={popRef} data-topbar-popover className="glass absolute top-full left-0 z-50 mt-1.5 w-72 rounded-2xl p-3.5">
           <ProvinceSelector
             provinces={provinces}
             selected={selected}

@@ -61,7 +61,7 @@ That marker is the whole mechanism: a review body stays non-empty forever, so wi
 
 ## 6. All green
 - Print `✅ ready` **only when the checks pass, there are zero unresolved threads, and every Codex review body carrying findings has its `Addressed Codex review <submittedAt>` marker** — never over the top of pending comments; use `⏳ checks green, N review threads unresolved` instead
-- **Never merge**, however green it looks
+- Merging is allowed once everything above is true **and** Codex has answered the head commit (a review or the 👍 reaction), or 30 min have passed since the last push with no answer — `gh pr merge <n> --merge --delete-branch`, never `--admin`; only for PRs this session's agent opened, never someone else's
 
 ## Output
 - At most ~30 lines per PR

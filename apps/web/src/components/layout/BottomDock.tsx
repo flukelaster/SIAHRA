@@ -1,19 +1,19 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { ApiHealthState } from "../../hooks/useApiHealth";
-import type { ProvinceForecastState } from "../../hooks/useProvinceForecast";
 import { GUTTER } from "../../lib/shellLayout";
-import { ExaggerationControl } from "./ExaggerationControl";
-import { ForecastStrip } from "./ForecastStrip";
 import type { MapInfo } from "./Map3DCanvas";
 import { MapAttribution } from "./MapAttribution";
 import { SourceStatusPopover } from "./SourceStatusPopover";
-import { TimelineBar, type TimelineMark } from "./TimelineBar";
 
 /**
- * Dock ล่างเต็มความกว้าง (จอ ≥ tablet): แถวควบคุมเดียว — สถานะแหล่งข้อมูล ·
- * ไทม์ไลน์ย้อนหลัง (dense) · แถบพยากรณ์ TMD (dense) · มาตราส่วนแนวดิ่ง — แล้ว
- * บรรทัดเครดิตใต้แถว; ห่อเป็นสองแถวเองบน tablet ความสูงจริงถูกวัดด้วย
- * ResizeObserver ใน `useLayoutEffect` (ก่อน paint) แล้วรายงานให้ safe area
+ * Dock ล่างเต็มความกว้าง (จอ ≥ tablet) — E18.4 เหลือแถวเดียว: สถานะแหล่งข้อมูล + บรรทัดเครดิต
+ * (+ แผงแถบเวลาเหนือแถวนั้นเมื่อกางจากชิปเวลาบน TopBar, `timelinePanel`)
+ *
+ * ของที่ย้ายออกไป: แถบเวลา dense → ชิปเวลา + แผงลอย · แถบพยากรณ์ TMD → มุมมองพยากรณ์ของหัวข้อฝนและ
+ * พายุ · มาตราส่วนแนวดิ่ง → กลุ่มแผนที่ฐานในชั้นข้อมูล (ค่าที่ไม่ใช่ 1:1 ยังอยู่ในบรรทัดเครดิตเสมอ)
+ *
+ * ความสูงจริงถูกวัดด้วย ResizeObserver ใน `useLayoutEffect` (ก่อน paint) แล้วรายงานให้ safe area
+ * — แผงแถบเวลาที่กางอยู่จึงดัน rail/drawer ขึ้นแทนที่จะทับมัน
  *
  * root เป็น `pointer-events-none` และเปิดกลับเฉพาะลูกที่เป็นตัวควบคุมจริง —
  * ช่องว่างระหว่างตัวควบคุมต้องปล่อยให้ลากแผนที่ทะลุได้
@@ -22,31 +22,15 @@ export function BottomDock({
   apiHealth,
   mapInfo,
   exaggeration,
-  onExaggerationChange,
-  atIso,
-  onAtIsoChange,
-  timelineMarks,
-  timelineRangeIdx,
-  onTimelineRangeChange,
-  forecast,
-  forecastAtIso,
-  onForecastAtIsoChange,
+  timelinePanel = null,
   onHeight,
 }: {
   apiHealth: ApiHealthState;
   mapInfo: MapInfo | null;
+  /** ค่ามาตราส่วนแนวดิ่ง — แสดงในบรรทัดเครดิตเมื่อไม่ใช่ 1:1 (ตัวเลือกอยู่ในชั้นข้อมูลแล้ว) */
   exaggeration: number;
-  onExaggerationChange: (f: number) => void;
-  atIso: string | null;
-  onAtIsoChange: (atIso: string | null) => void;
-  /** E14.F5 — ขีดรอบบิน Sentinel-1 */
-  timelineMarks?: TimelineMark[];
-  /** ช่วงของแถบเวลา (ดัชนีใน `TIMELINE_RANGES`) — ถือใน App.tsx เพราะหน้าต่างของหมุดรายงานจากประชาชนใช้ร่วมกัน */
-  timelineRangeIdx?: number;
-  onTimelineRangeChange?: (rangeIdx: number) => void;
-  forecast: ProvinceForecastState;
-  forecastAtIso: string | null;
-  onForecastAtIsoChange: (forecastAtIso: string | null) => void;
+  /** แผงแถบเวลา (mount เฉพาะตอนกาง — C5) */
+  timelinePanel?: ReactNode;
   /** Reports the rendered dock height so the map can keep the province clear of it. */
   onHeight?: (px: number) => void;
 }) {
@@ -65,48 +49,27 @@ export function BottomDock({
   return (
     <div
       ref={ref}
-      className="pointer-events-none absolute z-10 flex flex-col gap-1.5 @container"
+      className="pointer-events-none absolute z-10 flex flex-col gap-1.5"
       style={{ left: GUTTER, right: GUTTER, bottom: GUTTER }}
     >
-      {/* TimelineBar (observed, scrubs back) and ForecastStrip (TMD, scrubs
-          forward) share one row so TimelineBar's live/"now" end and
-          ForecastStrip's 0h end sit right next to each other. */}
-      {/* flex-basis ของสองแถบ = ความกว้างที่เนื้อหาแบบ dense ต้องใช้จริง (ปุ่ม 2 ·
-          Segmented · slider ≥ 64px · ป้าย) เพื่อให้แถวห่อบรรทัดก่อนที่เนื้อหาจะล้น
-          ไม่ใช่ตอนที่ล้นไปแล้ว — วัดที่ 1024: timeline ต้องการ ~408–422px */}
-      <div className="flex flex-wrap items-center gap-2">
+      {timelinePanel ? (
+        <div className="pointer-events-auto w-full max-w-[760px] self-center">{timelinePanel}</div>
+      ) : null}
+      <div className="flex flex-wrap items-end gap-2">
         <div className="pointer-events-auto shrink-0">
           <SourceStatusPopover state={apiHealth} />
         </div>
-        <div className="pointer-events-auto min-w-0" style={{ flex: "1 1 430px" }}>
-          <TimelineBar
-            atIso={atIso}
-            onChange={onAtIsoChange}
-            variant="dense"
-            marks={timelineMarks}
-            rangeIdx={timelineRangeIdx}
-            onRangeChange={onTimelineRangeChange}
-          />
+        {/* ตัวห่อ flex-1 ปล่อยให้ลากแผนที่ทะลุได้ — เปิด pointer เฉพาะกล่องเครดิตเอง */}
+        <div className="max-w-full min-w-0 flex-1 basis-80">
+          <div className="pointer-events-auto w-fit max-w-full">
+            <MapAttribution
+              info={mapInfo}
+              exaggeration={exaggeration}
+              expanded={attributionExpanded}
+              onToggle={() => setAttributionExpanded((v) => !v)}
+            />
+          </div>
         </div>
-        <div className="pointer-events-auto min-w-0" style={{ flex: "1 1 320px" }}>
-          <ForecastStrip
-            state={forecast}
-            forecastAtIso={forecastAtIso}
-            onChange={onForecastAtIsoChange}
-            variant="dense"
-          />
-        </div>
-        <div className="pointer-events-auto shrink-0">
-          <ExaggerationControl value={exaggeration} onChange={onExaggerationChange} />
-        </div>
-      </div>
-      <div className="pointer-events-auto max-w-full self-start">
-        <MapAttribution
-          info={mapInfo}
-          exaggeration={exaggeration}
-          expanded={attributionExpanded}
-          onToggle={() => setAttributionExpanded((v) => !v)}
-        />
       </div>
     </div>
   );

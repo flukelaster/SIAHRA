@@ -23,7 +23,7 @@ import { StatPills } from "./StatPills";
 import { FloodSourceAgeChip } from "./FloodSourceAgeChip";
 import type { FloodSourceAgeInput } from "../../lib/floodSourceAge";
 import type { ForecastBandLevel } from "../../lib/forecastStyle";
-import { GUTTER, TOOLS_W, type Tier } from "../../lib/shellLayout";
+import { GUTTER, TOOLS_W, phoneToolsBottom, type SheetSnap, type Tier } from "../../lib/shellLayout";
 import { ENABLED_CAMERA_SOURCES } from "../../lib/featureFlags";
 import { countLayersOn } from "../../lib/layerCount";
 import { LAYERS_DIALOG_ID } from "./LayersSurface";
@@ -77,6 +77,7 @@ export function MapViewport({
   quality,
   onQualityLevel,
   tier,
+  sheetSnap = "peek",
   onInfo,
   onApi,
   onPoseChange,
@@ -90,6 +91,11 @@ export function MapViewport({
    * `MobileSheet`) และคอลัมน์เครื่องมือเกาะขวาล่างเหลือ 2 ปุ่ม (ชั้นข้อมูล + เข็มทิศ)
    */
   tier: Tier;
+  /**
+   * E18.4 — ระดับของแผ่นเลื่อน (มือถือเท่านั้น): ที่ half/full คอลัมน์เครื่องมือยกขึ้นเหนือขอบบนของแผ่น
+   * ที่ half (`phoneToolsBottom`) ปุ่มชั้นข้อมูลจึงไม่ถูกแผ่นบังที่ half อีก
+   */
+  sheetSnap?: SheetSnap;
   exaggeration: number;
   quality: QualityMode;
   onQualityLevel?: (level: QualityLevel, mode: QualityMode) => void;
@@ -365,7 +371,12 @@ export function MapViewport({
       {compact ? (
         <div
           className="absolute z-10 flex flex-col items-center gap-1.5"
-          style={{ bottom: safeArea.bottom + 8, right: toolsRight }}
+          style={{
+            bottom: phoneToolsBottom(sheetSnap, safeArea.bottom),
+            right: toolsRight,
+            // จังหวะเดียวกับการเข้าที่ของแผ่น (`useSheetDrag` REST_TRANSITION)
+            transition: "bottom 260ms cubic-bezier(0.32, 0.72, 0, 1)",
+          }}
         >
           {layersButton}
           <button
