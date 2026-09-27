@@ -40,6 +40,7 @@ import {
   NOT_PROBED,
   parseBuildArgs,
   probeStreams,
+  progressHeartbeat,
   probeVantageLabel,
   writeCatalogue,
 } from "./cameraCatalogue.js";
@@ -260,7 +261,7 @@ async function main() {
 
   // probe จาก vantage ที่รัน — ผลเป็นของเวลานั้น/เครือข่ายนั้น ไม่ใช่สถานะปัจจุบัน
   const probeVantage = args.probe ? probeVantageLabel(args.vantage) : null;
-  const probed = await probeStreams(built.cameras, { skip: !args.probe });
+  const probed = await probeStreams(built.cameras, { skip: !args.probe, onProgress: progressHeartbeat() });
   const probedAt = args.probe ? new Date().toISOString() : null;
   console.log(args.probe ? `probe (${probeVantage}, ${probedAt}):` : "probe skipped (--no-probe): every stream is not-probed");
   console.log(formatProbeTable(probed.stats, probed.cameras));

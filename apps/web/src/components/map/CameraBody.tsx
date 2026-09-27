@@ -1,6 +1,6 @@
 import { Camera as CameraIcon, ExternalLink, RefreshCw, Video } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { SOURCES, cameraKey, type Camera, type CameraStream, type CameraStreamKind } from "@siahra/shared-types";
+import { SOURCES, cameraKey, type Camera, type CameraStream, type CameraStreamKind, type ProbeResult } from "@siahra/shared-types";
 import { useNow } from "../../hooks/useNow";
 import type { Lang, MessageKey, TFunction } from "../../i18n";
 import { isAllowedStreamUrl, isAllowedUrl } from "../../lib/cameraSources";
@@ -721,6 +721,22 @@ function JpegFetchView({
  * สตรีมหนึ่งเส้น → มุมมองตามชนิด (ทุกชนิดตรวจ allowlist ของแหล่งก่อนแตะเครือข่าย)
  * ---------------------------------------------------------------------------------------------- */
 
+/**
+ * ข้อความของผล probe ที่ไม่ใช่ `ok`/`not-probed` (ล้วน, มีเทสต์) — สามความหมายที่ต้องไม่ปนกัน:
+ * `unreachable` = ถามไม่ได้จาก vantage นั้น, `tls-chain` = เครื่องมือ build ตรวจใบรับรองของเซิร์ฟเวอร์ไม่ได้
+ * (เบราว์เซอร์มักหา intermediate เองได้ — ไม่ใช่คำตัดสินของกล้อง), ที่เหลือ = ต้นทางตอบแล้วแต่ไม่มีของให้
+ */
+export function probeNoteKey(result: Exclude<ProbeResult, "ok" | "not-probed">): MessageKey {
+  switch (result) {
+    case "unreachable":
+      return "popup.camera.unverified.unreachable";
+    case "tls-chain":
+      return "popup.camera.unverified.tlsChain";
+    default:
+      return "popup.camera.unverified.answered";
+  }
+}
+
 function mjpegUrlFactory(url: string): (n: number) => string {
   return (n) => snapshotFrameUrl(url, n, Date.now());
 }
@@ -837,23 +853,19 @@ function ActiveCameraBody({
         </div>
       ) : null}
       {stream ? <StreamView key={streamIdx} camera={camera} stream={stream} ctx={ctx} name={name} lang={lang} t={t} /> : null}
-      {/* ผล probe ตอน build — ข้อเท็จจริงของ build นั้น ไม่ใช่สถานะปัจจุบัน และสามกรณีต้องไม่ปนกัน:
+      {/* ผล probe ตอน build — ข้อเท็จจริงของ build นั้น ไม่ใช่สถานะปัจจุบัน และสี่กรณีต้องไม่ปนกัน:
           `not-probed` = ไม่ได้ถาม, `unreachable` = ถามไม่ได้จาก vantage นั้น (ไม่ใช่ต้นทางล่ม),
+          `tls-chain` = เครื่องมือ build ตรวจใบรับรองไม่ได้ (เบราว์เซอร์มักเล่นได้ — ไม่ใช่คำตัดสินของกล้อง),
           ที่เหลือ (`empty`/`not-image`/`http-*`) = ต้นทางตอบแล้วแต่ไม่มีของให้ */}
       {stream && stream.probe.result !== "ok" ? (
         <p className="mt-1.5 text-[10px] leading-snug text-[var(--color-risk-medium)]" data-probe={stream.probe.result}>
           {stream.probe.result === "not-probed"
             ? t("popup.camera.notProbed")
-            : stream.probe.result === "unreachable"
-              ? t("popup.camera.unverified.unreachable", {
-                  at: probe?.probedAt ? formatFullDateTime(lang, probe.probedAt) : "—",
-                  vantage: probe?.probeVantage ?? "—",
-                })
-              : t("popup.camera.unverified.answered", {
-                  result: stream.probe.result,
-                  at: probe?.probedAt ? formatFullDateTime(lang, probe.probedAt) : "—",
-                  vantage: probe?.probeVantage ?? "—",
-                })}
+            : t(probeNoteKey(stream.probe.result), {
+                result: stream.probe.result,
+                at: probe?.probedAt ? formatFullDateTime(lang, probe.probedAt) : "—",
+                vantage: probe?.probeVantage ?? "—",
+              })}
         </p>
       ) : null}
       {camera.coordSource === "hand-placed" ? (

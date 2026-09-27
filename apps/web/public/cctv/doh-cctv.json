@@ -1,0 +1,3734 @@
+{
+  "sourceId": "doh-cctv",
+  "builtAt": "2026-09-27T01:59:59.646Z",
+  "sourceUrl": "https://www.highwaytraffic.go.th/DOHWeb/home.aspx",
+  "probedAt": "2026-09-27T02:01:56.658Z",
+  "probeVantage": "fortinet-lan",
+  "cameras": [
+    {
+      "id": "PER-10-014",
+      "sourceId": "doh-cctv",
+      "nameTh": "11 - อ.ท่าตะโก จ.นครสวรรค์",
+      "nameEn": null,
+      "lat": 15.4495,
+      "lon": 100.5257,
+      "coordSource": "upstream",
+      "provinceCode": "60",
+      "owner": null,
+      "code": "PER-10-014",
+      "placeTh": "อ.ท่าตะโก จ.นครสวรรค์",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase10/PER_10_014.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.ตากฟ้า (จ.นครสวรรค์) / ทิศทางมุ่งหน้าเข้า อ.โพธิ์สาลี (จ.นครสวรรค์)",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-10-016",
+      "sourceId": "doh-cctv",
+      "nameTh": "32 - อ.อินทร์บุรี จ.สิงห์บุรี",
+      "nameEn": null,
+      "lat": 14.95995,
+      "lon": 100.37431,
+      "coordSource": "upstream",
+      "provinceCode": "17",
+      "owner": null,
+      "code": "PER-10-016",
+      "placeTh": "อ.อินทร์บุรี จ.สิงห์บุรี",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase10/PER_10_016_IN.stream/playlist.m3u8",
+          "label": "ขาเข้า — ทิศทางมุ่งหน้าเข้า จ.พระนครศรีอยุธยา",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase10/PER_10_016_OUT.stream/playlist.m3u8",
+          "label": "ขาออก — ทิศทางมุ่งหน้าเข้า จ.สิงห์บุรี",
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-10-019",
+      "sourceId": "doh-cctv",
+      "nameTh": "9 - อ.บางบัวทอง จ.นนทบุรี",
+      "nameEn": null,
+      "lat": 13.9144,
+      "lon": 100.41,
+      "coordSource": "upstream",
+      "provinceCode": "12",
+      "owner": null,
+      "code": "PER-10-019",
+      "placeTh": "อ.บางบัวทอง จ.นนทบุรี",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase10/PER_10_019_IN.stream/playlist.m3u8",
+          "label": "ขาเข้า — ทิศทางมุ่งหน้าเข้า จ.นนทบุรี",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase10/PER_10_019_OUT.stream/playlist.m3u8",
+          "label": "ขาออก — ทิศทางมุ่งหน้าเข้า อ.ลาดหลุมแก้ว (จ.ปทุมธานี)",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-10-026",
+      "sourceId": "doh-cctv",
+      "nameTh": "314 - อ.บ้านโพธิ์ จ.ฉะเชิงเทรา",
+      "nameEn": null,
+      "lat": 13.575803,
+      "lon": 101.004541,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": null,
+      "code": "PER-10-026",
+      "placeTh": "อ.บ้านโพธิ์ จ.ฉะเชิงเทรา",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase10/PER_10_026.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า จ.ฉะเชิงเทรา / ทิศทางมุ่งหน้าเข้า จ.ปราจีนบุรี",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-10-028",
+      "sourceId": "doh-cctv",
+      "nameTh": "37 - อ.หัวหิน จ.ประจวบคีรีขันธ์",
+      "nameEn": null,
+      "lat": 12.5341,
+      "lon": 99.8774,
+      "coordSource": "upstream",
+      "provinceCode": "77",
+      "owner": null,
+      "code": "PER-10-028",
+      "placeTh": "อ.หัวหิน จ.ประจวบคีรีขันธ์",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase10/PER_10_028.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.วังโบสถ์ (จ.เพชรบุรี) / ทิศทางมุ่งหน้าเข้า อ.ปรานบุรี (จ.ประจวบฯ)",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-10-034",
+      "sourceId": "doh-cctv",
+      "nameTh": "35 - อ.เมือง จ.สมุทรสงคราม",
+      "nameEn": null,
+      "lat": 13.416031,
+      "lon": 100.029061,
+      "coordSource": "upstream",
+      "provinceCode": "75",
+      "owner": null,
+      "code": "PER-10-034",
+      "placeTh": "อ.เมือง จ.สมุทรสงคราม",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase10/PER_10_034_IN.stream/playlist.m3u8",
+          "label": "ขาเข้า — ทิศทางมุ่งหน้าเข้า จ.สมุทรสาคร",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase10/PER_10_034_OUT.stream/playlist.m3u8",
+          "label": "ขาออก — ทิศทางมุ่งหน้าเข้า จ.สมุทรสงคราม",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-11-016",
+      "sourceId": "doh-cctv",
+      "nameTh": "3195 - อ.สามโก้ จ.อ่างทอง",
+      "nameEn": null,
+      "lat": 14.5827185,
+      "lon": 100.2962653,
+      "coordSource": "upstream",
+      "provinceCode": "15",
+      "owner": null,
+      "code": "PER-11-016",
+      "placeTh": "อ.สามโก้ จ.อ่างทอง",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase11/PER_11_016.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า จ.อ่างทอง",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-11-017",
+      "sourceId": "doh-cctv",
+      "nameTh": "334 - อ.เมืองอ่างทอง จ.อ่างทอง",
+      "nameEn": null,
+      "lat": 14.578969,
+      "lon": 100.472321,
+      "coordSource": "upstream",
+      "provinceCode": "15",
+      "owner": null,
+      "code": "PER-11-017",
+      "placeTh": "อ.เมืองอ่างทอง จ.อ่างทอง",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase11/PER_11_017.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า จ.อยุธยา",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-12-012",
+      "sourceId": "doh-cctv",
+      "nameTh": "32 - อ่างทอง - ไชโย",
+      "nameEn": null,
+      "lat": 14.6315,
+      "lon": 100.4732,
+      "coordSource": "upstream",
+      "provinceCode": "15",
+      "owner": null,
+      "code": "PER-12-012",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase12/PER_12_012_IN.stream/playlist.m3u8",
+          "label": "ขาเข้า — ทิศทางมุ่งหน้าเข้า ต.บ้านอิฐ",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase12/PER_12_012_OUT.stream/playlist.m3u8",
+          "label": "ขาออก — ทิศทางมุ่งหน้าเข้า ต.ตลาดกรวด",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-12-013",
+      "sourceId": "doh-cctv",
+      "nameTh": "340 - บางบัวทอง - ลาดบัวหลวง",
+      "nameEn": null,
+      "lat": 14.1313,
+      "lon": 100.2898,
+      "coordSource": "upstream",
+      "provinceCode": "14",
+      "owner": null,
+      "code": "PER-12-013",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase12/PER_12_013.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.บางบัวทอง / ทิศทางมุ่งหน้าเข้า อ.ลาดบัวหลวง",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-12-018",
+      "sourceId": "doh-cctv",
+      "nameTh": "1 - ประตูน้ําพระอินทร์ - หนองแค",
+      "nameEn": null,
+      "lat": 14.2651,
+      "lon": 100.7852,
+      "coordSource": "upstream",
+      "provinceCode": "14",
+      "owner": null,
+      "code": "PER-12-018",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase12/PER_12_018_IN.stream/playlist.m3u8",
+          "label": "ขาเข้า — ทิศทางมุ่งหน้าเข้า อ.วังน้อย",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase12/PER_12_018_OUT.stream/playlist.m3u8",
+          "label": "ขาออก — ทิศทางมุ่งหน้าเข้า อ.หนองแค",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-12-103",
+      "sourceId": "doh-cctv",
+      "nameTh": "226 - ศรีสะเกษ - ห้วยขะยุง",
+      "nameEn": null,
+      "lat": 15.102665,
+      "lon": 104.42117,
+      "coordSource": "upstream",
+      "provinceCode": "33",
+      "owner": null,
+      "code": "PER-12-103",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase12/PER_12_003.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า ศรีสะเกษ",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-12-106",
+      "sourceId": "doh-cctv",
+      "nameTh": "พะโค - หนองสนวน",
+      "nameEn": null,
+      "lat": 14.5418,
+      "lon": 102.2259,
+      "coordSource": "upstream",
+      "provinceCode": "30",
+      "owner": null,
+      "code": "PER-12-106",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase12/PER_12_006.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.โชคชัย นครราชสีมา / ทิศทางมุ่งหน้าเข้า อ.ปะคำ บุรีรัมย์",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-13-002",
+      "sourceId": "doh-cctv",
+      "nameTh": "101 - แยกนาแหลม - หนองห้า",
+      "nameEn": null,
+      "lat": 18.18898,
+      "lon": 100.18712,
+      "coordSource": "upstream",
+      "provinceCode": "54",
+      "owner": null,
+      "code": "PER-13-002",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase13/PER_13_002.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.เมืองแพร่ จ.แพร่ / ทิศทางมุ่งหน้าเข้า อ.หนองม่วงไข่ จ.เชียงราย",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-13-004",
+      "sourceId": "doh-cctv",
+      "nameTh": "1016 - แม่จัน - กิ่วพร้าว",
+      "nameEn": null,
+      "lat": 20.2052,
+      "lon": 99.9263,
+      "coordSource": "upstream",
+      "provinceCode": "57",
+      "owner": null,
+      "code": "PER-13-004",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase13/PER_13_004.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.แม่จัน จ.เชียงราย / ทิศทางมุ่งหน้าเข้า อ.เชียงแสน จ.เชียงราย",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-13-005",
+      "sourceId": "doh-cctv",
+      "nameTh": "1021 - แม่ต๋ำ - บ้านใหม่",
+      "nameEn": null,
+      "lat": 19.15939,
+      "lon": 99.96732,
+      "coordSource": "upstream",
+      "provinceCode": "56",
+      "owner": null,
+      "code": "PER-13-005",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase13/PER_13_005.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.เมืองพะเยา จ.พะยา / ทิศทางมุ่งหน้าเข้า อ.ดอกคำใต้ จ.พะเยา",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-13-008",
+      "sourceId": "doh-cctv",
+      "nameTh": "225 - ศรีมงคล - น้ำอ้อม",
+      "nameEn": null,
+      "lat": 15.83235,
+      "lon": 101.14677,
+      "coordSource": "upstream",
+      "provinceCode": "67",
+      "owner": null,
+      "code": "PER-13-008",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase13/PER_13_008.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.วิเชียรบุรี จ.เพชรบูรณ์ / ทิศทางมุ่งหน้าเข้า อ.บึงสามพัน จ.เพชรบูรณ์",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-13-009",
+      "sourceId": "doh-cctv",
+      "nameTh": "12 - สี่แยกสมเด็จ - คำพอก",
+      "nameEn": null,
+      "lat": 16.50774,
+      "lon": 104.172818,
+      "coordSource": "upstream",
+      "provinceCode": "46",
+      "owner": null,
+      "code": "PER-13-009",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase13/PER_13_009.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.สมเด็จ จ.กาฬสินธุ์ / ทิศทางมุ่งหน้าเข้า กาฬสินธุ์",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-13-010",
+      "sourceId": "doh-cctv",
+      "nameTh": "12 - พรหมนิมิตร - ห้วยสีดา",
+      "nameEn": null,
+      "lat": 16.442431,
+      "lon": 102.984317,
+      "coordSource": "upstream",
+      "provinceCode": "44",
+      "owner": null,
+      "code": "PER-13-010",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase13/PER_13_010.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.เมืองขอนแก่น จ.ขอนแก่น / ทิศทางมุ่งหน้าเข้า อ.เชียงยืน จ.มหาสารคาม",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-13-011",
+      "sourceId": "doh-cctv",
+      "nameTh": "201 - โนนหัน - ผานกเค้า",
+      "nameEn": null,
+      "lat": 16.615377,
+      "lon": 101.989748,
+      "coordSource": "upstream",
+      "provinceCode": "40",
+      "owner": null,
+      "code": "PER-13-011",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase13/PER_13_011.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.ชุมแพ จ.ขอนแก่น / ทิศทางมุ่งหน้าเข้า อ.ภูกระดึง จ.เลย",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-13-013",
+      "sourceId": "doh-cctv",
+      "nameTh": "2 - อุดรธานี - น้ำสวย",
+      "nameEn": null,
+      "lat": 17.532167,
+      "lon": 102.800077,
+      "coordSource": "upstream",
+      "provinceCode": "41",
+      "owner": null,
+      "code": "PER-13-013",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase13/PER_13_013_1.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อุดรธานี",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase13/PER_13_013_2.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า หนองคาย",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-13-015",
+      "sourceId": "doh-cctv",
+      "nameTh": "227 - กาฬสินธุ์ - แยกดงแหลม",
+      "nameEn": null,
+      "lat": 16.689852,
+      "lon": 103.516849,
+      "coordSource": "upstream",
+      "provinceCode": "46",
+      "owner": null,
+      "code": "PER-13-015",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase13/PER_13_015.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า กาฬสินธุ์ / ทิศทางมุ่งหน้าเข้า อ.ดงแหลม จ.กาฬสินธุ์",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-13-020",
+      "sourceId": "doh-cctv",
+      "nameTh": "2 - มวกเหล็ก - บ่อทอง",
+      "nameEn": null,
+      "lat": 14.76151,
+      "lon": 101.51802,
+      "coordSource": "upstream",
+      "provinceCode": "30",
+      "owner": null,
+      "code": "PER-13-020",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase13/PER_13_020_1.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า สระบุรี",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase13/PER_13_020_2.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า นครราชสีมา",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-13-024",
+      "sourceId": "doh-cctv",
+      "nameTh": "357 - ถนนวงแหวนรอบเมืองสุพรรณบุรี",
+      "nameEn": null,
+      "lat": 14.48379,
+      "lon": 100.172649,
+      "coordSource": "upstream",
+      "provinceCode": "72",
+      "owner": null,
+      "code": "PER-13-024",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase13/PER_13_024.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ่างทอง / ทิศทางมุ่งหน้าเข้า สุพรรณบุรี",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-13-025",
+      "sourceId": "doh-cctv",
+      "nameTh": "323 - ท่าเรือ - ท่าน้ำตื้น",
+      "nameEn": null,
+      "lat": 13.98231,
+      "lon": 99.578875,
+      "coordSource": "upstream",
+      "provinceCode": "71",
+      "owner": null,
+      "code": "PER-13-025",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase13/PER_13_025.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า นครปฐม / ทิศทางมุ่งหน้าเข้า กาญจนบุรี",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-13-029",
+      "sourceId": "doh-cctv",
+      "nameTh": "1 - ต่างระดับคลองหลวง - ประตูน้ำพระอินทร์",
+      "nameEn": null,
+      "lat": 14.085407,
+      "lon": 100.617906,
+      "coordSource": "upstream",
+      "provinceCode": "13",
+      "owner": null,
+      "code": "PER-13-029",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase13/PER_13_029_2.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า กรุงเทพฯ",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase13/PER_13_029_1.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อยุธยา",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-13-032",
+      "sourceId": "doh-cctv",
+      "nameTh": "331 - แปลงยาว - เขาหินซ้อน",
+      "nameEn": null,
+      "lat": 13.605208,
+      "lon": 101.303892,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": null,
+      "code": "PER-13-032",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase13/PER_13_032.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า ชลบุรี",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-13-057",
+      "sourceId": "doh-cctv",
+      "nameTh": "12 - ปากทางเขื่อนลำปาว - หนองผ้าอ้อม",
+      "nameEn": null,
+      "lat": 16.4192,
+      "lon": 103.4764,
+      "coordSource": "upstream",
+      "provinceCode": "46",
+      "owner": null,
+      "code": "PER-13-057",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase13/PER_13_014.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า ยโสธร / ทิศทางมุ่งหน้าเข้า อำนาจเจริญ",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-14-001",
+      "sourceId": "doh-cctv",
+      "nameTh": "338 - พุทธมณฑลสาย 4 - นครชัยศรี",
+      "nameEn": null,
+      "lat": 13.777329,
+      "lon": 100.2234,
+      "coordSource": "upstream",
+      "provinceCode": "73",
+      "owner": null,
+      "code": "PER-14-001",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase14/PER_14_001_IN.stream/playlist.m3u8",
+          "label": "ขาเข้า — ทิศทางมุ่งหน้าเข้า เขตทวีวัฒนา กรุงเทพมหานคร",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase14/PER_14_001_OUT.stream/playlist.m3u8",
+          "label": "ขาออก — ทิศทางมุ่งหน้าเข้า อ.นครชัยศรี จ.นครปฐม",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-14-003",
+      "sourceId": "doh-cctv",
+      "nameTh": "420 - วงแหวนรอบเมืองสุราษฎร์ธานี",
+      "nameEn": null,
+      "lat": 9.134344,
+      "lon": 99.252318,
+      "coordSource": "upstream",
+      "provinceCode": "84",
+      "owner": null,
+      "code": "PER-14-003",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase14/PER_14_003.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.พูนพิน จ.สุราษฎร์ธานี / ทิศทางมุ่งหน้าเข้า อ.เมืองสุราษฎร์ธานี จ.สุราษฎร์ธานี",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-14-004",
+      "sourceId": "doh-cctv",
+      "nameTh": "44 - ท่าเรือ - หินโงก",
+      "nameEn": null,
+      "lat": 9.096768,
+      "lon": 99.447471,
+      "coordSource": "upstream",
+      "provinceCode": "84",
+      "owner": null,
+      "code": "PER-14-004",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase14/PER_14_004_IN.stream/playlist.m3u8",
+          "label": "ขาเข้า — ทิศทางมุ่งหน้าเข้า อ.เมืองสุราษฎร์ธานี จ.สุราษฎร์ธานี",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase14/PER_14_004_OUT.stream/playlist.m3u8",
+          "label": "ขาออก — ทิศทางมุ่งหน้าเข้า อ.กาญจนดิษฐ์ จ.สุราษฎร์ธานี",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-14-005",
+      "sourceId": "doh-cctv",
+      "nameTh": "4009 - บางใหญ่-ซอยสิบ",
+      "nameEn": null,
+      "lat": 9.04987,
+      "lon": 99.36445,
+      "coordSource": "upstream",
+      "provinceCode": "84",
+      "owner": null,
+      "code": "PER-14-005",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase14/PER_14_005.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.เมืองสุราษฎร์ธานี จ.สุราษฎร์ธานี / ทิศทางมุ่งหน้าเข้า อ.เวียงสระ จ.สุราษฎร์ธานี",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-14-006",
+      "sourceId": "doh-cctv",
+      "nameTh": "4142 - บ้านใน - บ้านโฉ",
+      "nameEn": null,
+      "lat": 9.23859,
+      "lon": 99.69694,
+      "coordSource": "upstream",
+      "provinceCode": "84",
+      "owner": null,
+      "code": "PER-14-006",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase14/PER_14_006.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.ดอนสัก จ.สุราษฎร์ธานี / ทิศทางมุ่งหน้าเข้า อ.ขนอม จ.นครศรีธรรมราช",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-14-007",
+      "sourceId": "doh-cctv",
+      "nameTh": "4 - เขาคราม - ตลาดเก่า",
+      "nameEn": null,
+      "lat": 8.20723,
+      "lon": 98.81496,
+      "coordSource": "upstream",
+      "provinceCode": "81",
+      "owner": null,
+      "code": "PER-14-007",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase14/PER_14_007.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.ทับปุด จ.พังงา / ทิศทางมุ่งหน้าเข้า อ.เมืองกระบี่ จ.กระบี่",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-14-008",
+      "sourceId": "doh-cctv",
+      "nameTh": "4 - คลองบางดินสอ - นาเหนือ",
+      "nameEn": null,
+      "lat": 8.408059,
+      "lon": 98.456959,
+      "coordSource": "upstream",
+      "provinceCode": "82",
+      "owner": null,
+      "code": "PER-14-008",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase14/PER_14_008.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.ถลาง จ.ภูเก็ต / ทิศทางมุ่งหน้าเข้า อ.เมืองพังงา จ.พังงา",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-14-009",
+      "sourceId": "doh-cctv",
+      "nameTh": "4006 - ราชกรูด-วังตะกอ",
+      "nameEn": null,
+      "lat": 9.97798,
+      "lon": 99.04399,
+      "coordSource": "upstream",
+      "provinceCode": "86",
+      "owner": null,
+      "code": "PER-14-009",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase14/PER_14_009.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.เมืองระนอง จ.ระนอง / ทิศทางมุ่งหน้าเข้า อ.หลังสวน จ.ชุมพร",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-14-010",
+      "sourceId": "doh-cctv",
+      "nameTh": "4 - พรุพ้อ - เนินพิชัย",
+      "nameEn": null,
+      "lat": 7.118101,
+      "lon": 100.32131,
+      "coordSource": "upstream",
+      "provinceCode": "90",
+      "owner": null,
+      "code": "PER-14-010",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase14/PER_14_010.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.ป่าบอน พัทลุง / ทิศทางมุ่งหน้าเข้า อ.หาดใหญ่ จ.สงขลา",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-14-011",
+      "sourceId": "doh-cctv",
+      "nameTh": "43 - นาหม่อม - จะนะ",
+      "nameEn": null,
+      "lat": 6.969213,
+      "lon": 100.685674,
+      "coordSource": "upstream",
+      "provinceCode": "90",
+      "owner": null,
+      "code": "PER-14-011",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase14/PER_14_011.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.หาดใหญ่ จ.สงขลา / ทิศทางมุ่งหน้าเข้า อ.จะนะ จ.สงขลา",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-14-012",
+      "sourceId": "doh-cctv",
+      "nameTh": "408 - ทุ่งหวัง - นาทวี",
+      "nameEn": null,
+      "lat": 7.003633,
+      "lon": 100.672424,
+      "coordSource": "upstream",
+      "provinceCode": "90",
+      "owner": null,
+      "code": "PER-14-012",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase14/PER_14_012.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.เทพา สงขลา / ทิศทางมุ่งหน้าเข้า อ.จะนะ จ.สงขลา",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-14-016",
+      "sourceId": "doh-cctv",
+      "nameTh": "406 - ค่ายรวมมิตร - คลองขุด",
+      "nameEn": null,
+      "lat": 6.695519,
+      "lon": 100.067976,
+      "coordSource": "upstream",
+      "provinceCode": "91",
+      "owner": null,
+      "code": "PER-14-016",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase14/PER_14_016.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.หาดใหญ่ จ.สงขลา / ทิศทางมุ่งหน้าเข้า อ.สตูล จ.สตูล",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-15-001",
+      "sourceId": "doh-cctv",
+      "nameTh": "22 - สูงเนิน - ท่าแร่",
+      "nameEn": null,
+      "lat": 17.2299,
+      "lon": 104.1075,
+      "coordSource": "upstream",
+      "provinceCode": "47",
+      "owner": null,
+      "code": "PER-15-001",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase15/PER_15_001.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.พรรณานิคม จ.สกลนคร / ทิศทางมุ่งหน้าเข้า อ.โพนนาแก้ว จ.สกลนคร",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-15-002",
+      "sourceId": "doh-cctv",
+      "nameTh": "212 - ห้วยก้านเหลือง - ดงบัง",
+      "nameEn": null,
+      "lat": 18.3698,
+      "lon": 103.638,
+      "coordSource": "upstream",
+      "provinceCode": "38",
+      "owner": null,
+      "code": "PER-15-002",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase15/PER_15_002.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.ปากคาด จ.บึงกาฬ / ทิศทางมุ่งหน้าเข้า อ.บุ่งคล้า จ.บึงกาฬ",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-15-003",
+      "sourceId": "doh-cctv",
+      "nameTh": "11 - สากเหล็ก - กกไม้แดง",
+      "nameEn": null,
+      "lat": 16.703,
+      "lon": 100.4316,
+      "coordSource": "upstream",
+      "provinceCode": "65",
+      "owner": null,
+      "code": "PER-15-003",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase15/PER_15_003.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.สากเหล็ก จ.พิจิตร / ทิศทางมุ่งหน้าเข้า อ.วังทอง จ.พิษณุโลก",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-15-004",
+      "sourceId": "doh-cctv",
+      "nameTh": "113 - ฆะมัง - พิจิตร",
+      "nameEn": null,
+      "lat": 16.3781,
+      "lon": 100.3714,
+      "coordSource": "upstream",
+      "provinceCode": "66",
+      "owner": null,
+      "code": "PER-15-004",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase15/PER_15_004.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.ตะพานหิน จ.พิจิตร / ทิศทางมุ่งหน้าเข้า อ.เมืองพิจิตร จ.พิจิตร",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-15-007",
+      "sourceId": "doh-cctv",
+      "nameTh": "12 - บ้านหลุบ - นาไคร้",
+      "nameEn": null,
+      "lat": 16.411,
+      "lon": 103.7197,
+      "coordSource": "upstream",
+      "provinceCode": "46",
+      "owner": null,
+      "code": "PER-15-007",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase15/PER_15_007.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.เมืองกาฬสินธุ์ จ.กาฬสินธุ์ / ทิศทางมุ่งหน้าเข้า อ.ห้วยผึ้ง จ.กาฬสินธุ์",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-15-011",
+      "sourceId": "doh-cctv",
+      "nameTh": "290 - ถนนวงแหวนรอบเมืองนครราชสีมาด้านทิศใต้",
+      "nameEn": null,
+      "lat": 14.8752,
+      "lon": 101.9545,
+      "coordSource": "upstream",
+      "provinceCode": "30",
+      "owner": null,
+      "code": "PER-15-011",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase15/PER_15_011.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.เฉลิมพระเกีตรติ จ.นครราชสีมา / ทิศทางมุ่งหน้าเข้า อ.สูงเนิน จ.นครราชสีมา",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-15-012",
+      "sourceId": "doh-cctv",
+      "nameTh": "24 - ซับประดู่ - สี่แยกปักธงชัย",
+      "nameEn": null,
+      "lat": 14.8348,
+      "lon": 101.7772,
+      "coordSource": "upstream",
+      "provinceCode": "30",
+      "owner": null,
+      "code": "PER-15-012",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase15/PER_15_012.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.สีคิ้ว จ.นครราชสีมา / ทิศทางมุ่งหน้าเข้า อ.ปักธงชัย จ.นครราชสีมา",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-15-013",
+      "sourceId": "doh-cctv",
+      "nameTh": "202 - ตลาดไทร - ลำพังชู",
+      "nameEn": null,
+      "lat": 15.5638,
+      "lon": 102.8201,
+      "coordSource": "upstream",
+      "provinceCode": "31",
+      "owner": null,
+      "code": "PER-15-013",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase15/PER_15_013.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.ประทาย จ.นครราชสีมา / ทิศทางมุ่งหน้าเข้า อ.พุทไธสง จ.บุรีรัมย์",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-15-014",
+      "sourceId": "doh-cctv",
+      "nameTh": "21 - แยกมะนาวหวาน - ม่วงค่อม",
+      "nameEn": null,
+      "lat": 14.9036,
+      "lon": 100.9047,
+      "coordSource": "upstream",
+      "provinceCode": "16",
+      "owner": null,
+      "code": "PER-15-014",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase15/PER_15_014.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.พระพุทธบาท จ.สระบุรี / ทิศทางมุ่งหน้าเข้า อ.ชัยบาดาล จ.ลพบุรี",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-15-015",
+      "sourceId": "doh-cctv",
+      "nameTh": "1 - บ้านหว้า - วังไผ่",
+      "nameEn": null,
+      "lat": 15.6368,
+      "lon": 100.1314,
+      "coordSource": "upstream",
+      "provinceCode": "60",
+      "owner": null,
+      "code": "PER-15-015",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase15/PER_15_015_IN.stream/playlist.m3u8",
+          "label": "ขาเข้า — ทิศทางมุ่งหน้าเข้า อ.โกรกพระ จ.นครสวรรค์",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase15/PER_15_015_OUT.stream/playlist.m3u8",
+          "label": "ขาออก — ทิศทางมุ่งหน้าเข้า อ.บรรพตพิสัย จ.นครสวรรค์",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-15-016",
+      "sourceId": "doh-cctv",
+      "nameTh": "1 - เกษตรชัย - ตาคลี",
+      "nameEn": null,
+      "lat": 15.2802,
+      "lon": 100.3761,
+      "coordSource": "upstream",
+      "provinceCode": "60",
+      "owner": null,
+      "code": "PER-15-016",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase15/PER_15_016.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.ตากฟ้า จ.นครสวรรค์ / ทิศทางมุ่งหน้าเข้า อ.เมืองชัยนาท จ.ชัยนาท",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-15-017",
+      "sourceId": "doh-cctv",
+      "nameTh": "37 - ต่างระดับเชียงราก - บางกระสั้น",
+      "nameEn": null,
+      "lat": 14.2698,
+      "lon": 100.5313,
+      "coordSource": "upstream",
+      "provinceCode": "14",
+      "owner": null,
+      "code": "PER-15-017",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase15/PER_15_017_IN.stream/playlist.m3u8",
+          "label": "ขาเข้า — ทิศทางมุ่งหน้าเข้า อ.สามโคก จ.ปทุมธานี",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase15/PER_15_017_OUT.stream/playlist.m3u8",
+          "label": "ขาออก — ทิศทางมุ่งหน้าเข้า อ.พระนครศรีอยุธยา จ.อยุธยา",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-16-001",
+      "sourceId": "doh-cctv",
+      "nameTh": "108 - เชียงใหม่ - ปากทางท่าลี่",
+      "nameEn": null,
+      "lat": 18.4871039,
+      "lon": 98.8061549,
+      "coordSource": "upstream",
+      "provinceCode": "50",
+      "owner": null,
+      "code": "PER-16-001",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/P16/PER_16_001.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.สันป่าตอง จ.เชียงใหม่ / ทิศทางมุ่งหน้าเข้า อ.จอมทอง จ.เชียงใหม่",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-16-006",
+      "sourceId": "doh-cctv",
+      "nameTh": "1039 - ดงสันเงิน - ขามแดง",
+      "nameEn": null,
+      "lat": 18.3140974,
+      "lon": 99.4429787,
+      "coordSource": "upstream",
+      "provinceCode": "52",
+      "owner": null,
+      "code": "PER-16-006",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/P16/PER_16_006.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.เมือง จ.ลำปาง / ทิศทางมุ่งหน้าเข้า อ.ห้างฉัตร จ.ลำปาง",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-16-010",
+      "sourceId": "doh-cctv",
+      "nameTh": "112 - ทางเลี่ยงเมืองกำแพงเพชร",
+      "nameEn": null,
+      "lat": 16.4636503,
+      "lon": 99.5423596,
+      "coordSource": "upstream",
+      "provinceCode": "62",
+      "owner": null,
+      "code": "PER-16-010",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/P16/PER_16_010.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า ต.นครชุม อ.เมือง จ.กำแพงเพชร / ทิศทางมุ่งหน้าเข้า ต.หนองปลิง อ.เมือง จ.กำแพงเพชร",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-16-011",
+      "sourceId": "doh-cctv",
+      "nameTh": "122 - ทางเลี่ยงเมืองนครสวรรค์ด้านตะวันตก IN-OUT",
+      "nameEn": null,
+      "lat": 15.6511469,
+      "lon": 100.0804965,
+      "coordSource": "upstream",
+      "provinceCode": "60",
+      "owner": null,
+      "code": "PER-16-011",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/P16/PER_16_011_IN.stream/playlist.m3u8",
+          "label": "ขาเข้า — ทิศทางมุ่งหน้าเข้า ต.ตะเคียนเลื่อน อ.เมือง จ.นครสวรรค์",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/P16/PER_16_011_OUT.stream/playlist.m3u8",
+          "label": "ขาออก — ทิศทางมุ่งหน้าเข้า ต.บางม่วง อ.เมือง จ.นครสวรรค์",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-16-012",
+      "sourceId": "doh-cctv",
+      "nameTh": "314 - บางตำหรุ - คลองด่าน",
+      "nameEn": null,
+      "lat": 13.4969787,
+      "lon": 100.8492719,
+      "coordSource": "upstream",
+      "provinceCode": "11",
+      "owner": null,
+      "code": "PER-16-012",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/P16/PER_16_012.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.เมือง จ.สมุทรปราการ / ทิศทางมุ่งหน้าเข้า อ.เมือง จ.ฉะเชิงเทรา",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-16-015",
+      "sourceId": "doh-cctv",
+      "nameTh": "304 - พนมสารคาม - เขาหินซ้อน",
+      "nameEn": null,
+      "lat": 13.7455964,
+      "lon": 101.4690882,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": null,
+      "code": "PER-16-015",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/P16/PER_16_015.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.พนมสารคาม จ.ฉะเชิงเทรา / ทิศทางมุ่งหน้าเข้า อ.กบินทร์บุรี จ.ปราจีนบุรี",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-16-016",
+      "sourceId": "doh-cctv",
+      "nameTh": "36 - มะขามคู่ - มาบข่า IN-OUT",
+      "nameEn": null,
+      "lat": 12.8038996,
+      "lon": 101.145822,
+      "coordSource": "upstream",
+      "provinceCode": "21",
+      "owner": null,
+      "code": "PER-16-016",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/P16/PER_16_016_IN.stream/playlist.m3u8",
+          "label": "ขาเข้า — ทิศทางมุ่งหน้าเข้า อ.บางละมุง จ.ชลบุรี",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/P16/PER_16_016_OUT.stream/playlist.m3u8",
+          "label": "ขาออก — ทิศทางมุ่งหน้าเข้า อ.เมือง จ.ระยอง",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-17-001",
+      "sourceId": "doh-cctv",
+      "nameTh": "11-บ้านป่า - นาอิน",
+      "nameEn": null,
+      "lat": 16.9389214,
+      "lon": 100.3488673,
+      "coordSource": "upstream",
+      "provinceCode": "65",
+      "owner": null,
+      "code": "PER-17-001",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase-17/PER_17_001.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้าอ.เมือง จ.พิษณุโลก / ทิศทางมุ่งหน้าเข้าอ.เมือง จ.อุตรดิตถ์",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-17-002",
+      "sourceId": "doh-cctv",
+      "nameTh": "21-บุ่งน้ำเต้า - สักหลง",
+      "nameEn": null,
+      "lat": 16.6950726,
+      "lon": 101.169687,
+      "coordSource": "upstream",
+      "provinceCode": "67",
+      "owner": null,
+      "code": "PER-17-002",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase-17/PER_17_002.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้าอ.เมือง จ.เพชรบรูณ์ / ทิศทางมุ่งหน้าเข้าอ.หล่มสัก จ.เพชรบรูณ์",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-17-003",
+      "sourceId": "doh-cctv",
+      "nameTh": "12-ร่องแซง - หนองแก",
+      "nameEn": null,
+      "lat": 16.5199805,
+      "lon": 102.2839943,
+      "coordSource": "upstream",
+      "provinceCode": "40",
+      "owner": null,
+      "code": "PER-17-003",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase-17/PER_17_003.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้าอ.ชุมแพ จ.ขอนแก่น / ทิศทางมุ่งหน้าเข้าอ.หนองเรือ จ.ขอนแก่น",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-17-005",
+      "sourceId": "doh-cctv",
+      "nameTh": "205-ช่องสำราญ - คำปิง",
+      "nameEn": null,
+      "lat": 15.4058536,
+      "lon": 101.6359209,
+      "coordSource": "upstream",
+      "provinceCode": "36",
+      "owner": null,
+      "code": "PER-17-005",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase-17/PER_17_005.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้าอ.ลำสนธิ จ.ลพบุรี / ทิศทางมุ่งหน้าเข้าอ.เทพสถิต จ.ชัยภูมิ",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-17-009",
+      "sourceId": "doh-cctv",
+      "nameTh": "202-ยโสธร - สะพานคลองลำเซ",
+      "nameEn": null,
+      "lat": 15.790944,
+      "lon": 104.234778,
+      "coordSource": "upstream",
+      "provinceCode": "35",
+      "owner": null,
+      "code": "PER-17-009",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase-17/PER_17_009.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.เมือง จ.ยโสธร / ทิศทางมุ่งหน้าเข้า อ.ป่าติ้ว จ.ยโสธร",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-17-012",
+      "sourceId": "doh-cctv",
+      "nameTh": "220-ศรีสะเกษ - วังหิน",
+      "nameEn": null,
+      "lat": 14.995367,
+      "lon": 104.224285,
+      "coordSource": "upstream",
+      "provinceCode": "33",
+      "owner": null,
+      "code": "PER-17-012",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase-17/PER_17_012.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้าอ.เมือง จ.ศรีสะเกษ / ทิศทางมุ่งหน้าเข้าอ.ขุขันธ์ จ.ศรีสะเกษ",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-17-013",
+      "sourceId": "doh-cctv",
+      "nameTh": "294-ทางเลี่ยงเมืองศรีสะเกษ IN",
+      "nameEn": null,
+      "lat": 15.0956748,
+      "lon": 104.3005437,
+      "coordSource": "upstream",
+      "provinceCode": "33",
+      "owner": null,
+      "code": "PER-17-013",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase-17/PER_17_013_IN.stream/playlist.m3u8",
+          "label": "ขาเข้า — ทิศทางมุ่งหน้าเข้าต.หนองไผ่ อ.เมือง จ.ศรีสะเกษ",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase-17/PER_17_013_OUT.stream/playlist.m3u8",
+          "label": "ขาออก — ทิศทางมุ่งหน้าเข้าต.เมืองเหนือ อ.เมือง จ.ศรีสะเกษ",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-17-014",
+      "sourceId": "doh-cctv",
+      "nameTh": "212-อำนาจเจริญ - ลืออำนาจ IN",
+      "nameEn": null,
+      "lat": 15.8141342,
+      "lon": 104.632393,
+      "coordSource": "upstream",
+      "provinceCode": "37",
+      "owner": null,
+      "code": "PER-17-014",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase-17/PER_17_014_IN.stream/playlist.m3u8",
+          "label": "ขาเข้า — ทิศทางมุ่งหน้าเข้าอ.เมือง จ.อำนาจเจริญ",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase-17/PER_17_014_OUT.stream/playlist.m3u8",
+          "label": "ขาออก — ทิศทางมุ่งหน้าเข้าอ.ลืออำนาจ จ.อำนาจเจริญ",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-17-015",
+      "sourceId": "doh-cctv",
+      "nameTh": "290-ถนนวงแหวนรอบเมืองนครราชสีมา",
+      "nameEn": null,
+      "lat": 15.0033998,
+      "lon": 101.9713144,
+      "coordSource": "upstream",
+      "provinceCode": "30",
+      "owner": null,
+      "code": "PER-17-015",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase-17/PER_17_015.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้าต.โคกสูง อ.เมือง จ.นครราชสีมา / ทิศทางมุ่งหน้าเข้าต.โป่งแดง อ.ขามทะเลสอ จ.นครราชสีมา",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-17-017",
+      "sourceId": "doh-cctv",
+      "nameTh": "348-ปะคำ - นางรอง",
+      "nameEn": null,
+      "lat": 14.6154,
+      "lon": 102.7791,
+      "coordSource": "upstream",
+      "provinceCode": "31",
+      "owner": null,
+      "code": "PER-17-017",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase-17/PER_17_017.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้าอ.โนนดินแดง จ.บุรีรัมย์ / ทิศทางมุ่งหน้าเข้าอ.นางรอง จ.บุรีรัมย์",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-17-018",
+      "sourceId": "doh-cctv",
+      "nameTh": "3466-บ้านเก่า - พานทอง",
+      "nameEn": null,
+      "lat": 13.4592602,
+      "lon": 101.0695574,
+      "coordSource": "upstream",
+      "provinceCode": "20",
+      "owner": null,
+      "code": "PER-17-018",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase-17/PER_17_018.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้าอ.เมือง จ.ชลบุรี / ทิศทางมุ่งหน้าเข้าอ.พานทอง จ.ชลบุรี",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-18-001",
+      "sourceId": "doh-cctv",
+      "nameTh": "4-หนองหมู - ห้วยยาง",
+      "nameEn": null,
+      "lat": 11.9459875,
+      "lon": 99.8244911,
+      "coordSource": "upstream",
+      "provinceCode": "77",
+      "owner": null,
+      "code": "PER-18-001",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase18/PER_18_001.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้าอ.กุยบุรี จ.ประจวบคีรีขันธ์ / ทิศทางมุ่งหน้าเข้าอ.เมือง จ.ประจวบคีรีขันธ์",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-18-003",
+      "sourceId": "doh-cctv",
+      "nameTh": "419-ถนนแหวนรอบเมืองตรัง",
+      "nameEn": null,
+      "lat": 7.5520529,
+      "lon": 99.5818149,
+      "coordSource": "upstream",
+      "provinceCode": "92",
+      "owner": null,
+      "code": "PER-18-003",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase18/PER_18_003.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้าต.บางรัก อ.เมือง จ.ตรัง / ทิศทางมุ่งหน้าเข้าต.ควนปริง อ.เมือง จ.ตรัง",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-18-004",
+      "sourceId": "doh-cctv",
+      "nameTh": "4-กระบุรี - หงาว",
+      "nameEn": null,
+      "lat": 10.013609,
+      "lon": 98.6561953,
+      "coordSource": "upstream",
+      "provinceCode": "85",
+      "owner": null,
+      "code": "PER-18-004",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase18/PER_18_004.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้าอ.กระบุรี จ.ระนอง / ทิศทางมุ่งหน้าเข้าอ.เมือง จ.ระนอง",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-18-008",
+      "sourceId": "doh-cctv",
+      "nameTh": "0102-หนองรี - หนองปรือ",
+      "nameEn": null,
+      "lat": 13.25529,
+      "lon": 101.2031274,
+      "coordSource": "upstream",
+      "provinceCode": "20",
+      "owner": null,
+      "code": "PER-18-008",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming2.highwaytraffic.go.th/Phase18/PER_18_008.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้าต.เขาซก อ.หนองใหญ่ จ.ชลบุรี / ทิศทางมุ่งหน้าเข้าต.หนองรี อ.เมือง จ.ชลบุรี",
+          "captureTime": "none",
+          "probe": {
+            "result": "unreachable",
+            "cors": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-19-001",
+      "sourceId": "doh-cctv",
+      "nameTh": "3344-อุดมสุข - สมุทรปราการ",
+      "nameEn": null,
+      "lat": 13.621,
+      "lon": 100.6235,
+      "coordSource": "upstream",
+      "provinceCode": "11",
+      "owner": null,
+      "code": "PER-19-001",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase19/PER19-001-IN.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า เขคสวนหลวง กรุงเทพฯ",
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase19/PER19-001-OUT.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า เขคบางนา กรุงเทพฯ",
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-19-002",
+      "sourceId": "doh-cctv",
+      "nameTh": "304-ฉะเชิงเทรา - เสม็ดเหนือ",
+      "nameEn": null,
+      "lat": 13.6672,
+      "lon": 101.1883,
+      "coordSource": "upstream",
+      "provinceCode": "24",
+      "owner": null,
+      "code": "PER-19-002",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase19/PER19-002-IN.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.เมือง จ.ฉะเชิงเทรา",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase19/PER19-002-OUT.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.พนมสารคาม จ.ฉะเชิงเทรา",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-19-003",
+      "sourceId": "doh-cctv",
+      "nameTh": "36-มะขามคู่ - มาบข่า",
+      "nameEn": null,
+      "lat": 12.8469,
+      "lon": 101.1091,
+      "coordSource": "upstream",
+      "provinceCode": "21",
+      "owner": null,
+      "code": "PER-19-003",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase19/PER19-003-IN.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.บางละมุง จ.ชลบุรี",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase19/PER19-003-OUT.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.เมือง จ.ระยอง",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-19-004",
+      "sourceId": "doh-cctv",
+      "nameTh": "404-ตรัง - บ้านนา",
+      "nameEn": null,
+      "lat": 7.3505,
+      "lon": 99.6726,
+      "coordSource": "upstream",
+      "provinceCode": "92",
+      "owner": null,
+      "code": "PER-19-004",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase19/PER19-004-IN.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.เมือง จ.ตรัง",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase19/PER19-004-OUT.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.ปะเหลียน จ.ตรัง",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-19-005",
+      "sourceId": "doh-cctv",
+      "nameTh": "4-บางสัก - ท้ายเหมือง",
+      "nameEn": null,
+      "lat": 8.6849444,
+      "lon": 98.2526314,
+      "coordSource": "upstream",
+      "provinceCode": "82",
+      "owner": null,
+      "code": "PER-19-005",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase19/PER19-005-IN.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.ตะกั่วป่า จ.พังงา",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase19/PER19-005-OUT.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.ท้ายเหมือง จ.พังงา",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-3-004",
+      "sourceId": "doh-cctv",
+      "nameTh": "ถ.เพชรเกษม อ้อมใหญ่",
+      "nameEn": null,
+      "lat": 13.708,
+      "lon": 100.2841,
+      "coordSource": "upstream",
+      "provinceCode": "73",
+      "owner": null,
+      "code": "PER-3-004",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase3/PER_3_004_IN.stream/playlist.m3u8",
+          "label": "ขาเข้า — ทิศทางมุ่งหน้าหนองแขม",
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase3/PER_3_004_OUT.stream/playlist.m3u8",
+          "label": "ขาออก — ทิศทางมุ่งหน้าสามพราน",
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-3-005",
+      "sourceId": "doh-cctv",
+      "nameTh": "ถ.กาญจนาภิเษก บางแค",
+      "nameEn": null,
+      "lat": 13.7434,
+      "lon": 100.4058,
+      "coordSource": "upstream",
+      "provinceCode": "10",
+      "owner": null,
+      "code": "PER-3-005",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase3/PER_3_005_IN.stream/playlist.m3u8",
+          "label": "ขาเข้า — มุ่งหน้าพระประแดง",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase3/PER_3_005_OUT.stream/playlist.m3u8",
+          "label": "ขาออก — มุ่งหน้าบางบัวทอง",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-3-013",
+      "sourceId": "doh-cctv",
+      "nameTh": "305 - อ.องครักษ์ จ.นครนายก",
+      "nameEn": null,
+      "lat": 14.0879,
+      "lon": 100.9253,
+      "coordSource": "upstream",
+      "provinceCode": "26",
+      "owner": null,
+      "code": "PER-3-013",
+      "placeTh": "อ.องครักษ์ จ.นครนายก",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase3/PER_3_013.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้ากรุงเทพ / ทิศทางมุ่งหน้านครนายก",
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-3-016",
+      "sourceId": "doh-cctv",
+      "nameTh": "ถ.กิ่งแก้ว",
+      "nameEn": null,
+      "lat": 13.6974,
+      "lon": 100.7321,
+      "coordSource": "upstream",
+      "provinceCode": "11",
+      "owner": null,
+      "code": "PER-3-016",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase3/PER_3_016_IN.stream/playlist.m3u8",
+          "label": "ขาเข้า — ทิศทางมุ่งหน้า อ.เมือง จ.สมุทรปราการ",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase3/PER_3_016_OUT.stream/playlist.m3u8",
+          "label": "ขาออก — ทิศทางมุ่งหน้าลาดกระบัง",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-3-018",
+      "sourceId": "doh-cctv",
+      "nameTh": "ถ.ศรีนครินทร์ กม.16",
+      "nameEn": null,
+      "lat": 13.6235,
+      "lon": 100.6248,
+      "coordSource": "upstream",
+      "provinceCode": "11",
+      "owner": null,
+      "code": "PER-3-018",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase3/PER_3_018.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้ากรุงเทพ / ทิศทางมุ่งหน้า อ.เมืองสมุทรปราการ",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-4-002",
+      "sourceId": "doh-cctv",
+      "nameTh": "2 - อ.ปากช่อง จ.นครราชสีมา",
+      "nameEn": null,
+      "lat": 14.6397,
+      "lon": 101.2704,
+      "coordSource": "upstream",
+      "provinceCode": "30",
+      "owner": null,
+      "code": "PER-4-002",
+      "placeTh": "อ.ปากช่อง จ.นครราชสีมา",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase4/PER_4_002_IN.stream/playlist.m3u8",
+          "label": "ขาเข้า — ทิศทางมุ่งหน้า จ.สระบุรี",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase4/PER_4_002_OUT.stream/playlist.m3u8",
+          "label": "ขาออก — ทิศทางมุ่งหน้าตัวเมืองนครราชสีมา",
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-4-010",
+      "sourceId": "doh-cctv",
+      "nameTh": "21 - อ.พัฒนานิคม จ.ลพบุรี",
+      "nameEn": null,
+      "lat": 14.8533,
+      "lon": 100.9095,
+      "coordSource": "upstream",
+      "provinceCode": "16",
+      "owner": null,
+      "code": "PER-4-010",
+      "placeTh": "อ.พัฒนานิคม จ.ลพบุรี",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase4/PER_4_010.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้า จ.สระบุรี / ทิศทางมุ่งหน้า จ.เพชรบูรณ์",
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-4-015",
+      "sourceId": "doh-cctv",
+      "nameTh": "122 - ทางเลี่ยงเมืองนครสวรรค์",
+      "nameEn": null,
+      "lat": 15.6601,
+      "lon": 100.0699,
+      "coordSource": "upstream",
+      "provinceCode": "60",
+      "owner": null,
+      "code": "PER-4-015",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase4/PER_4_015.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้า จ.ชัยนาท / ทิศทางมุ่งหน้า จ.กำแพงเพชร",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-4-016",
+      "sourceId": "doh-cctv",
+      "nameTh": "ถ.แจ้งวัฒนะ",
+      "nameEn": null,
+      "lat": 13.9032,
+      "lon": 100.5314,
+      "coordSource": "upstream",
+      "provinceCode": "12",
+      "owner": null,
+      "code": "PER-4-016",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase4/PER_4_016_IN.stream/playlist.m3u8",
+          "label": "ขาเข้า — ทิศทางมุ่งหน้าแยกปากเกร็ด",
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase4/PER_4_016_OUT.stream/playlist.m3u8",
+          "label": "ขาออก — ทิศทางมุ่งหน้าแยกหลักสี่",
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-4-020",
+      "sourceId": "doh-cctv",
+      "nameTh": "ถ.บรมราชชนนี",
+      "nameEn": null,
+      "lat": 13.777,
+      "lon": 100.2232,
+      "coordSource": "upstream",
+      "provinceCode": "73",
+      "owner": null,
+      "code": "PER-4-020",
+      "placeTh": null,
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase4/PER_4_020.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้ากรุงเทพ / ทิศทางมุ่งหน้า อ.นครชัยศรี จ.นครปฐม",
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-4-022",
+      "sourceId": "doh-cctv",
+      "nameTh": "345 - อ.เมือง จ.ปทุมธานี",
+      "nameEn": null,
+      "lat": 13.9531,
+      "lon": 100.4734,
+      "coordSource": "upstream",
+      "provinceCode": "12",
+      "owner": null,
+      "code": "PER-4-022",
+      "placeTh": "อ.เมือง จ.ปทุมธานี",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase4/PER_4_022.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าสะพานนนทบุรี (สะพานนวลฉวี) / ทิศทางมุ่งหน้าบางบัวทอง",
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-5-003",
+      "sourceId": "doh-cctv",
+      "nameTh": "3 - อ.เมืองระยอง จ.ระยอง",
+      "nameEn": null,
+      "lat": 12.7195,
+      "lon": 101.1583,
+      "coordSource": "upstream",
+      "provinceCode": "21",
+      "owner": null,
+      "code": "PER-5-003",
+      "placeTh": "อ.เมืองระยอง จ.ระยอง",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase5/PER_5_003.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้า อ.สัตหีบ / ทิศทางมุ่งหน้าตัวเมืองระยอง",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-5-004",
+      "sourceId": "doh-cctv",
+      "nameTh": "3 - อ.ท่าใหม่ จ.จันทบุรี",
+      "nameEn": null,
+      "lat": 12.716,
+      "lon": 101.9789,
+      "coordSource": "upstream",
+      "provinceCode": "22",
+      "owner": null,
+      "code": "PER-5-004",
+      "placeTh": "อ.ท่าใหม่ จ.จันทบุรี",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase5/PER_5_004.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าระยอง / ทิศทางมุ่งหน้าตัวเมืองจันทุบรี",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-5-005",
+      "sourceId": "doh-cctv",
+      "nameTh": "3 - อ.ขลุง จ.จันทบุรี",
+      "nameEn": null,
+      "lat": 12.4186,
+      "lon": 102.3255,
+      "coordSource": "upstream",
+      "provinceCode": "22",
+      "owner": null,
+      "code": "PER-5-005",
+      "placeTh": "อ.ขลุง จ.จันทบุรี",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase5/PER_5_005.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าตัวเมืองจันทบุรี / ทิศทางมุ่งหน้า จ.ตราด",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-5-008",
+      "sourceId": "doh-cctv",
+      "nameTh": "4 - อ.บางสะพาน จ.ประจวบคีรีขันธ์",
+      "nameEn": null,
+      "lat": 11.2044,
+      "lon": 99.4042,
+      "coordSource": "upstream",
+      "provinceCode": "77",
+      "owner": null,
+      "code": "PER-5-008",
+      "placeTh": "อ.บางสะพาน จ.ประจวบคีรีขันธ์",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase5/PER_5_008.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้า จ.เพชรบุรี / ทิศทางมุ่งหน้า จ.ชุมพร",
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-5-011",
+      "sourceId": "doh-cctv",
+      "nameTh": "33 - อ.ประจันตคาม จ.ปราจีนบุรี",
+      "nameEn": null,
+      "lat": 14.0669,
+      "lon": 101.5304,
+      "coordSource": "upstream",
+      "provinceCode": "25",
+      "owner": null,
+      "code": "PER-5-011",
+      "placeTh": "อ.ประจันตคาม จ.ปราจีนบุรี",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase5/PER_5_011.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้า จ.นครนายก / ทิศทางมุ่งหน้า จ.สระแก้ว",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-5-016",
+      "sourceId": "doh-cctv",
+      "nameTh": "41 - อ.สวี จ.ชุมพร",
+      "nameEn": null,
+      "lat": 10.2515,
+      "lon": 99.0874,
+      "coordSource": "upstream",
+      "provinceCode": "86",
+      "owner": null,
+      "code": "PER-5-016",
+      "placeTh": "อ.สวี จ.ชุมพร",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase5/PER_5_016.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้า จ.ประจวบคีรีขันธ์ / ทิศทางมุ่งหน้า จ.สุราษฎร์ธานี",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-5-017",
+      "sourceId": "doh-cctv",
+      "nameTh": "41 - อ.ท่าฉาง จ.สุราษฎร์ธานี",
+      "nameEn": null,
+      "lat": 9.3219,
+      "lon": 99.1493,
+      "coordSource": "upstream",
+      "provinceCode": "84",
+      "owner": null,
+      "code": "PER-5-017",
+      "placeTh": "อ.ท่าฉาง จ.สุราษฎร์ธานี",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase5/PER_5_017.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้ จ.ชุมพร / ทิศทางมุ่งหน้า จ.นครศรีธรรมราช",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-5-019",
+      "sourceId": "doh-cctv",
+      "nameTh": "41 - อ.จุฬาภรณ์ จ.นครศรีธรรมราช",
+      "nameEn": null,
+      "lat": 8.0712,
+      "lon": 99.89,
+      "coordSource": "upstream",
+      "provinceCode": "80",
+      "owner": null,
+      "code": "PER-5-019",
+      "placeTh": "อ.จุฬาภรณ์ จ.นครศรีธรรมราช",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase5/PER_5_019.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้า จ.สุราษฎร์ธานี / ทิศทางมุ่งหน้า จ.พัทลุง",
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-5-023",
+      "sourceId": "doh-cctv",
+      "nameTh": "402 - อ.ถลาง จ.ภูเก็ต",
+      "nameEn": null,
+      "lat": 8.1716,
+      "lon": 98.2993,
+      "coordSource": "upstream",
+      "provinceCode": "83",
+      "owner": null,
+      "code": "PER-5-023",
+      "placeTh": "อ.ถลาง จ.ภูเก็ต",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase5/PER_5_023_IN.stream/playlist.m3u8",
+          "label": "ขาเข้า — ทิศทางมุ่งหน้า จ.พังงา",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase5/PER_5_023_OUT.stream/playlist.m3u8",
+          "label": "ขาออก — ทิศทางมุ่งหน้าตัวเมืองภูเก็ต",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-6-003",
+      "sourceId": "doh-cctv",
+      "nameTh": "1 - อ.คลองขลุง จ.กำแพงเพชร",
+      "nameEn": null,
+      "lat": 16.272055,
+      "lon": 99.683517,
+      "coordSource": "upstream",
+      "provinceCode": "62",
+      "owner": null,
+      "code": "PER-6-003",
+      "placeTh": "อ.คลองขลุง จ.กำแพงเพชร",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase6/PER_6_003.stream/playlist.m3u8",
+          "label": "มุ่งหน้า จ.นครสวรรค์ / มุ่งหน้า จ.กำแพงเพชร",
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-6-006",
+      "sourceId": "doh-cctv",
+      "nameTh": "11 - อ.เมืองพิษณุโลก จ.พิษณุโลก",
+      "nameEn": null,
+      "lat": 16.824,
+      "lon": 100.3316,
+      "coordSource": "upstream",
+      "provinceCode": "65",
+      "owner": null,
+      "code": "PER-6-006",
+      "placeTh": "อ.เมืองพิษณุโลก จ.พิษณุโลก",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase6/PER_6_006.stream/playlist.m3u8",
+          "label": "ขาเข้า กทม / ขาออก พิษณุโลก",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-6-008",
+      "sourceId": "doh-cctv",
+      "nameTh": "11 - อ.เมืองลำปาง จ.ลำปาง",
+      "nameEn": null,
+      "lat": 18.2558,
+      "lon": 99.5491,
+      "coordSource": "upstream",
+      "provinceCode": "52",
+      "owner": null,
+      "code": "PER-6-008",
+      "placeTh": "อ.เมืองลำปาง จ.ลำปาง",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase6/PER_6_008.stream/playlist.m3u8",
+          "label": "มุ่งหน้า จ.แพร่ / มุ่งหน้า จ.ลำปาง",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-6-009",
+      "sourceId": "doh-cctv",
+      "nameTh": "11 - อ.ห้างฉัตร จ.ลำปาง",
+      "nameEn": null,
+      "lat": 18.3078,
+      "lon": 99.3946,
+      "coordSource": "upstream",
+      "provinceCode": "52",
+      "owner": null,
+      "code": "PER-6-009",
+      "placeTh": "อ.ห้างฉัตร จ.ลำปาง",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase6/PER_6_009.stream/playlist.m3u8",
+          "label": "มุ่งหน้า จ.ลำปาง / มุ่งหน้า จ.ลำพูน",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-6-011",
+      "sourceId": "doh-cctv",
+      "nameTh": "12 - อ.กงไกรลาศ จ.สุโขทัย",
+      "nameEn": null,
+      "lat": 16.966686,
+      "lon": 100.002853,
+      "coordSource": "upstream",
+      "provinceCode": "64",
+      "owner": null,
+      "code": "PER-6-011",
+      "placeTh": "อ.กงไกรลาศ จ.สุโขทัย",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase6/PER_6_011.stream/playlist.m3u8",
+          "label": "มุ่งหน้า จ.พิษณุโลก / มุ่งหน้า จ.สุโขทัย",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-6-014",
+      "sourceId": "doh-cctv",
+      "nameTh": "32 - อ.พรหมบุรี จ.สิงห์บุรี",
+      "nameEn": null,
+      "lat": 14.747,
+      "lon": 100.4541,
+      "coordSource": "upstream",
+      "provinceCode": "17",
+      "owner": null,
+      "code": "PER-6-014",
+      "placeTh": "อ.พรหมบุรี จ.สิงห์บุรี",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase6/PER_6_014_IN.stream/playlist.m3u8",
+          "label": "ขาเข้า — มุ่งหน้า จ.อ่างทอง",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase6/PER_6_014_OUT.stream/playlist.m3u8",
+          "label": "ขาออก — มุ่งหน้า จ.สิหง์บุรี",
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-6-015",
+      "sourceId": "doh-cctv",
+      "nameTh": "101 - อ.เด่นชัย จ.แพร่",
+      "nameEn": null,
+      "lat": 17.974669,
+      "lon": 100.080933,
+      "coordSource": "upstream",
+      "provinceCode": "54",
+      "owner": null,
+      "code": "PER-6-015",
+      "placeTh": "อ.เด่นชัย จ.แพร่",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase6/PER_6_015.stream/playlist.m3u8",
+          "label": "มุ่งหน้า จ.แพร่ / มุ่งหน้า จ.อุตรดิดถ์",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-6-017",
+      "sourceId": "doh-cctv",
+      "nameTh": "108 - อ.เมืองเชียงใหม่ จ.เชียงใหม่",
+      "nameEn": null,
+      "lat": 18.7478,
+      "lon": 98.9626,
+      "coordSource": "upstream",
+      "provinceCode": "50",
+      "owner": null,
+      "code": "PER-6-017",
+      "placeTh": "อ.เมืองเชียงใหม่ จ.เชียงใหม่",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase6/PER_6_017_IN.stream/playlist.m3u8",
+          "label": "ขาเข้า — มุ่งหน้า อ.หางดง",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase6/PER_6_017_OUT.stream/playlist.m3u8",
+          "label": "ขาออก — มุ่งหน้า จ.เชียงใหม่",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-6-019",
+      "sourceId": "doh-cctv",
+      "nameTh": "117 - อ.เก้าเลี้ยวจ.นครสวรรค์",
+      "nameEn": null,
+      "lat": 15.861114,
+      "lon": 100.116898,
+      "coordSource": "upstream",
+      "provinceCode": "60",
+      "owner": null,
+      "code": "PER-6-019",
+      "placeTh": "อ.เก้าเลี้ยวจ.นครสวรรค์",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase6/PER_6_019.stream/playlist.m3u8",
+          "label": "มุ่งหน้า จ.นครสวรรค์ / มุ่งหน้า จ.พิจิตร",
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-6-025",
+      "sourceId": "doh-cctv",
+      "nameTh": "12 - อ.หนองเรือ จ.ขอนแก่น",
+      "nameEn": null,
+      "lat": 16.4851,
+      "lon": 102.5535,
+      "coordSource": "upstream",
+      "provinceCode": "40",
+      "owner": null,
+      "code": "PER-6-025",
+      "placeTh": "อ.หนองเรือ จ.ขอนแก่น",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase6/PER_6_025.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า จังหวัดชัยภูมิ / ทิศทางมุ่งหน้าเข้า จังหวัดขอนแก่น",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-6-026",
+      "sourceId": "doh-cctv",
+      "nameTh": "12 - อ.เมืองมุกดาหาร จ.มุกดาหาร",
+      "nameEn": null,
+      "lat": 16.546392,
+      "lon": 104.664795,
+      "coordSource": "upstream",
+      "provinceCode": "49",
+      "owner": null,
+      "code": "PER-6-026",
+      "placeTh": "อ.เมืองมุกดาหาร จ.มุกดาหาร",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase6/PER_6_026.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า จังหวัดสกลนคร / ทิศทางมุ่งหน้าเข้า จังหวัดมุกดาหาร",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-6-029",
+      "sourceId": "doh-cctv",
+      "nameTh": "23 - อ.บรบือ จ.มหาสารคาม",
+      "nameEn": null,
+      "lat": 16.0883,
+      "lon": 103.1683,
+      "coordSource": "upstream",
+      "provinceCode": "44",
+      "owner": null,
+      "code": "PER-6-029",
+      "placeTh": "อ.บรบือ จ.มหาสารคาม",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase6/PER_6_029.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า จังหวัดขอนแก่น / ทิศทางมุ่งหน้าเข้า จังหวัดมหาสารคาม",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-6-030",
+      "sourceId": "doh-cctv",
+      "nameTh": "23 - อ.เมืองร้อยเอ็ด จ.ร้อยเอ็ด",
+      "nameEn": null,
+      "lat": 16.10815,
+      "lon": 103.511101,
+      "coordSource": "upstream",
+      "provinceCode": "45",
+      "owner": null,
+      "code": "PER-6-030",
+      "placeTh": "อ.เมืองร้อยเอ็ด จ.ร้อยเอ็ด",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase6/PER_6_030.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า จังหวัดมหาสารคาม / ทิศทางมุ่งหน้าเข้า จังหวัดร้อยเอ็ด",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-6-118",
+      "sourceId": "doh-cctv",
+      "nameTh": "114 - อ.เมืองลำพูน จ.ลำพูน",
+      "nameEn": null,
+      "lat": 18.570636,
+      "lon": 99.019869,
+      "coordSource": "upstream",
+      "provinceCode": "51",
+      "owner": null,
+      "code": "PER-6-118",
+      "placeTh": "อ.เมืองลำพูน จ.ลำพูน",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase6/PER_6_018.stream/playlist.m3u8",
+          "label": "มุ่งหน้า แยกดอยติ / มุ่งหน้า จ.ลำพูน",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-7-002",
+      "sourceId": "doh-cctv",
+      "nameTh": "21 - อ.เมืองเพชรบูรณ์ จ.เพชรบูรณ์",
+      "nameEn": null,
+      "lat": 16.285646,
+      "lon": 101.062714,
+      "coordSource": "upstream",
+      "provinceCode": "67",
+      "owner": null,
+      "code": "PER-7-002",
+      "placeTh": "อ.เมืองเพชรบูรณ์ จ.เพชรบูรณ์",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase7/PER_7_002.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า จังหวัดเพชรบูรณ์ / ทิศทางมุ่งหน้าเข้า จังหวัดเลย",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-7-003",
+      "sourceId": "doh-cctv",
+      "nameTh": "21 - อ.หล่มเก่า จ.เพชรบูรณ์",
+      "nameEn": null,
+      "lat": 16.938158,
+      "lon": 101.219269,
+      "coordSource": "upstream",
+      "provinceCode": "67",
+      "owner": null,
+      "code": "PER-7-003",
+      "placeTh": "อ.หล่มเก่า จ.เพชรบูรณ์",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase7/PER_7_003.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า จังหวัดเพชรบูรณ์ / ทิศทางมุ่งหน้าเข้า จังหวัดเลย",
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-7-005",
+      "sourceId": "doh-cctv",
+      "nameTh": "23 - อ.เสลภูมิ จ.ร้อยเอ็ด",
+      "nameEn": null,
+      "lat": 16.032024,
+      "lon": 103.934296,
+      "coordSource": "upstream",
+      "provinceCode": "45",
+      "owner": null,
+      "code": "PER-7-005",
+      "placeTh": "อ.เสลภูมิ จ.ร้อยเอ็ด",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase7/PER_7_005.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า จังหวัดร้อยเอ็ด / ทิศทางมุ่งหน้าเข้า จังหวัดยโสธร",
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-7-007",
+      "sourceId": "doh-cctv",
+      "nameTh": "24 - อ.วารินชำราบ จ.อุบลราชธานี",
+      "nameEn": null,
+      "lat": 15.106151,
+      "lon": 104.901649,
+      "coordSource": "upstream",
+      "provinceCode": "34",
+      "owner": null,
+      "code": "PER-7-007",
+      "placeTh": "อ.วารินชำราบ จ.อุบลราชธานี",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase7/PER_7_007.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า จังหวัดอุบลราชธานี / ทิศทางมุ่งหน้าเข้า อ.เดชอุดม จังหวัดอุบลราชธานี",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-7-014",
+      "sourceId": "doh-cctv",
+      "nameTh": "212 - อ.เมืองมุกดาหาร จ.มุกดาหาร",
+      "nameEn": null,
+      "lat": 16.458042,
+      "lon": 104.645264,
+      "coordSource": "upstream",
+      "provinceCode": "49",
+      "owner": null,
+      "code": "PER-7-014",
+      "placeTh": "อ.เมืองมุกดาหาร จ.มุกดาหาร",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase7/PER_7_014.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า จังหวัดมุกดาหาร / ทิศทางมุ่งหน้าเข้า จังหวัดอำนาจเจริญทิศทางมุ่งหน้าเข้า จังหวัดอำนาจเจริญ",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-7-017",
+      "sourceId": "doh-cctv",
+      "nameTh": "212 - อ.เมืองอุบลราชธานี จ.อุบลราชธานี",
+      "nameEn": null,
+      "lat": 15.347169,
+      "lon": 104.826477,
+      "coordSource": "upstream",
+      "provinceCode": "34",
+      "owner": null,
+      "code": "PER-7-017",
+      "placeTh": "อ.เมืองอุบลราชธานี จ.อุบลราชธานี",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase7/PER_7_017.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า จังหวัดอุบลราชธานี / ทิศทางมุ่งหน้าเข้า จังหวัดอำนาจเจริญ",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-7-021",
+      "sourceId": "doh-cctv",
+      "nameTh": "226 - อ.เมืองสุรินทร์ จ.สุรินทร์",
+      "nameEn": null,
+      "lat": 14.8155,
+      "lon": 103.4587,
+      "coordSource": "upstream",
+      "provinceCode": "32",
+      "owner": null,
+      "code": "PER-7-021",
+      "placeTh": "อ.เมืองสุรินทร์ จ.สุรินทร์",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase7/PER_7_021.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า จังหวัดบุรีรัมย์ / ทิศทางมุ่งหน้าเข้า จังหวัดสุรินทร์",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-7-026",
+      "sourceId": "doh-cctv",
+      "nameTh": "1 - อ.บ้านตาก จ.ตาก",
+      "nameEn": null,
+      "lat": 17.112,
+      "lon": 99.0863,
+      "coordSource": "upstream",
+      "provinceCode": "63",
+      "owner": null,
+      "code": "PER-7-026",
+      "placeTh": "อ.บ้านตาก จ.ตาก",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase7/PER_7_026.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า จังหวัดตาก / ทิศทางมุ่งหน้าเข้า จังหวัดลำปาง",
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-7-030",
+      "sourceId": "doh-cctv",
+      "nameTh": "12 - อ.เมืองตาก จ.ตาก",
+      "nameEn": null,
+      "lat": 16.9153,
+      "lon": 99.3382,
+      "coordSource": "upstream",
+      "provinceCode": "63",
+      "owner": null,
+      "code": "PER-7-030",
+      "placeTh": "อ.เมืองตาก จ.ตาก",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase7/PER_7_030.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า จังหวัดตาก / ทิศทางมุ่งหน้าเข้า จังหวัดสุโขทัย",
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-7-032",
+      "sourceId": "doh-cctv",
+      "nameTh": "107 - อ.แม่แตง จ.เชียงใหม่",
+      "nameEn": null,
+      "lat": 19.128918,
+      "lon": 98.949219,
+      "coordSource": "upstream",
+      "provinceCode": "50",
+      "owner": null,
+      "code": "PER-7-032",
+      "placeTh": "อ.แม่แตง จ.เชียงใหม่",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase7/PER_7_032.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า จังหวัดเชียงใหม่ / ทิศทางมุ่งหน้าเข้า อ.เชียงดาว จังหวัดเชียงใหม่",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-7-033",
+      "sourceId": "doh-cctv",
+      "nameTh": "1020 - อ.เมืองเชียงราย จ.เชียงราย",
+      "nameEn": null,
+      "lat": 19.854401,
+      "lon": 99.846924,
+      "coordSource": "upstream",
+      "provinceCode": "57",
+      "owner": null,
+      "code": "PER-7-033",
+      "placeTh": "อ.เมืองเชียงราย จ.เชียงราย",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase7/PER_7_033.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า จังหวัดเชียงราย / ทิศทางมุ่งหน้าเข้า จังหวัด อ.เทิง จังหวัดเชียงราย",
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-7-034",
+      "sourceId": "doh-cctv",
+      "nameTh": "1091 - อ.เมืองน่าน จ.น่าน",
+      "nameEn": null,
+      "lat": 18.798622,
+      "lon": 100.714577,
+      "coordSource": "upstream",
+      "provinceCode": "55",
+      "owner": null,
+      "code": "PER-7-034",
+      "placeTh": "อ.เมืองน่าน จ.น่าน",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase7/PER_7_034.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า จังหวัดพะเยา / ทิศทางมุ่งหน้าเข้า จังหวัดน่าน",
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-7-037",
+      "sourceId": "doh-cctv",
+      "nameTh": "331 - อ.บ้านบึง จ.ชลบุรี",
+      "nameEn": null,
+      "lat": 13.278027,
+      "lon": 101.25423,
+      "coordSource": "upstream",
+      "provinceCode": "20",
+      "owner": null,
+      "code": "PER-7-037",
+      "placeTh": "อ.บ้านบึง จ.ชลบุรี",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase7/PER_7_037.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.พนัสนิคม จ.ชลบุรี / ทิศทางมุ่งหน้าเข้า อ.สัตหีบ จ.ชลบุรี",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-8-004",
+      "sourceId": "doh-cctv",
+      "nameTh": "22 - อ.สว่างแดนดิน จ.สกลนคร",
+      "nameEn": null,
+      "lat": 17.4259,
+      "lon": 103.6035,
+      "coordSource": "upstream",
+      "provinceCode": "47",
+      "owner": null,
+      "code": "PER-8-004",
+      "placeTh": "อ.สว่างแดนดิน จ.สกลนคร",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase8/PER_8_004.stream/playlist.m3u8",
+          "label": "มุ่งหน้า จ.อุดรธานี / มุ่งหน้า จ.สกลนคร",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-8-011",
+      "sourceId": "doh-cctv",
+      "nameTh": "348 - อ.ตาพระยา จ.สระแก้ว",
+      "nameEn": null,
+      "lat": 14.1134,
+      "lon": 102.6771,
+      "coordSource": "upstream",
+      "provinceCode": "27",
+      "owner": null,
+      "code": "PER-8-011",
+      "placeTh": "อ.ตาพระยา จ.สระแก้ว",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase8/PER_8_011.stream/playlist.m3u8",
+          "label": "มุ่งหน้า จ.สระแก้ว / มุ่งหน้า จ.บุรีรัมย์",
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-8-017",
+      "sourceId": "doh-cctv",
+      "nameTh": "103 - อ.ร้องกวาง จ.แพร่",
+      "nameEn": null,
+      "lat": 18.348248,
+      "lon": 100.23076,
+      "coordSource": "upstream",
+      "provinceCode": "54",
+      "owner": null,
+      "code": "PER-8-017",
+      "placeTh": "อ.ร้องกวาง จ.แพร่",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase8/PER_8_017.stream/playlist.m3u8",
+          "label": "มุ่งหน้า จ.แพร่ / มุ่งหน้า จ.พะเยา",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-8-019",
+      "sourceId": "doh-cctv",
+      "nameTh": "108 - อ.แม่สะเรียง จ.แม่ฮ่องสอน",
+      "nameEn": null,
+      "lat": 18.210847,
+      "lon": 97.9382,
+      "coordSource": "upstream",
+      "provinceCode": "58",
+      "owner": null,
+      "code": "PER-8-019",
+      "placeTh": "อ.แม่สะเรียง จ.แม่ฮ่องสอน",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase8/PER_8_019.stream/playlist.m3u8",
+          "label": "มุ่งหน้า อ.แม่สะเรียง / มุ่งหน้า จ.แม่ฮ่องสอน",
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-8-024",
+      "sourceId": "doh-cctv",
+      "nameTh": "4 - อ.ทับปุด จ.พังงา",
+      "nameEn": null,
+      "lat": 8.508917,
+      "lon": 98.657398,
+      "coordSource": "upstream",
+      "provinceCode": "82",
+      "owner": null,
+      "code": "PER-8-024",
+      "placeTh": "อ.ทับปุด จ.พังงา",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase8/PER_8_024.stream/playlist.m3u8",
+          "label": "มุ่งหน้า จ.พังงา / มุ่งหน้า จ.กระบี่",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-8-035",
+      "sourceId": "doh-cctv",
+      "nameTh": "408 - อ.สิงหนคร จ.สงขลา",
+      "nameEn": null,
+      "lat": 7.256421,
+      "lon": 100.528265,
+      "coordSource": "upstream",
+      "provinceCode": "90",
+      "owner": null,
+      "code": "PER-8-035",
+      "placeTh": "อ.สิงหนคร จ.สงขลา",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase8/PER_8_035.stream/playlist.m3u8",
+          "label": "มุ่งหน้า อ.สทิงพระ / มุ่งหน้า เกาะยอ",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-8-037",
+      "sourceId": "doh-cctv",
+      "nameTh": "416 - อ.ท่าแพ จ.สตูล",
+      "nameEn": null,
+      "lat": 6.842001,
+      "lon": 99.91799,
+      "coordSource": "upstream",
+      "provinceCode": "91",
+      "owner": null,
+      "code": "PER-8-037",
+      "placeTh": "อ.ท่าแพ จ.สตูล",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase8/PER_8_037.stream/playlist.m3u8",
+          "label": "มุ่งหน้า อ.ท่าแพ จ.สตูล / มุ่งหน้า อ.ละงู จ.สตูล",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-8-122",
+      "sourceId": "doh-cctv",
+      "nameTh": "อ.ชุมแสง จ.นครสวรรค์",
+      "nameEn": null,
+      "lat": 15.8712,
+      "lon": 100.4528,
+      "coordSource": "upstream",
+      "provinceCode": "60",
+      "owner": null,
+      "code": "PER-8-122",
+      "placeTh": "อ.ชุมแสง จ.นครสวรรค์",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase8/PER_8_022.stream/playlist.m3u8",
+          "label": "มุ่งหน้า อ.ชุมแสง จ.นครสวรรค์ / มุ่งหน้า อ.หนองบัว จ.นครรสวรรค์",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-9-013",
+      "sourceId": "doh-cctv",
+      "nameTh": "215 - อ.เมืองสรวง จ.ร้อยเอ็ด",
+      "nameEn": null,
+      "lat": 15.783892,
+      "lon": 103.727966,
+      "coordSource": "upstream",
+      "provinceCode": "45",
+      "owner": null,
+      "code": "PER-9-013",
+      "placeTh": "อ.เมืองสรวง จ.ร้อยเอ็ด",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase9/PER-9-013.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า อ.เมือง จ.ร้อยเอ็ด / ทิศทางมุ่งหน้าเข้า อ.สุวรรณภูมิ จ.ร้อยเอ็ด",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-9-022",
+      "sourceId": "doh-cctv",
+      "nameTh": "3 - อ.เมืองสมุทรปราการ จ.สมุทรปราการ",
+      "nameEn": null,
+      "lat": 13.5482839,
+      "lon": 100.6170774,
+      "coordSource": "upstream",
+      "provinceCode": "11",
+      "owner": null,
+      "code": "PER-9-022",
+      "placeTh": "อ.เมืองสมุทรปราการ จ.สมุทรปราการ",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase9/PER_9_022_IN.stream/playlist.m3u8",
+          "label": "ขาเข้า — ทิศทางมุ่งหน้าเข้า จ.สมุทรปราการ",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        },
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase9/PER_9_022_OUT.stream/playlist.m3u8",
+          "label": "ขาออก — ทิศทางมุ่งหน้าเข้า อ.บางปู จ.สมุทรปราการ",
+          "captureTime": "none",
+          "probe": {
+            "result": "ok",
+            "cors": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "PER-9-118",
+      "sourceId": "doh-cctv",
+      "nameTh": "3481 - อ.บ้านสร้าง จ.ปราจีนบุรี",
+      "nameEn": null,
+      "lat": 13.9517,
+      "lon": 101.2152,
+      "coordSource": "upstream",
+      "provinceCode": "25",
+      "owner": null,
+      "code": "PER-9-118",
+      "placeTh": "อ.บ้านสร้าง จ.ปราจีนบุรี",
+      "streams": [
+        {
+          "kind": "hls",
+          "url": "https://streaming1.highwaytraffic.go.th/Phase9/PER-9-018.stream/playlist.m3u8",
+          "label": "ทิศทางมุ่งหน้าเข้า จ.ฉะเชิงเทรา / ทิศทางมุ่งหน้าเข้า จ.ปราจีนบุรี",
+          "captureTime": "none",
+          "probe": {
+            "result": "http-4xx",
+            "cors": true
+          }
+        }
+      ]
+    }
+  ]
+}

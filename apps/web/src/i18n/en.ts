@@ -269,7 +269,7 @@ export const en: Record<keyof typeof th, string> = {
   "legend.layer.cctv.video": "Video",
   "legend.layer.cctv.still": "Still image",
   "legend.layer.cctv.unverified":
-    "Dimmed marker = unverified when the list was built (could not be reached from the build network, answered with no usable image/stream, or was not probed) — not its current state; it can still be opened",
+    "Dimmed marker = unverified when the list was built (could not be reached from the build network, its certificate chain could not be verified by the build tool, answered with no usable image/stream, or was not probed) — not its current state; it can still be opened",
   "legend.layer.cctv.error": "Could not load the camera list of {source} ({error}) — so no markers of this source are drawn",
   "legend.layer.loadFailed":
     "Could not load this layer's code ({error}) — so it is not drawn on the map — reload the page to try again",
@@ -671,6 +671,8 @@ export const en: Record<keyof typeof th, string> = {
     "This stream could not be reached from the {vantage} network when the list was built on {at} — that says only that it could not be asked from there, not that the source is down, and not its current state",
   "popup.camera.unverified.answered":
     "This stream answered when the list was built on {at} from the {vantage} network but gave no usable image/stream ({result}) — that build-time result, not its current state",
+  "popup.camera.unverified.tlsChain":
+    "The build tool could not verify this server's certificate chain when the list was built on {at} from the {vantage} network (the server sends an incomplete chain) — browsers usually can, so this is a tooling limit, not a statement about the camera",
   "popup.camera.notProbed": "This stream was not probed when the list was built — whether it answers is unknown (not a failure)",
   "popup.camera.handPlaced": "This camera's position was placed by us, not taken from the source — the origin is documented with the source",
   "popup.camera.coLocated": "Cameras at this spot",

@@ -70,8 +70,17 @@
   #                                                  open, never read back (no crossOrigin, no
   #                                                  canvas); nothing on camera1 is fetched by
   #                                                  XHR or played as media
+  #     https://streaming1.highwaytraffic.go.th  doh-cctv  connect + media: Department of
+  #                                                  Highways HLS playlist and .ts segments
+  #                                                  (Wowza, ACAO *; hls.js XHR, native on
+  #                                                  Safari/iOS), one player per page
+  #     https://streaming2.highwaytraffic.go.th  doh-cctv  connect + media: the department's second
+  #                                                  HLS host — timed out from every probe vantage
+  #                                                  on 2026-09-26, so its streams ship dimmed with
+  #                                                  the build-time note; listed so they can play
+  #                                                  from a network that reaches it
   #   worker-src 'self'        — src/workers/* are bundled as real same-origin URLs.
   #                              hls.js runs with enableWorker:false (lib/streams.ts), so its
   #                              transmuxer never needs a blob: worker and this stays as is.
-  Content-Security-Policy: default-src 'self'; base-uri 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; form-action 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://server.arcgisonline.com https://tiles.maps.eox.at https://telemetry.dwr.go.th https://camera1.iticfoundation.org; font-src 'self'; connect-src 'self' wss://siahra-radar.co https://telemetry.dwr.go.th https://camerai1.iticfoundation.org; worker-src 'self'; manifest-src 'self'; media-src blob: https://camerai1.iticfoundation.org
+  Content-Security-Policy: default-src 'self'; base-uri 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; form-action 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://server.arcgisonline.com https://tiles.maps.eox.at https://telemetry.dwr.go.th https://camera1.iticfoundation.org; font-src 'self'; connect-src 'self' wss://siahra-radar.co https://telemetry.dwr.go.th https://camerai1.iticfoundation.org https://streaming1.highwaytraffic.go.th https://streaming2.highwaytraffic.go.th; worker-src 'self'; manifest-src 'self'; media-src blob: https://camerai1.iticfoundation.org https://streaming1.highwaytraffic.go.th https://streaming2.highwaytraffic.go.th
 

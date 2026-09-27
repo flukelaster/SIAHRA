@@ -51,8 +51,10 @@ default-src 'self'; base-uri 'none'; object-src 'none'; frame-src 'none'; frame-
 form-action 'none'; script-src 'self'; style-src 'self' 'unsafe-inline';
 img-src 'self' data: blob: https://server.arcgisonline.com https://tiles.maps.eox.at https://telemetry.dwr.go.th
   https://camera1.iticfoundation.org;
-font-src 'self'; connect-src 'self' wss://siahra-radar.co https://telemetry.dwr.go.th https://camerai1.iticfoundation.org;
+font-src 'self'; connect-src 'self' wss://siahra-radar.co https://telemetry.dwr.go.th https://camerai1.iticfoundation.org
+  https://streaming1.highwaytraffic.go.th https://streaming2.highwaytraffic.go.th;
 worker-src 'self'; manifest-src 'self'; media-src blob: https://camerai1.iticfoundation.org
+  https://streaming1.highwaytraffic.go.th https://streaming2.highwaytraffic.go.th
 ```
 
 - `script-src 'self'` — the built `index.html` has exactly one `<script src>` and no inline script.
@@ -111,6 +113,17 @@ worker-src 'self'; manifest-src 'self'; media-src blob: https://camerai1.iticfou
     a request is given up after 15 s, the loop stops after 5 min, `src = ""` on close. The image is
     only displayed — no `crossOrigin`, never drawn to a canvas — so nothing on `camera1` is fetched
     by XHR or loaded as media.
+  - `https://streaming1.highwaytraffic.go.th` and `https://streaming2.highwaytraffic.go.th` —
+    `doh-cctv` (E15.3 PR C), both in **`connect-src`** and **`media-src`**: the Department of
+    Highways' own Wowza HLS hosts (`apps/etl/src/build-doh-cctv.README.md`), played exactly like
+    iTIC — hls.js XHR for playlist + `.ts` segments (`Access-Control-Allow-Origin: *` on every
+    `streaming1` answer probed 2026-09-27), native media on Safari/iOS, one camera per click, one
+    player per page. `streaming2` timed out from every probe vantage so far, so its streams ship
+    dimmed; it is listed so they can play from a network that reaches it. Both servers send an
+    incomplete certificate chain (leaf only) — browsers recover the Sectigo intermediate via AIA,
+    which is why the ETL probe needs `NODE_EXTRA_CA_CERTS` and the browser needs nothing. Removable
+    with `VITE_FEATURE_CCTV_DISABLE=doh-cctv` (the host strings then stay in the registry chunk but
+    no request is made — the same accepted gap as E15.3 PR B).
 - `worker-src 'self'` — `src/workers/*.worker.ts` are bundled to same-origin URLs, not blobs. hls.js is
   created with `enableWorker: false` (`src/lib/streams.ts`), so its transmuxer runs on the main thread
   and never asks for a `blob:` worker; this directive did not change for E15.2.
@@ -138,7 +151,9 @@ QA on 2026-09-26 ran the production `dist` under the enforcing CSP: iTIC played 
 (`blob:`), the DWR MJPEG live view ran with its canvas read, the WebSocket opened, and the app raised
 zero violations. The later `img-src` addition of `https://camera1.iticfoundation.org` (iTIC still
 images) has **not** been verified under the enforcing policy: that host times out from the network
-the change was made on, so no frame could be loaded either way.
+the change was made on, so no frame could be loaded either way. The two Department of Highways hosts
+added on 2026-09-27 (`connect-src` + `media-src`) have not been run under the enforcing policy either;
+the dev server does not apply `_headers`, so that check belongs to the next production verification.
 
 Known gap: whether Cloudflare's asset layer honours `_headers` in production could not be exercised
 here (Vite ignores it, and there is no `wrangler dev` for the web Worker in this environment). It was

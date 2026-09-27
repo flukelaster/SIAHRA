@@ -11,7 +11,7 @@ import type { SourceId } from "./sources.js";
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** แหล่งกล้องที่ลงทะเบียนแล้ว — ต้องเป็น `SourceId` ที่ `SOURCES[id].kind === "browser"` */
-export type CameraSourceId = Extract<SourceId, "dwr-cctv" | "itic-cctv">;
+export type CameraSourceId = Extract<SourceId, "dwr-cctv" | "itic-cctv" | "doh-cctv">;
 
 /**
  * ผล probe ของสตรีมหนึ่งเส้น **ตอน build** จาก vantage เดียว (ดู `CameraCatalogue.probedAt`/
@@ -26,9 +26,14 @@ export type CameraSourceId = Extract<SourceId, "dwr-cctv" | "itic-cctv">;
  * - `unreachable` — **ถามไม่ได้จากเครือข่ายที่รัน** (timeout/DNS/TLS filter) ≠ แหล่งตาย
  *   (AGENTS.md: บอกว่า "ถามไม่ได้" ไม่ใช่ "ไม่มีอะไรใหม่") — `camera1.iticfoundation.org`
  *   และ `streaming2.highwaytraffic.go.th` ให้ผลต่างกันตาม vantage
+ * - `tls-chain`   — **เครื่องมือ probe ตรวจใบรับรองของเซิร์ฟเวอร์ไม่ได้** เพราะเซิร์ฟเวอร์ส่ง chain ไม่ครบ
+ *   (ส่งแค่ leaf ไม่ส่ง intermediate — `streaming{1,2}.highwaytraffic.go.th` วัด 2026-09-27) — เป็นคำตัดสิน
+ *   ของเครื่องมือ ไม่ใช่ของเครือข่ายและไม่ใช่ของกล้อง: เบราว์เซอร์และ curl มักหา intermediate เองผ่าน AIA
+ *   แล้วเล่นได้ตามปกติ; ETL แก้ด้วย `NODE_EXTRA_CA_CERTS` (ดู `apps/etl/src/build-doh-cctv.README.md`)
+ *   จึงต้องไม่ปนกับ `unreachable`
  * - `not-probed`  — build ด้วย `--no-probe`; **ห้ามใช้ `ok` เป็นค่าตั้งต้น**
  */
-export type ProbeResult = "ok" | "empty" | "not-image" | "http-4xx" | "http-5xx" | "unreachable" | "not-probed";
+export type ProbeResult = "ok" | "empty" | "not-image" | "http-4xx" | "http-5xx" | "unreachable" | "tls-chain" | "not-probed";
 
 export interface StreamProbe {
   result: ProbeResult;
@@ -140,7 +145,7 @@ export interface CameraSourceMeta {
 /**
  * ลำดับการประกาศ = ลำดับเครดิตในบรรทัด attribution และใน legend — เพิ่มแหล่งใหม่ต่อท้าย
  */
-export const CAMERA_SOURCE_IDS = ["dwr-cctv", "itic-cctv"] as const satisfies readonly CameraSourceId[];
+export const CAMERA_SOURCE_IDS = ["dwr-cctv", "itic-cctv", "doh-cctv"] as const satisfies readonly CameraSourceId[];
 
 export const CAMERA_SOURCES: Record<CameraSourceId, CameraSourceMeta> = {
   "dwr-cctv": {
@@ -170,6 +175,23 @@ export const CAMERA_SOURCES: Record<CameraSourceId, CameraSourceMeta> = {
     licenceNote:
       "ไม่ได้รับสัญญาอนุญาตใดสำหรับสตรีมของ iTIC และรายการกล้องของ Longdo และเงื่อนไข API ของ Longdo จำกัดการเผยแพร่ซ้ำ (ตรวจ 2026-09-26) — owner ตัดสินใจเผยแพร่พร้อมเครดิต docs/roadmap.md §4",
     readme: "apps/etl/src/build-itic-cctv.README.md",
+  },
+  "doh-cctv": {
+    id: "doh-cctv",
+    // connect+media: HLS (hls.js XHR + Safari native) บนสองโฮสต์สตรีมของกรมทางหลวง — `streaming2`
+    // ถามไม่ได้จากทั้งสอง vantage ที่วัด 2026-09-26 แต่ยังเป็นโฮสต์ของกรมเดียวกัน จึงอยู่ในทะเบียน
+    // (สตรีมของมัน ship แบบหรี่พร้อมป้าย probe ไม่ถูกตัด); กลุ่ม IP ดิบ `183.89.205.98:9980` ไม่อยู่ที่นี่
+    // → ETL ปฏิเสธตอน build; ไม่มี img
+    hosts: {
+      connect: ["https://streaming1.highwaytraffic.go.th", "https://streaming2.highwaytraffic.go.th"],
+      media: ["https://streaming1.highwaytraffic.go.th", "https://streaming2.highwaytraffic.go.th"],
+    },
+    defaultEnabled: true,
+    markerPriority: 29,
+    coordinatesDoc: null,
+    licenceNote:
+      "กรมทางหลวงไม่ได้เผยแพร่เงื่อนไขการใช้หน้ากล้อง highwaytraffic.go.th (ตรวจ 2026-09-26) — แสดงโดยให้เครดิตกรมทางหลวง ตามการตัดสินใจของ owner ใน docs/roadmap.md §4 แถว \"Government CCTV sources in general\"",
+    readme: "apps/etl/src/build-doh-cctv.README.md",
   },
 };
 
