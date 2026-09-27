@@ -3,6 +3,8 @@ import type { AoiManifest, FeatureTilePyramid, TerrainTilePyramid } from "@siahr
 import type { LocalProjection } from "./localProjection";
 import { createWaterMaterial } from "./waterMaterial";
 import { detailTilesAllowed } from "./lod";
+import { planEviction, retryDelayMs, type TileLoadState } from "./tileCache";
+import type { TileLayerDebug } from "./BuildingTiles";
 import type { FeatureTileJob, FeatureTileMesh } from "../workers/featureTiles.worker";
 
 /**
@@ -12,21 +14,26 @@ import type { FeatureTileJob, FeatureTileMesh } from "../workers/featureTiles.wo
  * toggled independently.
  */
 
+/** เพดานจำนวนไทล์ ready (stub ไม่นับ — ดู planEviction) */
 const MAX_CACHED = 160;
 const MAX_LOADS = 4;
-
-type State = "idle" | "loading" | "ready" | "empty" | "failed";
 
 interface Tile {
   id: string;
   z: number;
   x: number;
   y: number;
-  state: State;
+  state: TileLoadState;
   roads: THREE.Mesh | null;
   water: THREE.Mesh | null;
   lastUsed: number;
   abort: AbortController | null;
+  /** ระหว่าง loading: "fetch" ยกเลิกได้, "build" ส่งให้ worker แล้ว */
+  phase: "fetch" | "build" | null;
+  /** ไบต์ของ geometry ทั้งสองชั้น (สำหรับตัวนับดีบัก) */
+  bytes: number;
+  failures: number;
+  retryAt: number;
 }
 
 function keyOf(z: number, x: number, y: number): string {
@@ -129,7 +136,9 @@ export class FeatureTileLayer {
 
   /**
    * เหนือเพดานความสูง (scene/lod.ts) ถนนและแหล่งน้ำปิดทั้งชั้น — ทั้งหยุดขอไทล์
-   * ใหม่และถอด mesh ที่ต่ออยู่ออก (ดูเหตุผลใน BuildingTileLayer.update)
+   * ใหม่และถอด mesh ที่ต่ออยู่ออก (ดูเหตุผลใน BuildingTileLayer.update) เมื่อผู้ใช้ปิด
+   * ทั้งถนนและแหล่งน้ำ ก็ไม่ขอไทล์ใหม่เช่นกัน (ไทล์หนึ่งใบมีทั้งสองชั้น จึงโหลดต่อถ้า
+   * ยังเปิดอยู่ชั้นใดชั้นหนึ่ง) ส่วนการยกเลิกไทล์ที่ค้างและการไล่ออกทำทุกรอบ
    */
   update(
     visibleTerrain: { z: number; x: number; y: number }[],
@@ -137,30 +146,36 @@ export class FeatureTileLayer {
     now: number,
   ) {
     if (this.disposed) return;
-    if (!detailTilesAllowed(camera.position.y)) {
-      if (this.visibleSet.size > 0) {
-        for (const id of this.visibleSet) {
-          const t = this.tiles.get(id);
-          if (t) this.detach(t);
-        }
-        this.visibleSet = new Set();
-      }
-      return;
-    }
+    const active =
+      (this.roadsGroup.visible || this.waterGroup.visible) && detailTilesAllowed(camera.position.y);
     const next = new Set<string>();
     const wanted: Tile[] = [];
-    for (const k of visibleTerrain) {
-      if (!this.exists(k.z, k.x, k.y)) continue;
-      const id = keyOf(k.z, k.x, k.y);
-      let t = this.tiles.get(id);
-      if (!t) {
-        t = { id, ...k, state: "idle", roads: null, water: null, lastUsed: now, abort: null };
-        this.tiles.set(id, t);
+    if (active) {
+      for (const k of visibleTerrain) {
+        if (!this.exists(k.z, k.x, k.y)) continue;
+        const id = keyOf(k.z, k.x, k.y);
+        let t = this.tiles.get(id);
+        if (!t) {
+          t = {
+            id,
+            ...k,
+            state: "idle",
+            roads: null,
+            water: null,
+            lastUsed: now,
+            abort: null,
+            phase: null,
+            bytes: 0,
+            failures: 0,
+            retryAt: 0,
+          };
+          this.tiles.set(id, t);
+        }
+        t.lastUsed = now;
+        next.add(id);
+        if (t.state === "ready") this.attach(t);
+        else if (t.state === "idle" || (t.state === "failed" && now >= t.retryAt)) wanted.push(t);
       }
-      t.lastUsed = now;
-      next.add(id);
-      if (t.state === "ready") this.attach(t);
-      else if (t.state === "idle" || t.state === "failed") wanted.push(t);
     }
     for (const id of this.visibleSet) {
       if (!next.has(id)) {
@@ -169,10 +184,16 @@ export class FeatureTileLayer {
       }
     }
     this.visibleSet = next;
-    wanted.sort((a, b) => b.z - a.z);
-    for (const t of wanted) {
-      if (this.loadingCount >= MAX_LOADS) break;
-      void this.load(t);
+    // ไทล์ที่ยังดาวน์โหลดอยู่แต่หลุดจากชุดที่มองเห็นแล้ว → ยกเลิก (กลับเป็น idle)
+    for (const t of this.tiles.values()) {
+      if (t.state === "loading" && t.phase === "fetch" && !next.has(t.id)) t.abort?.abort();
+    }
+    if (active) {
+      wanted.sort((a, b) => b.z - a.z);
+      for (const t of wanted) {
+        if (this.loadingCount >= MAX_LOADS) break;
+        void this.load(t);
+      }
     }
     this.evict(now);
   }
@@ -188,17 +209,21 @@ export class FeatureTileLayer {
 
   private async load(tile: Tile) {
     tile.state = "loading";
+    tile.phase = "fetch";
     tile.abort = new AbortController();
+    const signal = tile.abort.signal;
     this.loadingCount++;
     try {
       const url = this.pyramid.urlTemplate
         .replace("{z}", String(tile.z))
         .replace("{x}", String(tile.x))
         .replace("{y}", String(tile.y));
-      const res = await fetch(url, { signal: tile.abort.signal });
+      const res = await fetch(url, { signal });
       if (!res.ok) throw new Error(`feature tile ${tile.id}: HTTP ${res.status}`);
       const buffer = await res.arrayBuffer();
       if (this.disposed) return;
+      signal.throwIfAborted();
+      tile.phase = "build";
       const level = this.terrain.levels[tile.z];
       const tileM = level.cellSizeM * this.terrain.tileSize;
       const centreE = this.terrain.originEasting + (tile.x + 0.5) * tileM;
@@ -213,12 +238,15 @@ export class FeatureTileLayer {
         this.worker.postMessage(job, [buffer]);
       });
       if (this.disposed) return;
+      tile.failures = 0;
+      tile.bytes = 0;
       if (mesh.roads.indices.length > 0) {
         const g = new THREE.BufferGeometry();
         g.setAttribute("position", new THREE.BufferAttribute(mesh.roads.positions, 3));
         g.setAttribute("color", new THREE.BufferAttribute(mesh.roads.colors, 3));
         g.setIndex(new THREE.BufferAttribute(mesh.roads.indices, 1));
         g.computeBoundingSphere();
+        tile.bytes += mesh.roads.positions.byteLength + mesh.roads.colors.byteLength + mesh.roads.indices.byteLength;
         const m = new THREE.Mesh(g, this.roadMaterial);
         m.name = `roads:${tile.id}`;
         m.renderOrder = 8;
@@ -230,6 +258,8 @@ export class FeatureTileLayer {
         g.setIndex(new THREE.BufferAttribute(mesh.water.indices, 1));
         g.computeVertexNormals();
         g.computeBoundingSphere();
+        // + normal ที่ computeVertexNormals สร้าง (Float32 ×3 เท่ากับ position)
+        tile.bytes += 2 * mesh.water.positions.byteLength + mesh.water.indices.byteLength;
         const m = new THREE.Mesh(g, this.waterMaterial);
         m.name = `water:${tile.id}`;
         m.renderOrder = 6;
@@ -238,25 +268,38 @@ export class FeatureTileLayer {
       tile.state = tile.roads || tile.water ? "ready" : "empty";
       if (this.visibleSet.has(tile.id)) this.attach(tile);
     } catch (err) {
-      tile.state = (err as Error)?.name === "AbortError" ? "idle" : "failed";
+      if ((err as Error)?.name === "AbortError") {
+        tile.state = "idle";
+      } else {
+        tile.state = "failed";
+        tile.failures++;
+        tile.retryAt = performance.now() + retryDelayMs(tile.failures);
+      }
     } finally {
       tile.abort = null;
+      tile.phase = null;
       this.loadingCount--;
     }
   }
 
+  /**
+   * เพดาน MAX_CACHED นับเฉพาะไทล์ ready (เดิมนับ stub ว่าง/ล้มเหลวที่ไม่มีวันถูกไล่ออก
+   * รวมไปด้วย แคชจึงโตได้ไม่จำกัด) — stub นอกชุดที่มองเห็นถูกลบทิ้งทุกรอบ
+   */
   private evict(now: number) {
-    if (this.tiles.size <= MAX_CACHED) return;
-    const candidates = [...this.tiles.values()]
-      .filter((t) => !this.visibleSet.has(t.id) && t.state !== "loading")
-      .sort((a, b) => a.lastUsed - b.lastUsed);
-    let excess = this.tiles.size - MAX_CACHED;
-    for (const t of candidates) {
-      if (excess <= 0 || now - t.lastUsed < 3000) break;
-      this.disposeTile(t);
-      this.tiles.delete(t.id);
-      excess--;
+    const { evict, drop } = planEviction({
+      entries: this.tiles.values(),
+      keepReady: this.visibleSet,
+      budgetBytes: Infinity,
+      maxReady: MAX_CACHED,
+      now,
+    });
+    for (const id of evict) {
+      const t = this.tiles.get(id);
+      if (t) this.disposeTile(t);
+      this.tiles.delete(id);
     }
+    for (const id of drop) this.tiles.delete(id);
   }
 
   private disposeTile(t: Tile) {
@@ -265,7 +308,28 @@ export class FeatureTileLayer {
     t.water?.geometry.dispose();
     t.roads = null;
     t.water = null;
+    t.bytes = 0;
     t.abort?.abort();
+  }
+
+  /** ตัวนับดีบัก (DEV) — `__siahraHandles.debug.snapshot().features` */
+  debugStats(): TileLayerDebug {
+    const states: Record<TileLoadState, number> = { idle: 0, loading: 0, ready: 0, empty: 0, failed: 0 };
+    let residentBytes = 0;
+    let attached = 0;
+    for (const t of this.tiles.values()) {
+      states[t.state]++;
+      if (t.state === "ready") residentBytes += t.bytes;
+      if (t.roads?.parent || t.water?.parent) attached++;
+    }
+    return {
+      states,
+      residentBytes,
+      budgetBytes: null,
+      visible: this.visibleSet.size,
+      attached,
+      queuedAttach: 0,
+    };
   }
 
   dispose() {

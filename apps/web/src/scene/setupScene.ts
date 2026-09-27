@@ -61,6 +61,15 @@ export interface SceneHandles {
   /** Rendering quality knobs (see scene/quality.ts). */
   setPixelRatio: (ratio: number) => void;
   setShadows: (enabled: boolean) => void;
+  getShadows: () => boolean;
+  /** Called when shadows are switched on/off (not immediately). Returns an unsubscribe. */
+  onShadowsChange: (fn: (enabled: boolean) => void) => () => void;
+  /**
+   * Called once when the browser drops the WebGL context (GPU memory pressure
+   * on phones). The render loop is already stopped by then; the map must show
+   * a visible notice instead of a silent blank canvas. Returns an unsubscribe.
+   */
+  onContextLost: (fn: () => void) => () => void;
   /** Smoothed frame time in ms. */
   frameTimeMs: () => number;
   /**
@@ -131,7 +140,14 @@ export function setupScene(container: HTMLDivElement): SceneHandles {
   );
   camera.position.set(0, 2600, 3400);
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+  // จอสัมผัส: MSAA ปิด — มือถือมี DPR สูงอยู่แล้ว และ MSAA บน framebuffer เต็มจอกิน
+  // หน่วยความจำ GPU มากที่สุดชิ้นหนึ่ง (antialias เปลี่ยนภายหลังไม่ได้ ต้องตัดสินตอนสร้าง)
+  const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
+  const renderer = new THREE.WebGLRenderer({
+    antialias: !coarsePointer,
+    alpha: true,
+    powerPreference: "high-performance",
+  });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(container.clientWidth, container.clientHeight);
   renderer.setClearColor(BG, 0);
@@ -164,7 +180,6 @@ export function setupScene(container: HTMLDivElement): SceneHandles {
   // `_panOffset` เป็นตัวสะสมแบบรั่ว: ระยะรวมถูกต้อง (อนุกรมเรขาคณิตรวมเป็น 1) แต่
   // **ตามหลังนิ้ว** — 0.08 คือ τ ≈ 12.5 เฟรม ≈ 208 ms ที่ 60fps ซึ่งบนจอสัมผัสอ่าน
   // ได้ว่า "หน่วง/ยืด" ทันที ส่วนเมาส์ไม่ได้ลากตัวชี้ไปด้วยจึงไม่รู้สึก
-  const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
   controls.dampingFactor = coarsePointer ? 0.2 : 0.08;
   controls.maxPolarAngle = Math.PI * 0.47;
   controls.minDistance = 300;
@@ -416,6 +431,9 @@ export function setupScene(container: HTMLDivElement): SceneHandles {
     controls.update();
   };
   const captureImage = async (footer: string): Promise<Blob | null> => {
+    // หลัง context หาย (แม้ three จะกู้ context กลับมาเอง) buffer ของอาคารที่ปล่อยสำเนา JS
+    // ไปแล้วอัปโหลดซ้ำไม่ได้ — ไม่วาดภาพที่ขาดชั้นข้อมูลออกไป
+    if (contextLost) return null;
     // The drawing buffer is not preserved, so render and read back in one task.
     renderer.render(scene, camera);
     const src = renderer.domElement;
@@ -486,11 +504,18 @@ export function setupScene(container: HTMLDivElement): SceneHandles {
     renderer.setPixelRatio(ratio);
     applySize();
   };
+  const shadowFns = new Set<(enabled: boolean) => void>();
   const setShadows = (enabled: boolean) => {
     if (renderer.shadowMap.enabled === enabled) return;
     renderer.shadowMap.enabled = enabled;
     sun.castShadow = enabled;
     shadowDirty = true;
+    if (!enabled) {
+      // เฟรมแรก (ก่อน QualityManager ปิดเงาบนมือถือ) จอง shadow map 2048² ไปแล้ว และ three
+      // ไม่คืนเอง — คืนตรงนี้ เปิดเงาใหม่เมื่อไร three จองให้ใหม่เอง
+      sun.shadow.map?.dispose();
+      sun.shadow.map = null;
+    }
     scene.traverse((o) => {
       const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
       if (!m) return;
@@ -498,6 +523,7 @@ export function setupScene(container: HTMLDivElement): SceneHandles {
         mm.needsUpdate = true;
       });
     });
+    shadowFns.forEach((fn) => fn(enabled));
   };
   let frameEma = 16;
   let lastFrameAt = performance.now();
@@ -544,6 +570,8 @@ export function setupScene(container: HTMLDivElement): SceneHandles {
 
   const startMs = performance.now();
   let frameId = 0;
+  /** true หลัง context หาย — ลูปวาดหยุดถาวร (ดู onContextLost) */
+  let stopped = false;
   /**
    * Frame budget. rAF fires at the display refresh — 120 Hz on a ProMotion
    * MacBook — which doubles GPU work for no visible gain on a map. Frames are
@@ -559,6 +587,7 @@ export function setupScene(container: HTMLDivElement): SceneHandles {
   let lastDrawAt = 0;
 
   const animate = () => {
+    if (stopped) return;
     frameId = requestAnimationFrame(animate);
     const now = performance.now();
     const active = fly !== null || now - lastInteractionAt < ACTIVE_TAIL_MS;
@@ -599,6 +628,24 @@ export function setupScene(container: HTMLDivElement): SceneHandles {
   const resizeObserver = new ResizeObserver(applySize);
   resizeObserver.observe(container);
 
+  // --- WebGL context loss ----------------------------------------------------
+  // มือถือ (iOS WebKit) ทิ้ง context เมื่อหน่วยความจำ GPU ตึง ถ้าไม่จับ แผนที่จะกลายเป็น
+  // ผืนว่างเงียบ ๆ ขณะที่ลูปยังเรียก render ต่อ — ที่นี่หยุดลูปแล้วแจ้งผู้ฟังให้แสดง
+  // ข้อความ "แผนที่หยุดชั่วคราว" พร้อมปุ่มโหลดใหม่ ส่วน `webglcontextrestored` จงใจไม่
+  // สร้างฉากใหม่: buffer ของอาคารและผืนผ้าใบของภาพดาวเทียมถูกปล่อยหลังอัปโหลดแล้ว
+  // (BuildingTiles/TerrainTiles) จึงอัปโหลดซ้ำไม่ได้ — การโหลดหน้าใหม่คือทางที่ซื่อตรง
+  const contextLostFns = new Set<() => void>();
+  let contextLost = false;
+  const onContextLostEvent = (e: Event) => {
+    e.preventDefault();
+    if (contextLost) return;
+    contextLost = true;
+    stopped = true;
+    cancelAnimationFrame(frameId);
+    contextLostFns.forEach((fn) => fn());
+  };
+  renderer.domElement.addEventListener("webglcontextlost", onContextLostEvent);
+
   const debugReaders = new Map<string, () => unknown>();
   const debug: SceneDebug = {
     register: (name, read) => {
@@ -613,6 +660,10 @@ export function setupScene(container: HTMLDivElement): SceneHandles {
           programs: renderer.info.programs?.length ?? 0,
           calls: renderer.info.render.calls,
           triangles: renderer.info.render.triangles,
+          pixelRatio: renderer.getPixelRatio(),
+          shadows: renderer.shadowMap.enabled,
+          antialias: !coarsePointer,
+          contextLost,
         },
       };
       for (const [name, read] of debugReaders) {
@@ -628,7 +679,11 @@ export function setupScene(container: HTMLDivElement): SceneHandles {
 
   const dispose = () => {
     debugReaders.clear();
+    stopped = true;
     cancelAnimationFrame(frameId);
+    renderer.domElement.removeEventListener("webglcontextlost", onContextLostEvent);
+    contextLostFns.clear();
+    shadowFns.clear();
     resizeObserver.disconnect();
     detachTouch();
     controls.dispose();
@@ -660,6 +715,16 @@ export function setupScene(container: HTMLDivElement): SceneHandles {
     setSunTime,
     setPixelRatio,
     setShadows,
+    getShadows: () => renderer.shadowMap.enabled,
+    onShadowsChange: (fn) => {
+      shadowFns.add(fn);
+      return () => shadowFns.delete(fn);
+    },
+    onContextLost: (fn) => {
+      contextLostFns.add(fn);
+      if (contextLost) fn();
+      return () => contextLostFns.delete(fn);
+    },
     frameTimeMs: () => frameEma,
     isCameraActive: () => fly !== null || performance.now() - lastInteractionAt < ACTIVE_TAIL_MS,
     addTicker: (fn) => {
