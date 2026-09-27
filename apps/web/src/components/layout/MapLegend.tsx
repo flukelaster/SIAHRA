@@ -8,7 +8,8 @@ import type { LayerDescriptors } from "../../hooks/useLayerDescriptors";
 import { useNow } from "../../hooks/useNow";
 import { useLang } from "../../i18n/context";
 import type { Lang, MessageKey, TFunction } from "../../i18n";
-import { EPISTEMIC_BADGE, describeLayerFreshness } from "../../lib/layerFreshness";
+import { EPISTEMIC_BADGE, describeLayerFreshness, missingFetchedAtKey } from "../../lib/layerFreshness";
+import { COMMUNITY_CATEGORY_COLOR, COMMUNITY_PIN_RIM } from "../../lib/communityReports";
 import { GROUP_LAYERS, layerGroupOf, type LayerGroup } from "../../lib/layerGroups";
 import type { TerrainIntegrity } from "../../scene/loadAoiManifest";
 import {
@@ -230,6 +231,88 @@ export interface FloodGfmLegendState {
 }
 
 const FLOOD_SCENE_WINDOW_DAYS = Math.round(FLOOD_SCENE_MAX_AGE_MS / 86_400_000);
+
+/**
+ * สิ่งที่ legend ต้องรู้เกี่ยวกับรายงานจากประชาชน — ประกอบใน App.tsx จาก `useCommunityReports` + หน้าต่างเวลา
+ * (บรรทัดความสดมาจาก descriptor ที่ API ประกาศ ผ่าน `LayerMeta` ตามปกติ)
+ */
+export interface CommunityLegendState {
+  /** เคยได้รายการของจังหวัดนี้แล้ว — false = ยังไม่เคย (ห้ามแสดงเป็นเวลาใด ๆ) */
+  fetched: boolean;
+  /** รอบล่าสุดล้มเหลว — รายการเดิมคงอยู่ หมุดหรี่ */
+  error: ErrorMessage | null;
+  /** รายงานในช่วงเก็บที่ถูกซ่อน (โหวตลงถึงเกณฑ์/ผู้ดูแล) — บอกเป็นจำนวน ไม่หายเงียบ */
+  hiddenCount: number;
+  /** จำนวนที่อยู่ในหน้าต่างเวลา (มีหมุด) */
+  shown: number;
+  /** จำนวนทั้งหมดของจังหวัดในรายการ */
+  total: number;
+}
+
+/**
+ * รายละเอียดใต้แถว "รายงานจากประชาชน" — อยู่นอก `<label>` (กดอ่านแล้วไม่สลับสวิตช์) แสดงเมื่อชั้นเปิด
+ * ยังไม่เคยได้รายการ = ป้าย crowdsourced + ข้อความ "ยังไม่เคยได้รับรายการ" (สีเหลืองอำพัน ไม่ใช่เวลา)
+ */
+function CommunityDetails({
+  state,
+  hasDescriptor,
+  lang,
+  t,
+}: {
+  state: CommunityLegendState;
+  hasDescriptor: boolean;
+  lang: Lang;
+  t: TFunction;
+}) {
+  const badge = EPISTEMIC_BADGE.crowdsourced;
+  const error = resolveError(t, state.error);
+  const line = "block text-[10px] text-[var(--color-fg-subtle)]";
+  return (
+    <div className="ml-[3.25rem] flex flex-col gap-0.5 pb-1" data-community-legend="">
+      {!hasDescriptor && !state.fetched ? (
+        <span className="flex flex-wrap items-center gap-x-1.5">
+          <span className={`rounded px-1 py-px text-[9px] leading-[1.35] ring-1 ring-inset ${badge.className}`} title={t(badge.titleKey)}>
+            {t(badge.labelKey)}
+          </span>
+          <span className="text-[10px] text-[var(--color-risk-medium)]">{t(missingFetchedAtKey("crowdsourced"))}</span>
+        </span>
+      ) : null}
+      {error !== null ? (
+        <span className="block text-[10px] text-[var(--color-risk-extreme)]">
+          {t(state.fetched ? "legend.community.error" : "legend.community.errorNoData", { error })}
+        </span>
+      ) : null}
+      {state.fetched && state.shown < state.total ? (
+        <span className={line}>
+          {t("legend.community.window", {
+            shown: formatNumber(lang, state.shown),
+            total: formatNumber(lang, state.total),
+          })}
+        </span>
+      ) : null}
+      {state.hiddenCount > 0 ? (
+        <span className={line}>{t("legend.community.hidden", { n: formatNumber(lang, state.hiddenCount) })}</span>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * สัญลักษณ์หมุดรายงานจากประชาชน — ตรงกับ `markerTexture()` ใน scene/CommunityMarkers.ts: กรอบมุมมนขอบชมพู
+ * (สีของชิป crowdsourced) พื้นเข้ม สีของ glyph ตามหมวด (ที่นี่แสดงสามหมวดแรกเป็นจุดสี)
+ */
+function CommunitySwatch() {
+  return (
+    <span
+      className="flex h-3.5 w-5 items-center justify-center gap-px rounded-[3px] border-[1.5px] bg-[#0a101e]"
+      style={{ borderColor: COMMUNITY_PIN_RIM }}
+    >
+      {(["flood", "road-blocked", "power-out"] as const).map((c) => (
+        <span key={c} className="h-1 w-1 rounded-full" style={{ background: COMMUNITY_CATEGORY_COLOR[c] }} />
+      ))}
+    </span>
+  );
+}
 
 /** สิ่งที่ legend ต้องรู้เกี่ยวกับแผ่นน้ำ GISTDA 3 มิติ (E16 B-2) — ประกอบใน App.tsx */
 export interface GistdaDepthLegendState {
@@ -973,6 +1056,13 @@ const LAYER_ROWS: LayerRow[] = [
     ),
   },
   {
+    // รายงานจากประชาชน (crowdsourced) — กลุ่มของตัวเอง ไม่อยู่ใต้หัว observed
+    key: "community",
+    labelKey: "legend.layer.community",
+    noteKey: "legend.layer.community.note",
+    swatch: <CommunitySwatch />,
+  },
+  {
     key: "sunlight",
     labelKey: "legend.layer.sunlight",
     noteKey: "legend.layer.sunlight.note",
@@ -1011,12 +1101,14 @@ const LAYER_ROWS: LayerRow[] = [
 const visibleRows = LAYER_ROWS.filter((row) => row.key !== "cctv" || ENABLED_CAMERA_SOURCES.length > 0);
 
 /**
- * ป้ายหัวกลุ่ม — observed/illustrative ใช้ชิปชุดเดียวกับป้ายชนิดความรู้ของแต่ละแถว (`EPISTEMIC_BADGE`:
- * "ตรวจวัดจริง" / "ภาพประกอบ" สีม่วงเดียวกัน) แผนที่ฐานใช้สีของ static-reference
+ * ป้ายหัวกลุ่ม — observed/illustrative/crowdsourced ใช้ชิปชุดเดียวกับป้ายชนิดความรู้ของแต่ละแถว
+ * (`EPISTEMIC_BADGE`: "ตรวจวัดจริง" / "ภาพประกอบ" สีม่วง / "รายงานจากประชาชน — ยังไม่ได้ตรวจสอบ" สีชมพู)
+ * แผนที่ฐานใช้สีของ static-reference
  */
 const GROUP_BADGE: Record<LayerGroup, { labelKey: MessageKey; titleKey: MessageKey | null; className: string }> = {
   observed: EPISTEMIC_BADGE.observed,
   illustrative: EPISTEMIC_BADGE.illustrative,
+  crowdsourced: EPISTEMIC_BADGE.crowdsourced,
   basemap: { labelKey: "layers.group.basemap", titleKey: null, className: EPISTEMIC_BADGE["static-reference"].className },
 };
 
@@ -1178,6 +1270,7 @@ export function MapLegend({
   stationSheet = null,
   cameraErrors,
   layerLoadErrors,
+  community,
   header = null,
   basemapFooter = null,
 }: {
@@ -1203,6 +1296,8 @@ export function MapLegend({
   cameraErrors?: Partial<Record<CameraSourceId, ErrorMessage>>;
   /** โหลดโค้ดของชั้นฉากแบบ lazy ไม่สำเร็จ (`MapInfo.layerLoadErrors`) — ชั้นนั้นไม่ถูกวาด ต้องบอก */
   layerLoadErrors?: Partial<Record<LazySceneLayer, ErrorMessage>>;
+  /** รายงานจากประชาชน: ยังไม่เคยได้รายการ / รอบล่าสุดล้มเหลว / ซ่อนไว้กี่รายงาน / นอกหน้าต่างเวลากี่รายงาน */
+  community?: CommunityLegendState;
   quality: QualityMode;
   qualityLevel: QualityLevel;
   onQualityChange: (q: QualityMode) => void;
@@ -1234,7 +1329,9 @@ export function MapLegend({
         floodGfm !== undefined &&
         (floodGfm.dimmed || floodGfm.missing || floodGfm.reason === "no-scene-in-window")) ||
       // E16 B-2 — แถวแผ่นน้ำ GISTDA หรี่ตามแผ่นบนแผนที่ (แหล่งค้าง/ไม่ปกติ) พร้อมเหตุผลข้างล่าง
-      (row.key === "gistdaDepth" && gistdaDepth !== undefined && gistdaDepth.dimmed);
+      (row.key === "gistdaDepth" && gistdaDepth !== undefined && gistdaDepth.dimmed) ||
+      // รายงานจากประชาชน: รอบล่าสุดล้มเหลว = หมุดหรี่ แถวหรี่ตาม (เหตุผลใน CommunityDetails)
+      (row.key === "community" && layers.community && community !== undefined && community.error !== null);
     return (
       <li key={row.key}>
         <label
@@ -1304,7 +1401,10 @@ export function MapLegend({
                   </span>
                 ))
               : null}
-            {(row.key === "stationSheet" || row.key === "northRoute" || row.key === "gistdaDepth") &&
+            {(row.key === "stationSheet" ||
+              row.key === "northRoute" ||
+              row.key === "gistdaDepth" ||
+              row.key === "community") &&
             layerLoadErrors?.[row.key] ? (
               <span className="mt-0.5 block text-[10px] text-[var(--color-risk-extreme)]">
                 {t("legend.layer.loadFailed", { error: resolveError(t, layerLoadErrors[row.key] ?? null) ?? "" })}
@@ -1344,6 +1444,9 @@ export function MapLegend({
             t={t}
           />
         ) : null}
+        {row.key === "community" && layers.community && community ? (
+          <CommunityDetails state={community} hasDescriptor={entry !== undefined} lang={lang} t={t} />
+        ) : null}
         {row.key === "stationSheet" && layers.stationSheet && stationSheet ? (
           <StationSheetDetails info={stationSheet} lang={lang} t={t} />
         ) : null}
@@ -1368,11 +1471,14 @@ export function MapLegend({
             key={group}
             data-layer-group={group}
             aria-labelledby={`siahra-layer-group-${group}`}
-            // กลุ่มภาพประกอบย้อมม่วงอ่อน ๆ ด้วยเฉดเดียวกับชิป "ภาพประกอบ" (`EPISTEMIC_BADGE.illustrative`)
+            // กลุ่มภาพประกอบย้อมม่วงอ่อน ๆ ด้วยเฉดเดียวกับชิป "ภาพประกอบ" (`EPISTEMIC_BADGE.illustrative`) และกลุ่ม
+            // รายงานจากประชาชนย้อมชมพูอ่อน ๆ ด้วยเฉดของชิป crowdsourced
             className={
               group === "illustrative"
                 ? "flex flex-col gap-1 rounded-xl bg-[#8b5cf6]/[0.07] p-1 ring-1 ring-[#8b5cf6]/25 ring-inset"
-                : "flex flex-col gap-1"
+                : group === "crowdsourced"
+                  ? "flex flex-col gap-1 rounded-xl bg-[#ec4899]/[0.07] p-1 ring-1 ring-[#ec4899]/25 ring-inset"
+                  : "flex flex-col gap-1"
             }
           >
             <h3 id={`siahra-layer-group-${group}`} className="px-1.5 pt-0.5">

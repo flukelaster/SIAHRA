@@ -150,6 +150,9 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Turnstile site key is public (it ships in the bundle) — a repo variable, not a secret.
+          # Unset → the build ships with community voting/reporting disabled, never broken.
+          VITE_TURNSTILE_SITE_KEY: ${{ vars.TURNSTILE_SITE_KEY }}
 
       - name: Smoke check web
         run: |

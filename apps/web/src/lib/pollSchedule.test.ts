@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  COMMUNITY_INTERVAL_MS,
+  COMMUNITY_RETRY_MS,
   DAMS_INTERVAL_MS,
+  nextCommunityPollDelayMs,
   nextDamsPollDelayMs,
   nextRoutePollDelayMs,
   routeIntervalMs,
@@ -53,5 +56,22 @@ describe("nextDamsPollDelayMs (C5)", () => {
     expect(nextDamsPollDelayMs({ ...base, lastSuccessAtMs: NOW, hidden: true })).toBeNull();
     expect(nextDamsPollDelayMs({ ...base, lastSuccessAtMs: NOW - 1_000_000 })).toBe(0);
     expect(nextDamsPollDelayMs({ ...base, lastSuccessAtMs: NOW, lastWasError: true })).toBe(DAMS_INTERVAL_MS);
+  });
+});
+
+describe("nextCommunityPollDelayMs (รายงานจากประชาชน — ข้อจำกัดต้นทุนของ PR A)", () => {
+  it("รอบปกติ 2 นาที ไม่ถี่กว่านั้น; retry ไม่ถี่กว่า 60 วิ", () => {
+    expect(COMMUNITY_INTERVAL_MS).toBeGreaterThanOrEqual(120_000);
+    expect(COMMUNITY_RETRY_MS).toBeGreaterThanOrEqual(60_000);
+    expect(nextCommunityPollDelayMs({ ...base, lastSuccessAtMs: NOW })).toBe(COMMUNITY_INTERVAL_MS);
+    expect(nextCommunityPollDelayMs({ ...base, lastSuccessAtMs: NOW, lastWasError: true })).toBe(COMMUNITY_RETRY_MS);
+  });
+  it("ยังไม่เคยสำเร็จ = ยิงทันที; กลับมาเห็นแท็บหลังเกินรอบ = ยิงทันที; ส่วนที่เหลือของรอบถูกเคารพ", () => {
+    expect(nextCommunityPollDelayMs({ ...base, lastSuccessAtMs: null })).toBe(0);
+    expect(nextCommunityPollDelayMs({ ...base, lastSuccessAtMs: NOW - 10 * 60_000 })).toBe(0);
+    expect(nextCommunityPollDelayMs({ ...base, lastSuccessAtMs: NOW - 30_000 })).toBe(90_000);
+  });
+  it("แท็บซ่อน = ไม่ตั้ง timer", () => {
+    expect(nextCommunityPollDelayMs({ ...base, hidden: true, lastSuccessAtMs: null })).toBeNull();
   });
 });

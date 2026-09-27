@@ -18,7 +18,7 @@ import type { CameraPose, MapTool, SafeArea, SceneHandles } from "../../scene/se
 import type { CatalogueProbe } from "../../hooks/useCameraCatalogues";
 import type { FloodField } from "../../scene/floodField";
 import { IconButton } from "../ui/Panel";
-import { Map3DCanvas, type MapApi, type MapInfo, type MapLayers } from "./Map3DCanvas";
+import { Map3DCanvas, type CommunityMapState, type MapApi, type MapInfo, type MapLayers } from "./Map3DCanvas";
 import { StatPills } from "./StatPills";
 import { FloodSourceAgeChip } from "./FloodSourceAgeChip";
 import type { FloodSourceAgeInput } from "../../lib/floodSourceAge";
@@ -70,6 +70,7 @@ export function MapViewport({
   observationsStale = false,
   northRouteTopology = null,
   northRouteStations = null,
+  community = null,
   floodAge = null,
   initialPose,
   exaggeration,
@@ -140,6 +141,8 @@ export function MapViewport({
   /** เส้นทางน้ำเหนือ (E16 B-1) — ส่งต่อให้ Map3DCanvas ตรง ๆ */
   northRouteTopology?: NorthRouteTopology | null;
   northRouteStations?: readonly NorthRouteStationState[] | null;
+  /** รายงานจากประชาชน — ส่งต่อให้ Map3DCanvas ตรง ๆ (null = ชั้นปิด/ยังไม่เคยได้รายการ) */
+  community?: CommunityMapState | null;
   /** ชิปอายุแหล่งน้ำท่วมจากดาวเทียม — null = ไม่แสดง (ชั้นน้ำท่วมทั้งสองปิดอยู่) */
   floodAge?: FloodSourceAgeInput | null;
   onInfo?: (info: MapInfo | null) => void;
@@ -302,6 +305,7 @@ export function MapViewport({
         observationsStale={observationsStale}
         northRouteTopology={northRouteTopology}
         northRouteStations={northRouteStations}
+        community={community}
         initialPose={initialPose}
         quality={quality}
         onQualityLevel={onQualityLevel}

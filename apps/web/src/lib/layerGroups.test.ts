@@ -44,6 +44,7 @@ const EVERY_KEY: Record<keyof MapLayers, true> = {
   stationSheet: true,
   gistdaDepth: true,
   northRoute: true,
+  community: true,
 };
 const ALL = Object.keys(EVERY_KEY).sort();
 
@@ -60,7 +61,7 @@ describe("layerGroups — ทุกชั้นอยู่ในกลุ่ม
     expect(new Set(flat).size).toBe(flat.length);
     expect(Object.keys(DEFAULT_LAYERS).sort()).toEqual(ALL);
     for (const g of LAYER_GROUPS) for (const k of GROUP_LAYERS[g]) expect(layerGroupOf(k), k).toBe(g);
-    expect(LAYER_GROUPS).toEqual(["observed", "illustrative", "basemap"]);
+    expect(LAYER_GROUPS).toEqual(["observed", "illustrative", "crowdsourced", "basemap"]);
   });
 
   it("สมาชิกของแต่ละกลุ่มตามที่ตกลงไว้", () => {
@@ -68,12 +69,14 @@ describe("layerGroups — ทุกชั้นอยู่ในกลุ่ม
       ["stations", "hazard", "radar", "floodGfm", "floodExtent", "northRoute", "dams", "cctv"].sort(),
     );
     expect(groupOf("illustrative")).toEqual(["stationSheet", "gistdaDepth", "floodDepth", "lowland", "exposure"].sort());
+    expect(groupOf("crowdsourced")).toEqual(["community"]);
     expect(groupOf("basemap")).toEqual(
       ["imagery", "buildings", "trees", "roads", "water", "sunlight", "localAuthorities"].sort(),
     );
   });
 
-  it("DEFAULT_LAYERS คงเดิม: เปิด 18 จาก 20 ชั้น (ปิดเฉพาะ exposure กับ cctv)", () => {
+  it("DEFAULT_LAYERS: เปิด 19 จาก 21 ชั้น (ปิดเฉพาะ exposure กับ cctv; community เปิด)", () => {
+    expect(DEFAULT_LAYERS.community).toBe(true);
     expect(ALL.filter((k) => !DEFAULT_LAYERS[k as LayerKey]).sort()).toEqual(["cctv", "exposure"]);
   });
 });
@@ -83,7 +86,8 @@ describe("layerGroups — ชุดของหัวข้อ", () => {
     expect(PRESET_LAYERS.slice().sort()).toEqual(
       [...groupOf("observed"), ...groupOf("illustrative")].filter((k) => !OPT_IN_LAYERS.includes(k)).sort(),
     );
-    expect(OPT_IN_LAYERS.slice().sort()).toEqual(["cctv", "exposure"]);
+    expect(OPT_IN_LAYERS.slice().sort()).toEqual(["cctv", "community", "exposure"]);
+    expect(PRESET_LAYERS).not.toContain("community");
   });
 
   it("ภาพรวม = ค่าของ DEFAULT_LAYERS", () => {
@@ -106,18 +110,20 @@ describe("layerGroups — ชุดของหัวข้อ", () => {
     expectOn("quake", []);
   });
 
-  it.each(TOPIC_KEYS)("ไม่แตะแผนที่ฐาน และไม่แตะ cctv/exposure ทั้งเปิดและปิด (%s)", (topic) => {
+  it.each(TOPIC_KEYS)("ไม่แตะแผนที่ฐาน และไม่แตะ cctv/exposure/community ทั้งเปิดและปิด (%s)", (topic) => {
     for (const start of [withOn([]), withOn(ALL as LayerKey[])]) {
       const next = applyPreset(start, topic);
       for (const k of [...groupOf("basemap"), ...OPT_IN_LAYERS]) expect(next[k]).toBe(start[k]);
     }
   });
 
-  it("ไม่มีหัวข้อไหนเปิด cctv หรือ exposure ให้", () => {
+  it("ไม่มีหัวข้อไหนเปิด cctv หรือ exposure ให้ และไม่มีหัวข้อไหนปิด community ทิ้ง", () => {
     for (const topic of TOPIC_KEYS) {
       const next = applyPreset(withOn([]), topic);
       expect(next.cctv).toBe(false);
       expect(next.exposure).toBe(false);
+      expect(next.community).toBe(false);
+      expect(applyPreset(withOn(["community"]), topic).community).toBe(true);
     }
   });
 
@@ -216,6 +222,19 @@ describe("layerGroups — เดินตามหัวข้อ / ปรับ
     expect(s.layers[key]).toBe(false);
     expect(s.layers.floodGfm).toBe(true);
     expect(s.layers.radar).toBe(false);
+  });
+
+  it("สลับ community (เปิดเป็นค่าเริ่มต้น ชุดไม่แตะ) ไม่ทำให้เป็นปรับเอง และหัวข้อไม่เปิดกลับ", () => {
+    let s = applyToggle(initialLayerState(null), "community", false);
+    expect(s.following).toBe(true);
+    s = nextLayersOnTopicChange(s, "water");
+    expect(s.layers.community).toBe(false);
+    s = nextLayersOnTopicChange(s, "overview");
+    expect(s.layers.community).toBe(false);
+    s = applyToggle(s, "community", true);
+    expect(s.following).toBe(true);
+    s = resetToTopic(s, "quake");
+    expect(s.layers.community).toBe(true);
   });
 
   it("สลับเป็นค่าเดิม = ไม่มีอะไรเปลี่ยน", () => {

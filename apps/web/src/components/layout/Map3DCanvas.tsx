@@ -5,6 +5,7 @@ import type {
   AoiProvenance,
   Camera,
   CameraSourceId,
+  CommunityReport,
   DamObservation,
   EarthquakeEvent,
   FloodExtentResponse,
@@ -46,7 +47,11 @@ import {
   type QualityLevel,
   type QualityMode,
 } from "../../scene/quality";
-import { LazyCameraSheet as CameraSheet, LazyInfoPopup as InfoPopup } from "../map/lazyMapViews";
+import {
+  LazyCameraSheet as CameraSheet,
+  LazyInfoPopup as InfoPopup,
+  LazyReportSheet as ReportSheet,
+} from "../map/lazyMapViews";
 import { isClickRelease, type CameraContext, type CameraSelection } from "../../lib/cameraSheet";
 import type { CatalogueProbe } from "../../hooks/useCameraCatalogues";
 import { buildEarthquakeMarkers, type EarthquakeMarkerResult } from "../../scene/EarthquakeMarkers";
@@ -66,6 +71,7 @@ import { buildStationMarkers, type StationMarkerResult } from "../../scene/Stati
 import type { StationSheetInfo, StationSheetLayer } from "../../scene/StationSheet";
 import type { GistdaSheetInfo, GistdaSheetLayer } from "../../scene/GistdaSheet";
 import type { NorthRouteRiversResult } from "../../scene/NorthRouteRivers";
+import type { CommunityMarkerResult } from "../../scene/CommunityMarkers";
 import { lazyModule } from "../../lib/lazyModule";
 import { buildTerrainMesh, type TerrainField } from "../../scene/TerrainMesh";
 import { createTerrainSharedUniforms } from "../../scene/terrainMaterial";
@@ -141,6 +147,12 @@ export interface MapLayers {
    * ค่าตรวจวัดของสถานีบนเส้นทาง (observed) ใช้ข้อมูลชุดเดียวกับแผงเส้นทางน้ำเหนือ
    */
   northRoute: boolean;
+  /**
+   * รายงานผลกระทบจากประชาชน (community report pins) — ชนิด **crowdsourced**: ผู้ใช้ทั่วไปส่งมา ยังไม่มีใคร
+   * ตรวจสอบ เปิดเป็นค่าเริ่มต้น (เจ้าของตัดสินใจ) แต่อยู่นอกชุดของหัวข้อ (`OPT_IN_LAYERS`) — รายการถูกขอ
+   * เฉพาะเมื่อชั้นเปิด + เลือกจังหวัดแล้ว + แท็บมองเห็นอยู่ (`hooks/useCommunityReports.ts`)
+   */
+  community: boolean;
 }
 
 export interface MapInfo {
@@ -188,6 +200,23 @@ export interface MapInfo {
    * ไม่มีกุญแจ = ไม่ได้ล้ม (ยังไม่เคยโหลด หรือโหลดสำเร็จแล้ว)
    */
   layerLoadErrors?: Partial<Record<LazySceneLayer, ErrorMessage>>;
+}
+
+/**
+ * รายงานจากประชาชนที่แผนที่ต้องใช้ (App.tsx ประกอบจาก `useCommunityReports` + หน้าต่างเวลา) — null = ชั้นปิด
+ * หรือยังไม่เคยได้รายการ (ไม่มีหมุด ไม่โหลดโค้ดของชั้น)
+ */
+export interface CommunityMapState {
+  /** รายงานในหน้าต่างเวลา (`reportsInWindow`) — หมุดบนแผนที่ */
+  shown: readonly CommunityReport[];
+  /** รายการทั้งหมดของจังหวัด (รวม overlay) — แผงที่เปิดอยู่หาตัวล่าสุดจากที่นี่ แม้หลุดหน้าต่างเวลาไปแล้ว */
+  all: readonly CommunityReport[];
+  /** เวลาที่ใช้คิดอายุของหมุด (ย้อนหลัง = atIso, สด = ตอนกรอง) */
+  refMs: number;
+  /** รอบล่าสุดของรายการล้มเหลว → หมุดหรี่ลง ไม่หายไป */
+  dimmed: boolean;
+  onVotes: (id: string, counts: { up: number; down: number; hidden: boolean }) => void;
+  onRemoved: (id: string) => void;
 }
 
 /** Imperative map controls exposed to the shell (search fly-to, permalink, capture). */
@@ -240,9 +269,11 @@ const northRiversModule = lazyModule(() =>
  * และมีขอบเขต GISTDA ให้คำนวณ ไม่ใช่ตอนเปิดหน้า
  */
 const gistdaSheetModule = lazyModule(() => import("../../scene/GistdaSheet"));
+/** หมุดรายงานจากประชาชน — เริ่มโหลดเมื่อชั้นเปิดและมีรายงานในหน้าต่างเวลาอย่างน้อยหนึ่ง ไม่ใช่ตอนเปิดหน้า */
+const communityModule = lazyModule(() => import("../../scene/CommunityMarkers"));
 
 /** ชั้นที่โค้ดโหลดแบบ lazy — กุญแจของ `MapInfo.layerLoadErrors` (= กุญแจของ `MapLayers`) */
-export type LazySceneLayer = "stationSheet" | "northRoute" | "gistdaDepth";
+export type LazySceneLayer = "stationSheet" | "northRoute" | "gistdaDepth" | "community";
 
 /** ค่าเริ่มต้นที่ identity คงที่ — `[]` ใน default parameter จะสร้างใหม่ทุกเรนเดอร์แล้วสร้างหมุดใหม่ทุกครั้ง */
 const NO_CAMERAS: readonly Camera[] = [];
@@ -274,6 +305,7 @@ export function Map3DCanvas({
   observationsStale = false,
   northRouteTopology = null,
   northRouteStations = null,
+  community = null,
   initialPose,
   quality,
   onQualityLevel,
@@ -346,6 +378,8 @@ export function Map3DCanvas({
   northRouteTopology?: NorthRouteTopology | null;
   /** ค่าตรวจวัด + 48 ชม. ของสถานีบนเส้นทาง (`/api/v1/rivers/north`) — null = ยังไม่มี */
   northRouteStations?: readonly NorthRouteStationState[] | null;
+  /** รายงานจากประชาชน — null = ชั้นปิด/ยังไม่เคยได้รายการ */
+  community?: CommunityMapState | null;
   onSceneReady?: (handles: SceneHandles | null) => void;
   onInfo?: (info: MapInfo | null) => void;
 }) {
@@ -408,6 +442,8 @@ export function Map3DCanvas({
   } | null>(null);
   const damsRef = useRef<DamMarkerResult | null>(null);
   const cctvRef = useRef<CctvMarkerResult | null>(null);
+  /** หมุดรายงานจากประชาชน — สร้างใหม่เมื่อรายการ/หน้าต่างเวลาเปลี่ยน */
+  const communityRef = useRef<CommunityMarkerResult | null>(null);
   /**
    * แคชภาพ CCTV 5 นาที (E15) — เจ้าของ object URL ทั้งหมด: ล้าง (revoke) เมื่อปิดชั้น
    * และเมื่อแผนที่ถูกถอด (สลับจังหวัด = remount ด้วย key={aoiId})
@@ -417,6 +453,7 @@ export function Map3DCanvas({
   const [sheetModReady, setSheetModReady] = useState(() => stationSheetModule.peek() !== undefined);
   const [riversModReady, setRiversModReady] = useState(() => northRiversModule.peek() !== undefined);
   const [gistdaModReady, setGistdaModReady] = useState(() => gistdaSheetModule.peek() !== undefined);
+  const [communityModReady, setCommunityModReady] = useState(() => communityModule.peek() !== undefined);
   const cctvOn = ENABLED_CAMERA_SOURCES.length > 0 && layers.cctv;
   const cctvOnRef = useRef(cctvOn);
   cctvOnRef.current = cctvOn;
@@ -433,6 +470,11 @@ export function Map3DCanvas({
    * และหมุดอื่น/พื้นดิน/ท้องฟ้าไม่ปิดแผงกล้อง (ปิดได้ด้วย X / Escape / ปัดขวา / ปิดชั้นเท่านั้น)
    */
   const [cameraSel, setCameraSel] = useState<CameraSelection | null>(null);
+  /**
+   * รายงานจากประชาชนในแผงด้านขวา (`ReportSheet`) — สำเนาตอนคลิก; แผงแสดงตัวล่าสุดจากรายการ (ตัวนับโหวต
+   * อัปเดตโดยไม่ remount) และใช้สำเนาเมื่อรายงานหายจากรายการ มีแผงด้านขวาได้ทีละแผง: เปิดแผงหนึ่ง = ล้างอีกแผง
+   */
+  const [reportSel, setReportSel] = useState<CommunityReport | null>(null);
   const popupDivRef = useRef<HTMLDivElement | null>(null);
   const pickRef = useRef<PickResult | null>(null);
   pickRef.current = pick;
@@ -621,8 +663,15 @@ export function Map3DCanvas({
               : null,
           });
           // กล้องเปิดในแผงด้านขวา ไม่ใช่ popup ที่เกาะหมุด — popup ที่เปิดอยู่ (เช่นสถานี) ไม่ถูกแตะ
+          // แผงด้านขวามีได้ทีละแผง: เปิดกล้อง = ปิดแผงรายงาน และกลับกัน
           if (result?.kind === "camera") {
+            setReportSel(null);
             setCameraSel({ camera: result.camera, distanceKm: null });
+            return;
+          }
+          if (result?.kind === "community") {
+            setCameraSel(null);
+            setReportSel(result.report);
             return;
           }
           setPick(result);
@@ -992,6 +1041,8 @@ export function Map3DCanvas({
       damsRef.current = null;
       cctvRef.current?.dispose();
       cctvRef.current = null;
+      communityRef.current?.dispose();
+      communityRef.current = null;
       exposureDebugRef.current?.();
       exposureDebugRef.current = null;
       exposureRef.current?.dispose();
@@ -1290,6 +1341,12 @@ export function Map3DCanvas({
 
   const closePopup = useCallback(() => setPick(null), []);
   const closeCamera = useCallback(() => setCameraSel(null), []);
+  const closeReport = useCallback(() => setReportSel(null), []);
+  /** "ดูภาพ" ของกล้องใกล้สถานี (popup) — แผงด้านขวามีได้ทีละแผง จึงปิดแผงรายงานก่อน */
+  const openCamera = useCallback((sel: CameraSelection) => {
+    setReportSel(null);
+    setCameraSel(sel);
+  }, []);
 
   useEffect(() => {
     qualityRef.current?.setMode(quality);
@@ -1370,6 +1427,46 @@ export function Map3DCanvas({
     setCameraSel(null);
   }, [cctvOn, snapshotCache]);
   useEffect(() => () => snapshotCache.clear(), [snapshotCache]);
+
+  // หมุดรายงานจากประชาชน — โค้ดของชั้น (canvas icon + sprite) โหลดแบบ lazy เมื่อชั้นเปิดและมีรายงานในหน้าต่าง
+  // เวลาอย่างน้อยหนึ่ง; โหลดไม่สำเร็จ = ไม่มีหมุด และ legend บอกเหตุ (`MapInfo.layerLoadErrors.community`)
+  const communityShown = community?.shown ?? null;
+  const communityRefMs = community?.refMs ?? 0;
+  const communityDimRef = useRef(false);
+  communityDimRef.current = community?.dimmed ?? false;
+  useEffect(() => {
+    const handles = sceneRef.current;
+    const loaded = terrainRef.current;
+    if (communityRef.current) {
+      handles?.markers.remove(communityRef.current.dots);
+      communityRef.current.dispose();
+      communityRef.current = null;
+    }
+    if (!handles || !loaded || !layers.community || !communityShown || communityShown.length === 0) return;
+    const mod = communityModule.peek();
+    if (!mod) return awaitLayerModule("community", communityModule, () => setCommunityModReady(true));
+    const result = mod.buildCommunityMarkers(
+      loaded.manifest,
+      communityShown,
+      loaded.terrain.sample,
+      handles.viewportHeightPx(),
+      communityRefMs,
+    );
+    result.applyExaggeration(handles.getExaggeration());
+    result.setDimmed(communityDimRef.current);
+    handles.markers.add(result.dots);
+    communityRef.current = result;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [communityShown, communityRefMs, layers.community, state.status, communityModReady]);
+
+  useEffect(() => {
+    communityRef.current?.setDimmed(community?.dimmed ?? false);
+  }, [community?.dimmed, communityShown, state.status]);
+
+  // ปิดชั้นรายงานจากประชาชน = ปิดแผงรายงาน
+  useEffect(() => {
+    if (!layers.community) setReportSel(null);
+  }, [layers.community]);
 
   // ระดับการเผชิญน้ำ (ภาพประกอบ) — E10.4
   //
@@ -1606,6 +1703,7 @@ export function Map3DCanvas({
     markersRef.current?.applyExaggeration(exaggeration);
     damsRef.current?.applyExaggeration(exaggeration);
     cctvRef.current?.applyExaggeration(exaggeration);
+    communityRef.current?.applyExaggeration(exaggeration);
     exposureRef.current?.applyExaggeration(exaggeration);
   }, [exaggeration, state.status]);
 
@@ -1705,7 +1803,7 @@ export function Map3DCanvas({
             pick={pick}
             onClose={closePopup}
             cameras={cameraContext}
-            onOpenCamera={setCameraSel}
+            onOpenCamera={openCamera}
           />
         </div>
       ) : null}
@@ -1715,6 +1813,17 @@ export function Map3DCanvas({
           safeArea={safeArea}
           ctx={cameraContext}
           onClose={closeCamera}
+        />
+      ) : null}
+      {reportSel && community ? (
+        <ReportSheet
+          report={community.all.find((r) => r.id === reportSel.id) ?? reportSel}
+          gone={!community.all.some((r) => r.id === reportSel.id)}
+          stale={community.dimmed}
+          safeArea={safeArea}
+          onClose={closeReport}
+          onVotes={community.onVotes}
+          onRemoved={community.onRemoved}
         />
       ) : null}
 

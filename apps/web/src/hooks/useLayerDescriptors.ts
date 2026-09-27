@@ -245,12 +245,18 @@ export function useLayerDescriptors(input: {
    * (แล้วแถวใน legend ไม่มีบรรทัดเวลา ไม่ใช่เวลาที่เดาขึ้น)
    */
   cameraBuiltAt?: Partial<Record<CameraSourceId, string>>;
+  /**
+   * รายงานจากประชาชน — descriptor มาจาก `layer` ของคำตอบที่ API ประกาศ (crowdsourced) ตรง ๆ; ยังไม่เคยได้
+   * รายการ = ไม่มี descriptor และ legend พิมพ์ข้อความ "ยังไม่เคยได้รับรายการ" เอง (ไม่ประกอบ descriptor ฝั่งเว็บ)
+   */
+  communityLayer?: HazardLayerDescriptor | null;
   health: HealthResponse | null;
   /** `manifest.provenance` ของจังหวัดที่กำลังแสดง — null = manifest ก่อน E9.1 */
   provenance: AoiProvenance | null;
 }): LayerDescriptors {
   const { observations, radar, floodExtent, dams, exposure, floodScenes, floodScene, health, provenance } = input;
   const cameraBuiltAt = input.cameraBuiltAt;
+  const communityLayer = input.communityLayer ?? undefined;
   const obsLayer = observations.data?.layer;
   const radarLayer = radar.data?.layer;
   const floodLayer = floodExtent.data?.layer;
@@ -305,6 +311,7 @@ export function useLayerDescriptors(input: {
       put("floodDepth", withShownScene(floodIndexLayers.depth, shownScene, noSceneInWindow, false));
     }
     put("cctv", cameraLayerDescriptor(cameraBuiltAt ?? {}));
+    put("community", communityLayer);
     return out;
   }, [
     obsLayer,
@@ -318,6 +325,7 @@ export function useLayerDescriptors(input: {
     shownScene,
     noSceneInWindow,
     cameraBuiltAt,
+    communityLayer,
     health,
     provenance,
   ]);

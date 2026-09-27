@@ -47,8 +47,9 @@ of the policy string free to drift from the file Cloudflare actually reads.
 ## The page policy, directive by directive
 
 ```
-default-src 'self'; base-uri 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'none';
-form-action 'none'; script-src 'self'; style-src 'self' 'unsafe-inline';
+default-src 'self'; base-uri 'none'; object-src 'none'; frame-src https://challenges.cloudflare.com;
+frame-ancestors 'none'; form-action 'none'; script-src 'self' https://challenges.cloudflare.com;
+style-src 'self' 'unsafe-inline';
 img-src 'self' data: blob: https://server.arcgisonline.com https://tiles.maps.eox.at https://telemetry.dwr.go.th
   https://camera1.iticfoundation.org;
 font-src 'self'; connect-src 'self' wss://siahra-radar.co https://telemetry.dwr.go.th https://camerai1.iticfoundation.org
@@ -58,7 +59,19 @@ worker-src 'self'; manifest-src 'self'; media-src blob: https://camerai1.iticfou
 ```
 
 - `script-src 'self'` — the built `index.html` has exactly one `<script src>` and no inline script.
-  **No `'unsafe-eval'`**: three.js compiles GLSL on the GPU, it does not `eval`.
+  **No `'unsafe-eval'`**: three.js compiles GLSL on the GPU, it does not `eval`. The one third-party
+  script is Cloudflare Turnstile, below.
+- **Cloudflare Turnstile (community report votes)** — `https://challenges.cloudflare.com` in
+  **`script-src`** (`/turnstile/v0/api.js?render=explicit`) and **`frame-src`** (the challenge
+  iframe; `frame-src` was `'none'` until this). `apps/web/src/lib/turnstile.ts` injects the script
+  only when a user casts their **first vote** — never at startup, never on opening a report — and
+  only in a build that has `VITE_TURNSTILE_SITE_KEY` (a public key; without it the sheet says voting
+  is not enabled and loads nothing). The widget renders `interaction-only` inside the report sheet,
+  yields one single-use token that is posted to our own `/api/v1/community/session`, and is removed;
+  siteverify happens in the api Worker, never in the browser. No `connect-src` entry: the script
+  talks to Cloudflare from inside its own iframe. Report photos are served same-origin from
+  `/api/v1/community/image/{id}`, so `img-src` did not change. Not yet run under the enforcing
+  policy (the dev server does not apply `_headers`) — that belongs to the next production check.
 - `style-src` needs **`'unsafe-inline'`**, and this is the one relaxation in the policy. React writes
   inline `style` attributes in `TopBar`, `MapLegend`, `AppShell`, `SideDrawer`, `TimelineBar`,
   `ForecastStrip`, `BottomDock`, `AlertToast`, `MapViewport` and `MobileSheet` — every value that

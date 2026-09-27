@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { bboxContains, featureBbox } from "../lib/gistdaFlood";
 import type {
   Camera,
+  CommunityReport,
   DamObservation,
   EarthquakeEvent,
   FloodExtentFeature,
@@ -39,6 +40,11 @@ export type PickResult =
    * เปิดเท่านั้น ไม่ใช่ตอนวาดหมุด
    */
   | { kind: "camera"; camera: Camera; anchor: THREE.Vector3 }
+  /**
+   * รายงานจากประชาชน — เปิดในแผงด้านขวา (`ReportSheet`) แบบเดียวกับกล้อง ไม่ใช่ popup ที่เกาะหมุด;
+   * รูปถูกขอเมื่อแผงเปิดเท่านั้น
+   */
+  | { kind: "community"; report: CommunityReport; anchor: THREE.Vector3 }
   | { kind: "quake"; event: EarthquakeEvent; anchor: THREE.Vector3 }
   | {
       kind: "ground";
@@ -74,7 +80,7 @@ export interface StationSheetPickSource {
 const raycaster = new THREE.Raycaster();
 
 /** ชนิดหมุดที่ `pickAt` ตอบกลับตรง ๆ จาก `userData` ของ sprite ใน `handles.markers` */
-const MARKER_KINDS = new Set(["waterlevel", "rainfall", "dam", "camera"]);
+const MARKER_KINDS = new Set(["waterlevel", "rainfall", "dam", "camera", "community"]);
 
 /**
  * `userData` ของหมุดที่โดน → PickResult — null = ไม่ใช่หมุดที่คลิกได้ (เช่นฮาโลรอบสถานี)

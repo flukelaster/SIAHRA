@@ -79,8 +79,14 @@
   #                                                  on 2026-09-26, so its streams ship dimmed with
   #                                                  the build-time note; listed so they can play
   #                                                  from a network that reaches it
+  #   Cloudflare Turnstile (community report votes) — https://challenges.cloudflare.com in
+  #   script-src (api.js?render=explicit) and frame-src (the challenge iframe; frame-src was
+  #   'none'). lib/turnstile.ts injects the script only on a user's first vote — never at
+  #   startup — and only when the build has VITE_TURNSTILE_SITE_KEY; no connect-src entry
+  #   (the script talks to Cloudflare from inside its own iframe). Report photos are served
+  #   same-origin from /api/v1/community/image/{id}, so img-src is unchanged.
   #   worker-src 'self'        — src/workers/* are bundled as real same-origin URLs.
   #                              hls.js runs with enableWorker:false (lib/streams.ts), so its
   #                              transmuxer never needs a blob: worker and this stays as is.
-  Content-Security-Policy: default-src 'self'; base-uri 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; form-action 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://server.arcgisonline.com https://tiles.maps.eox.at https://telemetry.dwr.go.th https://camera1.iticfoundation.org; font-src 'self'; connect-src 'self' wss://siahra-radar.co https://telemetry.dwr.go.th https://camerai1.iticfoundation.org https://streaming1.highwaytraffic.go.th https://streaming2.highwaytraffic.go.th; worker-src 'self'; manifest-src 'self'; media-src blob: https://camerai1.iticfoundation.org https://streaming1.highwaytraffic.go.th https://streaming2.highwaytraffic.go.th
+  Content-Security-Policy: default-src 'self'; base-uri 'none'; object-src 'none'; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'; form-action 'none'; script-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://server.arcgisonline.com https://tiles.maps.eox.at https://telemetry.dwr.go.th https://camera1.iticfoundation.org; font-src 'self'; connect-src 'self' wss://siahra-radar.co https://telemetry.dwr.go.th https://camerai1.iticfoundation.org https://streaming1.highwaytraffic.go.th https://streaming2.highwaytraffic.go.th; worker-src 'self'; manifest-src 'self'; media-src blob: https://camerai1.iticfoundation.org https://streaming1.highwaytraffic.go.th https://streaming2.highwaytraffic.go.th
 

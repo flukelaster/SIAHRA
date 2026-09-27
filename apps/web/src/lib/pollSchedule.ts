@@ -66,3 +66,17 @@ export function nextRoutePollDelayMs(input: PollDelayInput): number | null {
 export function nextDamsPollDelayMs(input: PollDelayInput): number | null {
   return pollDelayMs({ ...input, intervalMs: DAMS_INTERVAL_MS, retryMs: DAMS_INTERVAL_MS });
 }
+
+/**
+ * `/api/v1/community/{code}/reports` (รายงานจากประชาชน) — ข้อจำกัดต้นทุนจาก devops ของ PR A: ถามไม่ถี่กว่า
+ * 2 นาที เฉพาะตอนชั้นเปิด + เลือกจังหวัดแล้ว + แท็บมองเห็นอยู่ (hook ไม่เริ่ม poll เลยถ้าเงื่อนไขแรกสองข้อไม่จริง
+ * และ `pollDelayMs` ไม่ตั้ง timer ตอนแท็บซ่อน)
+ */
+export const COMMUNITY_INTERVAL_MS = 120_000;
+/** รอบที่ล้มเหลว (404/400/503/เครือข่าย) ถามซ้ำไม่ถี่กว่านี้ — คำตอบผิดพลาดเป็น no-store ทุกครั้งถึง Worker */
+export const COMMUNITY_RETRY_MS = 60_000;
+
+/** รอบถัดไปของรายการรายงานจากประชาชน — `panelOpen` ไม่มีผล (ไม่มีแผงของชั้นนี้) */
+export function nextCommunityPollDelayMs(input: PollDelayInput): number | null {
+  return pollDelayMs({ ...input, intervalMs: COMMUNITY_INTERVAL_MS, retryMs: COMMUNITY_RETRY_MS });
+}
