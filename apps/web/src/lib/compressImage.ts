@@ -7,7 +7,7 @@ import {
   type CompressLimits,
   type CompressMime,
 } from "./imageCompress";
-import { sniffImageBytes } from "./imageMetadata";
+import { sniffImageBytes, stripImageMetadata } from "./imageMetadata";
 import type { ImageCompressWorkerMessage, ImageCompressWorkerResult } from "../workers/imageCompress.worker";
 
 /**
@@ -19,8 +19,9 @@ import type { ImageCompressWorkerMessage, ImageCompressWorkerResult } from "../w
  *    ที่ได้ผล/ล้ม/ถูกยกเลิก
  * 3. ไม่มี Worker/OffscreenCanvas, worker โหลดไม่ขึ้น (`onerror`) หรือบอกว่าทำไม่ได้ (`unsupported`) → ขั้นบันได
  *    เดียวกันบน main thread ด้วย `<canvas>.toBlob` (`decode` จาก worker ไม่ถูกลองซ้ำ — เบราว์เซอร์เดียวกัน)
- * 4. ผลต้องผ่าน `sniffImageBytes` (JPEG/WebP ไม่มี APP1/EXIF/XMP) ก่อนคืน — การ encode ใหม่ผ่าน canvas ลบ
- *    Exif/GPS อยู่แล้ว นี่คือการยืนยันซ้ำ ไม่ใช่การพึ่งพา
+ * 4. ตัด APP1/EXIF/XMP ที่ encoder แทรกเอง (`stripImageMetadata` — Safari/ImageIO เขียน Exif ขนาดภาพลง JPEG)
+ *    แล้วผลต้องผ่าน `sniffImageBytes` ก่อนคืน — การ encode ใหม่ผ่าน canvas ลบ Exif/GPS ของต้นทางอยู่แล้ว
+ *    นี่คือการยืนยันซ้ำ ไม่ใช่การพึ่งพา
  */
 
 export type CompressOutcome =
@@ -154,7 +155,11 @@ export async function compressImage(file: File, signal: AbortSignal): Promise<Co
   }
   if (signal.aborted) return null;
   if (!attempt.ok) return { ok: false, failure: attempt.failure === "unsupported" ? "encode" : attempt.failure };
-  const sniff = sniffImageBytes(new Uint8Array(await attempt.blob.arrayBuffer()));
+  // encoder บางตัว (ImageIO ของ Safari — ทางถอยไป JPEG) แทรก APP1 Exif ของมันเอง: ตัดทิ้งก่อนตรวจซ้ำ
+  const raw = new Uint8Array(await attempt.blob.arrayBuffer());
+  const clean = stripImageMetadata(raw) ?? raw;
+  const sniff = sniffImageBytes(clean);
   if (!sniff.ok) return { ok: false, failure: sniff.reason === "image-metadata" ? "metadata" : "encode" };
-  return { ...attempt, inputBytes: file.size };
+  const blob = clean === raw ? attempt.blob : new Blob([clean as BlobPart], { type: attempt.blob.type });
+  return { ...attempt, blob, inputBytes: file.size };
 }

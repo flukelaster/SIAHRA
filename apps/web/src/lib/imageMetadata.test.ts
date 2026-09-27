@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { sniffImageBytes } from "./imageMetadata";
+import { sniffImageBytes, stripImageMetadata } from "./imageMetadata";
 
 const here = dirname(fileURLToPath(import.meta.url));
 /**
@@ -73,5 +73,65 @@ describe("การ encode ใหม่ผ่าน canvas ลบ Exif/GPS — �
     const out = bytes(b64);
     expect(sniffImageBytes(out)).toEqual({ ok: true, contentType: type });
     expect(Buffer.from(out).includes(Buffer.from("Exif"))).toBe(false);
+  });
+});
+
+describe("stripImageMetadata — ตัด segment ที่ encoder แทรกเอง (Safari/ImageIO เขียน APP1 Exif ลง JPEG)", () => {
+  const has = (b: Uint8Array, s: string) => Buffer.from(b).includes(Buffer.from(s));
+
+  it("JPEG แบบ Safari (APP0 + APP1 Exif) → ไม่มี APP1, ตรวจผ่าน, ส่วนตั้งแต่ SOS เหมือนเดิมทุกไบต์", () => {
+    const src = jpeg(app0, app1Exif);
+    const out = stripImageMetadata(src)!;
+    expect(sniffImageBytes(src)).toEqual({ ok: false, reason: "image-metadata" });
+    expect(sniffImageBytes(out)).toEqual({ ok: true, contentType: "image/jpeg" });
+    expect(Array.from(out)).toEqual(Array.from(jpeg(app0)));
+  });
+
+  it("APP1 หลายอัน (Exif + XMP) และไบต์เติม 0xFF ระหว่าง segment ถูกตัดหมด", () => {
+    const xmp = [0xff, 0xe1, 0x00, 0x06, 0x68, 0x74, 0x74, 0x70];
+    const src = jpeg(app1Exif, [0xff], app0, xmp);
+    expect(Array.from(stripImageMetadata(src)!)).toEqual(Array.from(jpeg(app0)));
+  });
+
+  it("JPEG ที่ไม่มี metadata คืนไบต์เท่าเดิม", () => {
+    expect(Array.from(stripImageMetadata(jpeg(app0))!)).toEqual(Array.from(jpeg(app0)));
+  });
+
+  it("ไฟล์จริงที่พก Exif GPS → ไม่เหลือ Exif/GPS และยังเป็น JPEG ที่อ่านได้", () => {
+    const src = bytes(fixture.source);
+    const out = stripImageMetadata(src)!;
+    expect(has(out, "Exif")).toBe(false);
+    expect(has(out, "GPS")).toBe(false);
+    expect(sniffImageBytes(out)).toEqual({ ok: true, contentType: "image/jpeg" });
+    // ข้อมูลภาพ (ตั้งแต่ SOS) ไม่ถูกแตะ
+    const sos = (b: Uint8Array) => Buffer.from(b).indexOf(Buffer.from([0xff, 0xda]));
+    expect(Buffer.from(out.subarray(sos(out))).equals(Buffer.from(src.subarray(sos(src))))).toBe(true);
+  });
+
+  it("WebP: ตัด EXIF/XMP, ล้างบิตใน VP8X, ขนาด RIFF ถูกต้อง", () => {
+    const src = webp(["VP8X", 10], ["VP8 ", 4], ["EXIF", 6], ["XMP ", 3]);
+    src[20] = 0x08 | 0x04 | 0x10; // flags ของ VP8X: EXIF + XMP + alpha
+    const out = stripImageMetadata(src)!;
+    expect(sniffImageBytes(out)).toEqual({ ok: true, contentType: "image/webp" });
+    expect(out[20]).toBe(0x10);
+    const riff = out[4]! | (out[5]! << 8) | (out[6]! << 16) | (out[7]! << 24);
+    expect(riff).toBe(out.length - 8);
+    expect(has(out, "EXIF") || has(out, "XMP ")).toBe(false);
+  });
+
+  it("โครงไฟล์พัง → null (ให้ sniff ตัดสินจากไบต์เดิม); ชนิดอื่นคืนตามเดิม", () => {
+    expect(stripImageMetadata(Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0x00]))).toBeNull();
+    const png = Uint8Array.from([0x89, 0x50, 0x4e, 0x47]);
+    expect(stripImageMetadata(png)).toBe(png);
+  });
+
+  it.each([
+    ["canvas.toBlob JPEG", fixture.canvasJpeg],
+    ["canvas.toBlob WebP", fixture.canvasWebp],
+    ["OffscreenCanvas.convertToBlob JPEG", fixture.offscreenJpeg],
+    ["OffscreenCanvas.convertToBlob WebP", fixture.offscreenWebp],
+  ])("ผล encoder จริงของ Chromium (%s) ผ่านไปโดยไม่เปลี่ยนแม้แต่ไบต์เดียว", (_n, b64) => {
+    const b = bytes(b64);
+    expect(Buffer.from(stripImageMetadata(b)!).equals(Buffer.from(b))).toBe(true);
   });
 });

@@ -75,8 +75,9 @@ worker-src 'self'; manifest-src 'self'; media-src blob: https://camerai1.iticfou
   `/api/v1/community/image/{id}`, so `img-src` did not change (the form's photo preview is a `blob:`
   URL, already allowed, and the compression worker is a same-origin module under `worker-src 'self'`).
   A photo leaves the browser only after `lib/compressImage.ts` re-encodes it through a canvas, which
-  writes pixels only, so EXIF/GPS is stripped; `lib/imageMetadata.ts` then re-sniffs the output and
-  refuses to send anything still carrying APP1/EXIF/XMP, and the api's `validate.ts` rejects such a
+  writes pixels only, so EXIF/GPS is stripped; `lib/imageMetadata.ts` then drops any APP1 / `EXIF` / `XMP `
+  segment the encoder itself added (Safari's JPEG encoder writes an Exif block with only pixel size and
+  colour space), re-sniffs the output and refuses to send anything still carrying APP1/EXIF/XMP, and the api's `validate.ts` rejects such a
   file again (`422 image-metadata`). Not yet run under the enforcing
   policy (the dev server does not apply `_headers`) — that belongs to the next production check.
 - `style-src` needs **`'unsafe-inline'`**, and this is the one relaxation in the policy. React writes
