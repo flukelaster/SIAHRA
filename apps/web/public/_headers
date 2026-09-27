@@ -79,10 +79,10 @@
   #                                                  on 2026-09-26, so its streams ship dimmed with
   #                                                  the build-time note; listed so they can play
   #                                                  from a network that reaches it
-  #   Cloudflare Turnstile (community report votes) — https://challenges.cloudflare.com in
-  #   script-src (api.js?render=explicit) and frame-src (the challenge iframe; frame-src was
-  #   'none'). lib/turnstile.ts injects the script only on a user's first vote — never at
-  #   startup — and only when the build has VITE_TURNSTILE_SITE_KEY; no connect-src entry
+  #   Cloudflare Turnstile (community report votes and submissions) — https://challenges.cloudflare.com
+  #   in script-src (api.js?render=explicit) and frame-src (the challenge iframe; frame-src was
+  #   'none'). lib/turnstile.ts injects the script only on a user's first vote or when the report
+  #   form opens — never at startup — and only when the build has VITE_TURNSTILE_SITE_KEY; no connect-src entry
   #   (the script talks to Cloudflare from inside its own iframe). Report photos are served
   #   same-origin from /api/v1/community/image/{id}, so img-src is unchanged.
   #   worker-src 'self'        — src/workers/* are bundled as real same-origin URLs.

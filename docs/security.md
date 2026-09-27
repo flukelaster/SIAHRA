@@ -61,16 +61,23 @@ worker-src 'self'; manifest-src 'self'; media-src blob: https://camerai1.iticfou
 - `script-src 'self'` — the built `index.html` has exactly one `<script src>` and no inline script.
   **No `'unsafe-eval'`**: three.js compiles GLSL on the GPU, it does not `eval`. The one third-party
   script is Cloudflare Turnstile, below.
-- **Cloudflare Turnstile (community report votes)** — `https://challenges.cloudflare.com` in
+- **Cloudflare Turnstile (community report votes and submissions)** — `https://challenges.cloudflare.com` in
   **`script-src`** (`/turnstile/v0/api.js?render=explicit`) and **`frame-src`** (the challenge
   iframe; `frame-src` was `'none'` until this). `apps/web/src/lib/turnstile.ts` injects the script
-  only when a user casts their **first vote** — never at startup, never on opening a report — and
-  only in a build that has `VITE_TURNSTILE_SITE_KEY` (a public key; without it the sheet says voting
-  is not enabled and loads nothing). The widget renders `interaction-only` inside the report sheet,
-  yields one single-use token that is posted to our own `/api/v1/community/session`, and is removed;
+  only when a user casts their **first vote** or opens the report form — never at startup, never on
+  opening a report — and only in a build that has `VITE_TURNSTILE_SITE_KEY` (a public key; without it
+  the sheet says voting is not enabled, the form says reports are not open, and neither loads
+  anything). The widget renders `interaction-only` inside the report sheet or the report form and
+  yields one single-use token — for a vote it is posted to our own `/api/v1/community/session`, for
+  a new report it travels inside the multipart `/api/v1/community/reports` — and is removed;
   siteverify happens in the api Worker, never in the browser. No `connect-src` entry: the script
   talks to Cloudflare from inside its own iframe. Report photos are served same-origin from
-  `/api/v1/community/image/{id}`, so `img-src` did not change. Not yet run under the enforcing
+  `/api/v1/community/image/{id}`, so `img-src` did not change (the form's photo preview is a `blob:`
+  URL, already allowed, and the compression worker is a same-origin module under `worker-src 'self'`).
+  A photo leaves the browser only after `lib/compressImage.ts` re-encodes it through a canvas, which
+  writes pixels only, so EXIF/GPS is stripped; `lib/imageMetadata.ts` then re-sniffs the output and
+  refuses to send anything still carrying APP1/EXIF/XMP, and the api's `validate.ts` rejects such a
+  file again (`422 image-metadata`). Not yet run under the enforcing
   policy (the dev server does not apply `_headers`) — that belongs to the next production check.
 - `style-src` needs **`'unsafe-inline'`**, and this is the one relaxation in the policy. React writes
   inline `style` attributes in `TopBar`, `MapLegend`, `AppShell`, `SideDrawer`, `TimelineBar`,
