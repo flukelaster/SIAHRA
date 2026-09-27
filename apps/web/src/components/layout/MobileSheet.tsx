@@ -52,6 +52,8 @@ export function MobileSheet({
   onExaggerationChange,
   onAtIsoChange,
   timelineMarks,
+  timelineRangeIdx,
+  onTimelineRangeChange,
   forecastAtIso,
   onForecastAtIsoChange,
 }: {
@@ -68,6 +70,9 @@ export function MobileSheet({
   onAtIsoChange: (atIso: string | null) => void;
   /** E14.F5 — ขีดรอบบิน Sentinel-1 */
   timelineMarks?: TimelineMark[];
+  /** ช่วงของแถบเวลา (ดัชนีใน `TIMELINE_RANGES`) — ถือใน App.tsx เพราะหน้าต่างของหมุดรายงานจากประชาชนใช้ร่วมกัน */
+  timelineRangeIdx?: number;
+  onTimelineRangeChange?: (rangeIdx: number) => void;
   forecastAtIso: string | null;
   onForecastAtIsoChange: (forecastAtIso: string | null) => void;
 }) {
@@ -147,7 +152,14 @@ export function MobileSheet({
           </button>
         </div>
 
-        <TimelineBar atIso={ctx.atIso} onChange={onAtIsoChange} variant="dense" marks={timelineMarks} />
+        <TimelineBar
+          atIso={ctx.atIso}
+          onChange={onAtIsoChange}
+          variant="dense"
+          marks={timelineMarks}
+          rangeIdx={timelineRangeIdx}
+          onRangeChange={onTimelineRangeChange}
+        />
 
         <MapAttribution
           info={mapInfo}

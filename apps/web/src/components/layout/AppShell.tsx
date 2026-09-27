@@ -46,6 +46,9 @@ export interface AppShellProps {
   onAtIsoChange: (atIso: string | null) => void;
   /** E14.F5 — ขีดรอบบิน Sentinel-1 บน TimelineBar (ทั้ง dock และแผ่นเลื่อน) */
   timelineMarks?: TimelineMark[];
+  /** ช่วงของแถบเวลา (ดัชนีใน `TIMELINE_RANGES`) — ส่งต่อให้ TimelineBar ของ dock/แผ่นเลื่อน */
+  timelineRangeIdx?: number;
+  onTimelineRangeChange?: (rangeIdx: number) => void;
   forecastAtIso: string | null;
   onForecastAtIsoChange: (forecastAtIso: string | null) => void;
 }
@@ -164,6 +167,8 @@ export function AppShell(props: AppShellProps) {
           onExaggerationChange={props.onExaggerationChange}
           onAtIsoChange={props.onAtIsoChange}
           timelineMarks={props.timelineMarks}
+          timelineRangeIdx={props.timelineRangeIdx}
+          onTimelineRangeChange={props.onTimelineRangeChange}
           forecastAtIso={props.forecastAtIso}
           onForecastAtIsoChange={props.onForecastAtIsoChange}
         />
@@ -226,6 +231,8 @@ export function AppShell(props: AppShellProps) {
         atIso={ctx.atIso}
         onAtIsoChange={props.onAtIsoChange}
         timelineMarks={props.timelineMarks}
+        timelineRangeIdx={props.timelineRangeIdx}
+        onTimelineRangeChange={props.onTimelineRangeChange}
         forecast={ctx.forecast}
         forecastAtIso={props.forecastAtIso}
         onForecastAtIsoChange={props.onForecastAtIsoChange}

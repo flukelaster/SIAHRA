@@ -26,6 +26,8 @@ export function BottomDock({
   atIso,
   onAtIsoChange,
   timelineMarks,
+  timelineRangeIdx,
+  onTimelineRangeChange,
   forecast,
   forecastAtIso,
   onForecastAtIsoChange,
@@ -39,6 +41,9 @@ export function BottomDock({
   onAtIsoChange: (atIso: string | null) => void;
   /** E14.F5 — ขีดรอบบิน Sentinel-1 */
   timelineMarks?: TimelineMark[];
+  /** ช่วงของแถบเวลา (ดัชนีใน `TIMELINE_RANGES`) — ถือใน App.tsx เพราะหน้าต่างของหมุดรายงานจากประชาชนใช้ร่วมกัน */
+  timelineRangeIdx?: number;
+  onTimelineRangeChange?: (rangeIdx: number) => void;
   forecast: ProvinceForecastState;
   forecastAtIso: string | null;
   onForecastAtIsoChange: (forecastAtIso: string | null) => void;
@@ -74,7 +79,14 @@ export function BottomDock({
           <SourceStatusPopover state={apiHealth} />
         </div>
         <div className="pointer-events-auto min-w-0" style={{ flex: "1 1 430px" }}>
-          <TimelineBar atIso={atIso} onChange={onAtIsoChange} variant="dense" marks={timelineMarks} />
+          <TimelineBar
+            atIso={atIso}
+            onChange={onAtIsoChange}
+            variant="dense"
+            marks={timelineMarks}
+            rangeIdx={timelineRangeIdx}
+            onRangeChange={onTimelineRangeChange}
+          />
         </div>
         <div className="pointer-events-auto min-w-0" style={{ flex: "1 1 320px" }}>
           <ForecastStrip

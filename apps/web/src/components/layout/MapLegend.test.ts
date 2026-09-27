@@ -38,6 +38,7 @@ const ALL_OFF: MapLayers = {
   stationSheet: false,
   gistdaDepth: false,
   northRoute: false,
+  community: false,
 };
 
 function gfmState(maxDepthCm: number | null): FloodGfmLegendState {
@@ -211,7 +212,8 @@ describe("MapLegend — กลุ่มชั้น: ไม่มีบรรท
             maskCellSizeM: 60, requests: { issued: 48, max: 48 }, drawn: true, workerError: "boom",
           },
           cameraErrors: Object.fromEntries(ENABLED_CAMERA_SOURCES.map((id) => [id, err])),
-          layerLoadErrors: { stationSheet: err, northRoute: err, gistdaDepth: err },
+          layerLoadErrors: { stationSheet: err, northRoute: err, gistdaDepth: err, community: err },
+          community: { fetched: true, error: err, hiddenCount: 3, shown: 2, total: 5 },
         }),
       ),
     ).replaceAll("&#x27;", "'").replaceAll("&quot;", '"');
@@ -246,6 +248,12 @@ describe("MapLegend — กลุ่มชั้น: ไม่มีบรรท
       ],
       stationSheet: [loadFailed, t("legend.stationSheet.worker", { error: "boom" })],
       northRoute: [loadFailed],
+      community: [
+        loadFailed,
+        t("legend.community.error", { error: "E-42" }),
+        t("legend.community.hidden", { n: "3" }),
+        t("legend.community.window", { shown: "2", total: "5" }),
+      ],
       cctv: [
         t("legend.layer.cctv.video"),
         t("legend.layer.cctv.unverified"),
@@ -281,6 +289,7 @@ describe("MapLegend — กลุ่มชั้น: ไม่มีบรรท
     expect(html).toContain(t("badge.observed"));
     expect(html).toContain(t("badge.illustrative"));
     expect(html).toContain(t("layers.group.basemap"));
+    expect(html).toContain(t("badge.crowdsourced"));
   });
 
   it("ตัวเลขบนปุ่มชั้นข้อมูล (countLayersOn) = จำนวนสวิตช์ที่เปิดอยู่ในรายการที่จัดกลุ่มแล้ว", () => {
@@ -446,5 +455,59 @@ describe("MapLegend — แถวกล้อง CCTV (E15.3: N แหล่ง)
     const dwr = lang === "th" ? SOURCES["dwr-cctv"].nameTh : SOURCES["dwr-cctv"].nameEn;
     expect(html).toContain(t("legend.layer.cctv.error", { source: itic, error: "HTTP 404" }));
     expect(html).not.toContain(t("legend.layer.cctv.error", { source: dwr, error: "HTTP 404" }));
+  });
+});
+
+describe("MapLegend — รายงานจากประชาชน (crowdsourced)", () => {
+  const renderCommunity = (
+    lang: Lang,
+    community: { fetched: boolean; error: { raw: string } | null; hiddenCount: number; shown: number; total: number },
+    descriptors = {},
+  ) =>
+    renderToStaticMarkup(
+      createElement(
+        LanguageContext.Provider,
+        { value: { lang, setLang: () => {}, t: translator(lang) } },
+        createElement(MapLegend, {
+          layers: { ...ALL_OFF, community: true },
+          onToggle: () => {},
+          descriptors,
+          quality: "auto",
+          qualityLevel: "balanced",
+          onQualityChange: () => {},
+          community,
+        }),
+      ),
+    ).replaceAll("&#x27;", "'").replaceAll("&quot;", '"');
+
+  it.each(LANGS)("อยู่ในกลุ่ม crowdsourced ของตัวเอง ไม่อยู่ใต้หัว observed และหมายเหตุบอกว่ายังไม่ได้ตรวจสอบ (%s)", (lang) => {
+    const t = translator(lang);
+    const html = renderCommunity(lang, { fetched: false, error: null, hiddenCount: 0, shown: 0, total: 0 });
+    expect(layerGroupOf("community")).toBe("crowdsourced");
+    const start = html.indexOf('data-layer-group="crowdsourced"');
+    expect(start).toBeGreaterThan(-1);
+    expect(html.slice(start)).toContain(t("legend.layer.community"));
+    expect(html.slice(start)).toContain(t("badge.crowdsourced"));
+    expect(html).toContain(t("legend.layer.community.note"));
+  });
+
+  it.each(LANGS)("ยังไม่เคยได้รายการ = ข้อความ 'ยังไม่เคยได้รับ' ไม่ใช่เวลาใด ๆ (%s)", (lang) => {
+    const t = translator(lang);
+    const html = renderCommunity(lang, { fetched: false, error: null, hiddenCount: 0, shown: 0, total: 0 });
+    expect(html).toContain(t("freshness.missing.crowdsourced"));
+    expect(html).not.toContain(t("time.justNow"));
+  });
+
+  it.each(LANGS)("ล้มเหลวก่อนเคยได้รายการ = บอกว่าไม่ได้แปลว่าไม่มีรายงาน (%s)", (lang) => {
+    const t = translator(lang);
+    const html = renderCommunity(lang, { fetched: false, error: { raw: "HTTP 503" }, hiddenCount: 0, shown: 0, total: 0 });
+    expect(html).toContain(t("legend.community.errorNoData", { error: "HTTP 503" }));
+  });
+
+  it.each(LANGS)("ไม่มีรายงานที่ถูกซ่อน/นอกหน้าต่าง = ไม่มีบรรทัดเหล่านั้น (%s)", (lang) => {
+    const t = translator(lang);
+    const html = renderCommunity(lang, { fetched: true, error: null, hiddenCount: 0, shown: 4, total: 4 });
+    expect(html).not.toContain(t("legend.community.hidden", { n: "0" }));
+    expect(html).not.toContain(t("freshness.missing.crowdsourced"));
   });
 });

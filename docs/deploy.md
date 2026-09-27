@@ -33,6 +33,14 @@ R2 bucket `siahra-geodata` ตรวจแล้วว่า `/api/v1/health` �
   ยังอ่านได้; ไม่มี `COMMUNITY_ADMIN_TOKEN` = endpoint ผู้ดูแลตอบ `503 {reason:"admin-disabled"}` — เปลี่ยน
   `COMMUNITY_HMAC_KEY` เมื่อไรก็ตาม voterToken/ownerToken เดิมทุกใบใช้ไม่ได้ทันที (server ไม่เก็บ token ใดไว้เลย)
   เครื่อง dev ใช้ `apps/api/.dev.vars` (gitignored) โดยคัดลอกจาก `apps/api/.dev.vars.example`
+- **site key ของ Turnstile ฝั่งเว็บ** (`siahra-web`, ตอน build ไม่ใช่ secret — site key เป็นค่าสาธารณะ):
+  `VITE_TURNSTILE_SITE_KEY=<site key ของ widget เดียวกับ TURNSTILE_SECRET_KEY> npm run build -w apps/web` —
+  ไม่ตั้ง = แผงรายงานจากประชาชนบอก "ยังไม่เปิดให้โหวต" ไม่โหลดสคริปต์ Turnstile และไม่ส่งอะไร (รายการและหมุดยังแสดง)
+  ตอน dev ใช้ test site key ของ Cloudflare `1x00000000000000000000AA` (ผ่านเสมอ) คู่กับ test secret ใน `.dev.vars`
+  (ตั้งเองใน `apps/web/.env.local` ซึ่ง gitignored — ไม่มีสคริปต์ใดตั้งให้) — deploy อัตโนมัติตอน merge
+  (`.github/workflows/deploy.yml` job web) อ่านจาก **repo variable** `TURNSTILE_SITE_KEY` (Settings → Secrets and
+  variables → Actions → Variables; `gh variable set TURNSTILE_SITE_KEY --body <site key>`) — ยังไม่ตั้ง = เว็บที่ deploy
+  ออกไปจะปิดโหวต/ส่งรายงานไว้ (ไม่พัง) ค่านี้ถูกฝังตอน build จึงต้อง deploy web ใหม่หลังตั้ง
 
 ## 0.1 สอง Worker แยก deploy กัน
 | Worker | config | เนื้อหา | ผูกกับโดเมนแบบ |

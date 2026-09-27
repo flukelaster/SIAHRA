@@ -37,6 +37,7 @@ import {
   type ExposureLegendState,
   type FloodGfmLegendState,
   type GistdaDepthLegendState,
+  type CommunityLegendState,
   type ForecastLegendState,
 } from "./MapLegend";
 
@@ -74,6 +75,8 @@ export interface PanelContext {
   floodGfmLegend: FloodGfmLegendState;
   /** E16 B-2 — แผ่นน้ำ GISTDA 3 มิติ: สถานะข้อมูล + ผลคำนวณ (legend แถว gistdaDepth) */
   gistdaDepthLegend: GistdaDepthLegendState;
+  /** รายงานจากประชาชน — สถานะของรายการสำหรับแถวใน legend */
+  communityLegend: CommunityLegendState;
   /** E15/E15.3 — บัญชีกล้องทุกแหล่งที่เปิด (โหลดเฉพาะเมื่อชั้นเปิด) legend บอกต่อแหล่งเมื่อโหลดไม่ได้ */
   cameraCatalogues: CameraCataloguesState;
   observations: ObservationsState;
@@ -181,6 +184,7 @@ export function LayersPanel({ ctx }: { ctx: PanelContext }) {
         gistdaDepth={ctx.gistdaDepthLegend}
         cameraErrors={ctx.cameraCatalogues.errors}
         layerLoadErrors={ctx.mapInfo?.layerLoadErrors}
+        community={ctx.communityLegend}
       />
       <div className="glass-soft mt-auto shrink-0 rounded-2xl px-3.5 py-2.5">
         <ApiStatusFooter

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "./components/layout/AppShell";
-import type { MapApi, MapInfo } from "./components/layout/Map3DCanvas";
+import type { CommunityMapState, MapApi, MapInfo } from "./components/layout/Map3DCanvas";
 import { MapViewport } from "./components/layout/MapViewport";
 import type { PanelContext } from "./components/layout/panelRegistry";
 import type { StationFocus } from "./components/layout/panelViews";
@@ -11,6 +11,7 @@ import { useLayerDescriptors } from "./hooks/useLayerDescriptors";
 import { useEarthquakeFeed } from "./hooks/useEarthquakeFeed";
 import { useDams } from "./hooks/useDams";
 import { useCameraCatalogues } from "./hooks/useCameraCatalogues";
+import { useCommunityReports } from "./hooks/useCommunityReports";
 import { useFloodExposure } from "./hooks/useFloodExposure";
 import { useFloodExtent } from "./hooks/useFloodExtent";
 import { useFloodScene } from "./hooks/useFloodScene";
@@ -44,6 +45,9 @@ import { buildSearchIndex, type SearchPlace } from "./lib/searchIndex";
 import { useLang } from "./i18n/context";
 import { ENABLED_CAMERA_SOURCES } from "./lib/featureFlags";
 import { DEFAULT_LAYERS, initialLayerState, type LayerPresetState } from "./lib/defaultLayers";
+import { DEFAULT_TIMELINE_RANGE_INDEX, TIMELINE_RANGES } from "./lib/timelineRange";
+import { communityWindow, reportsInWindow } from "./lib/communityReports";
+import type { CommunityLegendState } from "./components/layout/MapLegend";
 
 const DEFAULT_PROVINCE_CODE = "10"; // Bangkok
 
@@ -73,6 +77,9 @@ export default function App() {
   // E12.4a — ขั้นพยากรณ์ TMD ที่กำลังเลือกอยู่ใน ForecastStrip; null = ยังไม่ได้
   // เลือก ไม่รีเซ็ตตอนเปลี่ยนจังหวัด เหมือนกับ atIso ข้างบน (ธรรมเนียมเดียวกัน)
   const [forecastAtIso, setForecastAtIso] = useState<string | null>(INITIAL.forecastAtIso);
+  // ช่วงของแถบเวลา (48 ชม. / 7 วัน / 30 วัน) — ยกขึ้นมาจาก TimelineBar เพราะหน้าต่างของหมุดรายงานจากประชาชน
+  // (เจ้าของตัดสินใจ: createdAt ∈ [เวลาที่ดู − ช่วง, เวลาที่ดู]) ต้องรู้ช่วงเดียวกับที่ผู้ใช้เห็นบนแถบ
+  const [timelineRangeIdx, setTimelineRangeIdx] = useState(DEFAULT_TIMELINE_RANGE_INDEX);
   const [exaggeration, setExaggeration] = useState(INITIAL.exaggeration ?? 1);
   const [pose, setPose] = useState<CameraPose | null>(INITIAL.pose);
   const [mapInfo, setMapInfo] = useState<MapInfo | null>(null);
@@ -99,6 +106,33 @@ export default function App() {
   const cctvOn = ENABLED_CAMERA_SOURCES.length > 0 && layers.cctv;
   const cameraCatalogues = useCameraCatalogues(cctvOn);
   const radar = useRadar(layers.radar);
+  // รายงานจากประชาชน — ถามเฉพาะตอนชั้นเปิด (+ แท็บมองเห็น ใน hook) ชั้นปิดตอนเปิดหน้า = ไม่มีคำขอเลย
+  const community = useCommunityReports(provinceCode, layers.community);
+  const communityRangeHours = (TIMELINE_RANGES[timelineRangeIdx] ?? TIMELINE_RANGES[DEFAULT_TIMELINE_RANGE_INDEX]).hours;
+  const communityData = community.data;
+  const communityWindowed = useMemo(() => {
+    if (!layers.community || !communityData) return null;
+    // หน้าต่างคิดใหม่เมื่อรายการ (poll 2 นาที) / เวลาที่ดู / ช่วงเปลี่ยน — ดูสดแล้วหมุดที่เพิ่งหลุดขอบล่างของ
+    // หน้าต่างจะหายในรอบถัดไป ไม่ใช่วินาทีนั้น
+    const win = communityWindow(atIso, communityRangeHours, Date.now());
+    return { shown: reportsInWindow(communityData.reports, win), all: communityData.reports, refMs: win.endMs };
+  }, [layers.community, communityData, atIso, communityRangeHours]);
+  const { patchVotes: communityPatchVotes, removeLocal: communityRemoveLocal } = community;
+  const communityDimmed = community.error !== null;
+  const communityMap = useMemo<CommunityMapState | null>(
+    () =>
+      communityWindowed
+        ? { ...communityWindowed, dimmed: communityDimmed, onVotes: communityPatchVotes, onRemoved: communityRemoveLocal }
+        : null,
+    [communityWindowed, communityDimmed, communityPatchVotes, communityRemoveLocal],
+  );
+  const communityLegend: CommunityLegendState = {
+    fetched: communityData !== null,
+    error: community.error,
+    hiddenCount: community.hiddenCount,
+    shown: communityWindowed?.shown.length ?? 0,
+    total: communityData?.reports.length ?? 0,
+  };
   const earthquakes = useEarthquakeFeed();
   const apiHealth = useApiHealth();
   // E14.F1 — ชั้นน้ำท่วมดาวเทียมเดินตามเส้นเวลาเดียวกับ observations (ฉากที่ครอบ atIso)
@@ -293,6 +327,7 @@ export default function App() {
     floodScene,
     northRoute,
     cameraBuiltAt: cameraCatalogues.builtAt,
+    communityLayer: communityData?.layer ?? null,
     health: apiHealth.health,
     // เวลาที่ artefact ของชั้นคงที่ถูก build มาจาก manifest ของจังหวัดที่แสดงอยู่
     // (null ตอนยังไม่โหลด/manifest รุ่นก่อน E9.1 → legend คงข้อความ "ไม่ได้บันทึกเวลา")
@@ -495,6 +530,7 @@ export default function App() {
     exposureLegend,
     forecastLegend,
     floodGfmLegend,
+    communityLegend,
     gistdaDepthLegend: {
       extent: gistdaExtentState(floodExtent.data),
       dimmed: gistdaDim,
@@ -560,6 +596,7 @@ export default function App() {
         observationsStale={observationsStale}
         northRouteTopology={northTopology}
         northRouteStations={northStations}
+        community={communityMap}
         floodAge={floodAge}
         initialPose={initialPoseRef.current}
         exaggeration={exaggeration}
@@ -590,6 +627,8 @@ export default function App() {
         onExaggerationChange={setExaggeration}
         onAtIsoChange={handleAtIsoChange}
         timelineMarks={timelineMarks}
+        timelineRangeIdx={timelineRangeIdx}
+        onTimelineRangeChange={setTimelineRangeIdx}
         forecastAtIso={forecastAtIso}
         onForecastAtIsoChange={handleForecastAtIsoChange}
       />

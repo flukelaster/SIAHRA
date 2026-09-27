@@ -61,6 +61,13 @@ describe("markerPickFromUserData", () => {
     expect(markerPickFromUserData({ kind: "waterlevel", obs: {} }, anchor)?.kind).toBe("waterlevel");
   });
 
+  it("returns a community report pin with its report (opened in the right sheet, not the popup)", () => {
+    const report = { id: "20260927-AAAAAAAAAAAAAAAAAAAAAA" };
+    const p = markerPickFromUserData({ kind: "community", report }, anchor);
+    expect(p?.kind).toBe("community");
+    expect(p && p.kind === "community" ? p.report : null).toBe(report);
+  });
+
   it("ignores sprites that are not clickable markers", () => {
     expect(markerPickFromUserData({}, anchor)).toBeNull();
     expect(markerPickFromUserData({ kind: "halo" }, anchor)).toBeNull();
