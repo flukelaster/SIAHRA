@@ -30,7 +30,7 @@ import { StatPills } from "./StatPills";
 import { FloodSourceAgeChip } from "./FloodSourceAgeChip";
 import type { FloodSourceAgeInput } from "../../lib/floodSourceAge";
 import type { ForecastBandLevel } from "../../lib/forecastStyle";
-import { GUTTER, phoneToolsBottom, type SheetSnap, type Tier } from "../../lib/shellLayout";
+import { GUTTER, phoneFloatBottomPx, phoneToolsBottom, type SheetSnap, type Tier } from "../../lib/shellLayout";
 import {
   PHONE_FAB_TOOLS_GAP,
   TITLE_RIGHT,
@@ -101,6 +101,7 @@ export function MapViewport({
   onQualityLevel,
   tier,
   sheetSnap = "peek",
+  phonePeekPx = null,
   onInfo,
   onApi,
   onPoseChange,
@@ -119,6 +120,11 @@ export function MapViewport({
    * ที่ half (`phoneToolsBottom`) ปุ่มชั้นข้อมูลจึงไม่ถูกแผ่นบังที่ half อีก
    */
   sheetSnap?: SheetSnap;
+  /**
+   * มือถือ: ความสูง peek ที่วัดได้ของแผ่นเลื่อน — คอลัมน์เครื่องมือ + FAB, ป้าย "แผ่นน้ำจำลอง" และแถบคำแนะนำอยู่
+   * เหนือขอบบนของ peek จริง 8 px (`phoneFloatBottomPx`); null = ยังไม่ได้วัด (ใช้เพดาน `SHEET_PEEK_H`)
+   */
+  phonePeekPx?: number | null;
   exaggeration: number;
   quality: QualityMode;
   onQualityLevel?: (level: QualityLevel, mode: QualityMode) => void;
@@ -450,6 +456,7 @@ export function MapViewport({
         fab,
         composeOpen: draftPlaced,
         sheetBadge: sheetBadge !== null,
+        phonePeekPx,
       })
     : null;
 
@@ -546,7 +553,7 @@ export function MapViewport({
         // ด้านขวาเป็นคอลัมน์เครื่องมือ
         <div
           className="pointer-events-none absolute"
-          style={{ bottom: safeArea.bottom + 8, left: leftEdge, right: phoneBadgeRight(fab) }}
+          style={{ bottom: phoneFloatBottomPx(phonePeekPx), left: leftEdge, right: phoneBadgeRight(fab) }}
         >
           {sheetBadge}
         </div>
@@ -590,7 +597,7 @@ export function MapViewport({
           style={{
             // FAB "รายงาน" อยู่ล่างสุดของก้อนนี้ คอลัมน์เครื่องมือจึงยกขึ้นเหนือมันเอง และทั้งก้อนเลื่อนตามแผ่นด้วยกัน
             gap: PHONE_FAB_TOOLS_GAP,
-            bottom: phoneToolsBottom(sheetSnap, safeArea.bottom),
+            bottom: phoneToolsBottom(sheetSnap, phonePeekPx),
             right: toolsRight,
             // จังหวะเดียวกับการเข้าที่ของแผ่น (`useSheetDrag` REST_TRANSITION)
             transition: "bottom 260ms cubic-bezier(0.32, 0.72, 0, 1)",

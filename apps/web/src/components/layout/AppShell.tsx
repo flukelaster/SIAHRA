@@ -58,6 +58,8 @@ export interface AppShellProps {
   onTimelineRangeChange?: (rangeIdx: number) => void;
   forecastAtIso: string | null;
   onForecastAtIsoChange: (forecastAtIso: string | null) => void;
+  /** มือถือ: ความสูง peek ที่วัดได้ของแผ่นเลื่อน — App ส่งต่อให้ MapViewport (ของลอยเกาะเหนือ peek จริง) */
+  onPhonePeekPx?: (px: number) => void;
 }
 
 /**
@@ -229,6 +231,7 @@ export function AppShell(props: AppShellProps) {
           mapInfo={props.mapInfo}
           exaggeration={props.exaggeration}
           timeChip={timeChip}
+          onPeekPx={props.onPhonePeekPx}
         />
         <TopicTabBar ctx={ctx} topic={shell.topic} sheetOpen={shell.sheetSnap !== "peek"} onTap={tapTopic} />
         {timelineOpen ? (

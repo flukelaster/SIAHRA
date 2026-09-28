@@ -329,6 +329,8 @@ export default function App() {
   // AOI โหลด (Map3DCanvas) เหมือนเดิม การเปลี่ยนจังหวัดจึงจัดกรอบตามสถานะ drawer ขณะนั้น
   // (ถูกเรียกก่อน useLayerDescriptors เพราะ hook เส้นทางน้ำเหนือต้องรู้ว่าแผงไหนถูกเลือก)
   const shell = useShellState();
+  /** มือถือ: ความสูง peek ที่ `MobileSheet` วัดได้ — ของลอยบนแผนที่เกาะเหนือมัน (null = ยังไม่ได้วัด → เพดาน) */
+  const [phonePeekPx, setPhonePeekPx] = useState<number | null>(null);
   // E16 — hook เส้นทางน้ำเหนือตัวเดียว ใช้ร่วมกันระหว่างแผง north กับชั้นเส้นลำน้ำ 3 มิติ
   // ยิงคำขอเฉพาะเมื่อชั้นเปิดหรือแผง north ถูกเลือกอยู่ (ไม่งั้นไม่ poll เลย)
   // แผง north "เปิดอยู่" = ถูกเรนเดอร์จริง: drawer เปิด (≥ tablet) หรือแผ่นเลื่อนไม่อยู่ที่ peek (มือถือ)
@@ -635,6 +637,7 @@ export default function App() {
         onQualityLevel={handleQualityLevel}
         tier={shell.tier}
         sheetSnap={shell.sheetSnap}
+        phonePeekPx={phonePeekPx}
         onInfo={setMapInfo}
         onApi={handleApi}
         onPoseChange={handlePose}
@@ -662,6 +665,7 @@ export default function App() {
         onTimelineRangeChange={setTimelineRangeIdx}
         forecastAtIso={forecastAtIso}
         onForecastAtIsoChange={handleForecastAtIsoChange}
+        onPhonePeekPx={setPhonePeekPx}
       />
     </div>
   );

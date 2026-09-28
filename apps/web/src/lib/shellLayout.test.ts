@@ -18,6 +18,8 @@ import {
   computeSafeArea,
   defaultDrawerOpen,
   nearestSnap,
+  PHONE_FLOAT_GAP,
+  phoneFloatBottomPx,
   phoneToolsBottom,
   snapHeights,
   tierFor,
@@ -124,17 +126,34 @@ describe("shellLayout — computeSafeArea", () => {
   });
 });
 
-describe("shellLayout — phoneToolsBottom", () => {
-  it("peek: เกาะเหนือเพดาน peek (safe area ล่าง + 8) — ค่าเดิมก่อน E18.4", () => {
-    const sa = computeSafeArea({ tier: "phone", drawerOpen: false, dockHeight: 0 });
-    expect(phoneToolsBottom("peek", sa.bottom)).toBe(`${sa.bottom + 8}px`);
+describe("shellLayout — phoneFloatBottomPx / phoneToolsBottom", () => {
+  it("วัดแล้ว: peek ที่วัดได้ + แถบแท็บ + 8 — ห่างขอบบนของแผ่นที่ peek 8 px พอดี", () => {
+    const vh = 844;
+    const peekPx = 163;
+    const sheetTop = vh - PHONE_TABBAR_H - peekPx; // แผ่นวางบนแถบแท็บ สูงเท่า peek ที่วัดได้
+    const floatBottomY = vh - phoneFloatBottomPx(peekPx);
+    expect(sheetTop - floatBottomY).toBe(PHONE_FLOAT_GAP);
+    expect(phoneToolsBottom("peek", peekPx)).toBe(`${peekPx + PHONE_TABBAR_H + 8}px`);
   });
 
-  it("half/full: ขึ้นไปเหนือขอบบนของแผ่นที่ half (55dvh + แถบแท็บ + 8) — ปุ่มชั้นข้อมูลไม่ถูกแผ่นบังที่ half", () => {
+  it("ยังไม่ได้วัด (null หรือ 0): ใช้เพดาน SHEET_PEEK_H — ไม่มีทางต่ำกว่า peek จริง", () => {
+    expect(phoneFloatBottomPx(null)).toBe(SHEET_PEEK_H + PHONE_TABBAR_H + 8);
+    expect(phoneFloatBottomPx(0)).toBe(phoneFloatBottomPx(null));
+    expect(phoneToolsBottom("peek", null)).toBe(`${SHEET_PEEK_H + PHONE_TABBAR_H + 8}px`);
+  });
+
+  it("ไม่ขึ้นกับ inset ของกล้อง — computeSafeArea ของมือถือยังเป็นเพดานคงที่", () => {
     const sa = computeSafeArea({ tier: "phone", drawerOpen: false, dockHeight: 0 });
-    const css = phoneToolsBottom("half", sa.bottom);
-    expect(css).toBe(`max(${sa.bottom + 8}px, calc(${SHEET_HALF_VH * 100}dvh + ${PHONE_TABBAR_H + 8}px))`);
-    expect(phoneToolsBottom("full", sa.bottom)).toBe(css);
+    expect(sa.bottom).toBe(SHEET_PEEK_H + PHONE_TABBAR_H + 8);
+    expect(phoneFloatBottomPx(150)).toBeLessThan(sa.bottom);
+  });
+
+  it.each([null, 163] as const)("half/full (peek=%s): max(peek, 55dvh + แถบแท็บ + 8) — ปุ่มชั้นข้อมูลไม่ถูกแผ่นบังที่ half", (peekPx) => {
+    const css = phoneToolsBottom("half", peekPx);
+    expect(css).toBe(
+      `max(${phoneFloatBottomPx(peekPx)}px, calc(${SHEET_HALF_VH * 100}dvh + ${PHONE_TABBAR_H + 8}px))`,
+    );
+    expect(phoneToolsBottom("full", peekPx)).toBe(css);
   });
 });
 

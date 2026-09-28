@@ -124,18 +124,33 @@ export function nearestSnap(
   return best;
 }
 
+/** ช่องว่างระหว่างของลอยบนมือถือ (คอลัมน์เครื่องมือ + FAB, ป้าย "แผ่นน้ำจำลอง", แถบคำแนะนำ) กับขอบบนของแผ่นเลื่อน */
+export const PHONE_FLOAT_GAP = 8;
+
 /**
- * ขอบล่างของคอลัมน์ปุ่มเครื่องมือบนมือถือ (ชั้นข้อมูล + เข็มทิศ, `MapViewport`) เป็นค่า CSS `bottom`
+ * ขอบล่างของของลอยบนมือถือที่สแนป peek (CSS px จากขอบล่างจอ) = ความสูง peek **ที่วัดได้** (`MobileSheet`)
+ * + แถบแท็บ + `PHONE_FLOAT_GAP` — ขอบบนของแผ่นที่ peek อยู่ที่ peek + แถบแท็บพอดี (แผ่นวางบนแถบแท็บ และตำแหน่ง
+ * พักใช้ความสูงที่วัดได้เดียวกันนี้ — `useSheetDrag`) ช่องว่างจึงเป็น 8 px จริง ไม่ใช่ 8 + ส่วนต่างของเพดาน
+ * ยังไม่ได้วัด (null/0 — เรนเดอร์แรก) = ใช้เพดาน `SHEET_PEEK_H` แล้วขยับลงหนึ่งครั้งเมื่อค่าที่วัดมาถึง
  *
- * peek: เหนือเพดานของ peek (safe area ล่าง + 8) เหมือนเดิม; half/full: ยกขึ้นเหนือขอบบนของแผ่นที่
- * สแนป half (`SHEET_HALF_VH` ของ dvh + แถบแท็บ) — ก่อน E18.4 คอลัมน์อยู่ที่เดิมแล้วถูกแผ่น (z-20)
- * บังตั้งแต่ half ขึ้นไป ปุ่มชั้นข้อมูลจึงกดไม่ได้ ที่ full มันยังอยู่ใต้แผ่น (แผ่นกินเกือบทั้งจอ)
- * `max()` กันจอเตี้ยที่ half ต่ำกว่าเพดาน peek (แบบเดียวกับ `snapHeights`)
+ * ไม่ใช่ `computeSafeArea().bottom` — inset ของกล้องต้องคงที่ (`frameTerrain` อ่านครั้งเดียวต่อ AOI) จึงยังใช้เพดาน
  */
-export function phoneToolsBottom(snap: SheetSnap, safeAreaBottom: number): string {
-  const peek = `${safeAreaBottom + 8}px`;
+export function phoneFloatBottomPx(peekPx: number | null): number {
+  return (peekPx || SHEET_PEEK_H) + PHONE_TABBAR_H + PHONE_FLOAT_GAP;
+}
+
+/**
+ * ขอบล่างของคอลัมน์ปุ่มเครื่องมือบนมือถือ (ชั้นข้อมูล + เข็มทิศ + FAB "รายงาน", `MapViewport`) เป็นค่า CSS `bottom`
+ *
+ * peek: เหนือขอบบนของ peek ที่วัดได้ 8 px (`phoneFloatBottomPx`); half/full: ยกขึ้นเหนือขอบบนของแผ่นที่
+ * สแนป half (`SHEET_HALF_VH` ของ dvh + แถบแท็บ + 8) — ก่อน E18.4 คอลัมน์อยู่ที่เดิมแล้วถูกแผ่น (z-20)
+ * บังตั้งแต่ half ขึ้นไป ปุ่มชั้นข้อมูลจึงกดไม่ได้ ที่ full มันยังอยู่ใต้แผ่น (แผ่นกินเกือบทั้งจอ)
+ * `max()` กันจอเตี้ยที่ half ต่ำกว่า peek (แบบเดียวกับ `snapHeights`)
+ */
+export function phoneToolsBottom(snap: SheetSnap, peekPx: number | null): string {
+  const peek = `${phoneFloatBottomPx(peekPx)}px`;
   if (snap === "peek") return peek;
-  return `max(${peek}, calc(${SHEET_HALF_VH * 100}dvh + ${PHONE_TABBAR_H + 8}px))`;
+  return `max(${peek}, calc(${SHEET_HALF_VH * 100}dvh + ${PHONE_TABBAR_H + PHONE_FLOAT_GAP}px))`;
 }
 
 /** phone < 768 ≤ tablet < 1024 ≤ laptop < 1280 ≤ wide */

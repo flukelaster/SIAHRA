@@ -7,7 +7,7 @@
  *
  *   ≥tablet: right = GUTTER, bottom = safeArea.bottom + 8 (เหนือ BottomDock — safeArea.bottom = GUTTER + dock)
  *   phone  : อยู่ในก้อนเดียวกับคอลัมน์เครื่องมือ (ปุ่มนี้อยู่ล่างสุด คอลัมน์ยกขึ้นเหนือมัน) ที่
- *            `phoneToolsBottom(snap, safeArea.bottom)` — ขยับตามแผ่นเลื่อนจังหวะเดียวกับคอลัมน์
+ *            `phoneToolsBottom(snap, phonePeekPx)` — ขยับตามแผ่นเลื่อนจังหวะเดียวกับคอลัมน์
  *   ≥tablet ที่จอเตี้ย (tablet แนวนอน 844×390): ถ้าอยู่ใต้คอลัมน์เครื่องมือแล้วขอบบนของปุ่มชิดขอบล่างของคอลัมน์
  *            (วัดจริง) น้อยกว่า `FAB_TOOLS_CLEARANCE` → ย้ายไป **ซ้าย** ของคอลัมน์ (`reportFabPlacement`) — ปุ่ม
  *            เคยทับปุ่มหมุน (orbit) จนกดไม่ได้; ซ้ายของคอลัมน์ยังไม่พอ (ชน drawer) → ปุ่มไอคอนอย่างเดียว (ชื่ออยู่ใน aria-label)
@@ -18,7 +18,7 @@
  * ขนาดของปุ่มเป็น **ค่าที่วัด** (ป้ายต่างกันตามภาษา/tier/สถานะ) — ผู้เรียกส่งกล่องที่ ResizeObserver วัดได้มา
  */
 import { rightSheetBox } from "./rightSheet";
-import { GUTTER, TOOLS_W, type ShellSafeArea, type Tier } from "./shellLayout";
+import { GUTTER, TOOLS_W, phoneFloatBottomPx, type ShellSafeArea, type Tier } from "./shellLayout";
 
 /** ช่องไฟระหว่าง FAB กับสิ่งที่อยู่ข้าง ๆ (แถบคำแนะนำ/ป้าย "แผ่นน้ำจำลอง") */
 export const FAB_GAP = 8;
@@ -126,6 +126,11 @@ export interface PlacingHintInput {
   composeOpen: boolean;
   /** มือถือ: ป้าย "แผ่นน้ำจำลอง" อยู่ที่มุมซ้ายล่าง */
   sheetBadge: boolean;
+  /**
+   * มือถือ: ความสูง peek ของแผ่นเลื่อนที่วัดได้ (`MobileSheet`) — แถวของ FAB/ป้าย/แถบอยู่เหนือขอบบนของ peek 8 px
+   * (`phoneFloatBottomPx`); null/ไม่ส่ง = ยังไม่ได้วัด ใช้เพดาน
+   */
+  phonePeekPx?: number | null;
 }
 
 export interface PlacingHintBox {
@@ -145,9 +150,11 @@ export interface PlacingHintBox {
  * กล่องของแถบคำแนะนำโหมดปักหมุด — `null` = ไม่มีที่พอ (ซ่อน)
  *
  *   left   = safeArea.left + 4 (ขอบเดียวกับหัวข้อจังหวัด)
- *   bottom = safeArea.bottom + 8 — มือถือ + `PHONE_BADGE_CLEARANCE_PX` ถ้ามีป้าย "แผ่นน้ำจำลอง"
+ *   bottom = ≥tablet: safeArea.bottom + 8 (แถวของ FAB เหนือ dock)
+ *            มือถือ: `phoneFloatBottomPx(phonePeekPx)` (แถวของ FAB/ป้าย เหนือ peek ที่วัดได้ 8 px)
+ *            + `PHONE_BADGE_CLEARANCE_PX` ถ้ามีป้าย "แผ่นน้ำจำลอง"
  *   right  : FAB แสดงอยู่ = หดขอบขวาให้พ้น FAB (fab.right + ความกว้างที่วัด + FAB_GAP) ทุก tier เพราะ FAB อยู่
- *            แถวเดียวกัน (≥tablet: safeArea.bottom + 8; มือถือที่ peek: safeArea.bottom + 8 เหมือนกัน)
+ *            แถวเดียวกัน (≥tablet: safeArea.bottom + 8; มือถือที่ peek: `phoneFloatBottomPx` เหมือนกัน)
  *            ไม่ต่ำกว่า `TITLE_RIGHT` (คอลัมน์เครื่องมือ)
  *            ฟอร์มเปิดบน ≥tablet = FAB ถูกซ่อน แถบชิดซ้ายและจบก่อนขอบซ้ายของแผงด้านขวา (`rightSheetBox`) —
  *            แผง (z-30) ต่ำลงมาถึงแถวเดียวกับแถบ ถ้าแถบยาวข้ามไปจะถูกแผงบัง
@@ -161,10 +168,13 @@ export function placingHintBox({
   fab,
   composeOpen,
   sheetBadge,
+  phonePeekPx = null,
 }: PlacingHintInput): PlacingHintBox | null {
   const left = safeArea.left + 4;
   const phone = tier === "phone";
-  const bottom = safeArea.bottom + 8 + (phone && sheetBadge ? PHONE_BADGE_CLEARANCE_PX : 0);
+  const bottom = phone
+    ? phoneFloatBottomPx(phonePeekPx) + (sheetBadge ? PHONE_BADGE_CLEARANCE_PX : 0)
+    : safeArea.bottom + 8;
   let right = TITLE_RIGHT;
   let align: PlacingHintBox["align"] = "center";
   if (fab) right = Math.max(right, fab.right + fab.width + FAB_GAP);

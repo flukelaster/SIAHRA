@@ -13,7 +13,7 @@ import {
   type FabBox,
 } from "./reportFab";
 import { rightSheetBox } from "./rightSheet";
-import { GUTTER, TOOLS_W, computeSafeArea, type Tier } from "./shellLayout";
+import { GUTTER, PHONE_TABBAR_H, TOOLS_W, computeSafeArea, phoneFloatBottomPx, type Tier } from "./shellLayout";
 
 const DOCK_H = 96;
 const saFor = (tier: Tier, drawerOpen = false) => computeSafeArea({ tier, drawerOpen, dockHeight: DOCK_H });
@@ -157,8 +157,8 @@ describe("reportFab — แถบคำแนะนำไม่ทับ FAB", (
     expect(hint!.align).toBe("center");
     // FAB เป็นปุ่มยกเลิกแล้ว — แถบไม่มีปุ่มซ้ำ
     expect(hint!.cancel).toBe(false);
-    // แถวเดียวกับ FAB (≥tablet) — จึงต้องหด ไม่ใช่ยก
-    expect(hint!.bottom).toBe(saFor(tier, drawer).bottom + 8);
+    // แถวเดียวกับ FAB — จึงต้องหด ไม่ใช่ยก (มือถือ: เหนือ peek; ยังไม่ได้วัด = เพดาน)
+    expect(hint!.bottom).toBe(tier === "phone" ? phoneFloatBottomPx(null) : saFor(tier, drawer).bottom + 8);
   });
 
   it("ไม่มี FAB (ไม่มี communityActions/แผงขวาเปิด) = ขอบเดิม TITLE_RIGHT", () => {
@@ -178,8 +178,20 @@ describe("reportFab — แถบคำแนะนำไม่ทับ FAB", (
   it("มือถือ + ป้าย 'แผ่นน้ำจำลอง': ยกขึ้นเหนือป้าย และยังพ้น FAB", () => {
     const sa = saFor("phone");
     const hint = placingHintBox({ tier: "phone", safeArea: sa, viewportW: 390, fab: FAB_PHONE, composeOpen: false, sheetBadge: true });
-    expect(hint?.bottom).toBe(sa.bottom + 8 + PHONE_BADGE_CLEARANCE_PX);
+    expect(hint?.bottom).toBe(phoneFloatBottomPx(null) + PHONE_BADGE_CLEARANCE_PX);
     expect(390 - hint!.right).toBeLessThanOrEqual(fabSpan(390, FAB_PHONE)[0] - FAB_GAP);
+  });
+
+  it("มือถือ + peek ที่วัดได้: แถวของแถบตามขอบบนของ peek จริง (+ ป้าย) — ไม่ใช่เพดาน", () => {
+    const sa = saFor("phone");
+    const base = { tier: "phone" as const, safeArea: sa, viewportW: 390, fab: FAB_PHONE, composeOpen: false };
+    expect(placingHintBox({ ...base, sheetBadge: false, phonePeekPx: 163 })?.bottom).toBe(163 + PHONE_TABBAR_H + 8);
+    expect(placingHintBox({ ...base, sheetBadge: true, phonePeekPx: 163 })?.bottom).toBe(
+      163 + PHONE_TABBAR_H + 8 + PHONE_BADGE_CLEARANCE_PX,
+    );
+    // ≥tablet ไม่สนใจค่านี้
+    const tab = placingHintBox({ tier: "tablet", safeArea: saFor("tablet"), viewportW: 820, fab: FAB_CANCEL, composeOpen: false, sheetBadge: false, phonePeekPx: 163 });
+    expect(tab?.bottom).toBe(saFor("tablet").bottom + 8);
   });
 
   it("มือถือ: ก้อนป้าย 'แผ่นน้ำจำลอง' หดพ้น FAB ด้วย", () => {
