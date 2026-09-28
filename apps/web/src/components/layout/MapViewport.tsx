@@ -1,4 +1,4 @@
-import { Hand, Layers, MapPinPlus, Maximize2, Minimize2, Minus, MousePointer2, Navigation, Plus } from "lucide-react";
+import { Hand, Layers, MapPinPlus, Maximize2, Minimize2, Minus, MousePointer2, Navigation, Plus, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import * as THREE from "three";
 import type {
@@ -30,7 +30,19 @@ import { StatPills } from "./StatPills";
 import { FloodSourceAgeChip } from "./FloodSourceAgeChip";
 import type { FloodSourceAgeInput } from "../../lib/floodSourceAge";
 import type { ForecastBandLevel } from "../../lib/forecastStyle";
-import { GUTTER, TOOLS_W, phoneToolsBottom, type SheetSnap, type Tier } from "../../lib/shellLayout";
+import { GUTTER, phoneFloatBottomPx, phoneToolsBottom, type SheetSnap, type Tier } from "../../lib/shellLayout";
+import {
+  PHONE_FAB_TOOLS_GAP,
+  TITLE_RIGHT,
+  phoneBadgeRight,
+  placingHintBox,
+  reportFabHeightPx,
+  reportFabPlacement,
+  reportFabVisible,
+  type FabBox,
+  type FabSize,
+} from "../../lib/reportFab";
+import { useViewport } from "../../hooks/useViewport";
 import { ENABLED_CAMERA_SOURCES } from "../../lib/featureFlags";
 import { countLayersOn } from "../../lib/layerCount";
 import { LAYERS_DIALOG_ID } from "./LayersSurface";
@@ -44,8 +56,6 @@ import { isTypingTarget } from "../../hooks/useShellState";
 const ZOOM_FACTOR = 0.75;
 /** "แตะบนพื้นที่แผนที่" ค้างไว้นานเท่านี้หลังแตะพลาด (ท้องฟ้า/นอกกริด) */
 const PLACE_MISS_MS = 2500;
-/** มือถือ: ความสูงของป้าย "แผ่นน้ำจำลอง" ที่มุมซ้ายล่าง + ช่องไฟ — แถบคำแนะนำอยู่เหนือมัน */
-const PHONE_BADGE_CLEARANCE_PX = 34;
 /** ความกว้างเส้นของลายบนป้าย "แผ่นน้ำจำลอง" — คาบ/สัดส่วนเดียวกับลายบนแผ่นจริง */
 const SHEET_BADGE_STRIPE_PX = ILLUSTRATIVE_HATCH_PERIOD_PX * ILLUSTRATIVE_HATCH_DUTY;
 
@@ -91,6 +101,7 @@ export function MapViewport({
   onQualityLevel,
   tier,
   sheetSnap = "peek",
+  phonePeekPx = null,
   onInfo,
   onApi,
   onPoseChange,
@@ -109,6 +120,11 @@ export function MapViewport({
    * ที่ half (`phoneToolsBottom`) ปุ่มชั้นข้อมูลจึงไม่ถูกแผ่นบังที่ half อีก
    */
   sheetSnap?: SheetSnap;
+  /**
+   * มือถือ: ความสูง peek ที่วัดได้ของแผ่นเลื่อน — คอลัมน์เครื่องมือ + FAB, ป้าย "แผ่นน้ำจำลอง" และแถบคำแนะนำอยู่
+   * เหนือขอบบนของ peek จริง 8 px (`phoneFloatBottomPx`); null = ยังไม่ได้วัด (ใช้เพดาน `SHEET_PEEK_H`)
+   */
+  phonePeekPx?: number | null;
   exaggeration: number;
   quality: QualityMode;
   onQualityLevel?: (level: QualityLevel, mode: QualityMode) => void;
@@ -185,6 +201,8 @@ export function MapViewport({
   const placing = communityActions !== null && placingAoi === aoiId;
   const [draftPlaced, setDraftPlaced] = useState(false);
   const [placeMiss, setPlaceMiss] = useState(false);
+  /** แผงกล้อง/แผงรายงานด้านขวาเปิดอยู่ (`Map3DCanvas`) — ปุ่ม "รายงานผลกระทบ" หลบ (ซ่อน) ระหว่างนั้น */
+  const [infoSheetOpen, setInfoSheetOpen] = useState(false);
   const endPlacing = useCallback(() => {
     setPlacingAoi(null);
     setPlaceMiss(false);
@@ -218,6 +236,106 @@ export function MapViewport({
     setDraftPlaced(false);
     setPlacingAoi((cur) => (cur === aoiId ? null : aoiId));
   };
+
+  // ปุ่มลอย "รายงานผลกระทบ" — มุมขวาล่าง แยกจากคอลัมน์เครื่องมือมุมมอง (ข้อตัดสินใจเจ้าของ 2026-09-28: ไอคอนเปล่า
+  // ในคอลัมน์ดูเหมือนเครื่องมือมุมมอง) ระหว่างปักหมุดกลายเป็นปุ่ม "ยกเลิก" (สลับด้วย `togglePlacing` ตัวเดิม)
+  // ซ่อนเมื่อแผงด้านขวาเปิด (แผงกล้อง/รายงาน หรือฟอร์ม = หมุดชั่วคราวถูกวางแล้ว) — แผงกินขอบขวาลงมาถึงแถวของปุ่ม
+  // ขนาดเป็นค่าที่วัด (ป้ายต่างกันตามภาษา/tier/สถานะ) — แถบคำแนะนำหดขอบขวาให้พ้นมัน (`placingHintBox`)
+  const vp = useViewport();
+  const fabVisible = reportFabVisible({
+    hasActions: communityActions !== null,
+    infoSheetOpen,
+    composeOpen: draftPlaced,
+  });
+  const [fabEl, setFabEl] = useState<HTMLButtonElement | null>(null);
+  const [fabSize, setFabSize] = useState<FabSize | null>(null);
+  /** ความกว้างตอนแสดงป้ายเต็ม — วัดเฉพาะตอนป้ายเต็ม (ไม่อย่างนั้นสลับไปไอคอนแล้ววัดได้แคบ → กลับมาป้ายเต็ม → วนไม่จบ) */
+  const [fabFullWidth, setFabFullWidth] = useState<number | null>(null);
+  useEffect(() => {
+    if (!fabEl) return;
+    const measure = () => {
+      const width = fabEl.offsetWidth;
+      const height = fabEl.offsetHeight;
+      setFabSize((cur) => (cur && cur.width === width && cur.height === height ? cur : { width, height }));
+      if (fabEl.dataset.reportFab === "full") setFabFullWidth(width);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(fabEl);
+    return () => ro.disconnect();
+  }, [fabEl]);
+  // คอลัมน์เครื่องมือด้านขวาบน (≥tablet) — วัดจริง: บนจอเตี้ย (tablet แนวนอน 844×390) ปุ่มที่มุมขวาล่างเคยทับปุ่มหมุน
+  const [toolsEl, setToolsEl] = useState<HTMLDivElement | null>(null);
+  const [toolsBox, setToolsBox] = useState<{ bottom: number; width: number } | null>(null);
+  useEffect(() => {
+    if (!toolsEl) return;
+    const measure = () => {
+      const r = toolsEl.getBoundingClientRect();
+      const bottom = Math.round(r.bottom);
+      const width = Math.round(r.width);
+      setToolsBox((cur) => (cur && cur.bottom === bottom && cur.width === width ? cur : { bottom, width }));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(toolsEl);
+    return () => ro.disconnect();
+  }, [toolsEl]);
+  const fabHeight = reportFabHeightPx(tier);
+  const fabPlacement = compact
+    ? null
+    : reportFabPlacement({
+        tier,
+        safeArea,
+        viewportW: vp.width,
+        viewportH: vp.height,
+        fabHeight,
+        fullWidth: fabFullWidth,
+        tools: toolsEl ? toolsBox : null,
+      });
+  const fabIconOnly = fabPlacement?.label === "icon";
+  const fabMode = placing ? "cancel" : fabIconOnly ? "icon" : compact ? "short" : "full";
+  const fab: FabBox | null =
+    fabVisible && fabEl && fabSize ? { ...fabSize, right: fabPlacement?.right ?? GUTTER } : null;
+  const fabLabel = placing ? t("community.place.cancelAria") : t("community.place.button");
+  const reportFab = fabVisible ? (
+    <button
+      ref={setFabEl}
+      type="button"
+      onClick={togglePlacing}
+      aria-label={fabLabel}
+      title={fabLabel}
+      aria-pressed={placing}
+      data-report-fab={fabMode}
+      // สีชมพูเดียวกับหมุด/แถบคำแนะนำของรายงานจากประชาชน ทับบนกระจก (`.glass-soft` ตั้ง background เอง
+      // นอก layer ของ Tailwind — ย้อมด้วย background-image แบบ inline จึงไม่ถูกทับ)
+      style={{
+        height: fabHeight,
+        width: fabIconOnly ? fabHeight : undefined,
+        backgroundImage: placing
+          ? undefined
+          : "linear-gradient(rgba(236,72,153,0.26), rgba(236,72,153,0.26))",
+      }}
+      className={`glass-soft flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-full text-sm ${fabIconOnly ? "" : "pr-4 pl-3.5"} font-semibold whitespace-nowrap text-white ring-inset transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] ${
+        placing ? "ring-2 ring-[#ec4899]" : "ring-1 ring-[#ec4899]/70 hover:ring-[#ec4899]"
+      }`}
+    >
+      {placing ? (
+        <X size={18} className="shrink-0 text-[#f9a8d4]" aria-hidden="true" />
+      ) : (
+        <MapPinPlus size={18} className="shrink-0 text-[#f9a8d4]" aria-hidden="true" />
+      )}
+      {/* ไอคอนอย่างเดียว (ไม่มีที่ทั้งใต้และซ้ายของคอลัมน์) — ชื่อเต็มอยู่ใน aria-label/title */}
+      {fabIconOnly ? null : (
+        <span className="leading-thai" aria-hidden="true">
+          {placing
+            ? t("community.place.cancel")
+            : compact
+              ? t("community.place.buttonShort")
+              : t("community.place.button")}
+        </span>
+      )}
+    </button>
+  ) : null;
 
   // ป้าย "แผ่นน้ำจำลอง" — ติดแผนที่ตลอดที่แผ่นถูกวาดอยู่จริง (ชั้น illustrative ต้องบอกตัวเองบนภาพ
   // ไม่ใช่แค่ใน legend) บนมือถือแตะแล้วเปิดแผงชั้นข้อมูล (legend + หมายเหตุเต็ม)
@@ -329,7 +447,18 @@ export function MapViewport({
   /** กลุ่มเครื่องมือเกาะขอบขวาของ viewport เสมอ ไม่ใช่ขอบของแผงขวา (ซึ่งไม่มีแล้ว) */
   const toolsRight = GUTTER;
   /** หัวข้อ + pill ห้ามวิ่งใต้กลุ่มเครื่องมือ */
-  const titleRight = GUTTER + TOOLS_W + GUTTER;
+  const titleRight = TITLE_RIGHT;
+  const hintBox = placing
+    ? placingHintBox({
+        tier,
+        safeArea,
+        viewportW: vp.width,
+        fab,
+        composeOpen: draftPlaced,
+        sheetBadge: sheetBadge !== null,
+        phonePeekPx,
+      })
+    : null;
 
   return (
     <div className="absolute inset-0 overflow-hidden">
@@ -366,6 +495,7 @@ export function MapViewport({
         onPlacingEnd={endPlacing}
         onPlaceMiss={handlePlaceMiss}
         onDraftChange={handleDraftChange}
+        onRightSheetChange={setInfoSheetOpen}
         initialPose={initialPose}
         quality={quality}
         onQualityLevel={onQualityLevel}
@@ -423,25 +553,25 @@ export function MapViewport({
         // ด้านขวาเป็นคอลัมน์เครื่องมือ
         <div
           className="pointer-events-none absolute"
-          style={{ bottom: safeArea.bottom + 8, left: leftEdge, right: titleRight }}
+          style={{ bottom: phoneFloatBottomPx(phonePeekPx), left: leftEdge, right: phoneBadgeRight(fab) }}
         >
           {sheetBadge}
         </div>
       ) : null}
-      {placing ? (
+      {placing && hintBox ? (
         // แถบคำแนะนำของโหมดปักหมุด — กลางล่างเหนือ dock/ส่วน peek ของแผ่นเลื่อน (ด้านบนเป็นที่ของ AlertToast ซึ่งทับ
-        // มันจนมองไม่เห็น) บนมือถือยกขึ้นเหนือป้าย "แผ่นน้ำจำลอง" ที่มุมซ้ายล่าง; เว้นคอลัมน์เครื่องมือทางขวา
-        // ฟอร์มเปิดแล้ว (จอกว้าง): ชิดซ้าย — แผงด้านขวากินครึ่งขวาของแผนที่และจะทับแถบที่อยู่กลาง
+        // มันจนมองไม่เห็น) บนมือถือยกขึ้นเหนือป้าย "แผ่นน้ำจำลอง" ที่มุมซ้ายล่าง; ขอบขวาพ้นปุ่ม "ยกเลิก" (FAB) ที่
+        // วัดได้และคอลัมน์เครื่องมือ ฟอร์มเปิดแล้ว (จอกว้าง): ชิดซ้ายและจบก่อนขอบซ้ายของแผงฟอร์ม; ไม่มีที่พอ = ไม่แสดง
+        // (ฟอร์มมีข้อความ "แตะอีกครั้งเพื่อย้ายหมุด" และปุ่มปิดของตัวเอง) ปุ่ม "ยกเลิก" ของแถบมีเฉพาะตอน FAB ถูกซ่อน —
+        // ตอน FAB แสดง FAB คือปุ่มยกเลิก (Escape ยกเลิกได้เสมอ) — กฎทั้งหมดอยู่ใน `placingHintBox`
         <div
-          className={`pointer-events-none absolute z-20 flex ${draftPlaced && !compact ? "justify-start" : "justify-center"}`}
-          style={{
-            bottom: safeArea.bottom + 8 + (compact && sheetBadge ? PHONE_BADGE_CLEARANCE_PX : 0),
-            left: leftEdge,
-            right: titleRight,
-          }}
+          className={`pointer-events-none absolute z-20 flex ${hintBox.align === "start" ? "justify-start" : "justify-center"}`}
+          style={{ bottom: hintBox.bottom, left: hintBox.left, right: hintBox.right }}
         >
           <div
-            className="pointer-events-auto flex max-w-md items-center gap-2 rounded-full bg-black/80 py-1 pr-1 pl-3 text-xs text-white shadow-lg ring-1 ring-[#ec4899]/60 ring-inset backdrop-blur-md"
+            className={`pointer-events-auto flex max-w-md items-center gap-2 rounded-full bg-black/80 pl-3 text-xs text-white shadow-lg ring-1 ring-[#ec4899]/60 ring-inset backdrop-blur-md ${
+              hintBox.cancel ? "py-1 pr-1" : "py-2 pr-3.5"
+            }`}
             role="status"
             data-report-placing-hint=""
           >
@@ -449,59 +579,53 @@ export function MapViewport({
             <span className={placeMiss ? "text-[var(--color-risk-medium)]" : undefined}>
               {placeMiss ? t("community.place.miss") : draftPlaced ? t("community.place.move") : t("community.place.hint")}
             </span>
-            <button
-              type="button"
-              onClick={endPlacing}
-              className="min-h-11 shrink-0 cursor-pointer rounded-full bg-white/10 px-3 md:min-h-8 text-xs text-white hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]"
-            >
-              {t("community.place.cancel")}
-            </button>
+            {hintBox.cancel ? (
+              <button
+                type="button"
+                onClick={endPlacing}
+                className="min-h-11 shrink-0 cursor-pointer rounded-full bg-white/10 px-3 md:min-h-8 text-xs text-white hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]"
+              >
+                {t("community.place.cancel")}
+              </button>
+            ) : null}
           </div>
         </div>
       ) : null}
       {compact ? (
         <div
-          className="absolute z-10 flex flex-col items-center gap-1.5"
+          className="absolute z-10 flex flex-col items-end"
           style={{
-            bottom: phoneToolsBottom(sheetSnap, safeArea.bottom),
+            // FAB "รายงาน" อยู่ล่างสุดของก้อนนี้ คอลัมน์เครื่องมือจึงยกขึ้นเหนือมันเอง และทั้งก้อนเลื่อนตามแผ่นด้วยกัน
+            gap: PHONE_FAB_TOOLS_GAP,
+            bottom: phoneToolsBottom(sheetSnap, phonePeekPx),
             right: toolsRight,
             // จังหวะเดียวกับการเข้าที่ของแผ่น (`useSheetDrag` REST_TRANSITION)
             transition: "bottom 260ms cubic-bezier(0.32, 0.72, 0, 1)",
           }}
         >
-          {layersButton}
-          {communityActions ? (
+          <div className="flex flex-col items-center gap-1.5">
+            {layersButton}
             <button
               type="button"
-              onClick={togglePlacing}
-              aria-label={t("community.place.button")}
-              title={t("community.place.button")}
-              aria-pressed={placing}
-              className={`glass-soft flex h-11 w-11 cursor-pointer items-center justify-center rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] ${
-                placing ? "text-white ring-1 ring-[#ec4899] ring-inset" : "text-white/90 hover:text-white"
-              }`}
+              onClick={() => sceneRef.current?.resetNorth()}
+              title={t("viewport.north")}
+              aria-label={t("viewport.north")}
+              className="glass-soft flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-white/90 transition-colors hover:text-white"
             >
-              <MapPinPlus size={18} aria-hidden="true" />
+              <span
+                className="relative flex h-7 w-7 items-center justify-center rounded-full border border-white/15"
+                style={{ transform: `rotate(${-heading}deg)`, transition: "transform 120ms linear" }}
+              >
+                <Navigation size={14} className="-translate-y-[1px] fill-red-400 text-red-400" aria-hidden="true" />
+                <span className="absolute -top-[8px] text-[7px] font-bold text-white/90">N</span>
+              </span>
             </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => sceneRef.current?.resetNorth()}
-            title={t("viewport.north")}
-            aria-label={t("viewport.north")}
-            className="glass-soft flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-white/90 transition-colors hover:text-white"
-          >
-            <span
-              className="relative flex h-7 w-7 items-center justify-center rounded-full border border-white/15"
-              style={{ transform: `rotate(${-heading}deg)`, transition: "transform 120ms linear" }}
-            >
-              <Navigation size={14} className="-translate-y-[1px] fill-red-400 text-red-400" aria-hidden="true" />
-              <span className="absolute -top-[8px] text-[7px] font-bold text-white/90">N</span>
-            </span>
-          </button>
+          </div>
+          {reportFab}
         </div>
       ) : (
         <div
+          ref={setToolsEl}
           className="absolute flex flex-col items-center gap-2"
           style={{ top: safeArea.top + 8, right: toolsRight }}
         >
@@ -523,14 +647,6 @@ export function MapViewport({
           </button>
 
           <div className="glass-soft flex flex-col gap-1.5 rounded-xl p-1.5">
-            {communityActions ? (
-              <>
-                <IconButton label={t("community.place.button")} active={placing} onClick={togglePlacing}>
-                  <MapPinPlus size={16} />
-                </IconButton>
-                <div className="my-0.5 h-px bg-white/10" />
-              </>
-            ) : null}
             <IconButton label={t("viewport.orbit")} active={tool === "select"} onClick={() => setTool("select")}>
               <MousePointer2 size={16} />
             </IconButton>
@@ -551,6 +667,13 @@ export function MapViewport({
           </div>
         </div>
       )}
+      {fabPlacement && reportFab ? (
+        // ≥tablet: มุมขวาล่างเหนือ dock (ใต้คอลัมน์เครื่องมือ หรือซ้ายของมันบนจอเตี้ย — `reportFabPlacement`)
+        // z-10 ชัดเจนด้วยเหตุผลเดียวกับคอลัมน์เครื่องมือ (dock เป็น z-10)
+        <div className="absolute z-10" style={{ right: fabPlacement.right, bottom: fabPlacement.bottom }}>
+          {reportFab}
+        </div>
+      ) : null}
 
     </div>
   );

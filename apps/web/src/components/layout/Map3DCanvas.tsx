@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type {
   AoiManifest,
@@ -333,6 +333,7 @@ export function Map3DCanvas({
   onPlacingEnd,
   onPlaceMiss,
   onDraftChange,
+  onRightSheetChange,
   initialPose,
   quality,
   onQualityLevel,
@@ -419,6 +420,11 @@ export function Map3DCanvas({
   onPlaceMiss?: () => void;
   /** หมุดชั่วคราวถูกวาง/ย้าย (true) หรือถอด (false) — แถบคำแนะนำเปลี่ยนเป็น "แตะอีกครั้งเพื่อย้ายหมุด" */
   onDraftChange?: (placed: boolean) => void;
+  /**
+   * แผงกล้อง/แผงรายงานด้านขวาเปิด (true) หรือปิด (false) — `MapViewport` ซ่อนปุ่ม "รายงานผลกระทบ" ระหว่างนั้น
+   * (ปุ่มอยู่มุมขวาล่าง ใต้แผง) ฟอร์มรายงานไม่นับที่นี่: `onDraftChange` บอกอยู่แล้ว
+   */
+  onRightSheetChange?: (open: boolean) => void;
   onSceneReady?: (handles: SceneHandles | null) => void;
   onInfo?: (info: MapInfo | null) => void;
 }) {
@@ -1460,6 +1466,14 @@ export function Map3DCanvas({
   useEffect(() => {
     draftChangeRef.current?.(draft !== null);
   }, [draft]);
+  const rightSheetChangeRef = useRef(onRightSheetChange);
+  rightSheetChangeRef.current = onRightSheetChange;
+  // เงื่อนไขเดียวกับตอนเรนเดอร์แผง (แผงรายงานต้องมี communityActions ด้วย)
+  const infoSheetOpen = cameraSel !== null || (reportSel !== null && communityActions !== null);
+  // layout effect: ปุ่มกลับมา/หายไปในเฟรมเดียวกับที่แผงปิด/เปิด — ไม่อย่างนั้นบนมือถือคอลัมน์เครื่องมือกระโดดหนึ่งเฟรม
+  useLayoutEffect(() => {
+    rightSheetChangeRef.current?.(infoSheetOpen);
+  }, [infoSheetOpen]);
 
   // หมุดชั่วคราว — sprite เดียว ย้ายตามจุดที่แตะ; ไม่มีหมุดชั่วคราว = ถอดออกจากฉาก
   useEffect(() => {

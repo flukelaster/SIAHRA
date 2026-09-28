@@ -49,6 +49,7 @@ export function MobileSheet({
   mapInfo,
   exaggeration,
   timeChip,
+  onPeekPx,
 }: {
   ctx: PanelContext;
   /** มุมมองย่อยที่เลือก — หัวข้อ derive จากมัน */
@@ -61,6 +62,11 @@ export function MobileSheet({
   exaggeration: number;
   /** แถวชิปเวลาของ peek (`TimeChip variant="sheet"`) — AppShell ประกอบให้ */
   timeChip: ReactNode;
+  /**
+   * ความสูง peek ที่วัดได้ (ค่าเดียวกับที่ใช้วางตำแหน่งพักของแผ่น) — ของลอยบนแผนที่ (`MapViewport`: คอลัมน์เครื่องมือ +
+   * FAB, ป้าย "แผ่นน้ำจำลอง", แถบคำแนะนำ) เกาะเหนือขอบบนของ peek จริง แทนเพดาน `SHEET_PEEK_H`
+   */
+  onPeekPx?: (px: number) => void;
 }) {
   const { t } = useLang();
   const sheetRef = useRef<HTMLDivElement | null>(null);
@@ -83,6 +89,11 @@ export function MobileSheet({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  // layout effect: ของลอยขยับในเฟรมเดียวกับที่แผ่นเข้าที่ ไม่ใช่เฟรมถัดไป (App ส่ง setState ที่ identity คงที่)
+  useLayoutEffect(() => {
+    if (peekPx > 0) onPeekPx?.(peekPx);
+  }, [peekPx, onPeekPx]);
 
   const { dragHandlers, bodyHandlers } = useSheetDrag({ sheetRef, snap, onSnapChange, peekPx });
 
