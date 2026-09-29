@@ -5,6 +5,7 @@ import type { Lang } from "../../i18n";
 import { useT } from "../../i18n/context";
 import type { ActiveAlertsState } from "../../hooks/useActiveAlerts";
 import type { AffectedAuthoritiesState } from "../../hooks/useAffectedAuthorities";
+import type { BasinsState } from "../../hooks/useBasins";
 import type { CameraCataloguesState } from "../../hooks/useCameraCatalogues";
 import type { DamsState } from "../../hooks/useDams";
 import type { EarthquakeFeedState } from "../../hooks/useEarthquakeFeed";
@@ -20,6 +21,7 @@ import type { ObservationsState } from "../../hooks/useObservations";
 import type { ProvinceForecastState } from "../../hooks/useProvinceForecast";
 import type { StormsState } from "../../hooks/useStorms";
 import { resolveError } from "../../lib/errorMessage";
+import type { BasinSelection } from "../../lib/basinView";
 import type { LayerPresetState } from "../../lib/defaultLayers";
 import { applyToggle, resetToTopic } from "../../lib/layerGroups";
 import type { TopicKey } from "../../lib/topics";
@@ -133,6 +135,13 @@ export interface PanelContext {
   focusStation: (target: StationFocus) => void;
   /** E16 — ข้อมูลเส้นทางน้ำเหนือจาก hook ตัวเดียวใน App.tsx (แผง north + ชั้นเส้นลำน้ำ 3 มิติ) */
   northRoute: NorthRouteState;
+  /**
+   * มุมมองตามลุ่มน้ำ (`/api/v1/basins`) — hook ตัวเดียวใน App.tsx ที่ poll **เฉพาะตอนแผง basin เปิดอยู่และดูปัจจุบัน**
+   * (แผงปิด = ไม่ยิงคำขอเลย รวมถึงตอนเริ่มแอป) + กลุ่มที่เลือกอยู่ (อยู่ใน state ของ App รอดการสลับแท็บย่อย ไม่อยู่ใน permalink)
+   */
+  basins: BasinsState;
+  basinSelection: BasinSelection | null;
+  setBasinSelection: (selection: BasinSelection | null) => void;
   /** ผลลัพธ์แบบจำลองพยากรณ์ของ HII (`/api/v1/rivers/forecast`) — hook ตัวเดียวใน App.tsx, ใช้เฉพาะการ์ด north (ไม่ใช่ `forecast` ของ TMD) */
   riverForecast: RiverForecastState;
   /** E16 B-1 — ชิปอายุแหล่งน้ำท่วมจากดาวเทียม (แผ่นเลื่อนมือถือ) — null = ชั้นน้ำท่วมปิดทั้งคู่ */

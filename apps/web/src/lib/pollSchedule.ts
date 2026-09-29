@@ -97,3 +97,17 @@ export const FORECAST_RETRY_MS = 120_000;
 export function nextForecastPollDelayMs(input: PollDelayInput): number | null {
   return pollDelayMs({ ...input, intervalMs: FORECAST_INTERVAL_MS, retryMs: FORECAST_RETRY_MS });
 }
+
+/**
+ * `/api/v1/basins` (มุมมองตามลุ่มน้ำ) — ถามเฉพาะตอนแผง basin ถูกเรนเดอร์อยู่ (hook ไม่เริ่ม poll เลยถ้าแผงปิด รวมถึงตอนเริ่มแอป
+ * และ `pollDelayMs` ไม่ตั้ง timer ตอนแท็บซ่อน) API เขียนแถวนี้ใหม่ทุกรอบ refresh 5 นาทีและ route ตอบผ่านแคชที่ขอบ 5 นาที
+ * จึงถามถี่กว่า 10 นาทีไม่ได้ความสดเพิ่ม — ข้อจำกัดต้นทุน devops C13
+ */
+export const BASINS_INTERVAL_MS = 10 * 60_000;
+/** รอบที่ล้มเหลวถามซ้ำไม่ถี่กว่านี้ — คำตอบผิดพลาดของ route นี้เป็น no-store จึงถึง DO ทุกครั้ง */
+export const BASINS_RETRY_MS = 120_000;
+
+/** รอบถัดไปของมุมมองตามลุ่มน้ำ — `panelOpen` ไม่มีผล (hook เปิดเฉพาะตอนแผงเปิดอยู่แล้ว) */
+export function nextBasinsPollDelayMs(input: PollDelayInput): number | null {
+  return pollDelayMs({ ...input, intervalMs: BASINS_INTERVAL_MS, retryMs: BASINS_RETRY_MS });
+}

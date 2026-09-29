@@ -44,6 +44,7 @@ import {
 } from "../archive.js";
 import { errorText, logError, logInfo, logWarn } from "../log.js";
 import { NORTH_ROUTE_STATIONS } from "../data/northRoute.js";
+import { buildBasins } from "../basins/build.js";
 
 /**
  * Upstream responses are 2-4 MB covering ~5,500 stations nationwide, so they
@@ -136,6 +137,15 @@ const EXPOSURE_STALE_AFTER_MS = 60 * 60 * 1000;
 const EXPOSURE_RUN_LAG_MS = 30 * 60 * 1000;
 
 /**
+ * มุมมองตามลุ่มน้ำ (`GET /api/v1/basins`): แถวเดียว `basins_latest(id='all')` ที่ **ถูกเขียนใหม่ทุกรอบ refresh ที่ดึงระดับน้ำ
+ * สำเร็จ** (ไม่มี hash-skip — `fetchedAt` ในแถวต้องเป็นเวลาของรอบนั้นจริง) ไม่มีตารางต่อลุ่มน้ำ ไม่มี DELETE
+ * ทางอ่าน (`getBasins`) อ่านแถวนี้ด้วย PK อย่างเดียว — ไม่สแกนตารางสถานี ไม่ parse payload ทีละสถานี
+ */
+const BASINS_ID = "all";
+/** เพดานขนาดแถว (ไบต์ UTF-8) — แถวของ DO จำกัด 2 MB; เกินเพดาน = ไม่เขียน เก็บแถวเดิมไว้ แล้วบอกใน meta */
+const BASINS_MAX_BYTES = 1_000_000;
+
+/**
  * Durable Object SQLite caps bound parameters per statement (100), and each
  * row here binds 5 columns — so keep chunks at 16 rows (80 params) to stay
  * comfortably under it.
@@ -223,6 +233,11 @@ export class ObservationCacheDO extends DurableObject<Env> {
           key TEXT PRIMARY KEY,
           body TEXT NOT NULL,
           fetched_ms INTEGER NOT NULL
+        );
+        -- มุมมองตามลุ่มน้ำ: แถวเดียว (id = 'all') อ่าน/เขียนด้วย PK เท่านั้น ไม่ใช่ meta เพราะบอดี้ใหญ่ (~300 KB)
+        CREATE TABLE IF NOT EXISTS basins_latest (
+          id TEXT PRIMARY KEY,
+          body TEXT NOT NULL
         );
       `);
     });
@@ -720,10 +735,88 @@ export class ObservationCacheDO extends DurableObject<Env> {
       const failures = Number(this.readMeta("consecutiveFailures") ?? "0") + 1;
       this.writeMeta("consecutiveFailures", String(failures));
     }
+    // มุมมองตามลุ่มน้ำ — หลัง `waterlevelFetchedAt` ถูกเขียนแล้ว (แถวจึงพก fetchedAt ของรอบนี้จริง) และเฉพาะรอบที่ดึง
+    // ระดับน้ำสำเร็จ: รอบที่ดึงพลาดปล่อยแถวเดิมไว้พร้อม fetchedAt เก่า ไม่เขียนทับด้วยเวลาใหม่ของข้อมูลเก่า
+    const basins = waterlevel ? this.rebuildBasins() : ("skipped" as const);
     logInfo("observation cache refreshed", {
       rainfall: rainfall?.length ?? "failed",
       waterlevel: waterlevel?.length ?? "failed",
+      basins: typeof basins === "string" ? basins : basins.basins,
+      basinsBytes: typeof basins === "string" ? undefined : basins.bytes,
     });
+  }
+
+  /**
+   * สร้างแถว `basins_latest` หนึ่งแถวจาก **ตาราง** (ไม่ใช่อาเรย์ฟีดของรอบนี้ — `replaceWaterLevel` เก็บสถานีที่หายไปจาก
+   * ฟีดหนึ่งรอบไว้ ตารางจึงเป็นความจริงของสิ่งที่เรามี) — เรียกครั้งเดียวต่อรอบ refresh เท่านั้น (สแกนสองตาราง
+   * ที่ `ALLOWED_SCANS` ระบุเหตุผลไว้แล้ว) การเขียนคือ **หนึ่งคำสั่ง** ต่อรอบ ไม่ว่ากี่สถานี
+   *
+   * **ไม่มีวัน reject** — ความล้มเหลวทุกแบบ (SQL, parse, ขนาดเกินเพดาน) ถูกเก็บใน meta `basinsError` แล้วแถวเดิมอยู่
+   * ครบ เพราะมันวิ่งบนเส้นทางเดียวกับ refresh: ถ้าโยนออกไป armAlarm() ของผู้เรียกจะถูกข้ามได้
+   */
+  private rebuildBasins():
+    | { status: "ok"; basins: number; bytes: number; rowsWritten: number }
+    | "failed" {
+    try {
+      const sql = this.ctx.storage.sql;
+      const waterlevel = sql
+        .exec<StationRow>("SELECT payload FROM waterlevel")
+        .toArray()
+        .map((r) => JSON.parse(r.payload) as WaterLevelObservation);
+      const dams = sql
+        .exec<StationRow>("SELECT payload FROM dams")
+        .toArray()
+        .map((r) => JSON.parse(r.payload) as DamObservation);
+      // ค่านี้ถูกเขียนก่อนหน้านี้ในรอบเดียวกันเสมอ — ถ้าเป็น null (meta เขียนไม่ได้) ไม่เขียนแถวที่ไม่มีเวลาดึง เพราะ
+      // route ถือว่า "แถวมีอยู่ = เคยดึงระดับน้ำสำเร็จ" (เก็บแถวเดิมไว้ พร้อม fetchedAt เก่าของมัน)
+      const fetchedAt = this.readMeta("waterlevelFetchedAt");
+      if (fetchedAt === null) {
+        this.writeMeta("basinsError", "waterlevelFetchedAt missing — basins row not written");
+        return "failed";
+      }
+      const response = buildBasins({
+        waterlevel,
+        dams,
+        fetchedAt,
+        damsFetchedAt: this.readMeta("damsFetchedAt"),
+        staleAfterSeconds: STALE_AFTER_MS / 1000,
+      });
+      const body = JSON.stringify(response);
+      const bytes = new TextEncoder().encode(body).byteLength;
+      if (bytes > BASINS_MAX_BYTES) {
+        this.writeMeta("basinsError", `basins row ${bytes} bytes exceeds ${BASINS_MAX_BYTES} — previous row kept`);
+        return "failed";
+      }
+      const cursor = sql.exec(
+        "INSERT INTO basins_latest (id, body) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET body = excluded.body",
+        BASINS_ID,
+        body,
+      );
+      cursor.toArray();
+      // ล้าง error เฉพาะรอบที่มีของค้าง (อ่านด้วย PK) — รอบปกติจึงเขียนแค่แถวเดียว
+      if (this.readMeta("basinsError") !== null) this.writeMeta("basinsError", null);
+      return { status: "ok", basins: response.basins.length, bytes, rowsWritten: cursor.rowsWritten };
+    } catch (err) {
+      try {
+        this.writeMeta("basinsError", errorText(err, 200));
+      } catch {
+        // meta เขียนไม่ได้เองก็ไม่ควรลาก refresh ลงไปด้วย
+      }
+      return "failed";
+    }
+  }
+
+  /**
+   * Backs GET /api/v1/basins — **อ่านแถวเดียวด้วย PK แล้วคืนสตริงตามที่เก็บ** (route ส่งต่อทั้งก้อน ไม่ parse/stringify
+   * ต่อคำขอ) ไม่สแกนตารางสถานีหรือเขื่อน ไม่เรียก `ensureFresh`/`refreshOnce`/`getDams` ไม่ยิงต้นทาง
+   * `body: null` = ยังไม่มีรอบ refresh ที่ดึงระดับน้ำสำเร็จหลังสร้างตารางนี้ (route ตอบ `fetchedAt: null` แบบ no-store)
+   * แถวที่มี = ถูกเขียนหลัง `waterlevelFetchedAt` ของรอบนั้นเสมอ จึงมี `fetchedAt` ที่ไม่ใช่ null โดยโครงสร้าง
+   */
+  async getBasins(): Promise<{ body: string | null; lastError: string | null }> {
+    const row = this.ctx.storage.sql
+      .exec<{ body: string }>("SELECT body FROM basins_latest WHERE id = ?", BASINS_ID)
+      .toArray()[0];
+    return { body: row?.body ?? null, lastError: row ? null : this.readMeta("basinsError") };
   }
 
   /**

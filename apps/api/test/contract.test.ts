@@ -61,6 +61,8 @@ const DATA_ROUTES: { path: string; mayFail503?: boolean }[] = [
   // พยากรณ์ปริมาณน้ำท่า/ระดับน้ำ HII FEWS: DO เย็นตอบ 200 พร้อมหกสถานีที่ชุดค่าว่างและ fetchedAt null
   // (ไม่ใช่ "ไม่มีพยากรณ์" — source.lastSuccessAt null บอกว่ายังไม่เคยดึง)
   { path: "/api/v1/rivers/forecast" },
+  // มุมมองตามลุ่มน้ำ: DO เย็นตอบ 200 พร้อมกลุ่มว่างและ fetchedAt/damsFetchedAt เป็น null (ไม่ใช่ "ไม่มีลุ่มน้ำ")
+  { path: "/api/v1/basins" },
   { path: "/api/v1/stations/1/history?hours=24", mayFail503: true },
   { path: "/api/v1/earthquakes/recent?limit=5" },
 ];

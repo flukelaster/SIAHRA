@@ -12,6 +12,7 @@ import {
   Satellite,
   Tornado,
   Waves,
+  Waypoints,
 } from "lucide-react";
 import { translator, type MessageKey } from "../../i18n";
 import { alertRailBadge } from "../../lib/alertSummary";
@@ -92,6 +93,23 @@ export const PANELS: readonly PanelDef[] = [
         state: ctx.northRoute,
         forecast: ctx.riverForecast,
         atIso: ctx.atIso,
+        onFocusStation: ctx.focusStation,
+      })),
+  },
+  {
+    // ลุ่มน้ำ — สถานีวัดระดับน้ำ/เขื่อนจัดกลุ่มตามป้ายลุ่มน้ำของ ThaiWater (ระดับประเทศ ไม่ขึ้นกับจังหวัดที่เลือก, live เท่านั้น)
+    // ข้อมูลมาจาก `ctx.basins` (hook ตัวเดียวใน App.tsx ที่ poll เฉพาะตอนแผงนี้เปิด) ไม่ใช่การ์ดยิงเอง
+    key: "basin",
+    icon: Waypoints,
+    labelKey: "panel.basin",
+    view: panelView(() => import("../hazard/BasinCard"), (m) => ({ ctx }) =>
+      createElement(m.BasinCard, {
+        state: ctx.basins,
+        selection: ctx.basinSelection,
+        onSelect: ctx.setBasinSelection,
+        atIso: ctx.atIso,
+        health: ctx.apiHealth,
+        apiDown: ctx.apiDown,
         onFocusStation: ctx.focusStation,
       })),
   },

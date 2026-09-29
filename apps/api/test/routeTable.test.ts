@@ -79,3 +79,18 @@ describe("/api/v1/rivers/forecast อยู่ในตาราง", () => {
     expect(rf!.pattern.test("/api/v1/rivers/north")).toBe(false);
   });
 });
+
+describe("/api/v1/basins อยู่ในตาราง", () => {
+  it("เป็น GET ที่ประกาศ rate limit เท่า /storms (300/นาที) และไม่มีเส้นทางย่อย", () => {
+    const basins = routes.find((r) => r.method === "GET" && r.pattern.test("/api/v1/basins"));
+    const storms = routes.find((r) => r.method === "GET" && r.pattern.test("/api/v1/storms"));
+    expect(basins).toBeDefined();
+    expect(basins!.limit).toEqual(storms!.limit);
+    expect(basins!.pattern.test("/api/v1/basins/ping")).toBe(false);
+  });
+
+  it("query string = 400 ผ่าน entrypoint จริง (ก่อนถึงแคชและ DO)", async () => {
+    const res = await workerFetch("https://example.com/api/v1/basins?x=1");
+    expect(res.status).toBe(400);
+  });
+});

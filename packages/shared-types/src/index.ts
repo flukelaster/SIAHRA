@@ -15,3 +15,4 @@ export * from "./cctv.js";
 export * from "./storm.js";
 export * from "./rivers.js";
 export * from "./community.js";
+export * from "./basins.js";

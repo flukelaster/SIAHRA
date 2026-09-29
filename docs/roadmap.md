@@ -2062,6 +2062,59 @@ Follow-up (not in this PR): hardcoded `bg-[var(--color-accent)] text-white` in a
 across 11 files is 3.68:1, and `text-white` on the `risk-high` badges is 2.80:1 — both below 4.5:1
 and not covered by `contrast.test.ts`, which checks tokens only.
 
+### E19 — River-basin view
+
+#### E19.1 — River-basin (ลุ่มน้ำ) view — *done* (2026-09-29, PR not yet filed)
+- Why: a user asked for water gauges organised by river basin so downstream areas can be assessed
+  conveniently; nothing grouped by basin (the province selector picks one province, the `north` panel
+  is the fixed Chao Phraya route). The only basin data available is ThaiWater's own `basinNameTh` on
+  stations and dams, so the view groups by that label — no new dataset, no polygons, no hand-typed table
+- Touches: `packages/shared-types/src/{basins,index}.ts`; `apps/api` — `src/basins/build.ts`,
+  `src/durable-objects/observation-cache.ts` (`basins_latest`, `rebuildBasins()`, `getBasins()`),
+  `src/routes/basins.ts`, `src/index.ts`, `src/cachePolicy.ts`, tests (`basins`, `contract`, `routeTable`,
+  `sqlQueryPlans`); `apps/web` — `hooks/useBasins.ts`, `lib/{basinView,pollSchedule,topics,shellPrefs}.ts`,
+  `components/hazard/BasinCard.tsx`, `components/layout/{panelRegistry.ts,panelViews.tsx}`,
+  `i18n/{th,en}.ts`, `App.tsx`
+- Depends: E16 (the north panel it sits beside), E18.1 (topics and sub-views)
+- Size: L — contract + API + web in one PR because a `shared-types` change must land with its consumers
+- Cost: cost-bearing — `devops` gate before and after the diff (`docs/deploy.md` "ค่าใช้จ่ายโดยประมาณ"); no
+  new binding, cron or migration
+- Risk: the live basin labels could have been mostly null or inconsistent (probed 2026-09-29: 1,442
+  stations, 0 null basin, 22 basins, 3 outside Thailand, 13 dams in 8 basins — so `unassigned` is empty
+  today but still counted); a persistent rebuild failure after a first good row is visible only as an
+  ageing `fetchedAt` (meta `basinsError` is not exposed)
+- Issue: _(not yet filed)_
+
+1. Contract and API: `GET /api/v1/basins` returns `BasinsResponse` from **one** primary-key read of
+   `basins_latest`, rebuilt once per `ObservationCacheDO` refresh tick that fetched water levels (one
+   write, no per-station write, no `console.*` in a loop); the grouping key is the label trimmed with one
+   leading "ลุ่มน้ำ" stripped and different names are never merged; "นอกประเทศไทย" is its own bucket, not a
+   basin; null-basin stations go to `unassigned`, never dropped; `fetchedAt` (stations) and `damsFetchedAt`
+   (dams, lazy) are separate and `null` before the first success; a body > 1,000,000 UTF-8 bytes keeps the
+   previous row.
+2. Route: any query string → `400`; `public, max-age=60, s-maxage=300` and edge-cached only once a row
+   exists, `no-store` before that and on a `503`; 300/min bucket; `/api/v1/health` unchanged; the two
+   `ALLOWED_SCANS` reasons for `waterlevel` / `dams` name the basins builder.
+3. Web: a `basin` sub-view in the water topic (`water, north, basin, dams, flood`; `PANEL_KEYS` now ten),
+   its own lazy chunk; one `useBasins` instance in `App` feeding `PanelContext.basins`, polled every 10
+   min (120 s retry) only while the panel is open, the tab is visible and `atIso` is null — no request at
+   load.
+4. Honesty: `lib/basinView.ts` uses only published criteria (ThaiWater `situationLevel` 5 / 4, else the
+   bank rule), with guarded copies asserted equal in tests; readings older than 6 h or undated are counted
+   apart; a fetched set older than `staleAfterSeconds` 900 s + the 300 s edge copy + the 10-min poll (30
+   min) dims and says so; codes such as "10499" count as no province; `freeboardM < 0` prints as above
+   bank; nothing over threshold is neutral, never green; live only ("shown for the present only" with
+   `atIso` set); the header states that the grouping is ThaiWater's label, not an SIAHRA boundary, and
+   that no order, arrival time or forecast is given.
+5. Tests: api grouping / cold state / size cap / route (400, `no-store`, 503); web `basinView`,
+   `BasinCard`, poll schedule, topic and shell-prefs key order; `npx tsc -b`, `npx oxlint src worker`,
+   root `npm test` green.
+
+Follow-up (not in this task): a curated, cited per-basin reach order (Mun, Chi, Tapi, Mae Klong, …) built
+by an `apps/etl` script in the `build:north-route` pattern — a strings-only cited source file plus ThaiWater
+station coordinates and OSM lines, refusing to write on an unresolved station — is what would give a real
+upstream→downstream view. Ordering by elevation was rejected: it would be an invented river distance.
+
 ## 3. Suggested first two weeks
 
 - **Week 1** (all independent, can run in any order): E1.1, E1.2, E2.1, E2.2, E2.3 (once the secrets
