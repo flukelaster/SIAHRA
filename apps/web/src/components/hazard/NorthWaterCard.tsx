@@ -11,8 +11,20 @@ import type { NorthRouteState } from "../../hooks/useNorthRoute";
 import { useNow } from "../../hooks/useNow";
 import { useLang } from "../../i18n/context";
 import type { Lang, MessageKey, TFunction } from "../../i18n";
+import { PROVINCES } from "../../data/provinces";
 import { damDisplayName } from "../../lib/damName";
 import { resolveError } from "../../lib/errorMessage";
+import {
+  BAND_COLOR,
+  BAND_SHAPE,
+  NEAR_CAPACITY_PCT,
+  STEADY_PCT_OF_QMAX,
+  capacityBand,
+  countBands,
+  readingDischargeTrend,
+  type CapacityBand,
+  type DischargeTrend,
+} from "../../lib/flowStrength";
 import {
   layoutSchematic,
   nodeColor,
@@ -28,6 +40,7 @@ import {
   type RouteView,
 } from "../../lib/northRoute";
 import { formatNumber } from "../../lib/number";
+import { provinceSeverities, type ProvinceSeverity, type ProvinceTone } from "../../lib/provinceSeverity";
 import { formatAge, formatDateTime, formatFetchedAt } from "../../lib/time";
 import type { StationFocus } from "../layout/panelViews";
 import { Panel } from "../ui/Panel";
@@ -118,10 +131,82 @@ function flowBits(r: NodeReading, lang: Lang, t: TFunction): string[] {
   return out;
 }
 
+const TREND_GLYPH: Record<DischargeTrend, string> = { rising: "↑", steady: "→", falling: "↓" };
+const TREND_KEY: Record<DischargeTrend, MessageKey> = {
+  rising: "north.flowTrend.rising",
+  steady: "north.flowTrend.steady",
+  falling: "north.flowTrend.falling",
+};
+const BAND_KEY: Record<CapacityBand, MessageKey> = {
+  over: "north.band.over",
+  near: "north.band.near",
+  normal: "north.band.normal",
+};
+const TONE_KEY: Record<ProvinceTone, MessageKey> = {
+  severe: "north.prov.tone.severe",
+  high: "north.prov.tone.high",
+  none: "north.prov.tone.none",
+  "no-data": "north.prov.tone.noData",
+};
+/** สีของระดับจังหวัด — ค่าเดียวกับ `nodeColor`; `none` เป็นเทากลาง (ไม่ใช่สีเขียว = ไม่ได้บอกว่าปลอดภัย) */
+const TONE_COLOR: Record<ProvinceTone, string> = {
+  severe: NODE_COLOR.red,
+  high: NODE_COLOR.orange,
+  none: NODE_COLOR.grey,
+  "no-data": NODE_COLOR.grey,
+};
+const TONE_SHAPE: Record<ProvinceTone, ChipShape> = { severe: "square", high: "triangle", none: "circle", "no-data": "circle" };
+
+type ChipShape = "square" | "triangle" | "circle";
+
+/** ชิป = รูปทรง + สี + ข้อความเสมอ (ไม่พึ่งสีอย่างเดียว); `hollow` = ไม่มีค่า/ไม่มีข้อมูล, `dim` = ค่าค้าง */
+function Chip({
+  shape,
+  color,
+  label,
+  hollow = false,
+  dashed = false,
+  dim = false,
+}: {
+  shape: ChipShape;
+  color: string;
+  label: string;
+  hollow?: boolean;
+  dashed?: boolean;
+  dim?: boolean;
+}) {
+  const fill = hollow ? "transparent" : color;
+  return (
+    <span
+      className="inline-flex w-fit max-w-full items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] leading-snug text-[var(--color-fg)]"
+      style={{ borderColor: color, opacity: dim ? 0.55 : 1, borderStyle: dashed ? "dashed" : "solid" }}
+    >
+      <svg viewBox="0 0 12 12" className="h-3 w-3 shrink-0" aria-hidden="true">
+        {shape === "square" ? (
+          <rect x={2} y={2} width={8} height={8} rx={1} fill={fill} stroke={color} strokeWidth={1.5} />
+        ) : shape === "triangle" ? (
+          <polygon points="6,1.5 11,10.5 1,10.5" fill={fill} stroke={color} strokeWidth={1.5} strokeLinejoin="round" />
+        ) : (
+          <circle cx={6} cy={6} r={4} fill={fill} stroke={color} strokeWidth={1.5} />
+        )}
+      </svg>
+      <span className="min-w-0 break-words">{label}</span>
+    </span>
+  );
+}
+
+function BandChip({ band, t }: { band: CapacityBand | "unknown"; t: TFunction }) {
+  if (band === "unknown") {
+    return <Chip shape="circle" color={NODE_COLOR.grey} hollow dashed label={t("north.band.unknown")} />;
+  }
+  return <Chip shape={BAND_SHAPE[band]} color={BAND_COLOR[band]} label={t(BAND_KEY[band])} />;
+}
+
 function StationRow({
   station,
   state,
   reading,
+  trend,
   view,
   nowMs,
   lang,
@@ -131,6 +216,8 @@ function StationRow({
   station: NorthRouteStation;
   state: NorthRouteStationState | undefined;
   reading: NodeReading;
+  /** แนวโน้มอัตราการไหล 3 ชม. — null = ตัดสินไม่ได้ (จุดไม่พอ / ไม่มี qmax / ค่าค้าง) */
+  trend: DischargeTrend | null;
   view: RouteView;
   nowMs: number;
   lang: Lang;
@@ -144,7 +231,8 @@ function StationRow({
   const peaks = state ? peaks48h(state.history48h, endMs) : { level: null, discharge: null };
   const level = levelBits(reading, lang, t);
   const flow = flowBits(reading, lang, t);
-  const trend = trendText(reading, lang, t);
+  const levelTrend = trendText(reading, lang, t);
+  const band = reading.missing ? null : (capacityBand(reading.qmaxPct) ?? "unknown");
   const bank = state?.latest?.minBankMsl ?? null;
   return (
     <li className="border-t border-[var(--color-border)] py-1.5 first:border-t-0" data-rid={station.ridCode}>
@@ -164,9 +252,21 @@ function StationRow({
                 : t("north.missing")
               : [...level, ...flow].join(" · ")}
           </span>
-          {!reading.missing && (trend || reading.situationLevel) ? (
+          {!reading.missing && (levelTrend || reading.situationLevel) ? (
             <span className="block text-[11px] text-[var(--color-fg-muted)]">
-              {[reading.situationLevel ? t(SITUATION_KEY[reading.situationLevel]) : null, trend].filter(Boolean).join(" · ")}
+              {[reading.situationLevel ? t(SITUATION_KEY[reading.situationLevel]) : null, levelTrend].filter(Boolean).join(" · ")}
+            </span>
+          ) : null}
+          {band !== null ? (
+            // แถบเทียบความจุ (รูปทรง + สี + ข้อความ) และแนวโน้มอัตราการไหลเป็นข้อความ — ลูกศรในผังไม่ใช่ช่องทางเดียว
+            <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <BandChip band={band} t={t} />
+              {trend ? (
+                <span className="text-[11px] text-[var(--color-fg-muted)]">
+                  <span aria-hidden="true">{TREND_GLYPH[trend]} </span>
+                  {t(TREND_KEY[trend])}
+                </span>
+              ) : null}
             </span>
           ) : null}
           {reading.observedAt ? (
@@ -254,12 +354,14 @@ function StationRow({
 function Schematic({
   topology,
   readings,
+  trends,
   lang,
   t,
   onFocus,
 }: {
   topology: NorthRouteTopology;
   readings: Map<string, NodeReading>;
+  trends: ReadonlyMap<string, DischargeTrend | null>;
   lang: Lang;
   t: TFunction;
   onFocus: (target: StationFocus) => void;
@@ -343,6 +445,14 @@ function Schematic({
         const dim = r.missing || r.stale;
         const leftSide = n.reachId === "ping" || n.reachId === "wang";
         const terminal = n.ridCode === layout.terminalCode;
+        // ค่าค้าง/ไม่มีค่า = ไม่มีลูกศร (`trends` เป็น null อยู่แล้ว) โหนดยังหรี่ตามเดิม
+        const trend = dim ? null : (trends.get(n.ridCode) ?? null);
+        const arrow = trend ? (
+          <tspan dx={leftSide ? 0 : 2} fontWeight={600} fill="#e0f2fe" aria-label={t(TREND_KEY[trend])}>
+            <title>{t(TREND_KEY[trend])}</title>
+            {TREND_GLYPH[trend]}
+          </tspan>
+        ) : null;
         return (
           <g
             key={n.ridCode}
@@ -360,7 +470,10 @@ function Schematic({
               fontWeight={terminal ? 600 : undefined}
               fill="#e2e8f0"
             >
+              {leftSide ? arrow : null}
+              {leftSide && arrow ? " " : null}
               {terminal ? terminalLabel(s, t) : n.ridCode}
+              {leftSide ? null : arrow}
             </text>
           </g>
         );
@@ -495,9 +608,142 @@ function SchematicLegend({ view, t }: { view: RouteView; t: TFunction }) {
             </LegendItem>
           </ul>
         </section>
+        <section>
+          <h4 className={heading(view.mode !== "outside")}>{t("north.legend.trend")}</h4>
+          <ul className="flex flex-col gap-0.5">
+            {(["rising", "steady", "falling"] as const).map((k) => (
+              <LegendItem
+                key={k}
+                swatch={
+                  <span className="text-[11px] leading-none font-semibold text-[#e0f2fe]" aria-hidden="true">
+                    {TREND_GLYPH[k]}
+                  </span>
+                }
+              >
+                {t(TREND_KEY[k])}
+              </LegendItem>
+            ))}
+          </ul>
+          <p className="mt-0.5 text-[var(--color-fg-subtle)]">
+            {t("north.legend.trendSteadyDef", { pct: String(STEADY_PCT_OF_QMAX) })}
+          </p>
+          <p className="mt-0.5 text-[var(--color-fg-subtle)]">{t("north.legend.trendNone")}</p>
+        </section>
       </div>
       <p className="text-[var(--color-fg-subtle)]">{t("north.flowLegend")}</p>
+      <p className="text-[var(--color-fg-subtle)]">{t("north.legend.trendNote")}</p>
     </div>
+  );
+}
+
+/** สรุปความแรงของการไหลของลำน้ำหนึ่ง (เจ้าพระยา): จำนวนสถานีต่อแถบ — ไม่มีค่า/ค่าค้างนับแยก ไม่รวมเข้า "ต่ำกว่าเกณฑ์" */
+function FlowStrengthSummary({
+  reachLabel,
+  readings,
+  t,
+}: {
+  reachLabel: string;
+  readings: readonly NodeReading[];
+  t: TFunction;
+}) {
+  const c = countBands(readings);
+  return (
+    <section className="flex flex-col gap-1.5 rounded-lg bg-[var(--color-bg-elevated)] px-2.5 py-2" data-flow-summary>
+      <h3 className="text-[11px] font-semibold text-[var(--color-fg)]">{t("north.flow.title", { reach: reachLabel })}</h3>
+      <p className="text-[10px] leading-snug text-[var(--color-fg-subtle)]">
+        {t("north.flow.note", { near: String(NEAR_CAPACITY_PCT) })}
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        <Chip shape={BAND_SHAPE.over} color={BAND_COLOR.over} label={t("north.flow.count.over", { n: String(c.over) })} />
+        <Chip shape={BAND_SHAPE.near} color={BAND_COLOR.near} label={t("north.flow.count.near", { n: String(c.near) })} />
+        <Chip shape={BAND_SHAPE.normal} color={BAND_COLOR.normal} label={t("north.flow.count.normal", { n: String(c.normal) })} />
+        <Chip shape="circle" color={NODE_COLOR.grey} hollow dashed label={t("north.flow.count.unknown", { n: String(c.unknown) })} />
+        {c.stale > 0 ? (
+          <Chip shape="circle" color={NODE_COLOR.grey} dim label={t("north.flow.count.stale", { n: String(c.stale) })} />
+        ) : null}
+      </div>
+      <p className="text-[10px] leading-snug text-[var(--color-fg-subtle)]">{t("north.flow.unknownNote")}</p>
+    </section>
+  );
+}
+
+function provinceLabel(code: string, lang: Lang): string {
+  const p = PROVINCES.find((x) => x.code === code);
+  return p ? (lang === "th" ? p.nameTh : p.nameEn) : code;
+}
+
+/** รายการความรุนแรงรายจังหวัด — เฉพาะจังหวัดที่ผังมีสถานี กดแถว = เปิดสถานีที่แย่สุด/สถานีแรกบนแผนที่ */
+function ProvinceSeverityList({
+  rows,
+  stationsByCode,
+  lang,
+  t,
+  onFocus,
+}: {
+  rows: readonly ProvinceSeverity[];
+  stationsByCode: ReadonlyMap<string, NorthRouteStation>;
+  lang: Lang;
+  t: TFunction;
+  onFocus: (target: StationFocus) => void;
+}) {
+  return (
+    <section className="flex flex-col gap-1" data-province-severity>
+      <h3 className="text-[11px] font-semibold text-[var(--color-fg)]">{t("north.prov.title")}</h3>
+      <p className="text-[10px] leading-snug text-[var(--color-fg-subtle)]">
+        {t("north.prov.note", { n: String(FREEBOARD_NEAR_M), unit: t("unit.m") })}
+      </p>
+      <ul>
+        {rows.map((row) => {
+          const focus = stationsByCode.get(row.focusCode);
+          const excluded = [
+            row.stale > 0 ? t("north.prov.n.stale", { n: String(row.stale) }) : null,
+            row.undated > 0 ? t("north.prov.n.undated", { n: String(row.undated) }) : null,
+            row.missing > 0 ? t("north.prov.n.missing", { n: String(row.missing) }) : null,
+            row.unclassified > 0 ? t("north.prov.n.unclassified", { n: String(row.unclassified) }) : null,
+          ].filter((x): x is string => x !== null);
+          return (
+            <li key={row.provinceCode} className="border-t border-[var(--color-border)] first:border-t-0" data-province={row.provinceCode}>
+              <button
+                type="button"
+                disabled={!focus}
+                title={t("north.open", { code: row.focusCode })}
+                onClick={() =>
+                  focus
+                    ? onFocus({ stationId: focus.thaiwaterId, provinceCode: focus.provinceCode, lat: focus.lat, lon: focus.lon })
+                    : undefined
+                }
+                className="flex min-h-11 w-full cursor-pointer flex-col items-start justify-center gap-0.5 py-1.5 text-left"
+              >
+                <span className="flex w-full flex-wrap items-center gap-x-2 gap-y-0.5">
+                  <span className="text-xs leading-thai text-[var(--color-fg)]">{provinceLabel(row.provinceCode, lang)}</span>
+                  <Chip
+                    shape={TONE_SHAPE[row.tone]}
+                    color={TONE_COLOR[row.tone]}
+                    hollow={row.tone === "none" || row.tone === "no-data"}
+                    dashed={row.tone === "no-data"}
+                    label={t(TONE_KEY[row.tone])}
+                  />
+                </span>
+                {row.worstCode && row.worstRule ? (
+                  <span className="text-[11px] text-[var(--color-fg-muted)]">
+                    {t("north.prov.worst", { code: row.worstCode, rule: t(`north.prov.rule.${row.worstRule}`) })}
+                  </span>
+                ) : null}
+                {row.peak ? (
+                  <span className="text-[11px] text-[var(--color-fg-muted)] tabular-nums">
+                    {t("north.prov.peak", { time: formatDateTime(lang, row.peak.t) })}
+                  </span>
+                ) : null}
+                <span className="text-[10px] text-[var(--color-fg-subtle)]">
+                  {t("north.prov.basis", { counted: String(row.counted), total: String(row.stationCount) })}
+                  {excluded.length > 0 ? ` · ${t("north.prov.excluded", { list: excluded.join(", ") })}` : ""}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 
@@ -532,6 +778,31 @@ export function NorthWaterCard({
     // view เปลี่ยนตาม atIso/nowMs — คิดใหม่ทุกครั้งที่สองค่านั้นเปลี่ยน
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [topology, route, atIso, nowMs],
+  );
+  const endMs = view.mode === "at" ? view.atMs : nowMs;
+  const stationsByCode = useMemo(() => new Map((topology?.stations ?? []).map((s) => [s.ridCode, s])), [topology]);
+  // แนวโน้มอัตราการไหล 3 ชม. จากประวัติ 48 ชม. ที่ถืออยู่แล้ว (ไม่มีคำขอใหม่) — null = ตัดสินไม่ได้
+  const trends = useMemo(() => {
+    const out = new Map<string, DischargeTrend | null>();
+    for (const [code, reading] of readings) {
+      const st = byCode.get(code);
+      out.set(code, st ? readingDischargeTrend(reading, st.history48h, endMs, st.latest?.qmaxM3s ?? null) : null);
+    }
+    return out;
+  }, [readings, byCode, endMs]);
+  // ความรุนแรงรายจังหวัดและสรุปการไหลต้องมีค่าตรวจวัดจริง: ยังไม่โหลด/นอกช่วง 48 ชม. = ไม่แสดง (ไม่ใช่ "ไม่มีสถานีเกินเกณฑ์")
+  const showMeasured = route !== null && view.mode !== "outside";
+  const severity = useMemo(
+    () =>
+      showMeasured && topology
+        ? provinceSeverities(
+            topology.stations,
+            readings,
+            new Map((route?.stations ?? []).map((s) => [s.ridCode, s.history48h])),
+            endMs,
+          )
+        : [],
+    [showMeasured, topology, readings, route, endMs],
   );
   const gapText = topology?.reaches
     .filter((r) => r.gaps.length > 0)
@@ -578,9 +849,24 @@ export function NorthWaterCard({
         {topology ? (
           <>
             <div className="flex flex-col gap-2 rounded-xl bg-black/25 px-1 pt-1.5 pb-2.5">
-              <Schematic topology={topology} readings={readings} lang={lang} t={t} onFocus={onFocusStation} />
+              <Schematic topology={topology} readings={readings} trends={trends} lang={lang} t={t} onFocus={onFocusStation} />
               <SchematicLegend view={view} t={t} />
             </div>
+
+            {showMeasured ? (
+              <FlowStrengthSummary
+                reachLabel={reachName(topology, "chao-phraya", lang)}
+                readings={topology.stations
+                  .filter((s) => s.reachId === "chao-phraya")
+                  .map((s) => readings.get(s.ridCode))
+                  .filter((r): r is NodeReading => r !== undefined)}
+                t={t}
+              />
+            ) : null}
+
+            {severity.length > 0 ? (
+              <ProvinceSeverityList rows={severity} stationsByCode={stationsByCode} lang={lang} t={t} onFocus={onFocusStation} />
+            ) : null}
 
             {READING_ORDER.map((reachId) => {
               const stations = topology.stations.filter((s) => s.reachId === reachId);
@@ -595,6 +881,7 @@ export function NorthWaterCard({
                         station={s}
                         state={byCode.get(s.ridCode)}
                         reading={readings.get(s.ridCode)!}
+                        trend={trends.get(s.ridCode) ?? null}
                         view={view}
                         nowMs={nowMs}
                         lang={lang}
