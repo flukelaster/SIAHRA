@@ -50,6 +50,14 @@ body,
   height: 100%;
 }
 
+/* ซูมหน้าไม่ได้ ซูมได้เฉพาะแผนที่ (canvas ตั้ง touch-action: none เอง) — `manipulation`
+   ยังให้เลื่อน/แตะในแผงได้ แต่ตัด double-tap zoom ออก (lib/pageZoomLock.ts) */
+html {
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   background: var(--color-bg);
