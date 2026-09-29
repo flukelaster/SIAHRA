@@ -1,0 +1,3 @@
+code,station.name.EN,station.name.TH,lat,long,basin,type,lowest,alarm,warning,critical,tambon,amphoe,province,publish,publish_onwr
+CPY011,-,พระนครศรีอยุธยา,14.3692,100.5285,cpy,hii_waterlevel,-5.52,2.94,4,5.06,ต.ภูเขาทอง,อ.พระนครศรีอยุธยา,จ.พระนครศรีอยุธยา,t,t
+CPY014,-,สะพานนวลฉวี,13.9474,100.5351,cpy,hii_waterlevel,-13.31,-0.82,0.74,2.3,ต.บ้านใหม่,อ.ปากเกร็ด,จ.นนทบุรี,t,t

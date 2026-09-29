@@ -86,6 +86,11 @@ export async function handleHealth(request: Request, env: AppEnv, _params: strin
     env.STORM_TRACK.getByName("primary")
       .status()
       .catch((err: unknown) => [unknownStatus("jma-typhoon", String(err)), unknownStatus("gdacs-tc", String(err))]),
+    // พยากรณ์ปริมาณน้ำท่า/ระดับน้ำ HII FEWS — DO เดียว หนึ่งแถว status() อ่าน meta คีย์เดียวด้วย PK
+    env.HII_FORECAST.getByName("primary")
+      .status()
+      .then((s) => [s])
+      .catch((err: unknown) => [unknownStatus("hii-fews", String(err))]),
   ];
   const sources = (await Promise.all(collectors)).flat();
   const body: HealthResponse = {

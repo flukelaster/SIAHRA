@@ -1560,6 +1560,34 @@ nothing in E16 turns rain into a water level or computes when water will arrive.
 - Depends: E16.PR1, E12
 - Issue: _(not yet filed)_
 
+#### E16 follow-up: HII FEWS river forecast API (PR-2a) — 2026-09-29 — done, PR pending
+HII publishes machine-readable model output for a few of the route's stations (checked 2026-09-29), so
+the "citable forecast" question of E16.C now has an answer for the API side; nothing reaches the web
+yet (PR-2b), and the north panel still shows no arrival time and no forecast.
+
+- Touches: `packages/shared-types/src/{sources,rivers,hazard-layer}.ts` (`SourceId` `hii-fews` with no
+  invented licence, `RiverForecast*` types, `forecast.horizonHours` widened to `number | null`); api
+  `ingestion/hiiFews.ts`, `durable-objects/hii-forecast.ts` (`HiiForecastDO`, one instance `"primary"`),
+  `routes/riverForecast.ts`, `routes/health.ts`, `cachePolicy.ts` (`riverForecast`), `index.ts` (route +
+  cron task `hii-forecast`), `wrangler.jsonc` (binding `HII_FORECAST`, migration v11), tests + real-capture
+  fixtures in `test/fixtures/hii/`
+- What ships: `GET /api/v1/rivers/forecast` (300/min, no query, `public, max-age=60, s-maxage=300`,
+  `no-store` until the first success, `503` on a DO failure) serving discharge forecasts for C.2 / C.13 /
+  C.3 / C.7A / C.35 and the Nonthaburi level CPY014; the DO fetches the six CSVs hourly from its own alarm
+  with conditional GETs and the two metadata CSVs (thresholds, names) at most once a day; `/health` gains
+  `hii-fews`. Layer class `forecast`, `issuedAt` always `null`, `publishedAt` = the oldest per-file
+  `Last-Modified`, and each series starts about 7 days before `publishedAt` (past hours, not forecast)
+- Cost: `devops` pre + verify — 4 rows written per hourly round, one `latest` row overwritten (~49 KB), no
+  history / retention / R2 / D1, no `ALLOWED_SCANS` entry; `/health` fans out to 9 DO calls; ≈ +$0.03/month
+  expected, ≈ $0.30 high (`docs/deploy.md`)
+- Size: M
+- Open items: (1) HII publishes no reuse licence, no model name and no run time for these files — the
+  owner should contact HII; until then the attribution says the model is unnamed and no licence is
+  claimed. (2) A `304` counts as success, so if HII stops regenerating the files while still answering,
+  `/health` stays `ok` and the freeze shows only as an ageing `publishedAt` (`docs/ops.md` §7)
+- Depends: E17 (`StormTrackDO` single-row pattern), E12
+- Issue: _(not yet filed)_
+
 ### E17 — Storm track layer v1 (JMA + GDACS NIO) — *done* (2026-09-26)
 
 PR #99's notification center left storm tracks out because no source was known. Probing on

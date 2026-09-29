@@ -7,6 +7,7 @@ import communitySrc from "../src/durable-objects/community-report.ts?raw";
 import earthquakeSrc from "../src/durable-objects/earthquake-feed.ts?raw";
 import floodSrc from "../src/durable-objects/flood-extent.ts?raw";
 import forecastNwpSrc from "../src/durable-objects/forecast-nwp.ts?raw";
+import hiiForecastSrc from "../src/durable-objects/hii-forecast.ts?raw";
 import observationSrc from "../src/durable-objects/observation-cache.ts?raw";
 import radarSrc from "../src/durable-objects/radar.ts?raw";
 import stormTrackSrc from "../src/durable-objects/storm-track.ts?raw";
@@ -48,6 +49,9 @@ const SOURCES: DoSource[] = [
   // เส้นทางพายุ — แถวเดียว `latest(id)` อ่านด้วย PK, meta ผ่าน readMeta (PK) จึงไม่มี
   // รายการใน ALLOWED_SCANS เลย: ถ้าวันหน้ามีคำสั่งที่สแกนโผล่มา เทสนี้แดงทันที
   { label: "StormTrackDO", source: stormTrackSrc, stub: () => appEnv.STORM_TRACK.getByName("plan-test") },
+  // พยากรณ์ HII FEWS — แถวเดียว `latest(id)` อ่านด้วย PK, meta ผ่าน readMeta (PK) ไม่มีตารางประวัติ
+  // จึงไม่มีรายการใน ALLOWED_SCANS เลย (devops go-with-constraints)
+  { label: "HiiForecastDO", source: hiiForecastSrc, stub: () => appEnv.HII_FORECAST.getByName("plan-test") },
   // รายงานจากประชาชน — ทุกคำสั่งผ่านดัชนี (รายการ/นับที่ซ่อน = idx_reports_province_hidden_created,
   // retention + MIN = idx_reports_created, ต่อรายงาน = PK) จึงไม่มีรายการใน ALLOWED_SCANS เลย (devops SQL-1)
   { label: "CommunityReportDO", source: communitySrc, stub: () => appEnv.COMMUNITY_REPORT.getByName("plan-test") },

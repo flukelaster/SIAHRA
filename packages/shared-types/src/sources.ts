@@ -18,6 +18,7 @@ export type SourceId =
   | "tmd-nwp"
   | "jma-typhoon"
   | "gdacs-tc"
+  | "hii-fews"
   | "exposure-illustrative"
   | "alert-engine"
   | "copernicus-gfm"
@@ -174,6 +175,20 @@ export const SOURCES: Record<SourceId, SourceDescriptor> = {
     // ยกจากหน้า Disclaimer and Terms of Use ของ GDACS ตรงตัว (ตรวจ 2026-09-26)
     disclaimerText:
       "GDACS notifications in the case of earthquakes, tsunamis and tropical cyclones are automatic, produced by algorithms and not reviewed by human experts before being issued. They may be subject to uncertainties and errors. GDACS services are not meant to substitute nor to override any official information or alert message from local or national disaster management authorities.",
+    kind: "live",
+  },
+  "hii-fews": {
+    id: "hii-fews",
+    nameTh: "พยากรณ์ปริมาณน้ำท่า/ระดับน้ำ ลุ่มเจ้าพระยา (HII FEWS)",
+    nameEn: "River discharge & level forecast, Chao Phraya (HII FEWS)",
+    agency: "สถาบันสารสนเทศทรัพยากรน้ำ (องค์การมหาชน) — HII",
+    homepageUrl: "https://www.thaiwater.net",
+    // ไฟล์ผลลัพธ์แบบจำลองที่ https://fews2.hii.or.th/model-output/data_portal/ ไม่มีหน้าเงื่อนไขการใช้ข้อมูล
+    // หรือสัญญาอนุญาตเผยแพร่คู่กัน (ตรวจ 2026-09-29) — ห้ามตั้งชื่อสัญญาอนุญาตขึ้นเอง
+    licenseName: "ไม่ได้เผยแพร่สัญญาอนุญาต",
+    licenseUrl: "https://www.thaiwater.net",
+    attributionText:
+      "ผลลัพธ์แบบจำลองพยากรณ์ปริมาณน้ำท่าและระดับน้ำจากระบบ FEWS ของสถาบันสารสนเทศทรัพยากรน้ำ (สสน.) — แบบจำลองที่ใช้ไม่ได้ถูกระบุชื่อโดยผู้เผยแพร่",
     kind: "live",
   },
   "exposure-illustrative": {

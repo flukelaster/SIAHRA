@@ -25,6 +25,7 @@ import {
   handleCommunityVote,
 } from "./routes/community.js";
 import { handleNorthRoute } from "./routes/rivers.js";
+import { handleRiverForecast } from "./routes/riverForecast.js";
 import { handleDams, handleStationHistory } from "./routes/stations.js";
 import { handleArchiveDays, handleArchiveSnapshot } from "./routes/archive.js";
 import type { AppEnv } from "./types.js";
@@ -35,6 +36,7 @@ export { EarthquakeFeedDO } from "./durable-objects/earthquake-feed.js";
 export { FloodExtentDO } from "./durable-objects/flood-extent.js";
 export { ForecastNwpDO } from "./durable-objects/forecast-nwp.js";
 export { ForecastPointerDO } from "./durable-objects/forecast-pointer.js";
+export { HiiForecastDO } from "./durable-objects/hii-forecast.js";
 export { ObservationCacheDO } from "./durable-objects/observation-cache.js";
 export { RadarDO } from "./durable-objects/radar.js";
 export { StormTrackDO } from "./durable-objects/storm-track.js";
@@ -58,6 +60,14 @@ export const routes: Route[] = [
     pattern: /^\/api\/v1\/rivers\/north$/,
     handler: (req, env, _params, ctx) => handleNorthRoute(req, env, ctx),
     limit: { perMinute: 120 },
+  },
+  {
+    // พยากรณ์ปริมาณน้ำท่า/ระดับน้ำ HII FEWS — DO call เดียว (PK lookup แถวเดียว) ใต้แคชขอบ 5 นาที
+    // ไม่ปลุกการดึงต้นทาง จึงตั้งงบเท่า `/storms`
+    method: "GET",
+    pattern: /^\/api\/v1\/rivers\/forecast$/,
+    handler: (req, env, _params, ctx) => handleRiverForecast(req, env, ctx),
+    limit: { perMinute: 300 },
   },
   {
     method: "GET",
@@ -269,6 +279,9 @@ export default {
       // เส้นทางพายุ (JMA + GDACS) รอบละ 30 นาที — ensureFresh() ข้ามรอบที่ยังสด และกั้นด้วย
       // lastAttemptAt ไม่ให้ยิงต้นทางถี่กว่า RETRY_MS แม้ต้นทางจะล่ม (แบบเดียวกับ tmd-nwp)
       { id: "storm", run: () => env.STORM_TRACK.getByName("primary").ensureFresh() },
+      // พยากรณ์ HII FEWS รอบละชั่วโมงจาก alarm ของ DO เอง — งานนี้แค่ตั้ง alarm คืนเมื่อหาย
+      // (ไม่ยิงต้นทางจาก cron ตราบที่ alarm ยังนัดอยู่ในอนาคต และรอบล่าสุดไม่เก่ากว่า 2 ชม.)
+      { id: "hii-forecast", run: () => env.HII_FORECAST.getByName("primary").ensureFresh() },
     ]);
   },
 } satisfies ExportedHandler<AppEnv>;

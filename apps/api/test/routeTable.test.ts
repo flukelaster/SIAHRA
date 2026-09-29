@@ -67,3 +67,15 @@ describe("/api/v1/storms อยู่ในตาราง", () => {
     expect(storms!.pattern.test("/api/v1/storms/jma:TC2632")).toBe(false);
   });
 });
+
+describe("/api/v1/rivers/forecast อยู่ในตาราง", () => {
+  it("เป็น GET ที่ประกาศ rate limit เท่า /storms (300/นาที) และไม่มีเส้นทางย่อย", () => {
+    const rf = routes.find((r) => r.method === "GET" && r.pattern.test("/api/v1/rivers/forecast"));
+    const storms = routes.find((r) => r.method === "GET" && r.pattern.test("/api/v1/storms"));
+    expect(rf).toBeDefined();
+    expect(rf!.limit).toEqual(storms!.limit);
+    expect(rf!.pattern.test("/api/v1/rivers/forecast/C2")).toBe(false);
+    // ไม่ไปทับเส้นทางน้ำเหนือเดิม
+    expect(rf!.pattern.test("/api/v1/rivers/north")).toBe(false);
+  });
+});

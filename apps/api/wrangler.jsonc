@@ -50,7 +50,8 @@
       { "name": "RADAR", "class_name": "RadarDO" },
       { "name": "ALERT_ENGINE", "class_name": "AlertEngineDO" },
       { "name": "STORM_TRACK", "class_name": "StormTrackDO" },
-      { "name": "COMMUNITY_REPORT", "class_name": "CommunityReportDO" }
+      { "name": "COMMUNITY_REPORT", "class_name": "CommunityReportDO" },
+      { "name": "HII_FORECAST", "class_name": "HiiForecastDO" }
     ]
   },
   "migrations": [
@@ -94,7 +95,11 @@
     { "tag": "v9", "new_sqlite_classes": ["StormTrackDO"] },
     // v10 = CommunityReportDO (รายงานผลกระทบจากประชาชน) — คลาสใหม่ล้วน ๆ ไม่แตะคลาสเดิม
     // retention 30 วันวิ่งจาก alarm ของ DO เอง ไม่มี cron ใหม่ (devops ALARM-1)
-    { "tag": "v10", "new_sqlite_classes": ["CommunityReportDO"] }
+    { "tag": "v10", "new_sqlite_classes": ["CommunityReportDO"] },
+    // v11 = HiiForecastDO (พยากรณ์ปริมาณน้ำท่า/ระดับน้ำ HII FEWS) — คลาสใหม่ล้วน ๆ ไม่แตะคลาสเดิม
+    // ไม่มี cron ใหม่ (งาน "hii-forecast" ใน scheduled() เป็นแค่ ensureFresh() ที่ไม่ยิงต้นทางเอง),
+    // ไม่มี D1/R2 ใหม่ — รอบดึงรายชั่วโมงวิ่งจาก alarm ของ DO เอง
+    { "tag": "v11", "new_sqlite_classes": ["HiiForecastDO"] }
   ],
 
   "triggers": { "crons": ["* * * * *"] },

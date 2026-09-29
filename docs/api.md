@@ -39,6 +39,7 @@ edit in that table.
 | `/api/v1/observations` | GET | 120 | default | per route | 2–4 MB upstream payload behind a DO cache; the map fetches it per province switch, not per frame |
 | `/api/v1/dams` | GET | 300 | default | per route | Fetched on province switch |
 | `/api/v1/rivers/north` | GET | 120 | default | per route | E16 north-route panel; one `ObservationCacheDO` RPC per edge-cache miss, and the edge cache (120 s) absorbs the rest |
+| `/api/v1/rivers/forecast` | GET | 300 | default | per route | HII FEWS river discharge / level forecast: one national request, one primary-key row read of `HiiForecastDO`; the request path never fetches upstream (the DO's own hourly alarm does), a query string is a `400` before the cache |
 | `/api/v1/stations/{id}/history` | GET | 60 | 20 | shared `history` | One bucket for all stations: clicking through many stations quickly is normal, scripted enumeration is not |
 | `/api/v1/archive/days` | GET | 300 | default | per route | Small, cached 5 min |
 | `/api/v1/archive/snapshot` | GET | 60 | default | per route | Reads an R2 object per call; the timeline scrubber requests one snapshot per settled position, not per drag frame |
@@ -105,6 +106,7 @@ Two rules are enforced by `json()` in `apps/api/src/router.ts` rather than by ea
 | `/api/v1/provinces/{NN}/forecast` | `observations` | `public, max-age=60, s-maxage=120` |
 | `/api/v1/forecast/availability` | `observations` | `public, max-age=60, s-maxage=120` |
 | `/api/v1/storms` | `storms` | `public, max-age=60, s-maxage=300`, or `no-store` while no source has ever succeeded — see [Storm tracks](#storm-tracks-storm-layer-v1) |
+| `/api/v1/rivers/forecast` | `riverForecast` | `public, max-age=60, s-maxage=300`, or `no-store` until a round has succeeded once (and on a `503`) — see [River forecast](#river-forecast-hii-fews) |
 | `/api/v1/exposure/runs/{runId}` | `frozenArtifact(key)` | `public, max-age=31536000, immutable` — the key contains the run's content hash, so it can never change |
 | `/api/v1/radar/frames` | `radarFrames` | `public, max-age=60` |
 | `/api/v1/radar/frame/{tsMs}.png` | `radarFrame` | `public, max-age=86400, immutable` |
@@ -183,6 +185,42 @@ query, so `?x=<random>` cannot bypass the edge copy), and a `200` is put there o
 one source has a `lastSuccessAt`: the cold "never fetched" answer after a deploy is `no-store`, as
 `floodExtent(null)` is, so it cannot pin itself at the edge for 5 minutes after the data arrived.
 A DO failure answers `503 {"error":"Storm tracks unavailable"}`.
+
+### River forecast (HII FEWS)
+
+`GET /api/v1/rivers/forecast` answers `RiverForecastResponse` (`packages/shared-types/src/rivers.ts`) for
+the whole basin in one request. **The web does not read it yet** (PR-2b), so the north panel still shows no
+arrival time and no forecast.
+
+- `stations[]`: six `RiverForecastStation` from HII's FEWS model-output files — discharge (`m3/s`) for
+  `C.2`, `C.13`, `C.3`, `C.7A`, `C.35` and the Nonthaburi water level (`m`) `CPY014` (`hiiCode` is the
+  publisher's code without the dot). Each has `series: [epoch ms UTC, value][]` hourly and unthinned,
+  `thresholds` (`alarm` / `warning` / `critical` exactly as HII's `metadata/*.csv` publish them, a blank
+  cell is `null`, never `0`; `nameTh` / `province` from the same file), `publishedAt` (that file's
+  `Last-Modified`, `null` when the upstream sends none), `fetchedAt` (last time we confirmed the file with
+  the upstream, a `304` included) and `lastError`. A file that fails keeps its previous series with its old
+  `fetchedAt` — the set is never emptied by one bad round.
+- `layer`: `river-forecast-hii-fews`, class `forecast` — deterministic model output. The publisher **does not
+  name the model** (`forecast.modelName` says so) and states **no run time**: `forecast.issuedAt` is always
+  `null` (`Last-Modified` is when the file was written, not a model run; never filled from `fetchedAt`).
+  `publishedAt` is the **oldest** per-file `Last-Modified`, `fetchedAt` the last round in which at least one
+  file was confirmed, `horizonHours` the last point minus `publishedAt` (smallest over stations; `null` when
+  it cannot be computed, never `0`).
+- **Each file's series starts about 7 days before `publishedAt`.** Points earlier than `publishedAt` are the
+  model's values for hours that have already passed — **not forecast** — and a consumer must not present
+  them as one. Times in the source files are Thai local time (+07:00) and are returned as UTC epoch ms.
+- `source`: `{id: "hii-fews", lastSuccessAt, lastAttemptAt, lastError}`; `lastSuccessAt: null` means never
+  fetched. `thresholdsFetchedAt` / `thresholdsLastError` report the metadata files (fetched at most once a
+  day) separately: a threshold failure does not fail the forecast round.
+- No reuse licence is published by HII for these files; `SOURCES["hii-fews"]` says so and carries no
+  invented licence or disclaimer.
+
+The route is one `SELECT body FROM latest WHERE id = ?` on the `"primary"` instance and never wakes a
+fetch; fetching is `HiiForecastDO`'s own hourly alarm (`docs/ops.md` §4). It sits behind `caches.default`
+keyed on **origin + pathname only**. **Any query string answers `400 {"error":"This endpoint takes no query parameters"}`**
+before the cache, so `?x=<random>` cannot reach the DO. A `200` is put in the edge cache only once a round
+has succeeded; the cold "never fetched" answer (empty series, every time `null`) is `no-store`. A DO failure
+answers `503 {"error":"River forecast unavailable"}` with `no-store`.
 
 ### North route responses (E16)
 
@@ -333,6 +371,7 @@ decided for it at all and never fires.
 | `gistda-flood` | `null` | Since E16.PR0 every cell names the satellite passes it came from (`file_name`, read at +07:00), so `latestObservedAt` is the newest acquisition — but Sentinel-1 and RADARSAT-2 revisit irregularly, so there is no cadence to compare it against. Guessing one would be a fabricated threshold. |
 | `alert-engine` | `null` | Not an upstream feed: it is `AlertEngineDO`'s own evaluation cadence (E11.5), reusing the same ThaiWater observations `exposure-illustrative` reads. `latestObservedAt` is the newest `last_observed_at` actually held across rule state, not the time of the last evaluation tick. There is no separate publication cadence to be `delayed` about — a stalled engine just means the tick has not run, which `staleAfterSeconds` already covers. |
 | `jma-typhoon`, `gdacs-tc` | `null` | Tropical cyclones have no cadence: a basin with no active storm is a normal state, not a stalled feed. Both rows come from **one** `StormTrackDO.status()` call that reads per-source meta by primary key (`src:jma-typhoon`, `src:gdacs-tc`), so one dead upstream never marks the other dead; `latestObservedAt` is the newest analysed fix of that source's storms, `detail = {storms}`. |
+| `hii-fews` | `null` | A forecast observes nothing (same reasoning as `tmd-nwp`), so `latestObservedAt` is `null` too. One row from `HiiForecastDO.status()` (a PK meta read), `detail = {stations, stationsOk, oldestPublishedAt}`. **Blind spot:** a `304 Not Modified` counts as a successful round, so if HII stops regenerating its files while still answering, this row stays `ok`; the freeze shows only as an ageing `oldestPublishedAt` (and `layer.publishedAt` in `/rivers/forecast`), which the health ladder does not judge. |
 | `copernicus-gfm` | `null` | The only source with no Durable Object (E14.F3): `.github/workflows/gfm-ingest.yml` runs the Python pipeline every 6 h and uploads `flood/gfm/health.json` to R2; `routes/health.ts` reads that one object (one `HAZARD_BUCKET.get` per `/health` compute, under the 15 s edge cache) and maps `fetchedAt = lastSuccessAt` (the last run with **no** error — a failed run is an attempt, not a fetch), `lastAttemptAt = lastRunAt`, `latestObservedAt = lastSceneObservedAt`, `detail = {itemsProcessed, scenesWritten}`. Sentinel-1 revisits a province every 6–12 days, so acquisition age cannot decide `delayed` — "no new image this week" is not a broken feed. A missing or unparsable object is `unknown` with `fetchedAt: null` and a `lastError` naming the key (before the first run, or after a bad upload) — "no report" is not "reported failure". |
 
 `staleAfterSeconds` is the separate fetch-side budget: thaiwater 900 s (refresh every 5 min),
@@ -342,7 +381,7 @@ three missed rounds), alert-engine 1800 s (evaluated every 5 min; 30 min without
 means the evaluation loop itself stopped), copernicus-gfm 43200 s (cron `17 */6 * * *`; 12 h with no
 successful run = two missed rounds → `stale` if the cron went silent, `down` if runs keep failing —
 the ladder above judges `lastError` first), jma-typhoon and gdacs-tc 10800 s (refresh every 30 min, retry
-5 min only when both upstreams failed → six missed rounds).
+5 min only when both upstreams failed → six missed rounds), hii-fews 10800 s (refresh hourly, whole-round retry from 5 min → three missed rounds).
 
 ### `down`, `ok` and `worst`
 
@@ -377,8 +416,9 @@ the ladder above judges `lastError` first), jma-typhoon and gdacs-tc 10800 s (re
 
 ## Scheduled refresh (not an endpoint)
 
-The cron tick runs seven refresh jobs — `earthquakes`, `thaiwater`, `gistda-flood`, `tmd-radar`,
-`tmd-nwp`, `alert-engine` and `storm` (`StormTrackDO`, both storm upstreams) — concurrently and in isolation (`apps/api/src/scheduledTick.ts`), each
+The cron tick runs eight refresh jobs — `earthquakes`, `thaiwater`, `gistda-flood`, `tmd-radar`,
+`tmd-nwp`, `alert-engine`, `storm` (`StormTrackDO`, both storm upstreams) and `hii-forecast` (`HiiForecastDO`,
+which only re-arms its own hourly alarm) — concurrently and in isolation (`apps/api/src/scheduledTick.ts`), each
 with its own ~25 s budget. One job failing or hanging does not stop the others, and each emits exactly one
 structured log line per tick with `source`, `outcome` (`ok` / `error` / `timeout`) and `durationMs`.
 Each source's own freshness and last error stay visible in `/api/v1/health` — a failed refresh

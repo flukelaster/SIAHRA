@@ -323,7 +323,7 @@ fallback — loader จะได้ HTML มาแทน binary แล้วพ�
 - `ALLOWED_ORIGINS`: ว่าง = same-origin เท่านั้น — ไม่ต้องตั้ง เพราะ route ของสอง Worker อยู่บน host
   เดียวกัน (`siahra-radar.co`) ตามหัวข้อ 0.1 ; ถ้าวันหน้าย้าย SPA ไปคนละ host ต้องใส่ origin ของ SPA ที่นี่
   **และ** เติม CORS header ใน `apps/api/src/router.ts` ด้วย ไม่ใช่ตั้งค่านี้ตัวเดียว
-- migrations v1–v10 (DO SQLite) มีครบ, cron `* * * * *` มีแล้ว — v5 สร้าง `AlertEngineDO` ตัวเก่า
+- migrations v1–v11 (DO SQLite) มีครบ, cron `* * * * *` มีแล้ว — v5 สร้าง `AlertEngineDO` ตัวเก่า
   (ทะเบียนสถานีปลอม, E11.5 revert), v6 ลบคลาสทิ้ง, v7 สร้าง `AlertEngineDO` ใหม่ทั้งหมด (E11.5 จริง —
   สถานีจริง, ระดับจาก `computeExposure()`, ไม่มี write route), v8 สร้าง `ForecastNwpDO` (E12.2, binding
   `FORECAST_NWP`) เป็นคลาสใหม่ล้วน ๆ **ไม่ได้** นำ `ForecastPointerDO` มาใช้ซ้ำทั้งที่ชื่อคล้ายกัน — ตัวนั้นคือ
@@ -334,7 +334,9 @@ fallback — loader จะได้ HTML มาแทน binary แล้วพ�
   account's last applied tag was then v8; v9 was applied when the storm layer shipped (PR #101, live since
   2026-09-26), so v10 is the next tag. v10 creates `CommunityReportDO` (community report pins, binding
   `COMMUNITY_REPORT`, single instance `"primary"`) as a brand-new class; its 30-day retention runs from the DO's own
-  hourly alarm, armed only while it holds rows — no cron change
+  hourly alarm, armed only while it holds rows — no cron change. v11 creates `HiiForecastDO` (HII FEWS river forecast, binding
+  `HII_FORECAST`, single instance `"primary"`) as a brand-new class, the next tag after v10; the hourly fetch runs from the
+  DO's own alarm and the existing every-minute cron only calls its `ensureFresh()` — no new cron, no D1, no R2
 - โดเมน: `wrangler deploy` สร้าง/อัปเดต Custom Domain + route ให้เองจาก `routes` ในแต่ละ config
   แต่ zone `siahra-radar.co` ต้องอยู่ใน account เดียวกันก่อน — deploy **web ก่อน api** ในครั้งแรก
   เพราะ Custom Domain ของ web เป็นตัวสร้าง DNS record ที่ proxied ให้ apex (route ของ api ต้องมี
@@ -461,6 +463,17 @@ Storm layer v1 (`StormTrackDO`, `GET /api/v1/storms`): alarm / cron every 30 min
 times a day (plus a few per-source meta rows per round), no history table, no retention, no R2, no `ALLOWED_SCANS` entry; the
 per-request path is a single-row PK read under a 5-min `caches.default` entry keyed on origin + pathname only —
 `devops` verify 2026-09-26: **+~$0.03/month expected, ~$0.48 worst case**
+
+HII FEWS river forecast (`HiiForecastDO`, `GET /api/v1/rivers/forecast`, migration v11, binding `HII_FORECAST`): `/health` now
+fans out to **9 DO calls per compute** (worst case ~1.5M DO requests per cycle, up from ~1.37M). The DO is alarm-driven
+hourly; the cron's minute tick calls `ensureFresh()` (one `getAlarm()` + one PK meta read, no write, 43.2k DO
+requests/month). A round is 6 forecast GETs in parallel (conditional: ETag / If-Modified-Since), then ≤ 2 metadata GETs
+at most once per 24 h (20 s wall clock worst case, 10 s per request). Each successful round writes 4 rows (one `latest`
+row overwritten, ~49 KB, plus the `lastAttemptAt`, `state` and `src:hii-fews` meta rows) ≈ 2.9k rows/month = 0.006 % of
+the 50M included; no history table, no retention, no R2, no D1, no `ALLOWED_SCANS` entry. The per-request path is a
+single-row PK read on an edge-cache miss, under a 5-min `caches.default` entry keyed on origin + pathname only —
+`devops` verify 2026-09-29: **≈ +$0.03/month expected, ≈ $0.30 high** (pessimistic $0.68 if the DO-duration allowance
+were exhausted); one-off cost $0; projected account total ≈ **$5.5/month expected**
 
 E14.F1 (`/api/v1/provinces/{NN}/flood-extent?at=`) เพิ่มเส้นทางย้อนหลังโดยไม่เพิ่ม DO write ต่อคำขอ: ตาราง `flood_scenes`
 เขียนหนึ่งแถวต่อฉากที่ archive (ไม่กี่ร้อยแถว/ปี) บนเส้นทาง refresh เท่านั้น คำขอ `at` ภายใน 30 วันอ่านตาราง hot ผ่านดัชนี
