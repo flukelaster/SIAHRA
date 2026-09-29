@@ -8,6 +8,7 @@ import type {
   NorthRouteTopology,
 } from "@siahra/shared-types";
 import type { NorthRouteState } from "../../hooks/useNorthRoute";
+import type { RiverForecastState } from "../../hooks/useRiverForecast";
 import { useNow } from "../../hooks/useNow";
 import { useLang } from "../../i18n/context";
 import type { Lang, MessageKey, TFunction } from "../../i18n";
@@ -41,9 +42,11 @@ import {
 } from "../../lib/northRoute";
 import { formatNumber } from "../../lib/number";
 import { provinceSeverities, type ProvinceSeverity, type ProvinceTone } from "../../lib/provinceSeverity";
+import { NO_STATION_PROVINCES, buildForecastIndex, forecastStationsByProvince, type ForecastEntry } from "../../lib/riverForecast";
 import { formatAge, formatDateTime, formatFetchedAt } from "../../lib/time";
 import type { StationFocus } from "../layout/panelViews";
 import { Panel } from "../ui/Panel";
+import { ForecastBrief, ForecastSection } from "./RiverForecastSection";
 import { Sparkline } from "./Sparkline";
 
 /**
@@ -53,7 +56,10 @@ import { Sparkline } from "./Sparkline";
  * chainage จริงจากผังคงที่ (`/rivers/north-route.json`) สีตามระดับสถานการณ์ของ ThaiWater (สด)
  * หรือระยะต่ำกว่าตลิ่ง (ย้อนหลัง) ใต้ผังคือรายการสถานีเรียงตามทางน้ำ: ระดับน้ำ, ระยะถึงตลิ่ง/
  * ระดับวิกฤต, อัตราการไหลและ % ของความจุลำน้ำ, แนวโน้ม 3 ชม., กราฟ 48 ชม. และเวลาของยอดสูงสุด
- * ที่ **เกิดขึ้นแล้ว** — ไม่มีเวลาที่น้ำจะมาถึงหรือค่าล่วงหน้าใด ๆ
+ * ที่ **เกิดขึ้นแล้ว** — ส่วนที่วัดได้ไม่มีเวลาที่น้ำจะมาถึงหรือค่าล่วงหน้าใด ๆ
+ *
+ * แยกต่างหาก (`RiverForecastSection`, เฉพาะโหมดสด): ผลลัพธ์แบบจำลองเชิงกำหนดของ HII (สสน.) ที่ `/api/v1/rivers/forecast`
+ * — ป้าย `forecast` เส้นประ ที่มาและเวลาไฟล์อัปเดต; ไม่ใช่ค่าที่วัด ไม่มีความน่าจะเป็น ไม่มีเวลาน้ำมาถึงที่เราคำนวณ
  *
  * เดินตาม `atIso` ของ TimelineBar ด้วยประวัติที่ถืออยู่แล้ว (ไม่ยิงคำขอใหม่); เก่ากว่า 48 ชม.
  * = ชิป "อยู่นอกช่วง 48 ชม. ของแผงนี้" และไม่แสดงค่าของสถานีใด
@@ -207,6 +213,7 @@ function StationRow({
   state,
   reading,
   trend,
+  forecast,
   view,
   nowMs,
   lang,
@@ -218,6 +225,8 @@ function StationRow({
   reading: NodeReading;
   /** แนวโน้มอัตราการไหล 3 ชม. — null = ตัดสินไม่ได้ (จุดไม่พอ / ไม่มี qmax / ค่าค้าง) */
   trend: DischargeTrend | null;
+  /** ผลลัพธ์แบบจำลอง HII ของสถานีนี้ (เฉพาะโหมดสดและเมื่อ API ดึงต้นทางสำเร็จแล้ว) — null = ไม่แสดงบรรทัดนั้น */
+  forecast: ForecastEntry | null;
   view: RouteView;
   nowMs: number;
   lang: Lang;
@@ -280,6 +289,12 @@ function StationRow({
           ) : !reading.missing ? (
             // มีค่าแต่ไม่มีเวลาตรวจวัด — ต้องบอก ไม่ใช่ปล่อยให้ดูเหมือนค่าปัจจุบัน
             <span className="block text-[10px] text-[var(--color-risk-medium)]">{t("north.readingTimeUnknown")}</span>
+          ) : null}
+          {forecast ? (
+            // บรรทัดเดียวของผลลัพธ์แบบจำลอง HII (ขอบเส้นประ) — ผังและค่าที่วัดด้านบนไม่เปลี่ยน
+            <span className="mt-0.5 block">
+              <ForecastBrief entry={forecast} nowMs={nowMs} lang={lang} t={t} />
+            </span>
           ) : null}
         </span>
         {open ? (
@@ -676,12 +691,17 @@ function provinceLabel(code: string, lang: Lang): string {
 function ProvinceSeverityList({
   rows,
   stationsByCode,
+  forecastByProvince,
+  nowMs,
   lang,
   t,
   onFocus,
 }: {
   rows: readonly ProvinceSeverity[];
   stationsByCode: ReadonlyMap<string, NorthRouteStation>;
+  /** ผลลัพธ์แบบจำลอง HII ต่อจังหวัด (ว่าง = ไม่แสดง) — บรรทัดของแบบจำลองไม่มีผลต่อระดับความรุนแรงของแถว */
+  forecastByProvince: ReadonlyMap<string, readonly ForecastEntry[]>;
+  nowMs: number;
   lang: Lang;
   t: TFunction;
   onFocus: (target: StationFocus) => void;
@@ -738,7 +758,82 @@ function ProvinceSeverityList({
                   {t("north.prov.basis", { counted: String(row.counted), total: String(row.stationCount) })}
                   {excluded.length > 0 ? ` · ${t("north.prov.excluded", { list: excluded.join(", ") })}` : ""}
                 </span>
+                {(forecastByProvince.get(row.provinceCode) ?? []).map((entry) => (
+                  <ForecastBrief key={entry.station.code} entry={entry} nowMs={nowMs} lang={lang} t={t} prefix={entry.station.code} />
+                ))}
               </button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+/**
+ * แถวของจังหวัดที่ไม่มีสถานีตรวจวัดบนเส้นทาง (`NO_STATION_PROVINCES`, การตัดสินใจของเจ้าของโครงการ) — แยกจากรายการความรุนแรง:
+ * ไม่มีค่าที่วัดได้ ไม่มีระดับ ไม่มีสี มีแต่ผลลัพธ์แบบจำลอง HII ของสถานีที่มีอยู่จริง; จังหวัดที่ไม่มีสถานีเลยแสดงสถานีข้างเคียง
+ * เป็น "อ้างอิง" — ไม่ประมาณเวลาหรือระดับให้จังหวัดนั้น
+ */
+function NoStationProvinces({
+  byProvince,
+  entries,
+  nowMs,
+  lang,
+  t,
+}: {
+  byProvince: ReadonlyMap<string, readonly ForecastEntry[]>;
+  entries: ReadonlyMap<string, ForecastEntry>;
+  nowMs: number;
+  lang: Lang;
+  t: TFunction;
+}) {
+  const provinceOfCode = new Map<string, string>();
+  for (const [province, list] of byProvince) for (const e of list) provinceOfCode.set(e.station.code, province);
+  return (
+    <section className="flex flex-col gap-1" data-no-station-provinces>
+      <h3 className="text-[11px] font-semibold text-[var(--color-fg)]">{t("north.forecast.noStation.title")}</h3>
+      <p className="text-[10px] leading-snug text-[var(--color-fg-subtle)]">{t("north.forecast.noStation.note")}</p>
+      <ul>
+        {NO_STATION_PROVINCES.map((row) => {
+          const own = byProvince.get(row.provinceCode) ?? [];
+          const refs = row.referenceCodes.map((c) => entries.get(c)).filter((e): e is ForecastEntry => e !== undefined);
+          const referenceOnly = row.referenceCodes.length > 0;
+          return (
+            <li
+              key={row.provinceCode}
+              className="flex flex-col gap-0.5 border-t border-[var(--color-border)] py-1.5 first:border-t-0"
+              data-province={row.provinceCode}
+              data-no-station
+            >
+              <span className="flex w-full flex-wrap items-center gap-x-2 gap-y-0.5">
+                <span className="text-xs leading-thai text-[var(--color-fg)]">{provinceLabel(row.provinceCode, lang)}</span>
+                <Chip
+                  shape="circle"
+                  color={NODE_COLOR.grey}
+                  hollow
+                  dashed
+                  label={t(referenceOnly ? "north.forecast.prov.noStation" : "north.forecast.prov.noObserved")}
+                />
+              </span>
+              <span className="text-[10px] leading-snug text-[var(--color-fg-subtle)]">
+                {t(referenceOnly ? "north.forecast.prov.refNote" : "north.forecast.prov.noObservedNote")}
+              </span>
+              {own.map((e) => (
+                <ForecastBrief key={e.station.code} entry={e} nowMs={nowMs} lang={lang} t={t} prefix={e.station.code} />
+              ))}
+              {refs.map((e) => (
+                // อ้างอิง = สถานีข้างเคียง ไม่ใช่ของจังหวัดนี้: ชิปเส้นประ + ตัวเอียง กันอ่านเวลาสูงสุดของสถานีนั้นเป็นของจังหวัด
+                <span key={e.station.code} className="mt-0.5 flex flex-col gap-0.5 italic" data-reference-station={e.station.code}>
+                  <span className="inline-flex w-fit max-w-full rounded-md border border-dashed border-[var(--color-fg-subtle)] px-1.5 py-0.5 text-[10px] leading-snug text-[var(--color-fg-muted)]">
+                    {t("north.forecast.prov.ref", {
+                      province: provinceLabel(provinceOfCode.get(e.station.code) ?? "", lang),
+                      code: e.station.code,
+                    })}
+                  </span>
+                  <ForecastBrief entry={e} nowMs={nowMs} lang={lang} t={t} />
+                </span>
+              ))}
             </li>
           );
         })}
@@ -757,6 +852,7 @@ function damReport(ids: readonly number[], dams: readonly DamObservation[]): Dam
 
 export function NorthWaterCard({
   state,
+  forecast,
   atIso,
   onFocusStation,
 }: {
@@ -765,6 +861,8 @@ export function NorthWaterCard({
    * ไม่ใช่ hook ของการ์ดเอง ไม่งั้นเปิดทั้งแผงและชั้นพร้อมกันจะ poll สองชุด
    */
   state: NorthRouteState;
+  /** ผลลัพธ์แบบจำลอง HII — hook ตัวเดียวใน App.tsx (`useRiverForecast`, ผ่าน `PanelContext.riverForecast`) */
+  forecast: RiverForecastState;
   atIso: string | null;
   onFocusStation: (target: StationFocus) => void;
 }) {
@@ -803,6 +901,38 @@ export function NorthWaterCard({
           )
         : [],
     [showMeasured, topology, readings, route, endMs],
+  );
+  // ผลลัพธ์แบบจำลองแสดงเฉพาะโหมดสด (atIso ไม่ตั้ง): ย้อนเวลา/นอกช่วง 48 ชม. = ซ่อนและบอกเหตุ ไม่ประเมินค่าย้อนหลังใหม่ด้วยแบบจำลอง
+  const forecastLive = view.mode === "live";
+  const forecastData = forecast.data;
+  const forecastEntries = useMemo(
+    () =>
+      forecastData
+        ? buildForecastIndex(forecastData.stations, {
+            staleAfterSeconds: forecastData.layer.staleAfterSeconds,
+            nowMs,
+            requestFailed: forecast.error !== null,
+          })
+        : new Map<string, ForecastEntry>(),
+    [forecastData, nowMs, forecast.error],
+  );
+  // API ยังไม่เคยดึงไฟล์ HII สำเร็จ = ไม่มีบรรทัดในแถว (การ์ดของส่วนแบบจำลองบอกเหตุนั้นอยู่แล้ว)
+  const forecastRows = forecastLive && forecastData !== null && forecastData.source.lastSuccessAt !== null;
+  const forecastByProvince = useMemo(() => {
+    const out = new Map<string, ForecastEntry[]>();
+    if (!forecastRows || !forecastData) return out;
+    const byProvince = forecastStationsByProvince(topology?.stations ?? [], forecastData.stations, PROVINCES);
+    for (const [province, list] of byProvince) {
+      out.set(
+        province,
+        list.map((s) => forecastEntries.get(s.code)).filter((e): e is ForecastEntry => e !== undefined),
+      );
+    }
+    return out;
+  }, [forecastRows, forecastData, topology, forecastEntries]);
+  const historiesByCode = useMemo(
+    () => new Map((route?.stations ?? []).map((s) => [s.ridCode, s.history48h])),
+    [route],
   );
   const gapText = topology?.reaches
     .filter((r) => r.gaps.length > 0)
@@ -865,8 +995,30 @@ export function NorthWaterCard({
             ) : null}
 
             {severity.length > 0 ? (
-              <ProvinceSeverityList rows={severity} stationsByCode={stationsByCode} lang={lang} t={t} onFocus={onFocusStation} />
+              <ProvinceSeverityList
+                rows={severity}
+                stationsByCode={stationsByCode}
+                forecastByProvince={forecastRows ? forecastByProvince : new Map()}
+                nowMs={nowMs}
+                lang={lang}
+                t={t}
+                onFocus={onFocusStation}
+              />
             ) : null}
+
+            {forecastRows ? (
+              <NoStationProvinces byProvince={forecastByProvince} entries={forecastEntries} nowMs={nowMs} lang={lang} t={t} />
+            ) : null}
+
+            <ForecastSection
+              forecast={forecast}
+              entries={forecastEntries}
+              live={forecastLive}
+              histories={historiesByCode}
+              nowMs={nowMs}
+              lang={lang}
+              t={t}
+            />
 
             {READING_ORDER.map((reachId) => {
               const stations = topology.stations.filter((s) => s.reachId === reachId);
@@ -882,6 +1034,7 @@ export function NorthWaterCard({
                         state={byCode.get(s.ridCode)}
                         reading={readings.get(s.ridCode)!}
                         trend={trends.get(s.ridCode) ?? null}
+                        forecast={forecastRows ? (forecastEntries.get(s.ridCode) ?? null) : null}
                         view={view}
                         nowMs={nowMs}
                         lang={lang}

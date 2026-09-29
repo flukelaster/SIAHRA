@@ -80,3 +80,20 @@ export const COMMUNITY_RETRY_MS = 60_000;
 export function nextCommunityPollDelayMs(input: PollDelayInput): number | null {
   return pollDelayMs({ ...input, intervalMs: COMMUNITY_INTERVAL_MS, retryMs: COMMUNITY_RETRY_MS });
 }
+
+/**
+ * `/api/v1/rivers/forecast` (ผลลัพธ์แบบจำลองพยากรณ์ของ HII) — ถามเฉพาะตอนแผง north เปิดอยู่ (hook ไม่เริ่ม poll เลย
+ * ถ้าแผงปิด และ `pollDelayMs` ไม่ตั้ง timer ตอนแท็บซ่อน) API ดึงต้นทางรอบละชั่วโมงและ route ตอบผ่านแคชที่ขอบ
+ * จึงถามถี่กว่า 15 นาทีไม่ได้ความสดเพิ่ม
+ */
+export const FORECAST_INTERVAL_MS = 15 * 60_000;
+/** รอบที่ล้มเหลวถามซ้ำไม่ถี่กว่านี้ — คำตอบผิดพลาดของ route นี้ไม่ผ่านแคช จึงเป็นการเรียกถึง DO ทุกครั้ง */
+export const FORECAST_RETRY_MS = 120_000;
+
+/**
+ * รอบถัดไปของผลลัพธ์แบบจำลองพยากรณ์ — `panelOpen` ไม่มีผล (hook เปิดเฉพาะตอนแผงเปิดอยู่แล้ว) แต่ล้มเหลวรอ
+ * 120 วิ ไม่ใช่ 15 นาทีแบบเขื่อน: แผงที่เปิดอยู่ต้องฟื้นเร็วเมื่อเครือข่ายกลับมา
+ */
+export function nextForecastPollDelayMs(input: PollDelayInput): number | null {
+  return pollDelayMs({ ...input, intervalMs: FORECAST_INTERVAL_MS, retryMs: FORECAST_RETRY_MS });
+}

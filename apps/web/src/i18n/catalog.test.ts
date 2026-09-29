@@ -106,6 +106,17 @@ const STORM_CIRCLE_KEY = /^storm\.circle\./;
 /** มี `g` ได้เพราะใช้กับ `.replace()` เท่านั้น */
 const CIRCLE_PROBABILITY = /probabilit(y|ies)|ความน่าจะเป็น/gi;
 
+/**
+ * ข้อยกเว้นที่สาม (แผงน้ำเหนือ, ส่วน "ผลลัพธ์แบบจำลอง HII"): ผลลัพธ์แบบจำลอง FEWS ของ สสน. เป็นค่า **เชิงกำหนด** ของ
+ * แบบจำลองบุคคลที่สามที่อ้างอิงได้ ไม่ใช่ตัวเลขที่เราแต่ง — รัดสามชั้นเหมือนข้อยกเว้นของ TMD:
+ *
+ *   - **ผูกกับคีย์** `north.forecast.*` เท่านั้น (คีย์ `north.*` อื่นยังแดงถ้ามีคำพยากรณ์)
+ *   - **ต้องมีคำว่า "HII" ในค่าเดียวกัน** — ประโยคต้องแบกที่มาของมันเอง
+ *   - ยกได้เฉพาะคำตระกูลพยากรณ์ (`FORECAST_FAMILY`) — คำตระกูลความน่าจะเป็น (probabilit, chance of, likelihood, likely,
+ *     โอกาสเกิด, ความน่าจะเป็น) ไม่ถูกยก และ **"%" แดงทันทีบนคีย์กลุ่มนี้** (ไม่มีตัวเลขเปอร์เซ็นต์ใด ๆ ในส่วนนี้)
+ */
+const NORTH_FORECAST_KEY = /^north\.forecast\./;
+
 /** เหมือน `flagsAsClaim` แต่รู้จักคีย์ จึงยกข้อยกเว้นของชั้นพยากรณ์ TMD และชั้นพายุได้ */
 const flagsAsClaimForKey = (key: string, value: string) => {
   if (STORM_KEY.test(key)) {
@@ -113,6 +124,10 @@ const flagsAsClaimForKey = (key: string, value: string) => {
     if (!circle && value.includes("%")) return true;
     const rest = value.replace(FORECAST_FAMILY, "");
     return flagsAsClaim(circle ? rest.replace(CIRCLE_PROBABILITY, "") : rest);
+  }
+  if (NORTH_FORECAST_KEY.test(key)) {
+    if (value.includes("%")) return true;
+    return flagsAsClaim(value.includes("HII") ? value.replace(FORECAST_FAMILY, "") : value);
   }
   return ELIGIBLE_KEY.test(key) && value.includes("TMD")
     ? flagsAsClaim(value.replace(FORECAST_FAMILY, ""))
@@ -252,6 +267,43 @@ describe("i18n catalogs", () => {
     expect(flagsAsClaimForKey("water.note", "70% probability circle")).toBe(true);
     expect(flagsAsClaimForKey("circle.storm", "ความน่าจะเป็น 70%")).toBe(true);
     expect(flagsAsClaimForKey("panel.storm", "Storm forecast")).toBe(true);
+  });
+
+  /**
+   * ตัวคุมของข้อยกเว้นแผงน้ำเหนือ — ใช้ `flagsAsClaimForKey` ตัวเดียวกับเทสแคตาล็อกจริง
+   * ผูกกับ `north.forecast.*` · ต้องมี HII · ยกเฉพาะคำพยากรณ์ · "%" ห้าม
+   */
+  it("ข้อยกเว้นแผงน้ำเหนือ: north.forecast.* พูดคำพยากรณ์ได้เมื่อมี HII เท่านั้น และไม่เคยปลดความน่าจะเป็น/%", () => {
+    // ผ่าน
+    expect(flagsAsClaimForKey("north.forecast.title", "HII model output (forecast)")).toBe(false);
+    expect(flagsAsClaimForKey("north.forecast.badge", "พยากรณ์จากแบบจำลอง HII")).toBe(false);
+    expect(flagsAsClaimForKey("north.forecast.max", "HII model max {value} {unit}")).toBe(false);
+    // คำอื่นที่ไม่ใช่คำพยากรณ์ผ่านตามปกติ (ไม่ต้องมี HII)
+    expect(flagsAsClaimForKey("north.forecast.rel.inH", "in {n} h")).toBe(false);
+
+    // 1. คีย์ที่มีสิทธิ์แต่ไม่มี HII → แดง
+    expect(flagsAsClaimForKey("north.forecast.empty", "No forecast points after the update")).toBe(true);
+    expect(flagsAsClaimForKey("north.forecast.liveOnly", "แสดงพยากรณ์เฉพาะเวลาปัจจุบัน")).toBe(true);
+    // 2. คำความน่าจะเป็นและ "%" ยังแดงแม้มี HII
+    expect(flagsAsClaimForKey("north.forecast.max", "HII forecast: 70% of max")).toBe(true);
+    expect(flagsAsClaimForKey("north.forecast.max", "HII forecast probability of flooding")).toBe(true);
+    expect(flagsAsClaimForKey("north.forecast.max", "HII says a chance of flooding")).toBe(true);
+    expect(flagsAsClaimForKey("north.forecast.max", "HII: likely to flood")).toBe(true);
+    expect(flagsAsClaimForKey("north.forecast.max", "HII โอกาสเกิดน้ำท่วม")).toBe(true);
+    expect(flagsAsClaimForKey("north.forecast.max", "HII ความน่าจะเป็นของน้ำท่วม")).toBe(true);
+    // 3. คีย์ north.* อื่นไม่มีสิทธิ์ แม้มี HII
+    expect(flagsAsClaimForKey("north.note", "HII forecast for the river")).toBe(true);
+    expect(flagsAsClaimForKey("north.prov.note", "พยากรณ์ของ HII")).toBe(true);
+    expect(flagsAsClaimForKey("north.forecasting", "HII forecast")).toBe(true);
+  });
+
+  it("บรรทัดเกณฑ์ของแบบจำลองมีประโยคเตือนว่าค่าอาจลดลงต่ำกว่าเกณฑ์ภายหลัง (ทั้งสองภาษา)", () => {
+    expect(en["north.forecast.crossNote"]).toMatch(/fall back below/i);
+    expect(th["north.forecast.crossNote"]).toMatch(/ลดลงต่ำกว่า/);
+    // ต้องไม่ใช้คำตระกูลพยากรณ์/ความน่าจะเป็น จึงไม่ต้องพึ่งข้อยกเว้น
+    expect(flagsAsClaimForKey("north.forecast.crossNote", en["north.forecast.crossNote"])).toBe(false);
+    expect(BANNED.test(en["north.forecast.crossNote"])).toBe(false);
+    expect(BANNED.test(th["north.forecast.crossNote"])).toBe(false);
   });
 
   it("แทนค่าตัวแปร และคงวงเล็บไว้เมื่อไม่ได้ส่งค่ามา", () => {

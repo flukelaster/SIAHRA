@@ -88,7 +88,12 @@ export const PANELS: readonly PanelDef[] = [
     icon: Route,
     labelKey: "panel.north",
     view: panelView(() => import("../hazard/NorthWaterCard"), (m) => ({ ctx }) =>
-      createElement(m.NorthWaterCard, { state: ctx.northRoute, atIso: ctx.atIso, onFocusStation: ctx.focusStation })),
+      createElement(m.NorthWaterCard, {
+        state: ctx.northRoute,
+        forecast: ctx.riverForecast,
+        atIso: ctx.atIso,
+        onFocusStation: ctx.focusStation,
+      })),
   },
   { key: "dams", icon: Dam, labelKey: "panel.dams", view: panelView(() => import("../hazard/DamCard"), (m) => ({ ctx }) => createElement(m.DamCard, { state: ctx.dams })) },
   {

@@ -18,6 +18,7 @@ import { useFloodExtent } from "./hooks/useFloodExtent";
 import { useFloodScene } from "./hooks/useFloodScene";
 import { useFloodScenes } from "./hooks/useFloodScenes";
 import { useNorthRoute } from "./hooks/useNorthRoute";
+import { useRiverForecast } from "./hooks/useRiverForecast";
 import type { FloodSourceAgeInput } from "./lib/floodSourceAge";
 import { useAffectedAuthorities } from "./hooks/useAffectedAuthorities";
 import { useActiveAlerts } from "./hooks/useActiveAlerts";
@@ -338,6 +339,10 @@ export default function App() {
   const northPanel =
     shell.panel === "north" && (shell.tier === "phone" ? shell.sheetSnap !== "peek" : shell.drawerOpen);
   const northRoute = useNorthRoute(layers.northRoute || northPanel, northPanel);
+  // ผลลัพธ์แบบจำลองพยากรณ์ของ HII — hook ตัวเดียว เฉพาะตอนแผง north เปิดอยู่และดูเวลาปัจจุบัน (atIso ไม่ตั้ง: ย้อนเวลาการ์ดซ่อนส่วนนี้
+  // จึงไม่ถาม) ชั้น 3 มิติไม่ใช้ ส่งผ่าน ctx.riverForecast
+  // ไม่ใช่ ctx.forecast (ของ TMD)
+  const riverForecast = useRiverForecast(northPanel && atIso === null);
   const northTopology = layers.northRoute ? northRoute.topology : null;
   const northStations = layers.northRoute ? (northRoute.route?.stations ?? null) : null;
   const aoiId = aoiIdForProvince(provinceCode);
@@ -591,6 +596,7 @@ export default function App() {
     setExaggeration,
     focusStation,
     northRoute,
+    riverForecast,
     floodAge,
   };
 

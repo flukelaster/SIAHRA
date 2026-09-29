@@ -189,8 +189,9 @@ A DO failure answers `503 {"error":"Storm tracks unavailable"}`.
 ### River forecast (HII FEWS)
 
 `GET /api/v1/rivers/forecast` answers `RiverForecastResponse` (`packages/shared-types/src/rivers.ts`) for
-the whole basin in one request. **The web does not read it yet** (PR-2b), so the north panel still shows no
-arrival time and no forecast.
+the whole basin in one request. The web reads it (PR-2b) only while the north panel is open
+and the timeline is live, and shows it as its own section, apart from the observed values — never as an arrival time and never
+with a probability.
 
 - `stations[]`: six `RiverForecastStation` from HII's FEWS model-output files — discharge (`m3/s`) for
   `C.2`, `C.13`, `C.3`, `C.7A`, `C.35` and the Nonthaburi water level (`m`) `CPY014` (`hiiCode` is the
@@ -227,7 +228,7 @@ answers `503 {"error":"River forecast unavailable"}` with `no-store`.
 `GET /api/v1/rivers/north` answers `NorthRouteResponse` (`packages/shared-types/src/rivers.ts`): the
 latest ThaiWater reading and up to 48 h of history for each of the 26 stations in
 `apps/api/src/data/northRoute.ts`, under one `observed` descriptor. It carries **no arrival time and
-no forecast of any kind**. The route geometry and station order are not in this response — they are
+no forecast of any kind** (the forecast is the separate `GET /api/v1/rivers/forecast`, above). The route geometry and station order are not in this response — they are
 the static file `apps/web/public/rivers/north-route.json` (`NorthRouteTopology`).
 
 - The request path is a read-only, primary-key-only `northRoute()` on `ObservationCacheDO`; it never
