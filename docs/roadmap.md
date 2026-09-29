@@ -1514,6 +1514,32 @@ nothing in E16 turns rain into a water level or computes when water will arrive.
 5. Polling: the route every 10 min with only the layer on, 5 min while the north panel is open, 120 s
    retry; dams panel-only every 15 min; nothing while the tab is hidden.
 
+#### E16 follow-up: flow strength + province severity (PR-1), 2026-09-29 — *done, PR pending*
+- Touches: web only, no new fetch / poll / hook / API / shared-types change — `lib/flowStrength.ts`,
+  `lib/provinceSeverity.ts` (+ tests), `components/hazard/NorthWaterCard.tsx`, ~41 `north.*` keys in
+  `i18n/{th,en}.ts`; the code lives in the lazy north panel chunk and the entry chunk is unchanged
+  (`overviewSummary` is deliberately not imported cross-chunk; `classifyReading` is a copy asserted
+  equal to `classifyWater` by `provinceSeverity.test.ts`)
+- Issue: _(not yet filed)_
+
+1. Each station gets a capacity band from observed discharge as % `qmax`: `over` > 100 %, `near`
+   ≥ 80 %, `normal` below, and no band when `qmax` or discharge is missing (never "normal"); shown as
+   a chip (shape + colour + text) in the station row and as an over / near / normal / unknown count for
+   the Chao Phraya reach.
+2. A 3 h discharge trend (rising / steady / falling) is drawn as ↑ → ↓ on the schematic only for
+   non-stale nodes and as text in the row; `null` with < 2 points, a stale reading or no `qmax`. The
+   legend states that arrows and dashes are not water speed.
+3. Each province on the route gets the worst tone among its non-stale readings by the published
+   criteria (ThaiWater `situationLevel` 5 / 4, else distance below bank ≤ 0 / ≤ 1 m), stale / undated /
+   missing counted apart; no rateable fresh reading = `no-data`, never green. Rows show the rule used
+   and the observed 48 h level peak time only when one exists, and open the worst station on click.
+   The summary and list are hidden while the route has not loaded or outside the 48 h window.
+4. Still no arrival time and no forecast.
+- Open items (owner-confirmable, both our own display conventions, not source-published):
+  `NEAR_CAPACITY_PCT` = 80 (% of `qmax` for `near`) and `STEADY_PCT_OF_QMAX` = 2 (change in 3 h, % of
+  `qmax`, below which the trend is `steady`); each is defined once in `lib/flowStrength.ts` and the
+  panel text reads the constant.
+
 #### E16.B — 3D "flooded now" (remaining) — *planned*
 - ~~GISTDA in 3D~~ — **done as E16.B-2, PR pending** (2026-09-26): web-only, not cost-bearing; layer
   `gistdaDepth` (default on, needs `floodExtent`) = a 3D sheet on the observed GISTDA extent (H3 cells)
