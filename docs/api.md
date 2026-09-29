@@ -40,7 +40,7 @@ edit in that table.
 | `/api/v1/dams` | GET | 300 | default | per route | Fetched on province switch |
 | `/api/v1/rivers/north` | GET | 120 | default | per route | E16 north-route panel; one `ObservationCacheDO` RPC per edge-cache miss, and the edge cache (120 s) absorbs the rest |
 | `/api/v1/rivers/forecast` | GET | 300 | default | per route | HII FEWS river discharge / level forecast: one national request, one primary-key row read of `HiiForecastDO`; the request path never fetches upstream (the DO's own hourly alarm does), a query string is a `400` before the cache |
-| `/api/v1/basins` | GET | 300 | default | per route | River-basin (ลุ่มน้ำ) view: one national request, one primary-key row read (`basins_latest`) of `ObservationCacheDO`; the request path never fetches upstream and never scans the station tables, a query string is a `400` before the cache |
+| `/api/v1/basins` | GET | 300 | default | per route | River-basin (ลุ่มน้ำ) view: one national request, one primary-key row read (`basins_latest`) of `ObservationCacheDO`; the request path never fetches upstream and scans the station tables only on the rate-limited cold-start build described in [River basins](#river-basins-basins), a query string is a `400` before the cache |
 | `/api/v1/stations/{id}/history` | GET | 60 | 20 | shared `history` | One bucket for all stations: clicking through many stations quickly is normal, scripted enumeration is not |
 | `/api/v1/archive/days` | GET | 300 | default | per route | Small, cached 5 min |
 | `/api/v1/archive/snapshot` | GET | 60 | default | per route | Reads an R2 object per call; the timeline scrubber requests one snapshot per settled position, not per drag frame |
@@ -108,7 +108,7 @@ Two rules are enforced by `json()` in `apps/api/src/router.ts` rather than by ea
 | `/api/v1/forecast/availability` | `observations` | `public, max-age=60, s-maxage=120` |
 | `/api/v1/storms` | `storms` | `public, max-age=60, s-maxage=300`, or `no-store` while no source has ever succeeded — see [Storm tracks](#storm-tracks-storm-layer-v1) |
 | `/api/v1/rivers/forecast` | `riverForecast` | `public, max-age=60, s-maxage=300`, or `no-store` until a round has succeeded once (and on a `503`) — see [River forecast](#river-forecast-hii-fews) |
-| `/api/v1/basins` | `basins` | `public, max-age=60, s-maxage=300`, or `no-store` until a water-level round has succeeded once (and on a `503`) — see [River basins](#river-basins-basins) |
+| `/api/v1/basins` | `basins` | `public, max-age=60, s-maxage=300`, or `no-store` until a basin row exists (and on a `503`) — see [River basins](#river-basins-basins) |
 | `/api/v1/exposure/runs/{runId}` | `frozenArtifact(key)` | `public, max-age=31536000, immutable` — the key contains the run's content hash, so it can never change |
 | `/api/v1/radar/frames` | `radarFrames` | `public, max-age=60` |
 | `/api/v1/radar/frame/{tsMs}.png` | `radarFrame` | `public, max-age=86400, immutable` |
@@ -234,7 +234,7 @@ upstream→downstream order, no arrival time and no forecast of any kind. The we
 basin panel (water topic) is open and the timeline is live.
 
 - `layer`: `observed`, `sourceIds: ["thaiwater"]`. `fetchedAt` is the last successful **water-level** round
-  as of the moment the row was built (`null` = never fetched, never "now"); `damsFetchedAt` is separate —
+  as of the moment the row was built (`null` = there is no row yet, never "now" — and not always "never fetched": see `buildError`); `damsFetchedAt` is separate —
   dams refresh lazily (when `/api/v1/dams` is requested), so it may be older than `fetchedAt` or `null`
   (never fetched, not "no dams").
 - `basins[]`: `{key, nameTh, stations[], dams[]}` sorted by station count descending, ties by `key`. The
@@ -249,16 +249,26 @@ basin panel (water topic) is open and the timeline is live.
 - Measured on prod 2026-09-29: 1,442 stations, 0 with a null basin, 22 basins, 3 stations outside
   Thailand, 13 dams in 8 basins.
 - `buildError`: present only on the cold "no row yet" answer, carrying the reason the last rebuild wrote
-  nothing; it is not stored in the row.
+  nothing; it is not stored in the row. It is set whenever the tables hold water-level data (meta
+  `waterlevelFetchedAt` is set) but no row could be built — with the meta `basinsError` text, or a fallback
+  string when there is none — so **`fetchedAt: null` with a `buildError` means "the API holds data but has
+  not built the view", not "never fetched"**. `fetchedAt: null` with no `buildError` is the only answer that
+  means the API has never fetched water levels. The web prints `basin.neverFetched` only for that second
+  case; otherwise it prints `basin.notBuilt`, with no picker, header age chip or `basin.fetchedAt` row.
 
 The row is rebuilt **once per `ObservationCacheDO` refresh tick that fetched water levels** (from the
 `waterlevel` and `dams` tables, the two whole-table reads listed in `ALLOWED_SCANS`) and overwritten in
-one statement — no hash-skip, so `fetchedAt` is that round's true time. A body larger than 1,000,000
+one statement — no hash-skip, so `fetchedAt` is that round's true time. **Cold-start path:** when no row
+exists, meta `waterlevelFetchedAt` is set and no refresh is in flight, `getBasins()` itself calls the same
+`rebuildBasins()` (no new SQL, so no new `ALLOWED_SCANS` key), at most once per `BASINS_LAZY_INTERVAL_MS`
+(10 min) per DO instance — success or failure both count as the attempt, and the timer is in memory, so it
+resets when the DO is evicted (accepted: ~1.5k rows scanned per attempt). It exists because a deploy that
+lands while ThaiWater is failing never gets a successful refresh tick to write the first row. A body larger than 1,000,000
 UTF-8 bytes is refused and the previous row kept. The route is one `SELECT body FROM basins_latest WHERE id = ?`
 via `getBasins()`, and the stored string is passed through without a parse. It sits behind `caches.default`
 keyed on **origin + pathname only**; **any query string answers `400 {"error":"This endpoint takes no query parameters"}`**
-before the cache. A `200` is put in the edge cache only once a row exists; the cold "never fetched" answer
-(every time `null`) is `no-store`. A DO failure answers `503 {"error":"Basin view unavailable"}` with `no-store`.
+before the cache. A `200` is put in the edge cache only once a row exists; the cold "no row yet" answer
+(every time `null`, with or without `buildError`) is `no-store`. A DO failure answers `503 {"error":"Basin view unavailable"}` with `no-store`.
 `/api/v1/health` is unchanged (same source, `thaiwater`; this route adds no DO call to it).
 
 Known limit: a rebuild that keeps failing *after* a first good row exists (meta `basinsError`, which is not

@@ -70,9 +70,9 @@ const ALLOWED_SCANS: Record<string, string> = {
   "SELECT MAX(observed_at) AS t FROM rainfall": "recomputeStationStats(): once per refresh, result cached in meta",
   "SELECT MAX(observed_at) AS t FROM waterlevel": "recomputeStationStats(): once per refresh, result cached in meta",
   "SELECT payload FROM rainfall": "nationwide getObservations()/publishExposure(): the whole table IS the answer",
-  "SELECT payload FROM waterlevel": "nationwide getObservations()/publishExposure(): the whole table IS the answer; also rebuildBasins(): once per refresh tick that fetched water levels, writes the single basins_latest row",
+  "SELECT payload FROM waterlevel": "nationwide getObservations()/publishExposure(): the whole table IS the answer; also rebuildBasins(): once per refresh tick that fetched water levels, or from getBasins()' first-build path (row absent AND meta waterlevelFetchedAt set, in-memory guard: at most once per 10 min per DO instance; the timer is in memory and resets when the DO is evicted — accepted, ~1.5k rows scanned per attempt, and the alarm-driven rebuild covers the normal case), writes the single basins_latest row",
   "SELECT station_id, province_code FROM waterlevel": "archiveDay(): once per day",
-  "SELECT payload FROM dams": "dams table is ~12 rows; also rebuildBasins(): once per refresh tick",
+  "SELECT payload FROM dams": "dams table is ~12 rows; also rebuildBasins(): once per refresh tick or the getBasins() guarded first-build path (<= 1 per 10 min per DO instance; timer resets on DO eviction — accepted, ~1.5k rows per attempt, alarm-driven rebuild covers the normal case)",
   "DELETE FROM dams": "dams table is ~12 rows, rewritten every 30 min",
   "DELETE FROM archive_cache WHERE fetched_ms < ?": "archive_cache holds a handful of rows, pruned on the archive path",
   // EarthquakeFeedDO — ตาราง events ≤ 30 วัน (~200 แถว) และทุกคำสั่งวิ่งบน poll ทุกนาที

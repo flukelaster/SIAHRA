@@ -313,6 +313,8 @@ describe("GET /api/v1/basins — handler", () => {
 type RebuildResult = { status: "ok"; basins: number; bytes: number; rowsWritten: number } | "failed";
 interface Internals {
   rebuildBasins(): RebuildResult;
+  /** ตัวจับเวลา lazy ในหน่วยความจำของ `getBasins()` — เทสตั้งเองแทนการหมุนนาฬิกา */
+  basinsLazyAttemptMs: number | null;
   getBasins(): Promise<{ body: string | null; lastError: string | null }>;
   alarm(): Promise<void>;
 }
@@ -339,6 +341,9 @@ function routeThaiwater(rain: unknown, water: unknown, dam: unknown): void {
 async function resetTables(): Promise<void> {
   await runInDurableObject(stub(), (_i, state) => {
     for (const t of ["waterlevel", "rainfall", "dams", "basins_latest", "meta"]) state.storage.sql.exec(`DELETE FROM ${t}`);
+  });
+  await runInDurableObject(stub(), (i) => {
+    (i as unknown as Internals).basinsLazyAttemptMs = null;
   });
 }
 
@@ -554,6 +559,13 @@ describe("ObservationCacheDO — แถว basins_latest", () => {
     const end = observationSrc.indexOf("\n  }\n", start);
     const method = observationSrc.slice(start, end);
     expect(method).toContain("FROM basins_latest WHERE id = ?");
+    // ทางสร้าง lazy ที่อนุญาตทางเดียว: เรียกผ่าน `rebuildBasins()` เดิม (ไม่มี SQL สแกนของตัวเอง) หลังเช็ค meta + ตัวจับเวลา
+    expect(method.split("this.rebuildBasins()").length - 1).toBe(1);
+    for (const guard of ['readMeta("waterlevelFetchedAt")', "this.inflight === null", "BASINS_LAZY_INTERVAL_MS", "this.basinsLazyAttemptMs = nowMs"]) {
+      expect(method, `getBasins() ต้องมีตัวกั้น ${guard}`).toContain(guard);
+    }
+    // และมีตัวเรียก `rebuildBasins()` ทั้งไฟล์แค่สองที่: รอบ refresh กับตัวกั้นนี้
+    expect(observationSrc.split("this.rebuildBasins()").length - 1).toBe(2);
     for (const banned of ["FROM waterlevel", "FROM dams", "FROM rainfall", "getObservations", "ensureFresh", "refreshOnce", "refreshDams", "getDams", "fetch("]) {
       expect(method, `getBasins() ต้องไม่มี ${banned}`).not.toContain(banned);
     }
@@ -567,5 +579,164 @@ describe("ObservationCacheDO — แถว basins_latest", () => {
     for (const banned of ["console.", "logInfo", "logWarn", "logError", "HAZARD_BUCKET", "setAlarm", "stub.fetch", "DELETE"]) {
       expect(method, `rebuildBasins() ต้องไม่มี ${banned}`).not.toContain(banned);
     }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ทางสร้างแถวครั้งแรกแบบ lazy ใน getBasins() (ดีพลอยตอนต้นทางล่ม → ไม่เคยมีรอบ refresh ที่สำเร็จ)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const LAZY_MS = 10 * 60 * 1000;
+type Stored = { body: string | null; lastError: string | null };
+
+/** ตารางถือสถานีที่ดึงสำเร็จแล้ว (waterlevelFetchedAt = เวลาจริงของครั้งนั้น) แต่ไม่มีแถว basins_latest */
+async function seedHeldNoRow(at = "2026-09-29T10:05:16.000Z"): Promise<void> {
+  await resetTables();
+  await seedFetchedAt(at);
+  await runInDurableObject(stub(), (_i, state) => {
+    insertWaterlevel(state, wl(1, "ลุ่มน้ำปิง"));
+    insertWaterlevel(state, wl(2, "ยม"));
+  });
+}
+
+/** เรียก getBasins() `n` ครั้งในคำสั่งเดียวของ DO ที่จะรัน rebuildBasins จริง — นับจำนวนครั้งที่ตัวสร้างถูกเรียก */
+async function getBasinsCounting(n: number, concurrent = false): Promise<{ results: Stored[]; builds: number }> {
+  return runInDurableObject(stub(), async (instance) => {
+    const i = instance as unknown as Internals;
+    const spy = vi.spyOn(i, "rebuildBasins");
+    const results = concurrent
+      ? await Promise.all(Array.from({ length: n }, () => i.getBasins()))
+      : await (async () => {
+          const out: Stored[] = [];
+          for (let k = 0; k < n; k++) out.push(await i.getBasins());
+          return out;
+        })();
+    const builds = spy.mock.calls.length;
+    spy.mockRestore(); // ไม่งั้นการเรียกครั้งถัดไปได้สปายเดิมที่นับสะสม
+    return { results, builds };
+  });
+}
+
+describe("ObservationCacheDO.getBasins — สร้างแถวครั้งแรกแบบ lazy", () => {
+  it("ไม่มีแถว + waterlevelFetchedAt มีค่า: สร้างหนึ่งครั้งแล้วตอบแถวจริง — fetchedAt เป็นเวลาที่ดึงจริง ไม่ใช่ตอนนี้", async () => {
+    await seedHeldNoRow();
+    const { results, builds } = await getBasinsCounting(1);
+    expect(builds).toBe(1);
+    expect(results[0]!.lastError).toBeNull();
+    const body = JSON.parse(results[0]!.body!) as BasinsResponse;
+    expect(body.fetchedAt).toBe("2026-09-29T10:05:16.000Z");
+    expect(body.layer.fetchedAt).toBe("2026-09-29T10:05:16.000Z");
+    expect(body.buildError).toBeUndefined();
+    expect(body.basins.map((b) => b.key).sort()).toEqual(["ปิง", "ยม"]);
+    const rows = await runInDurableObject(stub(), (_i, state) => state.storage.sql.exec<{ n: number }>("SELECT COUNT(*) AS n FROM basins_latest").toArray()[0]!.n);
+    expect(rows).toBe(1);
+  });
+
+  it("คำขอที่สองและสามหลังสร้างสำเร็จ อ่านแถวด้วย PK — ไม่เรียกตัวสร้างอีก", async () => {
+    await seedHeldNoRow();
+    const { results, builds } = await getBasinsCounting(3);
+    expect(builds).toBe(1);
+    expect(results[1]!.body).toBe(results[0]!.body);
+    expect(results[2]!.body).toBe(results[0]!.body);
+  });
+
+  it("คำขอที่มาพร้อมกันใช้การสร้างครั้งเดียวร่วมกัน", async () => {
+    await seedHeldNoRow();
+    const { results, builds } = await getBasinsCounting(6, true);
+    expect(builds).toBe(1);
+    expect(new Set(results.map((r) => r.body)).size).toBe(1);
+    expect(results[0]!.body).not.toBeNull();
+  });
+
+  it("meta waterlevelFetchedAt เป็น null: ไม่สแกนเลย, body null และ lastError null (ยังไม่เคยดึงจริง)", async () => {
+    await resetTables();
+    await runInDurableObject(stub(), (_i, state) => insertWaterlevel(state, wl(1, "ปิง")));
+    const { results, builds } = await getBasinsCounting(3);
+    expect(builds).toBe(0);
+    for (const r of results) expect(r).toEqual({ body: null, lastError: null });
+  });
+
+  it("สร้างพลาด (เกินเพดาน): lastError บอกเหตุ ไม่ใช่ null, คำขอถัดไปใน 10 นาทีไม่สแกนซ้ำ (แม้แก้ข้อมูลแล้ว), ครบ 10 นาทีลองอีกครั้งเดียว", async () => {
+    await seedHeldNoRow();
+    const huge = "ก".repeat(30_000);
+    await runInDurableObject(stub(), (_i, state) => {
+      for (let id = 100; id < 112; id++) insertWaterlevel(state, wl(id, "ปิง", { station: { ...wl(id, "ปิง").station, nameTh: huge } }));
+    });
+    const first = await getBasinsCounting(4);
+    expect(first.builds).toBe(1);
+    for (const r of first.results) {
+      expect(r.body).toBeNull();
+      expect(r.lastError).toContain("exceeds");
+    }
+
+    // ตารางถูกแก้จนสร้างได้ — แต่ยังไม่ถึง 10 นาที: ต้องไม่สแกน จึงยังไม่มีแถว และ lastError ยังบอกเหตุเดิม
+    await runInDurableObject(stub(), (_i, state) => state.storage.sql.exec("DELETE FROM waterlevel WHERE station_id >= 100"));
+    const within = await getBasinsCounting(3);
+    expect(within.builds).toBe(0);
+    for (const r of within.results) {
+      expect(r.body).toBeNull();
+      expect(r.lastError).toContain("exceeds");
+    }
+
+    // ผ่าน 10 นาที (ตั้งตัวจับเวลาย้อนหลัง): ลองอีกครั้งเดียว แล้วสำเร็จ
+    await runInDurableObject(stub(), (i) => {
+      (i as unknown as Internals).basinsLazyAttemptMs = Date.now() - LAZY_MS - 1;
+    });
+    const after = await getBasinsCounting(3);
+    expect(after.builds).toBe(1);
+    expect(after.results[0]!.body).not.toBeNull();
+    expect(after.results[0]!.lastError).toBeNull();
+  });
+
+  it("ก่อนครบ 10 นาที (9:59) ไม่ลองซ้ำ, ครบพอดี 10:00 ลองได้ — ทั้งกรณีที่ทำสำเร็จและพลาดนับเป็นหนึ่งความพยายาม", async () => {
+    await seedHeldNoRow();
+    // พลาดด้วยแถวเสีย
+    await runInDurableObject(stub(), (_i, state) =>
+      state.storage.sql.exec("INSERT INTO waterlevel (station_id, province_code, situation_level, observed_at, payload) VALUES (?, ?, ?, ?, ?)", 5, "50", 1, null, "{not json"),
+    );
+    expect((await getBasinsCounting(1)).builds).toBe(1);
+    await runInDurableObject(stub(), (i) => {
+      (i as unknown as Internals).basinsLazyAttemptMs = Date.now() - (LAZY_MS - 5_000);
+    });
+    expect((await getBasinsCounting(1)).builds).toBe(0);
+    await runInDurableObject(stub(), (i) => {
+      (i as unknown as Internals).basinsLazyAttemptMs = Date.now() - LAZY_MS;
+    });
+    expect((await getBasinsCounting(1)).builds).toBe(1);
+  });
+
+  it("ตารางถือข้อมูลแต่สร้างพลาดโดยไม่มี basinsError: ยังได้ lastError (ห้ามอ่านเป็น 'ยังไม่เคยดึง')", async () => {
+    await seedHeldNoRow();
+    // ตัวจับเวลาเพิ่งใช้ไป → ไม่สร้าง, meta basinsError ไม่มี
+    await runInDurableObject(stub(), (i) => {
+      (i as unknown as Internals).basinsLazyAttemptMs = Date.now();
+    });
+    const { results, builds } = await getBasinsCounting(1);
+    expect(builds).toBe(0);
+    expect(results[0]!.body).toBeNull();
+    expect(results[0]!.lastError).toBeTruthy();
+  });
+
+  it("มีแถวเดิมอยู่แล้ว: ไม่เรียกตัวสร้างเลย แม้ตัวจับเวลาว่าง และแถวเดิมไม่ถูกแตะ", async () => {
+    await seedHeldNoRow();
+    await runInDurableObject(stub(), (i) => (i as unknown as Internals).rebuildBasins());
+    const before = await runInDurableObject(stub(), (i) => (i as unknown as Internals).getBasins());
+    await runInDurableObject(stub(), (_i, state) => insertWaterlevel(state, wl(3, "น่าน")));
+    const { results, builds } = await getBasinsCounting(2);
+    expect(builds).toBe(0);
+    expect(results[0]!.body).toBe(before.body);
+  });
+
+  it("route + DO จริง: ต้นทางล่มตลอด (ตารางถือของเก่า) → ตอบแถวที่สร้างจากตาราง พร้อม fetchedAt เก่า ไม่ใช่ cold", async () => {
+    await seedHeldNoRow("2026-09-29T10:05:16.000Z");
+    const url = "https://siahra-radar.co/api/v1/basins";
+    await caches.default.delete(new Request(url));
+    const { ctx, settle } = fakeCtx();
+    const res = await handleBasins(new Request(url), { ...appEnv, OBSERVATION_CACHE: { getByName: () => stub() } } as unknown as AppEnv, ctx);
+    await settle();
+    const body = (await res.json()) as BasinsResponse;
+    expect(body.fetchedAt).toBe("2026-09-29T10:05:16.000Z");
+    expect(body.basins.length).toBeGreaterThan(0);
+    await caches.default.delete(new Request(url));
   });
 });

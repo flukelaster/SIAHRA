@@ -1332,6 +1332,7 @@ export const en: Record<keyof typeof th, string> = {
   "basin.error.refresh": "The latest request for basin data failed ({error}) since {time} — the last set received is still shown (dimmed)",
   "basin.neverFetched": "The API has never fetched water levels from ThaiWater successfully, so there is no basin data yet — this does not mean there are no basins or no incidents",
   "basin.buildError": "The latest basin build had a problem: {error}",
+  "basin.notBuilt": "The API holds water-level data it fetched from ThaiWater earlier, but could not build the basin view from it: {error} — this does not mean there are no basins or no incidents, and it does not mean the API never fetched data",
   "basin.stale": "The data the API holds is more than {n} minutes old (fetched from ThaiWater {time}) — dimmed",
   "basin.health": "ThaiWater status: {status}",
   "basin.healthUnreachable": "Could not ask the API for its status — the values below may not be the latest",
