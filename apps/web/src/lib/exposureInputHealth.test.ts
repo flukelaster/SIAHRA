@@ -12,7 +12,7 @@ const thaiwater = (detail: SourceStatus["detail"]): SourceStatus => ({
   lastAttemptAt: "2026-08-19T12:00:00.000Z",
   lastError: "dams: upstream shape changed",
   detail,
-  staleAfterSeconds: 900,
+  staleAfterSeconds: 1800,
   observedLagSeconds: 7200,
   nextAttemptAt: null,
 });

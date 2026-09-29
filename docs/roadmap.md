@@ -2102,8 +2102,8 @@ and not covered by `contrast.test.ts`, which checks tokens only.
    load.
 4. Honesty: `lib/basinView.ts` uses only published criteria (ThaiWater `situationLevel` 5 / 4, else the
    bank rule), with guarded copies asserted equal in tests; readings older than 6 h or undated are counted
-   apart; a fetched set older than `staleAfterSeconds` 900 s + the 300 s edge copy + the 10-min poll (30
-   min) dims and says so; codes such as "10499" count as no province; `freeboardM < 0` prints as above
+   apart; a fetched set older than `staleAfterSeconds` (900 s as shipped, 1800 s since E19.2) + the 300 s
+   edge copy + the 10-min poll (30 min as shipped, 45 min since E19.2) dims and says so; codes such as "10499" count as no province; `freeboardM < 0` prints as above
    bank; nothing over threshold is neutral, never green; live only ("shown for the present only" with
    `atIso` set); the header states that the grouping is ThaiWater's label, not an SIAHRA boundary, and
    that no order, arrival time or forecast is given.
@@ -2127,6 +2127,79 @@ Follow-up (not in this task): a curated, cited per-basin reach order (Mun, Chi, 
 by an `apps/etl` script in the `build:north-route` pattern — a strings-only cited source file plus ThaiWater
 station coordinates and OSM lines, refusing to write on an unresolved station — is what would give a real
 upstream→downstream view. Ordering by elevation was rejected: it would be an invented river distance.
+
+#### E19.2 — ThaiWater 429: diagnostics, persisted per-endpoint backoff, 10-min poll — *done, PR pending* (2026-09-29)
+- Why: since ~10:10Z on 2026-09-29 ThaiWater (`api-v3.thaiwater.net`) answers `429 Too Many Requests` to
+  `ObservationCacheDO` for `public/rain_24h` and `public/waterlevel_load` while `analyst/dam` still works;
+  the same URLs answer 200 from a laptop and from another cloud IP, `hii-fews` is fine, the last success was
+  10:07:12Z and nothing was deployed between 10:05Z and 10:10Z. The upstream feed stamps every 10 min at best
+  (water) and mostly hourly (rain) while we polled every 5 min. The old breaker tripped for a flat 5 min and any
+  success (even dams) reset it, and `isFresh()` reads only `fetchedAt`, which a total failure never advances,
+  so every cron tick and every observations cache miss started a full round (≈ 5 attempts/min inferred from
+  931+ consecutive failures) — each still writing meta and running `publishExposure`
+- Touches: `apps/api` — `src/ingestion/{errors,thaiwater}.ts`, `src/upstream/limiter.ts`,
+  `src/durable-objects/observation-cache.ts`, `src/thaiwaterFreshness.ts` (new), `src/basins/build.ts`,
+  `src/cachePolicy.ts`, tests (`upstreamLimiter`, `upstreamDiagnostics`, `observationCacheBackoff` new;
+  `basins`, `sourceStatus`, `sqlQueryPlans`, `exposure/publish`); `apps/web` — `lib/thaiwaterFreshness.ts`
+  (new), `lib/{basinView,pollSchedule}.ts`, `components/layout/{ApiStatusFooter,panelViews}.tsx`,
+  `components/hazard/BasinCard.tsx` and their tests; docs
+- Depends: E19.1 (the basins descriptor shares the freshness constant)
+- Size: M — no contract, binding, cron or migration change
+- Cost: cost-bearing — `devops` gate before (go-with-constraints, ≈ −$0.01/month expected: fewer exposure runs, DO
+  rows and requests; worst case of the new backoff over a month-long outage ≈ +$0.002) and after the diff;
+  no new `ALLOWED_SCANS` key
+- Risk: **the root cause is still unknown** — a per-path quota, a bandwidth limit or an egress policy on
+  ThaiWater's side are all consistent with the evidence, and this task only makes the failure cheaper, better
+  described and politer, it does not make ThaiWater answer. Accepted limits: the closed-breaker
+  consecutive-failure counter is in memory (3 real rounds after a DO eviction while closed); after a pause
+  expires the single half-open probe goes to `rain_24h` and the water job is rejected as "probe in flight", so
+  water can trail rain by up to ~10 min on recovery; a history-only (`waterlevel_graph`) or dams breaker
+  shows the aggregate `degraded` with no `lastError` text (`detail.upstreamBreakers` has the reason); the
+  exposure run count now follows real attempts, so a long outage thins it and `exposure-illustrative` can go
+  `delayed` (30 min) then `stale` (1 h) — see `docs/ops.md` §7
+- Owner-visible trade-offs: on-screen age of a healthy layer worst case ≈ 14 → ≈ 19 min (API ≤ 10, edge 2,
+  browser 1, web poll 5); `down`/`stale` labels arrive at 30 min instead of 15 (`degraded` with the upstream
+  error text is still immediate); `AlertEngineDO` still evaluates every 5 min against a cache that now
+  refreshes every 10, and `useObservations` still polls every 5 min; water level, the flood-critical feed, is
+  now fetched every 10 min although its own 5-min polls returned identical data about half the time
+- Issue: _(not yet filed)_
+
+1. Diagnostics: `UpstreamHttpError { status, retryAfterMs, headers }` is thrown from the four ThaiWater
+   fetchers on `!res.ok` only, through one helper; the body is read ≤ 2 KiB through the stream reader and
+   cancelled (never `text()`/`json()`), stripped of tags and control characters to a ≤ 200-char snippet;
+   headers by allowlist only (`retry-after`, `server`, `via`, `cf-ray`, `content-type`, `x-*ratelimit*`, each
+   ≤ 64 chars). The message leads with `ThaiWater <path> failed: <status> retry-after=<v>`; `lastError` gets
+   ≈ 95 chars per feed so both statuses survive the 200-char join, and `rainfallError` / `waterlevelError` /
+   `damsError` carry ≤ 300. No new log line on a station/province loop.
+2. Breaker: per endpoint key (`rain_24h`, `waterlevel_load`, `analyst/dam`, `waterlevel_graph`); the first
+   trip still needs 3 consecutive overload failures (429/502/503/504/network, classified by error type, not
+   message text) and pauses 5 min; ladder 5 → 10 → 20 → 40 → 60 min; one half-open probe for the whole
+   queue, a failed probe climbs at once, a successful one closes; `Retry-After` (delta-seconds or HTTP-date,
+   cap 60 min) can lengthen but never shorten a step; only that endpoint's own success resets it.
+3. Persistence and gate: breaker state in `meta` (`breaker:<key>`, PK reads/writes), rehydrated on DO
+   construction; `ensureFresh()` / `getObservations()` / `alarm()` never start `refreshOnce()` while both
+   `rain_24h` and `waterlevel_load` are paused or a retry-not-before is in the future (0 upstream fetches,
+   0 `publishExposure` runs and 0 meta writes from a gated skip; `lastAttemptAt` and `consecutiveFailures` count
+   real attempts only); `armAlarm` = max(backoff | TTL, `pausedUntil` − now), and a round started by cron or a
+   reader moves the alarm to now + TTL; `/health` `detail.upstreamBreakers` and a truthful
+   `upstreamPausedUntil` / `nextAttemptAt`.
+4. Cadence: `TTL_MS` 5 → 10 min and the staleness budget 15 → 30 min (`THAIWATER_STALE_AFTER_SECONDS` 1800,
+   one constant per workspace; `/health` `thaiwater`, the observations layer and the basins layer equal, pinned
+   by a test); the web reads the descriptor's `staleAfterSeconds` (`ApiStatusFooter` no longer hard-codes 15
+   min) and the basin panel limit is 1800 + 300 + 600 = 45 min. Unchanged: `AlertEngineDO`,
+   `EXPOSURE_RUN_LAG_MS` / `EXPOSURE_STALE_AFTER_MS`, `useObservations`, dams 30 min TTL, the hourly route
+   pull. Health semantics (`deriveSourceHealth` order) unchanged.
+5. Tests: fake-timer limiter tests (ladder, half-open, `Retry-After`, eviction, dams successes interleaved with
+   rain/water 429s), diagnostics with a > 1 MiB body, both feeds 429 with 200-char snippets, the gate case,
+   `sqlQueryPlans` green with no new `ALLOWED_SCANS` key; `npx tsc -b`, `npx oxlint src worker`, root
+   `npm test` green.
+
+ROOT-CAUSE follow-ups (open — none done in this task): (a) after deploy, read the new `lastError` /
+`detail.rainfallError` / `detail.upstreamBreakers` on `/api/v1/health` — status, `Retry-After`, body snippet and
+headers should say whether it is a per-path quota, bandwidth or an egress policy; (b) ask HII (ThaiWater's
+owner) about API rate limits and whether Cloudflare egress is throttled; (c) the bigger fallback if the block
+stays: a GitHub Actions job fetching ThaiWater and uploading to R2 like `gfm-ingest.yml` does, with the Worker
+reading R2 — a separate, cost-gated design, not started.
 
 ## 3. Suggested first two weeks
 

@@ -27,7 +27,7 @@ const radarDegraded: SourceStatus = {
   lastAttemptAt: "2026-08-19T09:32:57.771Z",
   lastError: "radar frames skipped (1/2): zr0023.png (UpstreamShapeError: tmd-radar shape: frame.zr0023.png truncated PNG (no IEND chunk))",
   detail: { frames24h: 1, skippedFrames: 1 },
-  staleAfterSeconds: 900,
+  staleAfterSeconds: 1800,
   observedLagSeconds: 5400,
   nextAttemptAt: "2026-08-19T09:37:57.818Z",
 };

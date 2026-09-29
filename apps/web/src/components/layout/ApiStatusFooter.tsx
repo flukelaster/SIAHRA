@@ -1,18 +1,31 @@
 import { formatFetchedAt } from "../../lib/time";
 import { useLang } from "../../i18n/context";
+import { THAIWATER_STALE_AFTER_SECONDS } from "../../lib/thaiwaterFreshness";
 
-const STALE_AFTER_MS = 15 * 60 * 1000;
+/**
+ * ค้าง = อายุของ `fetchedAt` เกินงบที่ **descriptor ของ API ประกาศ** (`layer.staleAfterSeconds`, 30 นาที) — ไม่ใช่ตัวเลขที่ฝัง
+ * ในเว็บ: เดิมฝัง 15 นาทีไว้คู่กับ TTL 5 นาที พอ API เปลี่ยนรอบเป็น 10 นาที ท่อที่ปกติดีจะโชว์ "ข้อมูลค้าง" เอง
+ * (อายุบนจอ = API ≤ 10 + แคชขอบ 2 + เบราว์เซอร์ 1 + รอบถามของเว็บ 5 นาที)
+ */
+export function isApiDataStale(fetchedAt: string | null, staleAfterSeconds: number | null | undefined, nowMs: number): boolean {
+  if (fetchedAt === null) return false;
+  const fetchedMs = Date.parse(fetchedAt);
+  if (!Number.isFinite(fetchedMs)) return false;
+  return nowMs - fetchedMs > (staleAfterSeconds ?? THAIWATER_STALE_AFTER_SECONDS) * 1000;
+}
 
 export function ApiStatusFooter({
   fetchedAt,
   attribution,
+  staleAfterSeconds,
 }: {
   fetchedAt: string | null;
   attribution: string | null;
+  /** `obs.layer.staleAfterSeconds` — null/ไม่มี = ใช้งบตั้งต้น 30 นาที */
+  staleAfterSeconds?: number | null;
 }) {
   const { lang, t } = useLang();
-  const ageMs = fetchedAt ? Date.now() - Date.parse(fetchedAt) : null;
-  const stale = ageMs !== null && ageMs > STALE_AFTER_MS;
+  const stale = isApiDataStale(fetchedAt, staleAfterSeconds, Date.now());
   const connected = fetchedAt !== null;
 
   return (

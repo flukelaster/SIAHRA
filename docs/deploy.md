@@ -416,7 +416,7 @@ Worker มี token-bucket ต่อ IP อยู่แล้ว (`apps/api/src/
 > แทน แล้วเช็ค cert จริงจากเครือข่ายอื่น ; ดูผู้ออกใบด้วย
 > `echo | openssl s_client -connect siahra-radar.co:443 -servername siahra-radar.co | openssl x509 -noout -issuer`
 
-- `curl https://siahra-radar.co/api/v1/health` → ทุก source ที่มี DO เป็น `ok` ภายใน 5 นาที (alarm ของ DO เริ่มเอง) —
+- `curl https://siahra-radar.co/api/v1/health` → ทุก source ที่มี DO เป็น `ok` ภายใน 10 นาที (alarm ของ DO เริ่มเอง; `thaiwater` รอบละ 10 นาที) —
   ยกเว้น `copernicus-gfm` ซึ่งเป็น `unknown` จนกว่า `gfm-ingest.yml` จะรันสำเร็จครั้งแรก (ข้อสุดท้ายของหัวข้อนี้)
   ตอบ 200 = route `/api/*` ชี้ไป siahra-api ถูกแล้ว; ถ้าได้ HTML ของ SPA แทน = route ไม่ทำงาน
 - `gistda-flood` (E16.PR0) ต้องตั้ง `GISTDA_API_KEY` ก่อน (§3) แล้ว
@@ -491,6 +491,25 @@ under a 5-min `caches.default` entry keyed on origin + pathname only (a query st
 answer is `no-store`), and the web asks only while the basin panel is open (10 min, 120 s retry) —
 devops verify 2026-09-29 (pre-gate, post-diff and the cold-start fix agree): **≈ +$0.02/month expected, ≈ +$0.15 high**; one-off cost $0;
 projected account total ≈ **$5.5/month expected** (Durable Objects + Workers pricing pages, fetched 2026-09-29)
+
+ThaiWater observation refresh backoff (E19.2, `fix/thaiwater-429-backoff`; no new binding, cron, migration, R2/D1 or `ALLOWED_SCANS` entry;
+`/health` unchanged, still 9 DO calls): the refresh TTL goes 5 → 10 min and `STALE_AFTER_MS` 15 → 30 min (one constant per workspace:
+`apps/api/src/thaiwaterFreshness.ts`, `apps/web/src/lib/thaiwaterFreshness.ts`; basins web limit 1800+300+600 = 45 min), and the circuit
+breaker is now per endpoint (`rain_24h` / `waterlevel_load` / `analyst/dam` / `waterlevel_graph`), typed (429/502/503/504 + network by error
+class, never by message text), persisted in `meta` (`breaker:<key>`, 4 rows at most), with a ladder of 5 → 10 → 20 → 40 → 60 min and one
+half-open probe per expiry — the water-level job is submitted first so the flood-critical feed takes the probe (a failed probe climbs at
+once; `Retry-After` is honoured up to 60 min and never shortens the ladder). `refreshOnce()` is gated in all three callers (`ensureFresh`,
+`alarm`, `getObservations`) by max(persisted pause when BOTH feeds are paused, `lastAttemptAt` + failure backoff); a gated call reads 2–5
+PK meta rows and writes/logs nothing, so the ≈ 5 refresh attempts per minute that a total outage used to cause become ≈ 2 rounds per hour at
+the ladder's top. Month-long total-outage worst case: ≈ 1,460 real rain+water upstream calls/month (≤ ≈ 2.9k if dams and history are also
+down) against ≈ 26k today; ≈ 10k DO rows written, ≈ 66M rows read, ≈ 4.4k log events — all inside the included allowances (≈ +$0.00).
+Healthy path: half the upstream pulls (≈ 8.6k rain+water calls/month), ≈ −78k DO rows written, and the exposure-run R2 storage shrinks by
+≈ 0.44 GB/month (≈ −$0.007/month; Class A puts ≈ 8.6k → 4.3k, inside the free 1M); the new steady-state cost is 1–5 PK meta reads per cron
+tick ≈ 1.4k–7.2k rows/day (0.02 % of the 25B included). Per incident the breaker adds at most 3 meta writes before the trip (2 × `Retry-After`
++ trip), 1 per level change and 1 delete on reset. Trade-off the owner accepted: worst healthy on-screen age ≈ 14 → ≈ 19 min, and the
+`down`/`stale` labels arrive at 30 min instead of 15 (`degraded` with the upstream status and `Retry-After` is still immediate) —
+devops verify 2026-09-29 (pre-gate and post-diff agree): **≈ −$0.01/month expected, ≈ +$0.02 high**; one-off cost $0; projected account
+total ≈ **$5.5/month expected** (Durable Objects + R2 pricing pages, fetched 2026-09-29)
 
 E14.F1 (`/api/v1/provinces/{NN}/flood-extent?at=`) เพิ่มเส้นทางย้อนหลังโดยไม่เพิ่ม DO write ต่อคำขอ: ตาราง `flood_scenes`
 เขียนหนึ่งแถวต่อฉากที่ archive (ไม่กี่ร้อยแถว/ปี) บนเส้นทาง refresh เท่านั้น คำขอ `at` ภายใน 30 วันอ่านตาราง hot ผ่านดัชนี

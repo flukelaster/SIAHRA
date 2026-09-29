@@ -348,6 +348,9 @@ describe("นัด alarm ไม่ตายไปกับรอบที่พ
     await runInDurableObject(stub(), async (instance, state) => {
       await state.storage.deleteAlarm();
       if (clearFetchedAt) state.storage.sql.exec("DELETE FROM meta WHERE key = 'fetchedAt'");
+      // ด่าน backoff ของรอบที่ล้ม (`lastAttemptAt` + `consecutiveFailures`) ที่บล็อกก่อนหน้าทิ้งไว้ ต้องไม่กั้น refresh ของเทสนี้
+      // ไม่งั้นทั้งสามจุดจะข้าม `refreshOnce()` (นั่นคือพฤติกรรมที่ถูกต้อง แต่เทสนี้ต้องการพิสูจน์ `finally` ของ armAlarm)
+      state.storage.sql.exec("DELETE FROM meta WHERE key IN ('lastAttemptAt', 'consecutiveFailures')");
       // ไม่มีนัดค้างอยู่แล้วจริง ๆ — ไม่งั้นนัดเก่าจะทำให้ assert ผ่านได้เอง
       expect(await state.storage.getAlarm(), "ยังมีนัดค้างจากบล็อกก่อนหน้า").toBeNull();
 

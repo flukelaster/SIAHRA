@@ -62,7 +62,7 @@ const source = (over: Partial<SourceStatus>): SourceStatus => ({
   lastAttemptAt: "2026-09-25T03:00:00Z",
   lastError: null,
   detail: {},
-  staleAfterSeconds: 900,
+  staleAfterSeconds: 1800,
   observedLagSeconds: 900,
   nextAttemptAt: null,
   ...over,

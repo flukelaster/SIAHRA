@@ -100,7 +100,7 @@ export function nextForecastPollDelayMs(input: PollDelayInput): number | null {
 
 /**
  * `/api/v1/basins` (มุมมองตามลุ่มน้ำ) — ถามเฉพาะตอนแผง basin ถูกเรนเดอร์อยู่ (hook ไม่เริ่ม poll เลยถ้าแผงปิด รวมถึงตอนเริ่มแอป
- * และ `pollDelayMs` ไม่ตั้ง timer ตอนแท็บซ่อน) API เขียนแถวนี้ใหม่ทุกรอบ refresh 5 นาทีและ route ตอบผ่านแคชที่ขอบ 5 นาที
+ * และ `pollDelayMs` ไม่ตั้ง timer ตอนแท็บซ่อน) API เขียนแถวนี้ใหม่ทุกรอบ refresh (10 นาที) และ route ตอบผ่านแคชที่ขอบ 5 นาที
  * จึงถามถี่กว่า 10 นาทีไม่ได้ความสดเพิ่ม — ข้อจำกัดต้นทุน devops C13
  */
 export const BASINS_INTERVAL_MS = 10 * 60_000;

@@ -32,6 +32,7 @@ import { damDisplayName } from "../../lib/damName";
 import { resolveError } from "../../lib/errorMessage";
 import { EPISTEMIC_BADGE } from "../../lib/layerFreshness";
 import { formatNumber } from "../../lib/number";
+import { THAIWATER_STALE_AFTER_SECONDS } from "../../lib/thaiwaterFreshness";
 import { formatAge, formatDateTime, formatFetchedAt } from "../../lib/time";
 import { healthMeta, statusLabel } from "../layout/sourceStatusText";
 import type { StationFocus } from "../layout/panelViews";
@@ -409,9 +410,9 @@ export function BasinCard({
   const noRow = data !== null && fetchedAt === null;
   const notBuilt = noRow && Boolean(data?.buildError);
   const neverFetched = noRow && !notBuilt;
-  // เกณฑ์ค้าง = staleAfterSeconds + แคชขอบ + รอบถามของเว็บ (`basinStaleLimitMs`) — ท่อที่ดีให้อายุบนจอได้ถึงราว 30 นาที
+  // เกณฑ์ค้าง = staleAfterSeconds + แคชขอบ + รอบถามของเว็บ (`basinStaleLimitMs`) — ท่อที่ดีให้อายุบนจอได้ถึงราว 25 นาที (เกณฑ์ 45)
   const ageMs = basinAgeMs(fetchedAt, nowMs);
-  const stale = data !== null && isBasinsStale(fetchedAt, data.layer.staleAfterSeconds ?? 900, nowMs);
+  const stale = data !== null && isBasinsStale(fetchedAt, data.layer.staleAfterSeconds ?? THAIWATER_STALE_AFTER_SECONDS, nowMs);
   const thaiwater = health?.sources.find((s) => s.id === "thaiwater") ?? null;
   const sourceBad = thaiwater !== null && thaiwater.health !== "ok";
   const requestFailed = state.error !== null;

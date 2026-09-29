@@ -229,6 +229,7 @@ export function LayersPanel({ ctx }: { ctx: PanelContext }) {
         <ApiStatusFooter
           fetchedAt={obs?.summary.fetchedAt ?? null}
           attribution={obs?.summary.sourceAttribution ?? null}
+          staleAfterSeconds={obs?.layer.staleAfterSeconds ?? null}
         />
       </div>
     </div>

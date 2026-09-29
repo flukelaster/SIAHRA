@@ -223,12 +223,21 @@ describe("ObservationCacheDO.status()", () => {
     expect(s.health).toBe<SourceHealth>("down");
   });
 
-  it("ดึงสำเร็จครั้งสุดท้ายเกิน 15 นาที → stale", async () => {
+  it("ดึงสำเร็จครั้งสุดท้ายเกิน 30 นาที (3 × รอบ 10 นาที) → stale", async () => {
     const s = await thaiwaterStatus("tw-stale", (ctx) => {
-      writeMeta(ctx, "fetchedAt", iso(-30 * MIN));
+      writeMeta(ctx, "fetchedAt", iso(-45 * MIN));
       station(ctx, -20 * MIN);
     });
     expect(s.health).toBe<SourceHealth>("stale");
+    expect(s.staleAfterSeconds).toBe(30 * 60);
+  });
+
+  it("ดึงสำเร็จเมื่อ 20 นาทีก่อน (เกินงบ 15 นาทีเดิม แต่ยังอยู่ในงบ 30 นาที) → ไม่ stale", async () => {
+    const s = await thaiwaterStatus("tw-not-stale-20", (ctx) => {
+      writeMeta(ctx, "fetchedAt", iso(-20 * MIN));
+      station(ctx, -20 * MIN);
+    });
+    expect(s.health).toBe<SourceHealth>("ok");
   });
 
   it("ไม่ได้ดึงสำเร็จมา 3 ชม. และมี error ค้าง → down (เดิมถูกกลบเป็น stale แล้วนับว่า ok)", async () => {
@@ -432,7 +441,7 @@ describe("healthOk()", () => {
     lastAttemptAt: iso(-1 * MIN),
     lastError: null,
     detail: {},
-    staleAfterSeconds: 900,
+    staleAfterSeconds: 1800,
     observedLagSeconds: 7200,
     nextAttemptAt: null,
     ...over,

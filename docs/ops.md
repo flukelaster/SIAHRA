@@ -58,6 +58,7 @@ curl -s .../api/v1/health | jq --arg now "$(date -u +%FT%TZ)" '
 | `earthquakes` `degraded` with `TMD credentials not configured` | `TMD_UID`/`TMD_UKEY` are unset — the deliberate honest-degradation path | Expected unless the secrets have been set. To fix: `npx wrangler secret put TMD_UID` (and `TMD_UKEY`) in `apps/api`. USGS and EMSC are unaffected. |
 | `tmd-nwp` `degraded` with `TMD NWP token not configured` | `TMD_NWP_TOKEN` is unset — the honest-degradation path, and it means **we never asked**, not that TMD published nothing | `npx wrangler secret put TMD_NWP_TOKEN` in `apps/api` (`docs/deploy.md` §3). Until then `/api/v1/provinces/{NN}/forecast` answers `200` with `batch: null`; every other source is unaffected. |
 | `tmd-nwp` `degraded`/`down` with `TMD NWP token rejected (401)` | The bearer token expired or was revoked — **retrying cannot fix it** | Issue a new token at `data.tmd.go.th/nwpapi/` and overwrite the secret. The token in use expires **2027-08-18**; an outage on or after that date with no other symptom is almost certainly this. |
+| `thaiwater` `degraded`, `lastError` starts `ThaiWater rain_24h failed: 429 …` and/or `ThaiWater waterlevel_load failed: 429 …`, `detail.upstreamBreakers` non-null | ThaiWater is answering `429 Too Many Requests` to the Worker — first seen 2026-09-29 ~10:10Z while `analyst/dam` still answered 200 and the same URLs answered 200 from a laptop and another cloud IP; **cause unknown** (per-path quota, bandwidth or an egress policy are all possible) | Nothing to force — the per-endpoint breaker is already backing off (§4) and the map keeps serving the last rows with their old `fetchedAt`. Read `lastError` for the status and `retry-after=`; the fuller text (≤ 300 chars: status, `Retry-After`, the first ≤ 200 chars of the body, allowlisted headers such as `server` / `via` / `cf-ray` / `x-*ratelimit*`) is `detail.rainfallError` / `detail.waterlevelError`. Check `detail.upstreamBreakers` (which endpoint, which level, until when) and that `nextAttemptAt` is not earlier than that. Do **not** curl `.../api/v1/observations` in a loop to "force" a round — the gate serves the cache while paused. Whether the same URLs answer from elsewhere tells you if it is the account/egress or the endpoint. |
 | A source is `stale` (no error at all) | **Our side did not fetch** — a missed alarm or cron, not an upstream problem | Check `nextAttemptAt`. If `null`, force a refresh (§5). If cron is not firing at all, every source goes `stale` together — check the Worker's cron trigger in the dashboard. |
 | A source is `down` | Every feed of that source failed, or an error is standing and the last success is past its budget | Read `lastError`. Curl the upstream yourself. If the upstream is genuinely down, the correct state *is* `down` — leave it visible. |
 | A source is `delayed` | Fetching works; the upstream has not published a newer observation | Nothing to do. This is upstream cadence, not a fault. **Exception — `tmd-radar`:** `delayed` with `detail.rotated > 0` and `skippedFrames` 0, in dry weather, is *our* frame-hash guard dropping byte-identical empty frames, not TMD falling behind — do not chase TMD; it clears on the first frame whose bytes differ (§7). |
@@ -120,7 +121,7 @@ Messages worth knowing:
 | `gistda flood refreshed` | info | One line per successful round: `provincesOk`, `provincesFailed`, `cells`, `bodyGzBytes`, `archived`, `archivedGzBytes`. `archivedGzBytes` is what `archive/flood-v2/` grew by this round — the number to watch for R2 storage (`docs/deploy.md` "ค่าใช้จ่ายโดยประมาณ"). |
 | `gistda flood partial refresh` | warn | Some provinces failed or were skipped (`time budget`, `upstream failing`) or their archive `put` failed; they keep their previous answer. At most three GISTDA lines per round. |
 | `tmd poll skipped` | error | TMD credentials missing (the expected state today). |
-| `upstream queue paused` | warn | The ThaiWater circuit breaker tripped; `untilMs` is when it reopens. The source reports `degraded` while paused. |
+| `upstream breaker open` | warn | One ThaiWater endpoint's circuit breaker opened or climbed a level: `key` (`rain_24h`, `waterlevel_load`, `analyst/dam`, `waterlevel_graph`), `level` (1–5), `untilMs` (when the single probe is allowed), `retryAfterMs` (the upstream's `Retry-After`, `null` if none). The source reports `degraded` while any endpoint is paused. `upstream breaker persist failed` / `upstream breaker hydrate failed` (warn) mean the `meta` read/write of that state failed — the breaker still works in memory. |
 | `unhandled route error` | error | A handler threw; the client got a `500`. `path` names the route. Always a bug. |
 
 Logs are for operators. **Anything a user must know has to be in `lastError`/`/api/v1/health` as
@@ -135,14 +136,14 @@ refresh, so they cannot double-fetch.
 
 | Durable Object | Source id | Normal refresh | Retry after failure | `staleAfterSeconds` | `observedLagSeconds` | Retention |
 |---|---|---|---|---|---|---|
-| `ObservationCacheDO` | `thaiwater` | 5 min | 1 → 2 → 4 → … capped 10 min | 900 (15 min) | 7200 (2 h) | 7-day hot window in SQLite, older in R2; station history 8 days |
+| `ObservationCacheDO` | `thaiwater` | 10 min | 1 → 2 → 4 → … capped 10 min, and never before the ThaiWater breaker's pause ends (below) | 1800 (30 min) | 7200 (2 h) | 7-day hot window in SQLite, older in R2; station history 8 days |
 | `RadarDO` | `tmd-radar` | 5 min | 1 min | 900 (15 min) | 5400 (90 min) | frames 30 days |
 | `FloodExtentDO` | `gistda-flood` | 30 min, **alarm only** (the cron's `ensureFresh()` only arms the alarm, it never pulls) | 5 → 10 → 20 → 30 min (±15 % jitter on the alarm; the in-round fetch retry uses ±25 %) | 10800 (3 h) | `null` (irregular satellite revisit) | none — `flood_province_scenes` and `archive/flood-v2/` are kept indefinitely |
 | `EarthquakeFeedDO` | `earthquakes` | 1 min | next tick (1 min) | 300 (5 min) | `null` (quakes have no cadence) | events 30 days |
 | `ForecastNwpDO` | `tmd-nwp` | 1 h | 5 min | 10800 (3 h) | `null` (a forecast has no observation to be late about) | none — latest round only, one row per province, overwritten in place |
 | `StormTrackDO` | `jma-typhoon`, `gdacs-tc` | 30 min | 5 min only when both upstreams failed (one failing waits the normal 30 min); cron gated on `lastAttemptAt` like `ForecastNwpDO` | 10800 (3 h) | `null` (storms have no cadence) | none — one `latest` row, overwritten on every successful round; per-source meta |
 | `HiiForecastDO` | `hii-fews` | 1 h, **alarm-driven** (the cron's `ensureFresh()` only re-arms a lost alarm; it starts a round itself only when the last attempt is > 2 h old) | 5 min when no forecast file answered, doubling to 1 h; a file-level failure keeps the previous series | 10800 (3 h) | `null` (a forecast has no observation to be late about) | none — one `latest` row overwritten on every successful round, plus meta rows |
-| `ObservationCacheDO` (exposure) | `exposure-illustrative` | on every ThaiWater refresh (~5 min) | with that refresh | 3600 (1 h) | 1800 (30 min) | runs kept indefinitely (see §6) |
+| `ObservationCacheDO` (exposure) | `exposure-illustrative` | on every ThaiWater refresh (~10 min) | with that refresh | 3600 (1 h) | 1800 (30 min) | runs kept indefinitely (see §6) |
 
 Side cadences inside `ObservationCacheDO`: dams every 30 min (5 min pause after a failure so a broken
 feed is not hammered), station history at most every 10 min per station, the E16 north-route history
@@ -168,6 +169,46 @@ upstream that is already struggling. `ForecastNwpDO.ensureFresh()` therefore als
 the cron tick, so there is nothing there to over-drive. The difference is the cadence constant, not
 the code — do not "fix" `RadarDO` to match. A regression test pins this
 (`test/forecastNwpDurableObject.test.ts`).
+
+**`ObservationCacheDO` has the same gate, plus a persisted per-endpoint breaker (2026-09-29, after
+ThaiWater began answering `429`).** `ensureFresh()` (cron), `getObservations()` (every edge-cache miss) and
+`alarm()` never start `refreshOnce()` while **both** `rain_24h` and `waterlevel_load` are paused, or while
+the retry-not-before of a failed round (`lastAttemptAt` + the 1 → 10 min backoff) is in the future — they
+serve the cache with its old `fetchedAt`, without a write, a log line or an upstream call (`isFresh()`
+alone is not enough: a round that fails entirely never advances `fetchedAt`, so it would stay stale and
+start a round on every cron tick). A gated skip does not touch `lastAttemptAt` or `consecutiveFailures`;
+those count real attempts only. The breaker itself lives in `UpstreamQueue`, **one per endpoint**
+(`rain_24h`, `waterlevel_load`, `analyst/dam`, `waterlevel_graph`): three consecutive `429`/`502`/`503`/
+`504`/network failures (classified from the typed error, never from message text) open it at 5 min, then
+each failed half-open probe climbs 10 → 20 → 40 → 60 min (cap); a `Retry-After` on any of those failures
+is honoured (capped at 60 min — it can lengthen a pause, never shorten the ladder step, and it pauses the
+endpoint even before the third failure). After a pause expires **one** probe goes out
+for the whole queue and other jobs are rejected as "probe in flight" — so after an outage `rain_24h` is
+probed first and water level can trail it by up to ~10 min. Only that endpoint's own success closes it: a
+working `analyst/dam` does not reset `rain_24h`. The state is written to `meta` (`breaker:<key>` rows, PK
+reads/writes only) and rehydrated when the DO is constructed, so an eviction mid-pause resumes the same
+ladder; only the closed-state consecutive-failure counter is in memory (3 real rounds after an eviction).
+`armAlarm()` sets `now + max(retry backoff | 10-min TTL, pausedUntil − now)`, and a round started by cron or
+a reader moves the alarm to `now + 10 min` (no second ~6 MB pull seconds later).
+
+To read it, `/api/v1/health` → `thaiwater`: `detail.upstreamBreakers` is one string per non-closed
+endpoint, `rain_24h L2 until <ISO time> retry-after=120s; …` (`awaiting probe` instead of
+`until` once the pause has expired and no probe has answered; `null` = every breaker closed);
+`detail.upstreamPausedUntil` is the latest pause end over all four endpoints and `nextAttemptAt` is the
+alarm, which must not be earlier than the moment a refresh is next allowed (the earlier of the two feeds'
+pause ends, or the retry backoff). A breaker that only covers history
+(`waterlevel_graph`) or dams makes the aggregate `degraded` with no `lastError` — the reason is in
+`upstreamBreakers`. **`lastError` on a failed round** reads `ThaiWater <path> failed: <status>
+retry-after=<v>` first, then ` | <sanitised body snippet> | <allowlisted headers>`, cut at ≈95 characters
+per feed so that both feeds' statuses fit in the 200 characters of the joined `lastError`; the fuller
+text (≤ 300) is `detail.rainfallError` / `detail.waterlevelError` (and `detail.damsError`, which `lastError`
+carries as `dams: …`). The snippet is at most 200 characters from the first 2 KiB of the body, stripped
+of tags and control characters; headers are an allowlist (`retry-after`, `server`, `via`, `cf-ray`,
+`content-type`, `x-*ratelimit*`). The 2026-09-29 incident shape: `analyst/dam` answered 200 while
+`public/rain_24h` and `public/waterlevel_load` answered 429 (same URLs 200 from a laptop and another cloud
+IP; the last success was 10:07Z; the cause is not known). A ThaiWater feed that stamps values every 10
+minutes at best (water) and mostly hourly (rain) does not gain from being polled every 5, so
+`TTL_MS` is now 10 min and `staleAfterSeconds` 1800 (three rounds) — see `docs/api.md`.
 
 If `nextAttemptAt` is `null` for a source, no alarm is scheduled — the next cron tick will re-arm it.
 
@@ -231,13 +272,13 @@ does not do. The cost of that decision, stated plainly:
 
 | | |
 |---|---|
-| Runs per day | ≈288 (one per successful ThaiWater refresh, ~5 min apart) |
-| Objects per year | ≈105,000 JSON objects (~100× what a level-change-only rule would write) |
+| Runs per day | ≈144 (one per successful ThaiWater refresh, ~10 min apart) |
+| Objects per year | ≈52,600 JSON objects (~50× what a level-change-only rule would write; ≈105,000 at the former 5-min refresh) |
 | Size each | **measured 2026-08-19 through the real write path** (run `20260819T161910Z`, 5,454 stations): 1,289,810 bytes of JSON → **102,609 bytes stored** (7.96 %, 12.6×). Take that number, not a `gzip -9` figure from the same JSON: `CompressionStream("gzip")` in the Workers runtime compresses at its default level, and the ~92 KB you get from `gzip -9` on the command line is ~10 % smaller than what actually lands in R2. |
-| Storage growth | ≈29.6 MB/day, **≈10.8 GB (10.0 GiB) after a year**, growing linearly. Raw it would have been ≈371 MB/day and ≈136 GB, so gzip buys a factor of 12.6 — but it does **not** buy a free ride: this lands *on* R2's 10 GB free storage line at about the twelve-month mark. Assume the bucket leaves the free tier inside year one and budget for paid storage or a lifecycle rule (below) before it does. |
+| Storage growth | ≈14.8 MB/day, **≈5.4 GB (5.0 GiB) after a year**, growing linearly (≈29.6 MB/day and ≈10.8 GB at the former 5-min refresh, before 2026-09-29). Raw it would have been ≈185 MB/day and ≈68 GB, so gzip buys a factor of 12.6 — but it does **not** buy a free ride: at this rate the runs alone reach R2's 10 GB free storage line at about the two-year mark (twelve months at 5 min). Budget for paid storage or a lifecycle rule (below) before it does. |
 | Stored bytes | gzip. The key ends `.json.gz` for that reason — `wrangler r2 object get … --file -` gives you a gzip stream, not JSON. The API decompresses on read, so `GET /api/v1/exposure/runs/{runId}` still answers plain JSON to a plain `curl` |
 | R2 writes per refresh | **at most one** — an unchanged refresh writes nothing, because the run id is derived from the run's content |
-| Runs while ThaiWater is down | still ≈288/day. `factors.freeboardTrendMPerH` is measured over a 3 h window that slides with the clock, so points drop out of the window on their own and the content changes even with no new upstream data. The published trend is the one actually computed, so this is honest, not a bug — but the object count does **not** fall during an outage |
+| Runs while ThaiWater is down | one per **real refresh attempt**, failed or not (`publishExposure()` runs after every `refreshOnce()`), and `factors.freeboardTrendMPerH` is measured over a 3 h window that slides with the clock, so the content changes even with no new upstream data — the published trend is the one actually computed, so this is honest, not a bug. Since the 2026-09-29 refresh gate (§4) attempts thin out with the breaker ladder — about one an hour at its top — so the count **does** fall during a long outage (before the gate every cron tick and cache miss started a round, so it did not) |
 | Retention | **indefinite.** That is what makes `/api/v1/exposure/runs/{runId}` citable after the fact |
 
 ```bash
@@ -273,8 +314,12 @@ else in the code path prunes these objects.
   refresh. Look at the DO alarm, not at ThaiWater: check `nextAttemptAt` for
   `exposure-illustrative` and for `thaiwater` on `/api/v1/health` (`null` = nothing scheduled; the
   next cron tick re-arms it), then `npx wrangler tail siahra-api` for the refresh. Force one with
-  `curl -s .../api/v1/observations > /dev/null` (§5). Past an hour the same silence escalates to
-  `stale`. Note that `latestObservedAt` for this source is `run.computedAt` — the age of the
+  `curl -s .../api/v1/observations > /dev/null` (§5) — **except while the ThaiWater breaker is paused**
+  (`thaiwater` `detail.upstreamBreakers` non-null, §4): the gate serves the cache and starts no round, and
+  a pause at the 40- or 60-min rung of the ladder is by itself longer than the 30-minute lag, so
+  during a real ThaiWater outage `exposure-illustrative` now goes `delayed` (and `stale` after an hour)
+  *with* `thaiwater` `degraded` — that is the backoff, not a stalled loop. Past an hour the same silence
+  escalates to `stale`. Note that `latestObservedAt` for this source is `run.computedAt` — the age of the
   *measurements* is `detail.runObservedAt`, normally 17–77 min older, and it being old is normal.
   A *failed* publish looks different again: `lastError` is populated (R2 or the run pointer) and the
   source goes `degraded`/`down`, which also flips `/api/v1/health` `ok` to `false`. The refresh alarm
@@ -284,7 +329,10 @@ else in the code path prunes these objects.
   together. The exposure source only reports **its own** publish failures in `lastError`; an upstream
   outage reaches it indirectly, through `fetchedAt` ageing past `staleAfterSeconds` (1 h). ThaiWater
   failing for 45 min therefore shows on the `thaiwater` row first — that is the row to act on — while
-  exposure is still serving the last honestly-computed run.
+  exposure is still serving the last honestly-computed run. (Before the 2026-09-29 refresh gate this held
+  for as long as the outage lasted, because every failed attempt also published a run; now attempts thin
+  out with the breaker ladder, so past ~30 min of ThaiWater failure exposure reads `delayed` too — see the
+  bullet above.)
 - **`tmd-nwp` has no `latestObservedAt` and can never be `delayed`** → `latestObservedAt` and
   `observedLagSeconds` are `null` by design: a forecast measures nothing, and its valid times are in
   the future. Putting a future time in `latestObservedAt` would claim we observed the future. Judge
@@ -446,7 +494,7 @@ it → full scan, × 24 stations per province view) and five `COUNT`/`MAX` aggre
    `apps/api/test/sqlQueryPlans.test.ts` does exactly this for every static SQL literal in
    `src/durable-objects/*.ts` and fails on any scan that is not in its `ALLOWED_SCANS` list with a
    reason, so a new offender normally never reaches `main`.
-3. **Then ask how often it runs.** A scan once per 5-minute refresh is fine; the same scan inside a
+3. **Then ask how often it runs.** A scan once per 10-minute refresh is fine; the same scan inside a
    request handler, `status()`, or a loop over stations is the bug. Fix by (a) adding the index the
    predicate needs, (b) moving the statement onto the refresh/alarm path and caching its result in
    `meta`, or (c) rate-gating it (`pruneRetention()` runs at most hourly) — then list any remaining

@@ -19,7 +19,7 @@ import {
   fetchWaterLevel,
   fetchWaterLevelHistory,
 } from "../ingestion/thaiwater.js";
-import { shortReason } from "../ingestion/errors.js";
+import { fullReason, shortReason } from "../ingestion/errors.js";
 import { DEFAULT_EXPOSURE_THRESHOLDS, computeExposure } from "../exposure/compute.js";
 import type { StationHourlyLevels } from "../exposure/compute.js";
 import {
@@ -29,6 +29,7 @@ import {
 } from "../exposure/publish.js";
 import { deriveSourceHealth } from "../sourceHealth.js";
 import { UpstreamQueue } from "../upstream/limiter.js";
+import { THAIWATER_STALE_AFTER_MS } from "../thaiwaterFreshness.js";
 import {
   addDays,
   bangkokDay,
@@ -51,9 +52,12 @@ import { buildBasins } from "../basins/build.js";
  * must never be fetched per browser request. One cached nationwide copy backs
  * every province query.
  */
-const TTL_MS = 5 * 60 * 1000;
-/** After this long without a successful pull the data is flagged stale. */
-const STALE_AFTER_MS = 15 * 60 * 1000;
+const TTL_MS = 10 * 60 * 1000;
+/**
+ * After this long without a successful pull the data is flagged stale — 30 min = 3 × TTL, ค่าเดียวกับที่
+ * `basins/build.ts` ใช้ (นำเข้าจาก `thaiwaterFreshness.ts` ทั้งสองที่ ไม่ใช่สองสำเนา)
+ */
+const STALE_AFTER_MS = THAIWATER_STALE_AFTER_MS;
 /**
  * เพดานอายุของ "ค่าตรวจวัดใหม่สุด" ก่อนถือว่า `delayed` (ดึงสำเร็จ แต่ต้นทางยัง
  * ไม่ปล่อยรอบใหม่) — วัดจริงจาก /api/v1/observations ทั่วประเทศ 2026-08-19:
@@ -66,9 +70,21 @@ const STALE_AFTER_MS = 15 * 60 * 1000;
  * ไม่ใช่เมื่อสถานีบางส่วนค้าง
  */
 const OBSERVED_LAG_MS = 2 * 60 * 60 * 1000;
-/** Failed refreshes back off: 1 min, 2, 4 … capped at 10 min. */
+/** Failed refreshes back off: 1 min, 2, 4 … capped at 10 min (= TTL, so a failing feed never polls faster than a healthy one after the ladder). */
 const RETRY_MIN_MS = 60 * 1000;
 const RETRY_MAX_MS = 10 * 60 * 1000;
+/**
+ * key ของ breaker ต่อ endpoint ใน `UpstreamQueue` — ความสำเร็จของ `analyst/dam` หรือ `waterlevel_graph` ต้องไม่ปิด
+ * breaker ของ `rain_24h` / `waterlevel_load` (สภาพที่เกิดจริง 2026-09-29: dam 200 แต่สองตัวนั้น 429)
+ * สถานะของทั้งสี่ถูก persist ใน `meta` (`breaker:<key>`) เพื่อให้ DO ที่ถูกถอดกลางการพักกลับมาพักต่อ
+ */
+const KEY_RAIN = "rain_24h";
+const KEY_WATER = "waterlevel_load";
+const KEY_DAMS = "analyst/dam";
+const KEY_GRAPH = "waterlevel_graph";
+const BREAKER_KEYS = [KEY_RAIN, KEY_WATER, KEY_DAMS, KEY_GRAPH] as const;
+/** สองฟีดที่ `refresh()` ยิงพร้อมกัน — รอบ refresh มีประโยชน์ก็ต่อเมื่อมีอย่างน้อยหนึ่งตัวยิงได้ */
+const REFRESH_KEYS = [KEY_RAIN, KEY_WATER] as const;
 /** Station history is re-pulled at most this often, kept this long. */
 const HISTORY_TTL_MS = 10 * 60 * 1000;
 const HISTORY_RETENTION_MS = 8 * 24 * 60 * 60 * 1000;
@@ -86,7 +102,7 @@ const ROUTE_PULL_INTERVAL_MS = 60 * 60 * 1000;
  */
 const ROUTE_PULL_PRIORITY = 9;
 /**
- * เพดานเวลาที่ `alarm()` รอรอบดึงเส้นทางน้ำเหนือ — alarm รอบถัดไปถูกตั้งไว้แล้ว (+5 นาที)
+ * เพดานเวลาที่ `alarm()` รอรอบดึงเส้นทางน้ำเหนือ — alarm รอบถัดไปถูกตั้งไว้แล้ว (+10 นาที)
  * แต่จะไม่ยิงจนกว่า handler นี้จะคืน และ fetch ของ ThaiWater ไม่มี timeout ของมันเอง
  * ต้นทางที่ค้างจึงต้องไม่ลากจังหวะ refresh หลักไปด้วย: เกินเพดานนี้ alarm คืนก่อน
  * ส่วนรอบดึงที่ยังค้างถูก `ctx.waitUntil` ถือไว้ (ปกติ 25 สถานี × 250 ms ≈ ไม่กี่วินาที)
@@ -170,14 +186,19 @@ interface MetaRow extends Record<string, SqlStorageValue> {
 export class ObservationCacheDO extends DurableObject<Env> {
   /**
    * Every ThaiWater call goes through this queue: 3 at a time, ≥250 ms apart,
-   * ≤120 starts/min, and a 5-minute pause after 3 consecutive 429/5xx.
+   * ≤120 starts/min, and a breaker per endpoint: 3 consecutive 429/5xx/network failures open it for 5 min,
+   * then a single probe per expiry climbs 10 → 20 → 40 → 60 min (a success closes it). The state lives in
+   * `meta` so an evicted DO resumes the same ladder.
    */
   private readonly upstream = new UpstreamQueue({
     concurrency: 3,
     minGapMs: 250,
     perMinute: 120,
     tripAfter: 3,
-    pauseMs: 5 * 60 * 1000,
+    persist: {
+      read: (key) => this.readMeta(key),
+      write: (key, value) => this.writeMeta(key, value),
+    },
   });
 
   constructor(ctx: DurableObjectState, env: Env) {
@@ -247,6 +268,7 @@ export class ObservationCacheDO extends DurableObject<Env> {
           body TEXT NOT NULL
         );
       `);
+      this.hydrateBreakers();
     });
   }
 
@@ -267,6 +289,44 @@ export class ObservationCacheDO extends DurableObject<Env> {
       key,
       value,
     );
+  }
+
+  /** โหลดสถานะ breaker จาก meta (PK เท่านั้น) — ไม่โยน; ถ้าล้ม `armAlarm()` / gate ลองใหม่ (ดู `UpstreamQueue.hydrate`) */
+  private hydrateBreakers(): void {
+    try {
+      this.upstream.hydrate(BREAKER_KEYS);
+    } catch (err) {
+      logWarn("upstream breaker hydrate failed", { error: errorText(err) });
+    }
+  }
+
+  private retryBackoffMs(failures: number): number {
+    return Math.min(RETRY_MAX_MS, RETRY_MIN_MS * 2 ** Math.min(6, failures - 1));
+  }
+
+  /**
+   * ก่อนเวลานี้ **ห้ามเริ่ม `refreshOnce()`** จากทางไหนก็ตาม (cron `ensureFresh`, ผู้อ่าน `getObservations`, `alarm`):
+   * - `hold` — ทั้งสองฟีดถูก breaker พักอยู่ (ค่าที่ persist ไว้ใน meta) = ไม่มีคำขอไหนยิงได้
+   * - `retry` — รอบล่าสุดล้มเหลว: `lastAttemptAt` + backoff 1→10 นาที
+   * `isFresh()` อ่านแต่ `fetchedAt` ซึ่งรอบที่ล้มทั้งรอบไม่เคยขยับ — ถ้าไม่มีด่านนี้ ทุกนาทีของ cron และทุกครั้งที่แคชขอบ
+   * พลาดจะเริ่มรอบใหม่ (เขียน meta ~6 ครั้ง + `publishExposure` ที่สแกนสองตาราง) แม้ตัว breaker จะปฏิเสธคำขอทุกตัวอยู่แล้ว —
+   * ด่านเดียวกับ `lastAttemptAt` ของ `ForecastNwpDO` (docs/ops.md §4) แต่คำนวณจาก breaker ที่ persist ไว้ด้วย
+   * ผู้ที่ถูกด่านกั้นอ่านจากแคชตามเดิม (ข้อมูลเก่าพร้อม `fetchedAt` เดิม) — ไม่เขียน ไม่ log ไม่ยิงต้นทาง
+   */
+  private refreshNotBeforeMs(nowMs: number): number {
+    this.hydrateBreakers();
+    const hold = this.upstream.allPausedUntilMs(REFRESH_KEYS, nowMs);
+    const failures = Number(this.readMeta("consecutiveFailures") ?? "0");
+    let retry = 0;
+    if (failures > 0) {
+      const lastAttemptMs = Date.parse(this.readMeta("lastAttemptAt") ?? "");
+      if (Number.isFinite(lastAttemptMs)) retry = lastAttemptMs + this.retryBackoffMs(failures);
+    }
+    return Math.max(hold, retry);
+  }
+
+  private refreshBlocked(nowMs: number): boolean {
+    return nowMs < this.refreshNotBeforeMs(nowMs);
   }
 
   private isFresh(nowMs: number): boolean {
@@ -340,38 +400,58 @@ export class ObservationCacheDO extends DurableObject<Env> {
     // นัดครั้งถัดไปต้องถูกตั้งเสมอ แม้รอบนี้จะพัง — ถ้า refresh (หรือการเผยแพร่
     // exposure ที่ต่อท้ายมัน) โยนออกมาแล้วข้าม armAlarm() ไป DO จะไม่มีนัด
     // เหลืออยู่เลย และค่าตรวจวัดทั้งชุดจะหยุดอัปเดต ไม่ใช่แค่ exposure
+    let ran = false;
     try {
-      if (!this.isFresh(nowMs)) await this.refreshOnce(nowMs);
+      if (!this.isFresh(nowMs) && !this.refreshBlocked(nowMs)) {
+        ran = true;
+        await this.refreshOnce(nowMs);
+      }
     } finally {
-      await this.armAlarm();
+      await this.armAlarm(ran);
     }
     this.ctx.waitUntil(this.archiveTick().catch((err: unknown) => {
       this.writeMeta("archiveError", String(err).slice(0, 200));
     }));
-    // E16 — ไม่ดึงประวัติเส้นทางน้ำเหนือที่นี่: ensureFresh() ตั้ง alarm ไว้เสมอ (≤ 5 นาที)
+    // E16 — ไม่ดึงประวัติเส้นทางน้ำเหนือที่นี่: ensureFresh() ตั้ง alarm ไว้เสมอ (≤ 10 นาที)
     // และ alarm() ดึงให้ชั่วโมงละครั้งอยู่แล้ว ส่วนการปล่อยมันเป็น waitUntil จากที่นี่
     // (cron `scheduled()` ซึ่งไม่รอ waitUntil) ทำให้ fetch ของมันไปโผล่นอกช่วงชีวิตของผู้เรียก
   }
 
-  private async armAlarm(): Promise<void> {
+  /**
+   * นัดครั้งถัดไป = `now + max(backoff ของรอบที่ล้ม | TTL, เวลาที่ breaker หยุดพัก − now)`
+   *
+   * - `refreshRan` = เพิ่งมีรอบ refresh จริงจบลง (สำเร็จหรือล้ม) → ตั้งนัดใหม่เสมอ (หนึ่งครั้งต่อรอบ ≤ 1 ครั้ง/10 นาที): นี่คือ
+   *   `setAlarm(max(retryBackoff, pausedUntil))` ที่ชัดเจนหลัง breaker เปิด และทำให้รอบที่ cron เป็นคนเริ่มเลื่อนนัดเก่าไปเป็น
+   *   `now + TTL` (เดิม alarm เก่ายังยิงกลางคาบแล้วดึง ~6 MB ซ้ำห่างกันไม่กี่วินาที)
+   * - ไม่มีรอบ (cron ทุกนาทีที่แค่ตรวจว่ามีนัดอยู่) → เก็บนัดที่มีอยู่ถ้ามันยัง **ไม่เร็วกว่า** เวลาที่ refresh ทำได้
+   *   (`refreshNotBeforeMs`) ส่วนนัดที่เร็วกว่าถูกเลื่อนออก — ไม่งั้น `nextAttemptAt` ใน /health จะชี้ไปที่ alarm เก่าที่ยิงมา
+   *   เจอด่านเปล่า ๆ ทั้งที่ breaker ตั้งพักไว้อีก 40 นาที; ห้ามเปรียบกับ `now + TTL` เพราะนั่นจะเลื่อนนัดออกทุกนาทีของ cron
+   */
+  private async armAlarm(refreshRan = false): Promise<void> {
+    const now = Date.now();
+    this.hydrateBreakers();
     const existing = await this.ctx.storage.getAlarm();
-    if (existing !== null && existing > Date.now()) return;
+    if (!refreshRan && existing !== null && existing > now && existing >= this.refreshNotBeforeMs(now)) return;
     const failures = Number(this.readMeta("consecutiveFailures") ?? "0");
-    const delay =
-      failures > 0
-        ? Math.min(RETRY_MAX_MS, RETRY_MIN_MS * 2 ** Math.min(6, failures - 1))
-        : TTL_MS;
-    await this.ctx.storage.setAlarm(Date.now() + delay);
+    const base = failures > 0 ? this.retryBackoffMs(failures) : TTL_MS;
+    const hold = this.upstream.allPausedUntilMs(REFRESH_KEYS, now);
+    await this.ctx.storage.setAlarm(now + Math.max(base, hold > now ? hold - now : 0));
   }
 
   async alarm(): Promise<void> {
+    let ran = false;
     try {
-      await this.refreshOnce(Date.now());
+      const nowMs = Date.now();
+      // alarm ที่ยิงมาก่อนเวลาพัก/backoff (เช่น ตั้งไว้ก่อน breaker เปิด) ไม่ยิงต้นทาง — armAlarm() ด้านล่างเลื่อนนัดให้
+      if (!this.refreshBlocked(nowMs)) {
+        ran = true;
+        await this.refreshOnce(nowMs);
+      }
     } finally {
       // The alarm just fired, so getAlarm() is null and armAlarm() sets the next
       // one — from `finally`, so a failed refresh or a rejected R2 publish can
       // never leave this DO with no alarm scheduled (E10.3).
-      await this.armAlarm();
+      await this.armAlarm(ran);
     }
     // Archive work never blocks the refresh cadence.
     this.ctx.waitUntil(this.archiveTick().catch((err: unknown) => {
@@ -398,7 +478,7 @@ export class ObservationCacheDO extends DurableObject<Env> {
    * E16 — ดึงประวัติของสถานีบนเส้นทางน้ำเหนือ (`NORTH_ROUTE_STATIONS`, ~25 สถานี)
    * **ชั่วโมงละครั้ง** รูปเดียวกับ `pruneRetention()`: ด่านเป็นคีย์ meta `lastRoutePullMs`
    * ที่ถูกเขียน **ตอนเริ่ม** ไม่ใช่ตอนสำเร็จ — ต้นทางที่พังค้างจึงถูกลองใหม่ชั่วโมงละครั้ง
-   * ไม่ใช่ทุก 5 นาที
+   * ไม่ใช่ทุกรอบ refresh (10 นาที)
    *
    * เรียกจาก `alarm()` เท่านั้น หลัง `armAlarm()` และถูกรอภายในช่วงชีวิตของ alarm
    * (ไม่เกิน `ROUTE_PULL_AWAIT_MS`)
@@ -410,8 +490,9 @@ export class ObservationCacheDO extends DurableObject<Env> {
    *
    * ความล้มเหลวถูกกักไว้ในตัวเอง: ไม่แตะ `fetchedAt`/`lastError`/`consecutiveFailures`
    * ของฟีดหลัก ไม่โยนออกไป และ **หยุดวนตั้งแต่สถานีแรกที่พัง** — คิวต้นทางตัดวงจรหลัง
-   * ล้มเหลวติดกัน 3 ครั้ง (`tripAfter: 3`) ซึ่งจะพักฟีดหลักไปด้วย งานรองนี้จึงห้ามเป็นคน
-   * ดันให้ถึงเกณฑ์ ความล้มเหลวถูกเก็บที่ `routePullError` ของมันเอง
+   * ล้มเหลวติดกัน 3 ครั้ง (`tripAfter: 3`) — breaker ของประวัติ (`waterlevel_graph`) แยกจากสองฟีดหลักแล้ว
+   * จึงไม่ลากฟีดหลักไปพักด้วย แต่ยังหยุดตั้งแต่ตัวแรกที่พังเพื่อไม่ยิงซ้ำ 25 ครั้งใส่ต้นทางที่แออัด
+   * ความล้มเหลวถูกเก็บที่ `routePullError` ของมันเอง
    */
   private async pullRouteHistory(nowMs: number): Promise<void> {
     try {
@@ -679,20 +760,28 @@ export class ObservationCacheDO extends DurableObject<Env> {
     const errors: string[] = [];
     let rainfallError: string | null = null;
     let waterlevelError: string | null = null;
-    const [rainfall, waterlevel] = await Promise.all([
-      this.upstream.run(() => fetchRainfall(), 0).catch((err: unknown) => {
-        rainfallError = shortReason(err);
-        errors.push(rainfallError);
-        logError("thaiwater rain fetch failed", { error: errorText(err) });
-        return null;
-      }),
-      this.upstream.run(() => fetchWaterLevel(), 0).catch((err: unknown) => {
-        waterlevelError = shortReason(err);
-        errors.push(waterlevelError);
-        logError("thaiwater waterlevel fetch failed", { error: errorText(err) });
-        return null;
-      }),
-    ]);
+    let rainShort: string | null = null;
+    let waterShort: string | null = null;
+    // ส่งงานระดับน้ำเข้าคิวก่อนฝน: หลังหมดช่วงพัก คิวปล่อย probe ได้ช่องเดียว และระดับน้ำคือฟีดที่
+    // สำคัญต่อน้ำท่วม จึงควรได้ลองก่อน (ฝนที่ถูกปฏิเสธเพราะ "probe in flight" รอรอบ retry ถัดไป)
+    const waterJob = this.upstream.run(() => fetchWaterLevel(), 0, KEY_WATER).catch((err: unknown) => {
+      waterlevelError = fullReason(err);
+      waterShort = shortReason(err);
+      logError("thaiwater waterlevel fetch failed", { error: errorText(err) });
+      return null;
+    });
+    const rainJob = this.upstream.run(() => fetchRainfall(), 0, KEY_RAIN).catch((err: unknown) => {
+      // สั้น (≤ 95) เข้า `lastError` รวม (join แล้วตัดที่ 200 — ต้องเห็น status ของทั้งสองฟีด)
+      // เต็ม (≤ 300, มี snippet + header) เข้าช่องเก็บของฟีดตัวเอง
+      rainfallError = fullReason(err);
+      rainShort = shortReason(err);
+      logError("thaiwater rain fetch failed", { error: errorText(err) });
+      return null;
+    });
+    const [rainfall, waterlevel] = await Promise.all([rainJob, waterJob]);
+    // ลำดับข้อความใน `lastError` คงเดิม (ฝนก่อนระดับน้ำ) ไม่ขึ้นกับว่างานไหนล้มก่อน
+    if (rainShort) errors.push(rainShort);
+    if (waterShort) errors.push(waterShort);
 
     /**
      * **ตรวจรูปร่างเสร็จก่อนถึงบรรทัดนี้เสมอ** — adapter จะโยน `UpstreamShapeError`
@@ -863,7 +952,7 @@ export class ObservationCacheDO extends DurableObject<Env> {
    * ทำไม: `/api/v1/health` ถูก poll ทุก 60 วิจากทุกแท็บที่เปิดค้าง และ `status()`
    * เคยยิง `COUNT(*)` กับ `MAX(observed_at)` รวมห้าคำสั่งต่อครั้ง ≈ 18,000 แถวที่
    * ถูกสแกน Cloudflare คิดเงิน rows read ตามแถวที่สแกน จึงกลายเป็น ~540M แถว/วัน
-   * จากข้อมูลที่เปลี่ยนเพียงทุก 5 นาที ค่าที่เก็บไว้นี้ยังคงมาจากตารางจริงทุกค่า —
+   * จากข้อมูลที่เปลี่ยนเพียงทุก 5–10 นาที ค่าที่เก็บไว้นี้ยังคงมาจากตารางจริงทุกค่า —
    * แค่ถูกวัดตอนที่ตารางเปลี่ยน ไม่ใช่ตอนที่มีคนถาม
    *
    * อ่านผ่าน `stationStats()` ซึ่งจะคำนวณให้หนึ่งครั้งถ้า meta ยังไม่มี (แคชที่
@@ -901,7 +990,7 @@ export class ObservationCacheDO extends DurableObject<Env> {
 
   /**
    * Rewriting every station on every poll is what blew the DO rows_written
-   * quota (a full delete+insert of ~5,500 stations every 5 min). Most
+   * quota (a full delete+insert of ~5,500 stations every refresh tick). Most
    * stations haven't published a new reading since the last poll, so only
    * rows whose observedAt actually changed are written; the rest are
    * skipped entirely (not deleted — a station missing from one fetch keeps
@@ -983,7 +1072,11 @@ export class ObservationCacheDO extends DurableObject<Env> {
   }
 
   private async pullHistory(stationId: number, nowMs: number, priority = 5): Promise<void> {
-    const points = await this.upstream.run(() => fetchWaterLevelHistory(stationId, HISTORY_HOURS, nowMs), priority);
+    const points = await this.upstream.run(
+      () => fetchWaterLevelHistory(stationId, HISTORY_HOURS, nowMs),
+      priority,
+      KEY_GRAPH,
+    );
     // Re-inserting the full 72 h window every 10 min was the other big
     // rows_written source. Past readings don't change, so only points past
     // the last stored timestamp are written (minus a small buffer in case
@@ -1130,7 +1223,7 @@ export class ObservationCacheDO extends DurableObject<Env> {
         if (this.readMeta("damsError") && nowMs - lastAttemptMs < DAMS_RETRY_MS) return;
         this.writeMeta("damsAttemptAt", String(nowMs));
         try {
-          const dams = await this.upstream.run(() => fetchDams(nowMs), 3);
+          const dams = await this.upstream.run(() => fetchDams(nowMs), 3, KEY_DAMS);
           // ล้างตารางเฉพาะเมื่อมีของใหม่มาแทนจริง ๆ — payload ที่แปลงแล้วเหลือศูนย์
           // แถวไม่ควรมีสิทธิ์ลบเขื่อนทั้งประเทศทิ้ง (การตรวจซองจดหมายใน adapter
           // ดักกรณีนี้ไปแล้ว บรรทัดนี้คือกันชนชั้นสุดท้าย)
@@ -1148,7 +1241,7 @@ export class ObservationCacheDO extends DurableObject<Env> {
           this.writeMeta("damsFetchedAt", new Date(nowMs).toISOString());
           this.writeMeta("damsError", null);
         } catch (err) {
-          this.writeMeta("damsError", String(err).slice(0, 200));
+          this.writeMeta("damsError", fullReason(err));
           // แถวเขื่อนเดิมยังอยู่ครบ (ไม่มีคำสั่ง DELETE ถูกรัน) และความล้มเหลว
           // ไปโผล่ที่ lastError ของ /health ด้านล่าง แทนที่จะหายไปใน log เฉย ๆ
           logError("thaiwater dams fetch failed", { error: errorText(err) });
@@ -1358,6 +1451,9 @@ export class ObservationCacheDO extends DurableObject<Env> {
   async status(): Promise<SourceStatus> {
     const nowMs = Date.now();
     const fetchedAt = this.readMeta("fetchedAt");
+    // ค่านี้มาจากสถานะที่โหลดจาก meta ตอน DO ถูกสร้าง (`hydrateBreakers`) — DO ที่ถูกถอดกลางการพักยังรายงานการพักเดิม
+    this.hydrateBreakers();
+    const pausedUntilMs = this.upstream.pausedUntilMs(undefined, nowMs);
     /**
      * `damsError` ต้องถูกรวมเข้ากับ `lastError` ไม่ใช่ซ่อนไว้ใน `detail`:
      * SourceStatusBar แสดงแค่ `health` กับ `lastError` ฟีดเขื่อนที่พังจึงจะ
@@ -1388,7 +1484,7 @@ export class ObservationCacheDO extends DurableObject<Env> {
       latestObservedAt: latestRainfall,
       staleAfterSeconds: STALE_AFTER_MS / 1000,
       observedLagSeconds: OBSERVED_LAG_MS / 1000,
-      extraDegraded: this.upstream.pausedUntilMs > 0,
+      extraDegraded: this.upstream.pausedUntilMs(KEY_RAIN, nowMs) > 0,
     });
     const waterlevelHealth = deriveSourceHealth({
       nowMs,
@@ -1397,7 +1493,7 @@ export class ObservationCacheDO extends DurableObject<Env> {
       latestObservedAt: latestWaterlevel,
       staleAfterSeconds: STALE_AFTER_MS / 1000,
       observedLagSeconds: OBSERVED_LAG_MS / 1000,
-      extraDegraded: this.upstream.pausedUntilMs > 0,
+      extraDegraded: this.upstream.pausedUntilMs(KEY_WATER, nowMs) > 0,
     });
     const health = deriveSourceHealth({
       nowMs,
@@ -1406,8 +1502,8 @@ export class ObservationCacheDO extends DurableObject<Env> {
       latestObservedAt: latest,
       staleAfterSeconds: STALE_AFTER_MS / 1000,
       observedLagSeconds: OBSERVED_LAG_MS / 1000,
-      // pausedUntilMs คืน 0 เมื่อไม่ได้ถูกพัก (ไม่ใช่ null)
-      extraDegraded: this.upstream.pausedUntilMs > 0,
+      // pausedUntilMs คืน 0 เมื่อไม่ได้ถูกพัก (ไม่ใช่ null) — ทุก endpoint (รวมเขื่อน/ประวัติ) นับรวมที่นี่
+      extraDegraded: pausedUntilMs > 0,
     });
     const alarmAtMs = await this.ctx.storage.getAlarm();
     return {
@@ -1433,7 +1529,17 @@ export class ObservationCacheDO extends DurableObject<Env> {
         upstreamInflight: this.upstream.inflight,
         upstreamStartsLastMinute: this.upstream.startsLastMinute(),
         upstreamStartsLastHour: this.upstream.startsLastHour(),
-        upstreamPausedUntil: this.upstream.pausedUntilMs ? new Date(this.upstream.pausedUntilMs).toISOString() : null,
+        upstreamPausedUntil: pausedUntilMs ? new Date(pausedUntilMs).toISOString() : null,
+        // breaker ต่อ endpoint ที่ไม่ได้ปิดอยู่ เป็นข้อความสั้น (detail รับเฉพาะ string/number/null):
+        // "rain_24h L2 until <ISO> retry-after=120s; …" — null = ปิดทั้งหมด
+        upstreamBreakers:
+          Object.entries(this.upstream.snapshot(nowMs))
+            .map(
+              ([key, b]) =>
+                `${key} L${b.level}${b.pausedUntil > nowMs ? ` until ${new Date(b.pausedUntil).toISOString()}` : " awaiting probe"}` +
+                (b.retryAfterMs === null ? "" : ` retry-after=${Math.round(b.retryAfterMs / 1000)}s`),
+            )
+            .join("; ") || null,
         archiveLastDay: this.readMeta("lastArchivedDay"),
         snapshotLastHour: this.readMeta("lastSnapshotKey"),
         archiveError: this.readMeta("archiveError"),
@@ -1521,13 +1627,15 @@ export class ObservationCacheDO extends DurableObject<Env> {
    */
   async getObservations(province?: string | null, atIso?: string | null): Promise<ObservationsResponse> {
     const nowMs = Date.now();
-    if (!this.isFresh(nowMs)) {
+    // ด่านเดียวกับ `ensureFresh()`: ระหว่าง breaker พัก / รอ backoff ของรอบที่ล้ม ผู้อ่านได้ข้อมูลจากแคช
+    // (พร้อม `fetchedAt` เดิมที่บอกว่าเก่า) — ไม่เริ่มรอบ refresh ใหม่ทุกครั้งที่แคชขอบพลาด
+    if (!this.isFresh(nowMs) && !this.refreshBlocked(nowMs)) {
       // เช่นเดียวกับอีกสองจุด: `armAlarm()` อยู่ใน finally และถูก await จริง
       // (เดิมเป็น `void` ลอย ๆ ข้อผิดพลาดของมันจึงหายไปเงียบ ๆ)
       try {
         await this.refreshOnce(nowMs);
       } finally {
-        await this.armAlarm();
+        await this.armAlarm(true);
       }
     }
     // Viewing a province: make sure its stations' history is warm for the

@@ -39,7 +39,7 @@ function dam(id: number): BasinDam {
 function response(over: Partial<BasinsResponse> = {}): BasinsResponse {
   const fetchedAt = iso(NOW - 2 * MIN);
   return {
-    layer: { id: "thaiwater-basins", epistemicClass: "observed", liveOrStatic: "live", publishedAt: null, fetchedAt, staleAfterSeconds: 900, sourceIds: ["thaiwater"] },
+    layer: { id: "thaiwater-basins", epistemicClass: "observed", liveOrStatic: "live", publishedAt: null, fetchedAt, staleAfterSeconds: 1800, sourceIds: ["thaiwater"] },
     fetchedAt,
     damsFetchedAt: null,
     basins: [
@@ -189,19 +189,19 @@ describe("BasinCard", () => {
     expect(answered).toContain(never);
   });
 
-  it("ท่อที่ปกติดี: อายุ 14 นาที 59 วิ และ 25 นาที ไม่หรี่ ไม่บอกว่าเก่า; 31 นาที หรี่และบอก", () => {
+  it("ท่อที่ปกติดี (รอบดึง 10 นาที): อายุ 14 นาที 59 วิ, 25 นาที และ 44 นาที ไม่หรี่ ไม่บอกว่าเก่า; 46 นาที หรี่และบอก (เกณฑ์ 30 + 5 + 10 = 45)", () => {
     const withAge = (ms: number) => {
       const f = iso(NOW - ms);
       return render(ok(response({ fetchedAt: f, layer: { ...response().layer, fetchedAt: f } })));
     };
-    for (const ms of [14 * MIN + 59_000, 25 * MIN]) {
+    for (const ms of [14 * MIN + 59_000, 25 * MIN, 44 * MIN]) {
       const html = withAge(ms);
       expect(html).not.toContain("opacity-60");
       expect(html).not.toContain("หรี่ไว้");
     }
-    const old = withAge(31 * MIN);
+    const old = withAge(46 * MIN);
     expect(old).toContain("opacity-60");
-    expect(old).toContain("เก่ากว่า 31 นาที");
+    expect(old).toContain("เก่ากว่า 46 นาที");
   });
 
   it("ยังไม่เคยดึง (fetchedAt null): ข้อความเฉพาะ ไม่มีตัวเลือก ไม่ใช่ 'ไม่มีลุ่มน้ำ' และไม่ใช่เวลาปัจจุบัน", () => {
@@ -250,9 +250,9 @@ describe("BasinCard", () => {
   });
 
   it("ข้อมูลที่ API ถือเก่าเกิน staleAfterSeconds: บอกอายุและหรี่", () => {
-    const old = iso(NOW - 40 * MIN);
+    const old = iso(NOW - 50 * MIN); // เกินเกณฑ์รวม 45 นาที (staleAfterSeconds 30 + แคชขอบ 5 + รอบถามของเว็บ 10)
     const html = render(ok(response({ fetchedAt: old, layer: { ...response().layer, fetchedAt: old } })));
-    expect(html).toContain("เก่ากว่า 40 นาที");
+    expect(html).toContain("เก่ากว่า 50 นาที");
     expect(html).toContain("opacity-60");
   });
 
@@ -277,7 +277,7 @@ describe("BasinCard", () => {
   it("สถานะแหล่ง ThaiWater ไม่ปกติ / ถาม /health ไม่ได้ — สองข้อความที่แยกกัน", () => {
     const health = {
       ok: false,
-      sources: [{ id: "thaiwater", labelTh: "ThaiWater", labelEn: "ThaiWater", health: "stale", fetchedAt: iso(NOW), latestObservedAt: null, lastAttemptAt: null, lastError: null, detail: {}, staleAfterSeconds: 900, observedLagSeconds: null, nextAttemptAt: null }],
+      sources: [{ id: "thaiwater", labelTh: "ThaiWater", labelEn: "ThaiWater", health: "stale", fetchedAt: iso(NOW), latestObservedAt: null, lastAttemptAt: null, lastError: null, detail: {}, staleAfterSeconds: 1800, observedLagSeconds: null, nextAttemptAt: null }],
     } as unknown as HealthResponse;
     const bad = render(ok(response()), { health });
     expect(bad).toContain("สถานะ ThaiWater: ข้อมูลค้าง");
