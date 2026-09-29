@@ -13,12 +13,12 @@
  */
 /**
  * คีย์ของแผง = **มุมมองย่อย** ของหัวข้อ (`lib/topics.ts`) เรียงตามลำดับหัวข้อ:
- * ภาพรวม (impact) · น้ำ (water north dams flood) · ฝนและพายุ (rain forecast storm) · แผ่นดินไหว (quake)
+ * ภาพรวม (impact) · น้ำ (water north basin dams flood) · ฝนและพายุ (rain forecast storm) · แผ่นดินไหว (quake)
  *
  * "ชั้นข้อมูล" ไม่ใช่แผงอีกแล้ว (ย้ายไปเป็นปุ่มเครื่องมือบนแผนที่) — ค่า `"layers"` ที่
  * จำไว้จากรุ่นก่อนจึงถูกแปลงเป็นแผงเริ่มต้นใน `parseShellPrefs` ไม่ใช่ทิ้งทั้งก้อน
  */
-export const PANEL_KEYS = ["impact", "water", "north", "dams", "flood", "rain", "forecast", "storm", "quake"] as const;
+export const PANEL_KEYS = ["impact", "water", "north", "basin", "dams", "flood", "rain", "forecast", "storm", "quake"] as const;
 export type PanelKey = (typeof PANEL_KEYS)[number];
 
 /** แผงของผู้มาครั้งแรก และปลายทางของคีย์เก่า/ไม่รู้จักที่จำไว้ = ภาพรวม/ผลกระทบรายพื้นที่ */

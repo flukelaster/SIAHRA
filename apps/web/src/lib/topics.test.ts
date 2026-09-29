@@ -17,7 +17,7 @@ describe("topics — การจัดแผงเป็นหัวข้อ",
     expect(TOPICS.map((t) => t.key)).toEqual([...TOPIC_KEYS]);
     expect(TOPICS.map((t) => [t.key, [...t.views]])).toEqual([
       ["overview", ["impact"]],
-      ["water", ["water", "north", "dams", "flood"]],
+      ["water", ["water", "north", "basin", "dams", "flood"]],
       ["weather", ["rain", "forecast", "storm"]],
       ["quake", ["quake"]],
     ]);
@@ -39,6 +39,7 @@ describe("topics — การจัดแผงเป็นหัวข้อ",
     expect(topicOf("rain")).toBe("weather");
     expect(topicOf("flood")).toBe("water");
     expect(topicOf("north")).toBe("water");
+    expect(topicOf("basin")).toBe("water");
     expect(topicOf("dams")).toBe("water");
     expect(topicOf("water")).toBe("water");
     expect(topicOf("quake")).toBe("quake");

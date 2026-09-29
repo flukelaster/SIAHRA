@@ -61,6 +61,13 @@ export const storms = policy("storms", "public, max-age=60, s-maxage=300");
 export const riverForecast = policy("riverForecast", "public, max-age=60, s-maxage=300");
 
 /**
+ * มุมมองตามลุ่มน้ำ (`/api/v1/basins`) — `ObservationCacheDO` เขียนแถวนี้ใหม่ทุกรอบ refresh (5 นาที) CDN 5 นาทีจึงไม่เกินหนึ่งรอบ
+ * ส่วนเบราว์เซอร์ 60 วิ เหมือน `storms`/`riverForecast` (บอดี้มี `fetchedAt`/`damsFetchedAt` ของตัวเอง อายุที่แสดงคิดจากค่าจริง
+ * ไม่ใช่จากแคช) — ใช้เฉพาะคำตอบที่แถวมีอยู่แล้ว คำตอบ "ยังไม่มีแถว" เป็น `noStore`
+ */
+export const basins = policy("basins", "public, max-age=60, s-maxage=300");
+
+/**
  * รายการรายงานจากประชาชนรายจังหวัด — แคชขอบ 30 วิ เท่ากับ memo ของ `CommunityReportDO` (devops LIST-1)
  * **ทุก** 200 ถูกแคช รวมรายการว่าง บอดี้มี `fetchedAt` (เวลาที่ DO อ่าน) อายุที่แสดงจึงคิดจากค่าจริง
  * หมุดที่ผู้ใช้เพิ่งส่งเองเว็บใส่ลง state ทันที ไม่ต้องรอแคชหมดอายุ

@@ -40,6 +40,7 @@ edit in that table.
 | `/api/v1/dams` | GET | 300 | default | per route | Fetched on province switch |
 | `/api/v1/rivers/north` | GET | 120 | default | per route | E16 north-route panel; one `ObservationCacheDO` RPC per edge-cache miss, and the edge cache (120 s) absorbs the rest |
 | `/api/v1/rivers/forecast` | GET | 300 | default | per route | HII FEWS river discharge / level forecast: one national request, one primary-key row read of `HiiForecastDO`; the request path never fetches upstream (the DO's own hourly alarm does), a query string is a `400` before the cache |
+| `/api/v1/basins` | GET | 300 | default | per route | River-basin (ลุ่มน้ำ) view: one national request, one primary-key row read (`basins_latest`) of `ObservationCacheDO`; the request path never fetches upstream and never scans the station tables, a query string is a `400` before the cache |
 | `/api/v1/stations/{id}/history` | GET | 60 | 20 | shared `history` | One bucket for all stations: clicking through many stations quickly is normal, scripted enumeration is not |
 | `/api/v1/archive/days` | GET | 300 | default | per route | Small, cached 5 min |
 | `/api/v1/archive/snapshot` | GET | 60 | default | per route | Reads an R2 object per call; the timeline scrubber requests one snapshot per settled position, not per drag frame |
@@ -107,6 +108,7 @@ Two rules are enforced by `json()` in `apps/api/src/router.ts` rather than by ea
 | `/api/v1/forecast/availability` | `observations` | `public, max-age=60, s-maxage=120` |
 | `/api/v1/storms` | `storms` | `public, max-age=60, s-maxage=300`, or `no-store` while no source has ever succeeded — see [Storm tracks](#storm-tracks-storm-layer-v1) |
 | `/api/v1/rivers/forecast` | `riverForecast` | `public, max-age=60, s-maxage=300`, or `no-store` until a round has succeeded once (and on a `503`) — see [River forecast](#river-forecast-hii-fews) |
+| `/api/v1/basins` | `basins` | `public, max-age=60, s-maxage=300`, or `no-store` until a water-level round has succeeded once (and on a `503`) — see [River basins](#river-basins-basins) |
 | `/api/v1/exposure/runs/{runId}` | `frozenArtifact(key)` | `public, max-age=31536000, immutable` — the key contains the run's content hash, so it can never change |
 | `/api/v1/radar/frames` | `radarFrames` | `public, max-age=60` |
 | `/api/v1/radar/frame/{tsMs}.png` | `radarFrame` | `public, max-age=86400, immutable` |
@@ -222,6 +224,46 @@ keyed on **origin + pathname only**. **Any query string answers `400 {"error":"T
 before the cache, so `?x=<random>` cannot reach the DO. A `200` is put in the edge cache only once a round
 has succeeded; the cold "never fetched" answer (empty series, every time `null`) is `no-store`. A DO failure
 answers `503 {"error":"River forecast unavailable"}` with `no-store`.
+
+### River basins (`/basins`)
+
+`GET /api/v1/basins` answers `BasinsResponse` (`packages/shared-types/src/basins.ts`): every ThaiWater
+water-level station and dam grouped by ThaiWater's own basin label (`basinNameTh`), nationwide in one
+request. **The grouping is ThaiWater's label, not an SIAHRA boundary**, and the response carries no
+upstream→downstream order, no arrival time and no forecast of any kind. The web reads it only while the
+basin panel (water topic) is open and the timeline is live.
+
+- `layer`: `observed`, `sourceIds: ["thaiwater"]`. `fetchedAt` is the last successful **water-level** round
+  as of the moment the row was built (`null` = never fetched, never "now"); `damsFetchedAt` is separate —
+  dams refresh lazily (when `/api/v1/dams` is requested), so it may be older than `fetchedAt` or `null`
+  (never fetched, not "no dams").
+- `basins[]`: `{key, nameTh, stations[], dams[]}` sorted by station count descending, ties by `key`. The
+  grouping key is the label trimmed with **one** leading "ลุ่มน้ำ" stripped ("ลุ่มน้ำปิง" and "ปิง" are one
+  group); different names are never merged. `nameTh` is the most frequent spelling as ThaiWater wrote it.
+- `outsideThailand`: the label "นอกประเทศไทย" is its own bucket and **not a basin**. ThaiWater gives those
+  stations `provinceCode` `"10499"`, which is not one of the 77 provinces. `unassigned`: no basin label
+  (null / blank); it may be empty today but is counted and shown when it is not. Nothing is dropped.
+- Per station only what the view shows (id, name, province code, lat/lon, `waterlevelMsl`, `freeboardM`,
+  `situationLevel`, discharge + `qmax`, `observedAt`), every value passed through and `null` when absent,
+  never `0`; per dam storage % / MCM and `observedAt`. Buckets are sorted by id.
+- Measured on prod 2026-09-29: 1,442 stations, 0 with a null basin, 22 basins, 3 stations outside
+  Thailand, 13 dams in 8 basins.
+- `buildError`: present only on the cold "no row yet" answer, carrying the reason the last rebuild wrote
+  nothing; it is not stored in the row.
+
+The row is rebuilt **once per `ObservationCacheDO` refresh tick that fetched water levels** (from the
+`waterlevel` and `dams` tables, the two whole-table reads listed in `ALLOWED_SCANS`) and overwritten in
+one statement — no hash-skip, so `fetchedAt` is that round's true time. A body larger than 1,000,000
+UTF-8 bytes is refused and the previous row kept. The route is one `SELECT body FROM basins_latest WHERE id = ?`
+via `getBasins()`, and the stored string is passed through without a parse. It sits behind `caches.default`
+keyed on **origin + pathname only**; **any query string answers `400 {"error":"This endpoint takes no query parameters"}`**
+before the cache. A `200` is put in the edge cache only once a row exists; the cold "never fetched" answer
+(every time `null`) is `no-store`. A DO failure answers `503 {"error":"Basin view unavailable"}` with `no-store`.
+`/api/v1/health` is unchanged (same source, `thaiwater`; this route adds no DO call to it).
+
+Known limit: a rebuild that keeps failing *after* a first good row exists (meta `basinsError`, which is not
+exposed) shows only as an ageing `fetchedAt`; the web dims and labels a set older than
+`staleAfterSeconds` + the 5-min edge copy + its 10-min poll.
 
 ### North route responses (E16)
 

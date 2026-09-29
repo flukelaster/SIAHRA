@@ -26,6 +26,7 @@ import {
 } from "./routes/community.js";
 import { handleNorthRoute } from "./routes/rivers.js";
 import { handleRiverForecast } from "./routes/riverForecast.js";
+import { handleBasins } from "./routes/basins.js";
 import { handleDams, handleStationHistory } from "./routes/stations.js";
 import { handleArchiveDays, handleArchiveSnapshot } from "./routes/archive.js";
 import type { AppEnv } from "./types.js";
@@ -67,6 +68,14 @@ export const routes: Route[] = [
     method: "GET",
     pattern: /^\/api\/v1\/rivers\/forecast$/,
     handler: (req, env, _params, ctx) => handleRiverForecast(req, env, ctx),
+    limit: { perMinute: 300 },
+  },
+  {
+    // มุมมองตามลุ่มน้ำ (ป้ายลุ่มน้ำของ ThaiWater) — DO call เดียว (PK lookup แถวเดียว) ใต้แคชขอบ 5 นาที
+    // ไม่ปลุกการดึงต้นทางและไม่สแกนตารางสถานี จึงตั้งงบเท่า `/storms` และ `/rivers/forecast`
+    method: "GET",
+    pattern: /^\/api\/v1\/basins$/,
+    handler: (req, env, _params, ctx) => handleBasins(req, env, ctx),
     limit: { perMinute: 300 },
   },
   {

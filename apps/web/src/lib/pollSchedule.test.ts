@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  BASINS_INTERVAL_MS,
+  BASINS_RETRY_MS,
+  nextBasinsPollDelayMs,
   COMMUNITY_INTERVAL_MS,
   COMMUNITY_RETRY_MS,
   DAMS_INTERVAL_MS,
@@ -102,5 +105,30 @@ describe("nextForecastPollDelayMs (ผลลัพธ์แบบจำลอง
     expect(FORECAST_RETRY_MS).toBe(120_000);
     expect(nextForecastPollDelayMs({ ...base, lastSuccessAtMs: NOW - 3_600_000, lastWasError: true, panelOpen: true })).toBe(120_000);
     expect(nextForecastPollDelayMs({ ...base, lastSuccessAtMs: null, lastWasError: true, panelOpen: true })).toBe(120_000);
+  });
+});
+
+describe("nextBasinsPollDelayMs (มุมมองตามลุ่มน้ำ, devops C13)", () => {
+  it("รอบปกติ 10 นาที นับจากความสำเร็จล่าสุด และไม่เปลี่ยนตาม panelOpen", () => {
+    expect(BASINS_INTERVAL_MS).toBe(600_000);
+    expect(nextBasinsPollDelayMs({ ...base, lastSuccessAtMs: NOW, panelOpen: true })).toBe(600_000);
+    expect(nextBasinsPollDelayMs({ ...base, lastSuccessAtMs: NOW, panelOpen: false })).toBe(600_000);
+    expect(nextBasinsPollDelayMs({ ...base, lastSuccessAtMs: NOW - 200_000, panelOpen: true })).toBe(400_000);
+  });
+
+  it("ล้มเหลวรอ 120 วิ", () => {
+    expect(BASINS_RETRY_MS).toBe(120_000);
+    expect(nextBasinsPollDelayMs({ ...base, lastSuccessAtMs: NOW, lastWasError: true })).toBe(120_000);
+    expect(nextBasinsPollDelayMs({ ...base, lastSuccessAtMs: null, lastWasError: true })).toBe(120_000);
+  });
+
+  it("ยังไม่เคยสำเร็จ / เกินรอบแล้ว → ยิงทันที", () => {
+    expect(nextBasinsPollDelayMs({ ...base, lastSuccessAtMs: null })).toBe(0);
+    expect(nextBasinsPollDelayMs({ ...base, lastSuccessAtMs: NOW - 600_000 })).toBe(0);
+  });
+
+  it("แท็บซ่อน → null (ไม่ตั้ง timer) ไม่ว่าสถานะอื่นเป็นอย่างไร", () => {
+    expect(nextBasinsPollDelayMs({ ...base, hidden: true, lastSuccessAtMs: null, panelOpen: true })).toBeNull();
+    expect(nextBasinsPollDelayMs({ ...base, hidden: true, lastSuccessAtMs: NOW, lastWasError: true })).toBeNull();
   });
 });

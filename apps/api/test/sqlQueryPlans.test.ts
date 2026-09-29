@@ -70,9 +70,9 @@ const ALLOWED_SCANS: Record<string, string> = {
   "SELECT MAX(observed_at) AS t FROM rainfall": "recomputeStationStats(): once per refresh, result cached in meta",
   "SELECT MAX(observed_at) AS t FROM waterlevel": "recomputeStationStats(): once per refresh, result cached in meta",
   "SELECT payload FROM rainfall": "nationwide getObservations()/publishExposure(): the whole table IS the answer",
-  "SELECT payload FROM waterlevel": "nationwide getObservations()/publishExposure(): the whole table IS the answer",
+  "SELECT payload FROM waterlevel": "nationwide getObservations()/publishExposure(): the whole table IS the answer; also rebuildBasins(): once per refresh tick that fetched water levels, writes the single basins_latest row",
   "SELECT station_id, province_code FROM waterlevel": "archiveDay(): once per day",
-  "SELECT payload FROM dams": "dams table is ~12 rows",
+  "SELECT payload FROM dams": "dams table is ~12 rows; also rebuildBasins(): once per refresh tick",
   "DELETE FROM dams": "dams table is ~12 rows, rewritten every 30 min",
   "DELETE FROM archive_cache WHERE fetched_ms < ?": "archive_cache holds a handful of rows, pruned on the archive path",
   // EarthquakeFeedDO — ตาราง events ≤ 30 วัน (~200 แถว) และทุกคำสั่งวิ่งบน poll ทุกนาที

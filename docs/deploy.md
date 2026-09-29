@@ -475,6 +475,17 @@ single-row PK read on an edge-cache miss, under a 5-min `caches.default` entry k
 `devops` verify 2026-09-29: **≈ +$0.03/month expected, ≈ $0.30 high** (pessimistic $0.68 if the DO-duration allowance
 were exhausted); one-off cost $0; projected account total ≈ **$5.5/month expected**
 
+River-basin view (E19.1, `GET /api/v1/basins`, no new binding, cron or migration; `/health` unchanged, still 9 DO calls): one new
+table `basins_latest` in `ObservationCacheDO` whose single row (~300 KB, capped at 1,000,000 UTF-8 bytes) is rebuilt once per
+refresh tick that fetched water levels, reading the whole `waterlevel` and `dams` tables (the two existing `ALLOWED_SCANS`
+literals; `publishExposure()` scans `waterlevel` too, so that table is read twice per tick, ≈ 100M rows/month = 0.4 % of the
+25B included) — ≈ 8.6k–17k `basins_latest` row writes/month (0.03 % of the 50M included); no history table, no retention,
+no R2/D1, no `console.*` in a loop, no new log line. The per-request path is a single-row PK read on an edge-cache miss,
+under a 5-min `caches.default` entry keyed on origin + pathname only (a query string is a 400 before the cache; the no-row-yet
+answer is `no-store`), and the web asks only while the basin panel is open (10 min, 120 s retry) —
+devops verify 2026-09-29 (pre-gate and post-diff agree): **≈ +$0.02/month expected, ≈ +$0.15 high**; one-off cost $0;
+projected account total ≈ **$5.5/month expected** (Durable Objects + Workers pricing pages, fetched 2026-09-29)
+
 E14.F1 (`/api/v1/provinces/{NN}/flood-extent?at=`) เพิ่มเส้นทางย้อนหลังโดยไม่เพิ่ม DO write ต่อคำขอ: ตาราง `flood_scenes`
 เขียนหนึ่งแถวต่อฉากที่ archive (ไม่กี่ร้อยแถว/ปี) บนเส้นทาง refresh เท่านั้น คำขอ `at` ภายใน 30 วันอ่านตาราง hot ผ่านดัชนี
 จังหวัด เก่ากว่านั้นอ่าน R2 หนึ่งครั้งต่อฉากต่อชั่วโมง (แคชในหน่วยความจำของ DO สูงสุด 8 ฉาก ไม่มี `list()`) และตอบด้วย

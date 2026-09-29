@@ -70,8 +70,8 @@ describe("shellPrefs — parseShellPrefs", () => {
     expect(parseShellPrefs('{"v":1,"drawerOpen":true}')).toBeNull();
   });
 
-  it("isPanelKey รู้จักทั้งเก้ามุมมองย่อย และไม่รับ layers (ย้ายไปเป็นปุ่มบนแผนที่แล้ว)", () => {
-    expect(PANEL_KEYS).toHaveLength(9);
+  it("isPanelKey รู้จักทั้งสิบมุมมองย่อย (รวม basin = ลุ่มน้ำ) และไม่รับ layers (ย้ายไปเป็นปุ่มบนแผนที่แล้ว)", () => {
+    expect(PANEL_KEYS).toHaveLength(10);
     for (const k of PANEL_KEYS) expect(isPanelKey(k)).toBe(true);
     expect(isPanelKey("layers")).toBe(false);
     expect(isPanelKey("province")).toBe(false);

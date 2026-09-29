@@ -17,6 +17,7 @@ import { useFloodExposure } from "./hooks/useFloodExposure";
 import { useFloodExtent } from "./hooks/useFloodExtent";
 import { useFloodScene } from "./hooks/useFloodScene";
 import { useFloodScenes } from "./hooks/useFloodScenes";
+import { useBasins } from "./hooks/useBasins";
 import { useNorthRoute } from "./hooks/useNorthRoute";
 import { useRiverForecast } from "./hooks/useRiverForecast";
 import type { FloodSourceAgeInput } from "./lib/floodSourceAge";
@@ -37,6 +38,7 @@ import type { FloodGfmLegendState, GistdaDepthLegendState } from "./components/l
 import { deriveGistdaImpactFreshness } from "./lib/gistdaImpactFreshness";
 import { gistdaExtentState } from "./lib/gistdaFlood";
 import type { TimelineMark } from "./components/layout/TimelineBar";
+import type { BasinSelection } from "./lib/basinView";
 import { formatFullDateTime } from "./lib/time";
 import { exposureInputsAreDegraded } from "./lib/exposureInputHealth";
 import { isFloodedScene, sceneAtIso } from "./lib/floodEvents";
@@ -343,6 +345,12 @@ export default function App() {
   // จึงไม่ถาม) ชั้น 3 มิติไม่ใช้ ส่งผ่าน ctx.riverForecast
   // ไม่ใช่ ctx.forecast (ของ TMD)
   const riverForecast = useRiverForecast(northPanel && atIso === null);
+  // มุมมองตามลุ่มน้ำ — hook ตัวเดียว เฉพาะตอนแผง basin ถูกเรนเดอร์อยู่และดูเวลาปัจจุบัน (atIso ไม่ตั้ง: ย้อนเวลาการ์ดไม่แสดงค่า จึงไม่ถาม)
+  // แผงปิด = ไม่ยิงคำขอเลย (รวมตอนเริ่มแอป); กลุ่มที่เลือกอยู่ใน state นี้ (รอดการสลับแท็บย่อย) ไม่อยู่ใน permalink
+  const basinPanel =
+    shell.panel === "basin" && (shell.tier === "phone" ? shell.sheetSnap !== "peek" : shell.drawerOpen);
+  const basins = useBasins(basinPanel && atIso === null);
+  const [basinSelection, setBasinSelection] = useState<BasinSelection | null>(null);
   const northTopology = layers.northRoute ? northRoute.topology : null;
   const northStations = layers.northRoute ? (northRoute.route?.stations ?? null) : null;
   const aoiId = aoiIdForProvince(provinceCode);
@@ -597,6 +605,9 @@ export default function App() {
     focusStation,
     northRoute,
     riverForecast,
+    basins,
+    basinSelection,
+    setBasinSelection,
     floodAge,
   };
 

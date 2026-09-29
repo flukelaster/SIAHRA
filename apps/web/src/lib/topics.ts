@@ -29,7 +29,7 @@ export const TOPICS: readonly TopicDef[] = [
   { key: "overview", views: ["impact"], labelKey: "topic.overview", shortLabelKey: "topic.overview.short" },
   {
     key: "water",
-    views: ["water", "north", "dams", "flood"],
+    views: ["water", "north", "basin", "dams", "flood"],
     labelKey: "topic.water",
     shortLabelKey: "topic.water.short",
   },
