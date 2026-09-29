@@ -9,6 +9,7 @@ import {
   type DamObservation,
   type WaterLevelObservation,
 } from "@siahra/shared-types";
+import { THAIWATER_STALE_AFTER_SECONDS } from "../thaiwaterFreshness.js";
 
 /**
  * ตัวสร้างมุมมองตามลุ่มน้ำ (`GET /api/v1/basins`) — ฟังก์ชันล้วน ไม่มี SQL/เวลา/เครือข่าย
@@ -98,8 +99,8 @@ function newestObservedAt(stations: readonly BasinStation[]): string | undefined
   return best;
 }
 
-/** เท่ากับ `STALE_AFTER_MS` ของฟีดระดับน้ำใน `ObservationCacheDO` (15 นาที — เทสยืนยันว่าเท่ากัน) */
-export const BASINS_STALE_AFTER_SECONDS = 15 * 60;
+/** เท่ากับ `STALE_AFTER_MS` ของฟีดระดับน้ำใน `ObservationCacheDO` — ค่าเดียวจาก `thaiwaterFreshness.ts` (เทสยืนยันว่าเท่ากัน) */
+export const BASINS_STALE_AFTER_SECONDS = THAIWATER_STALE_AFTER_SECONDS;
 
 export interface BuildBasinsInput {
   waterlevel: readonly WaterLevelObservation[];

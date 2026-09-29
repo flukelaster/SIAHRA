@@ -62,9 +62,9 @@ const SOURCES: DoSource[] = [
  * ทุกตัวในนี้วิ่งบนเส้นทาง refresh/alarm หรือรายชั่วโมง ไม่ใช่ต่อคำขอหรือต่อรายการ
  */
 const ALLOWED_SCANS: Record<string, string> = {
-  // ObservationCacheDO — รอบ refresh ทุก 5 นาที: ต้องอ่านทั้งตารางเพื่อเทียบ observedAt
-  "SELECT station_id, observed_at FROM rainfall": "replaceRainfall(): once per 5-min refresh, diffs the whole feed",
-  "SELECT station_id, observed_at FROM waterlevel": "replaceWaterLevel(): once per 5-min refresh, diffs the whole feed",
+  // ObservationCacheDO — รอบ refresh ทุก 10 นาที: ต้องอ่านทั้งตารางเพื่อเทียบ observedAt
+  "SELECT station_id, observed_at FROM rainfall": "replaceRainfall(): once per 10-min refresh, diffs the whole feed",
+  "SELECT station_id, observed_at FROM waterlevel": "replaceWaterLevel(): once per 10-min refresh, diffs the whole feed",
   "SELECT COUNT(*) AS n FROM rainfall": "recomputeStationStats(): once per refresh, result cached in meta for status()",
   "SELECT COUNT(*) AS n FROM waterlevel": "recomputeStationStats(): once per refresh, result cached in meta for status()",
   "SELECT MAX(observed_at) AS t FROM rainfall": "recomputeStationStats(): once per refresh, result cached in meta",

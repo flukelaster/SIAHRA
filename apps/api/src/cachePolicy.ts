@@ -28,7 +28,8 @@ export const noStore = policy("noStore", "no-store");
 export const realtime = policy("realtime", "public, max-age=10, s-maxage=20");
 
 /**
- * ค่าตรวจวัดจาก ThaiWater — ต้นทางอัปเดตราว 15 นาที/ครั้ง แคชสั้น ๆ จึงไม่ทำให้ข้อมูลเก่าเกินจริง
+ * ค่าตรวจวัดจาก ThaiWater — เราดึงทุก 10 นาที (TTL ของ ObservationCacheDO; ต้นทางประทับเวลาเป็นรายชั่วโมงเป็นหลัก
+ * บางสถานีทุก 10 นาที) แคชสั้น ๆ 60/120 วิจึงไม่ทำให้ข้อมูลเก่าเกินจริง
  *
  * จงใจ **ไม่ใส่** `stale-while-revalidate` (แม้ roadmap E4.6 จะร่างไว้ว่าน่าจะใส่):
  * หน้าเว็บคำนวณ "อัปเดตเมื่อ N นาทีที่แล้ว" จาก `fetchedAt` ในตัว payload ถ้า CDN
@@ -61,7 +62,7 @@ export const storms = policy("storms", "public, max-age=60, s-maxage=300");
 export const riverForecast = policy("riverForecast", "public, max-age=60, s-maxage=300");
 
 /**
- * มุมมองตามลุ่มน้ำ (`/api/v1/basins`) — `ObservationCacheDO` เขียนแถวนี้ใหม่ทุกรอบ refresh (5 นาที) CDN 5 นาทีจึงไม่เกินหนึ่งรอบ
+ * มุมมองตามลุ่มน้ำ (`/api/v1/basins`) — `ObservationCacheDO` เขียนแถวนี้ใหม่ทุกรอบ refresh (10 นาที) CDN 5 นาทีจึงไม่เกินหนึ่งรอบ
  * ส่วนเบราว์เซอร์ 60 วิ เหมือน `storms`/`riverForecast` (บอดี้มี `fetchedAt`/`damsFetchedAt` ของตัวเอง อายุที่แสดงคิดจากค่าจริง
  * ไม่ใช่จากแคช) — ใช้เฉพาะคำตอบที่แถวมีอยู่แล้ว คำตอบ "ยังไม่มีแถว" เป็น `noStore`
  */

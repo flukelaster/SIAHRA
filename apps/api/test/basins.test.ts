@@ -80,7 +80,7 @@ function dam(id: number, basin: string | null): DamObservation {
 }
 
 const build = (waterlevel: WaterLevelObservation[], dams: DamObservation[] = [], fetchedAt: string | null = "2026-09-29T03:05:00.000Z") =>
-  buildBasins({ waterlevel, dams, fetchedAt, damsFetchedAt: null, staleAfterSeconds: 900 });
+  buildBasins({ waterlevel, dams, fetchedAt, damsFetchedAt: null, staleAfterSeconds: BASINS_STALE_AFTER_SECONDS });
 
 describe("basinKey", () => {
   it("trim แล้วตัดคำนำหน้า 'ลุ่มน้ำ' หนึ่งครั้ง — 'ลุ่มน้ำปิง' และ 'ปิง' เป็นคีย์เดียวกัน", () => {

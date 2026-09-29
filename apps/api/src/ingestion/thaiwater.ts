@@ -6,7 +6,7 @@ import type {
   WaterLevelHistoryPoint,
   WaterLevelObservation,
 } from "@siahra/shared-types";
-import { readUpstreamJson } from "./errors.js";
+import { UpstreamNetworkError, readUpstreamJson, upstreamHttpError } from "./errors.js";
 import {
   assertDamEnvelope,
   assertDamRecord,
@@ -168,11 +168,30 @@ function toSituationLevel(value: unknown): SituationLevel | null {
   return rounded >= 1 && rounded <= 5 ? (rounded as SituationLevel) : null;
 }
 
+/**
+ * ทางเดียวที่เรียก ThaiWater: ล้มเหลวเป็น error **ที่มีชนิด** เสมอ (breaker ในคิวต้นทางตัดสินจากชนิด
+ * ไม่ใช่จากข้อความ) — `fetch()` ที่โยนเอง = `UpstreamNetworkError`; คำตอบ !ok = `UpstreamHttpError`
+ * พร้อม Retry-After / snippet ของ body (≤ 2 KiB) / header ที่อยู่ใน allowlist
+ * การอ่าน body เกิดเฉพาะเมื่อ !ok เท่านั้น
+ */
+async function thaiwaterFetch(label: string, url: string, accept?: string): Promise<Response> {
+  const headers: Record<string, string> = { "User-Agent": UA };
+  if (accept) headers.Accept = accept;
+  let res: Response;
+  try {
+    res = await fetch(url, { headers });
+  } catch (err) {
+    throw new UpstreamNetworkError(
+      `ThaiWater ${label} failed: network error: ${err instanceof Error ? err.message : String(err)}`,
+      { cause: err },
+    );
+  }
+  if (!res.ok) throw await upstreamHttpError(`ThaiWater ${label}`, res);
+  return res;
+}
+
 export async function fetchRainfall(): Promise<RainfallObservation[]> {
-  const res = await fetch(RAIN_24H_URL, {
-    headers: { "User-Agent": "siahra-api/0.0.0 (observation ingestion)" },
-  });
-  if (!res.ok) throw new Error(`ThaiWater rain_24h failed: ${res.status} ${res.statusText}`);
+  const res = await thaiwaterFetch("rain_24h", RAIN_24H_URL);
 
   const body = assertRainEnvelope((await readUpstreamJson("thaiwater rain_24h", res)) as {
     data?: UpstreamRainRecord[] | null;
@@ -197,10 +216,7 @@ export async function fetchRainfall(): Promise<RainfallObservation[]> {
 }
 
 export async function fetchWaterLevel(): Promise<WaterLevelObservation[]> {
-  const res = await fetch(WATERLEVEL_URL, {
-    headers: { "User-Agent": "siahra-api/0.0.0 (observation ingestion)" },
-  });
-  if (!res.ok) throw new Error(`ThaiWater waterlevel_load failed: ${res.status} ${res.statusText}`);
+  const res = await thaiwaterFetch("waterlevel_load", WATERLEVEL_URL);
 
   const body = assertWaterEnvelope((await readUpstreamJson("thaiwater waterlevel_load", res)) as {
     waterlevel_data?: { data?: UpstreamWaterRecord[] | null } | null;
@@ -268,8 +284,7 @@ export async function fetchWaterLevelHistory(
     `${WATERLEVEL_GRAPH_URL}?station_type=tele_waterlevel&station_id=${stationId}` +
     `&start_date=${encodeURIComponent(bangkokStamp(startMs, false))}` +
     `&end_date=${encodeURIComponent(bangkokStamp(nowMs, true))}`;
-  const res = await fetch(url, { headers: { "User-Agent": UA, Accept: "application/json" } });
-  if (!res.ok) throw new Error(`ThaiWater waterlevel_graph ${stationId} failed: ${res.status}`);
+  const res = await thaiwaterFetch(`waterlevel_graph ${stationId}`, url, "application/json");
   // ต้นทางเคยตอบ Go panic เป็นข้อความล้วนเมื่อถามสถานีคลองด้วย tele_waterlevel
   // — เดินเส้นทางเดียวกับ payload ผิดรูปอื่น ๆ แทนที่จะเป็น Error ทั่วไป
   const body = (await readUpstreamJson(`thaiwater waterlevel_graph ${stationId}`, res)) as {
@@ -315,8 +330,7 @@ interface UpstreamDamRecord {
  * (hourly over daily when both are current).
  */
 export async function fetchDams(nowMs = Date.now()): Promise<DamObservation[]> {
-  const res = await fetch(DAM_URL, { headers: { "User-Agent": UA, Accept: "application/json" } });
-  if (!res.ok) throw new Error(`ThaiWater analyst/dam failed: ${res.status} ${res.statusText}`);
+  const res = await thaiwaterFetch("analyst/dam", DAM_URL, "application/json");
   const body = assertDamEnvelope((await readUpstreamJson("thaiwater analyst/dam", res)) as {
     data?: {
       dam_hourly?: UpstreamDamRecord[];

@@ -273,7 +273,7 @@ before the cache. A `200` is put in the edge cache only once a row exists; the c
 
 Known limit: a rebuild that keeps failing *after* a first good row exists (meta `basinsError`, which is not
 exposed) shows only as an ageing `fetchedAt`; the web dims and labels a set older than
-`staleAfterSeconds` + the 5-min edge copy + its 10-min poll.
+`staleAfterSeconds` (1800 s) + the 5-min edge copy + its 10-min poll = 45 min.
 
 ### North route responses (E16)
 
@@ -427,7 +427,8 @@ decided for it at all and never fires.
 | `hii-fews` | `null` | A forecast observes nothing (same reasoning as `tmd-nwp`), so `latestObservedAt` is `null` too. One row from `HiiForecastDO.status()` (a PK meta read), `detail = {stations, stationsOk, oldestPublishedAt}`. **Blind spot:** a `304 Not Modified` counts as a successful round, so if HII stops regenerating its files while still answering, this row stays `ok`; the freeze shows only as an ageing `oldestPublishedAt` (and `layer.publishedAt` in `/rivers/forecast`), which the health ladder does not judge. |
 | `copernicus-gfm` | `null` | The only source with no Durable Object (E14.F3): `.github/workflows/gfm-ingest.yml` runs the Python pipeline every 6 h and uploads `flood/gfm/health.json` to R2; `routes/health.ts` reads that one object (one `HAZARD_BUCKET.get` per `/health` compute, under the 15 s edge cache) and maps `fetchedAt = lastSuccessAt` (the last run with **no** error — a failed run is an attempt, not a fetch), `lastAttemptAt = lastRunAt`, `latestObservedAt = lastSceneObservedAt`, `detail = {itemsProcessed, scenesWritten}`. Sentinel-1 revisits a province every 6–12 days, so acquisition age cannot decide `delayed` — "no new image this week" is not a broken feed. A missing or unparsable object is `unknown` with `fetchedAt: null` and a `lastError` naming the key (before the first run, or after a bad upload) — "no report" is not "reported failure". |
 
-`staleAfterSeconds` is the separate fetch-side budget: thaiwater 900 s (refresh every 5 min),
+`staleAfterSeconds` is the separate fetch-side budget: thaiwater 1800 s (refresh every 10 min since 2026-09-29 →
+three missed rounds; details in the paragraph below the list),
 tmd-radar 900 s (refresh 5 min, retry 1 min → three missed rounds), gistda-flood 10800 s (refresh
 every 30 min), earthquakes 300 s (cron every minute), tmd-nwp 10800 s (refresh hourly, retry 5 min →
 three missed rounds), alert-engine 1800 s (evaluated every 5 min; 30 min without a successful tick
@@ -435,6 +436,17 @@ means the evaluation loop itself stopped), copernicus-gfm 43200 s (cron `17 */6 
 successful run = two missed rounds → `stale` if the cron went silent, `down` if runs keep failing —
 the ladder above judges `lastError` first), jma-typhoon and gdacs-tc 10800 s (refresh every 30 min, retry
 5 min only when both upstreams failed → six missed rounds), hii-fews 10800 s (refresh hourly, whole-round retry from 5 min → three missed rounds).
+
+ThaiWater's 1800 s is one shared constant per workspace: the `/health` row, the observations descriptor and the
+basins descriptor all carry it, and the web reads it from the descriptor rather than hard-coding a number.
+The worst healthy on-screen age is ≈ 18–19 min (was ≈ 14): API ≤ 10, edge 2, browser 1, web poll 5.
+`AlertEngineDO` still evaluates every 5 min, now against a cache that refreshes every 10, and the web still
+polls observations every 5 min. `stale`/`down` arrive at 30 min rather than 15, while `degraded` with the
+upstream error in `lastError` is still immediate. `lastError` of a failed round leads with
+`ThaiWater <path> failed: <status> retry-after=<v>`, ≈ 95 characters per feed so both feeds fit the
+200-character join; the fuller ≤ 300-character text is `detail.rainfallError` / `detail.waterlevelError`,
+and `detail.upstreamBreakers` / `detail.upstreamPausedUntil` name a paused endpoint
+([`docs/ops.md` §4](./ops.md#4-alarm-cadence)).
 
 ### `down`, `ok` and `worst`
 

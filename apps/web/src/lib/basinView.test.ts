@@ -220,18 +220,19 @@ function dam(id: number, over: Partial<BasinDam> = {}): BasinDam {
 }
 
 describe("ความค้างของชุดที่ถืออยู่ (ท่อที่ปกติดีต้องไม่ถูกหาว่าเก่า)", () => {
-  const STALE_AFTER = 900;
+  const STALE_AFTER = 1800;
   const at = (ageMs: number) => iso(NOW - ageMs);
 
-  it("เกณฑ์ = staleAfterSeconds + แคชขอบ 300 วิ + รอบถามของเว็บ 10 นาที (30 นาที)", () => {
+  it("เกณฑ์ = staleAfterSeconds 30 นาที + แคชขอบ 300 วิ + รอบถามของเว็บ 10 นาที (45 นาที)", () => {
     expect(BASIN_EDGE_MAX_AGE_MS).toBe(300_000);
     expect(basinStaleLimitMs(STALE_AFTER)).toBe(STALE_AFTER * 1000 + 300_000 + BASINS_INTERVAL_MS);
-    expect(basinStaleLimitMs(STALE_AFTER)).toBe(30 * 60_000);
+    expect(basinStaleLimitMs(STALE_AFTER)).toBe(45 * 60_000);
   });
 
-  it("อายุ 14 นาที 59 วิ (ระหว่างรอบถาม 10 นาที) ไม่ค้าง; ขอบพอดียังไม่ค้าง; เกินเกณฑ์รวม = ค้าง", () => {
+  it("อายุ 14 นาที 59 วิ / 20 นาที / 44 นาที (ระหว่างรอบ) ไม่ค้าง; ขอบพอดียังไม่ค้าง; เกินเกณฑ์รวม = ค้าง", () => {
     expect(isBasinsStale(at(14 * 60_000 + 59_000), STALE_AFTER, NOW)).toBe(false);
     expect(isBasinsStale(at(20 * 60_000), STALE_AFTER, NOW)).toBe(false);
+    expect(isBasinsStale(at(44 * 60_000), STALE_AFTER, NOW)).toBe(false);
     expect(isBasinsStale(at(basinStaleLimitMs(STALE_AFTER)), STALE_AFTER, NOW)).toBe(false);
     expect(isBasinsStale(at(basinStaleLimitMs(STALE_AFTER) + 1), STALE_AFTER, NOW)).toBe(true);
   });
