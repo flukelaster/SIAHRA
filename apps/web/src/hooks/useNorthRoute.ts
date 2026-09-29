@@ -39,7 +39,7 @@ async function getJson<T>(url: string, signal: AbortSignal): Promise<T> {
 }
 
 /** ความจำของรอบถามหนึ่ง endpoint — อยู่ข้ามการรันซ้ำของ effect */
-interface PollMemo {
+export interface PollMemo {
   lastSuccessAtMs: number | null;
   lastWasError: boolean;
 }
@@ -48,7 +48,7 @@ interface PollMemo {
  * เริ่มถามซ้ำหนึ่ง endpoint แล้วคืนตัวหยุด — ตั้ง timer ตาม `nextDelay` เท่านั้น, ผูก/ถอด
  * `visibilitychange` เอง (ซ่อน = ล้าง timer, เห็น = ตัดสินใหม่) และไม่ตั้ง timer ซ้อนขณะมีคำขอค้าง
  */
-function startPolling<T>(opts: {
+export function startPolling<T>(opts: {
   url: string;
   memo: PollMemo;
   panelOpen: boolean;

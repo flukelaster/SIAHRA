@@ -3,8 +3,11 @@ import {
   COMMUNITY_INTERVAL_MS,
   COMMUNITY_RETRY_MS,
   DAMS_INTERVAL_MS,
+  FORECAST_INTERVAL_MS,
+  FORECAST_RETRY_MS,
   nextCommunityPollDelayMs,
   nextDamsPollDelayMs,
+  nextForecastPollDelayMs,
   nextRoutePollDelayMs,
   routeIntervalMs,
   ROUTE_RETRY_MS,
@@ -73,5 +76,31 @@ describe("nextCommunityPollDelayMs (รายงานจากประชา�
   });
   it("แท็บซ่อน = ไม่ตั้ง timer", () => {
     expect(nextCommunityPollDelayMs({ ...base, hidden: true, lastSuccessAtMs: null })).toBeNull();
+  });
+});
+
+describe("nextForecastPollDelayMs (ผลลัพธ์แบบจำลองพยากรณ์ของ HII)", () => {
+  it("รอบปกติ 15 นาที นับจากความสำเร็จล่าสุด และไม่เปลี่ยนตาม panelOpen", () => {
+    expect(FORECAST_INTERVAL_MS).toBe(900_000);
+    expect(nextForecastPollDelayMs({ ...base, lastSuccessAtMs: NOW, panelOpen: true })).toBe(900_000);
+    expect(nextForecastPollDelayMs({ ...base, lastSuccessAtMs: NOW, panelOpen: false })).toBe(900_000);
+    expect(nextForecastPollDelayMs({ ...base, lastSuccessAtMs: NOW - 300_000, panelOpen: true })).toBe(600_000);
+  });
+
+  it("ยังไม่เคยสำเร็จ → ยิงทันที; เกินรอบแล้ว → ยิงทันที", () => {
+    expect(nextForecastPollDelayMs({ ...base, lastSuccessAtMs: null, panelOpen: true })).toBe(0);
+    expect(nextForecastPollDelayMs({ ...base, lastSuccessAtMs: NOW - 900_000, panelOpen: true })).toBe(0);
+    expect(nextForecastPollDelayMs({ ...base, lastSuccessAtMs: NOW - 5_000_000, panelOpen: true })).toBe(0);
+  });
+
+  it("แท็บซ่อน → null (ไม่ตั้ง timer) ไม่ว่าสถานะอื่นเป็นอย่างไร", () => {
+    expect(nextForecastPollDelayMs({ ...base, hidden: true, lastSuccessAtMs: null, panelOpen: true })).toBeNull();
+    expect(nextForecastPollDelayMs({ ...base, hidden: true, lastSuccessAtMs: NOW, lastWasError: true })).toBeNull();
+  });
+
+  it("รอบล้มเหลว → 120 วิ (ไม่ถี่กว่า และไม่ใช่ 15 นาที)", () => {
+    expect(FORECAST_RETRY_MS).toBe(120_000);
+    expect(nextForecastPollDelayMs({ ...base, lastSuccessAtMs: NOW - 3_600_000, lastWasError: true, panelOpen: true })).toBe(120_000);
+    expect(nextForecastPollDelayMs({ ...base, lastSuccessAtMs: null, lastWasError: true, panelOpen: true })).toBe(120_000);
   });
 });

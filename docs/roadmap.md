@@ -1468,9 +1468,9 @@ nothing in E16 turns rain into a water level or computes when water will arrive.
 2. `GET /api/v1/rivers/north` costs one read-only, primary-key-only DO RPC per 120 s edge-cache miss
    and rejects any query string with `400`; the 48 h history is pulled at most hourly, stopping at the
    first failure.
-3. The panel shows observed values only — situation / bank-distance colour, discharge and % `qmax`,
-   3 h trend, 48 h sparklines, observed 48 h peak times, dams on the route — and **no arrival time and
-   no forecast**; it follows `atIso` within 48 h, shows a chip outside it, and dims stale data. The
+3. The panel's observed part shows observed values only — situation / bank-distance colour, discharge and
+   % `qmax`, 3 h trend, 48 h sparklines, observed 48 h peak times, dams on the route — and **no arrival
+   time and no forecast** (since PR-2b, below, HII's model output sits in its own separate section); it follows `atIso` within 48 h, shows a chip outside it, and dims stale data. The
    flow-dash animation speed comes from observed discharge as % `qmax`; it is not water velocity and
    is absent with no data, outside 48 h, or under reduced motion.
 
@@ -1557,13 +1557,15 @@ nothing in E16 turns rain into a water level or computes when water will arrive.
   **never converted to a water level**; an official water-level forecast is ingested (as `forecast`,
   with its model name and `issuedAt`) only if HII/RID are found to publish a citable, machine-readable
   one — otherwise the panel states that no citable water-level forecast exists
+  (answered 2026-09-29: HII publishes model output for a few stations — see the PR-2a / PR-2b entries
+  below; the rest of the route still has none)
 - Depends: E16.PR1, E12
 - Issue: _(not yet filed)_
 
 #### E16 follow-up: HII FEWS river forecast API (PR-2a) — 2026-09-29 — done, PR pending
 HII publishes machine-readable model output for a few of the route's stations (checked 2026-09-29), so
 the "citable forecast" question of E16.C now has an answer for the API side; nothing reaches the web
-yet (PR-2b), and the north panel still shows no arrival time and no forecast.
+yet (PR-2b, below).
 
 - Touches: `packages/shared-types/src/{sources,rivers,hazard-layer}.ts` (`SourceId` `hii-fews` with no
   invented licence, `RiverForecast*` types, `forecast.horizonHours` widened to `number | null`); api
@@ -1586,6 +1588,40 @@ yet (PR-2b), and the north panel still shows no arrival time and no forecast.
   claimed. (2) A `304` counts as success, so if HII stops regenerating the files while still answering,
   `/health` stays `ok` and the freeze shows only as an ageing `publishedAt` (`docs/ops.md` §7)
 - Depends: E17 (`StormTrackDO` single-row pattern), E12
+- Issue: _(not yet filed)_
+
+#### E16 follow-up: HII forecast in the north panel (PR-2b) — 2026-09-29 — done, PR pending
+Web only (no api / shared-types / `wrangler.jsonc` change): the north-water panel shows the PR-2a
+`GET /api/v1/rivers/forecast` data as a **separate section**, never merged into the observed values.
+
+- Touches: `hooks/useRiverForecast.ts` (one instance in `App.tsx` → `PanelContext.riverForecast`, polled
+  every 15 min / 120 s retry only while the north panel is open and `atIso` is null — nothing at startup),
+  `lib/riverForecast.ts` (forecast part = points strictly after each station's own `publishedAt`; model
+  max and the first strict `>` crossing of the published alarm / warning / critical thresholds; shape
+  peak-at-start / peak-at-end / interior / flat), `components/hazard/RiverForecastSection.tsx` (per-station
+  chart: measured `history48h` solid, model dashed, now and model-max markers, thresholds when in range;
+  dashed "HII model forecast" badge; a model-max line in the five C `StationRow`s and in the rows of
+  provinces 60/18/17/15/14), `NorthWaterCard.tsx`, `panelRegistry.ts` / `panelViews.tsx`,
+  `lib/pollSchedule.ts`, ~50 `north.forecast.*` keys in th/en, and a narrow `i18n/catalog.test.ts`
+  exemption (`^north\.forecast\.` may use forecast-family words only if the value contains "HII";
+  probability words and "%" stay banned)
+- What ships: live mode only (with `atIso` set or outside the 48 h window the section says the forecast is
+  shown for the present only); four separate staleness / error messages (file `publishedAt` stale, our API
+  copy older than `staleAfterSeconds` 3 h, per-station `lastError`, browser request failed); Nonthaburi
+  (12) shows the forecast-only station CPY014 with "no observed station" and no severity, Pathum Thani
+  (13) says it has no station and lists Ayutthaya C.35 and Nonthaburi CPY014 as reference only — no
+  interpolated time, no severity; the threshold line always says the model output may fall back below the
+  value afterwards; the panel never says "will arrive" and gives no probability. Entry + vendor 352.12 kB
+  gz against the 360 kB guard
+- Size: M
+- Open items: (1) owner: contact HII for the reuse licence, the model name and the run time — none is
+  published, so the attribution says so and no licence is claimed; C.35 is flagged `publish=f` in HII's
+  own metadata (`apps/api/test/fixtures/hii/rid_discharge.csv`), which the UI cannot show. (2)
+  `FORECAST_STALE_MS` 48 h is our own display convention, owner-confirmable. (3) Evaluated and **not
+  built**: reproducing RID's flood announcements (its site terms forbid reproducing content without
+  written permission, and its announcements were not found in the RSS) and a statistical travel time
+  (the archive is only ~43 days) — HII's published model output was used instead
+- Depends: the PR-2a API above
 - Issue: _(not yet filed)_
 
 ### E17 — Storm track layer v1 (JMA + GDACS NIO) — *done* (2026-09-26)

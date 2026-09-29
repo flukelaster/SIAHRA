@@ -14,6 +14,7 @@ import type { FloodScenesState } from "../../hooks/useFloodScenes";
 import type { LayerDescriptors } from "../../hooks/useLayerDescriptors";
 import type { LocalAuthorityImpactState } from "../../hooks/useLocalAuthorityImpact";
 import type { NorthRouteState } from "../../hooks/useNorthRoute";
+import type { RiverForecastState } from "../../hooks/useRiverForecast";
 import type { FloodSourceAgeInput } from "../../lib/floodSourceAge";
 import type { ObservationsState } from "../../hooks/useObservations";
 import type { ProvinceForecastState } from "../../hooks/useProvinceForecast";
@@ -132,6 +133,8 @@ export interface PanelContext {
   focusStation: (target: StationFocus) => void;
   /** E16 — ข้อมูลเส้นทางน้ำเหนือจาก hook ตัวเดียวใน App.tsx (แผง north + ชั้นเส้นลำน้ำ 3 มิติ) */
   northRoute: NorthRouteState;
+  /** ผลลัพธ์แบบจำลองพยากรณ์ของ HII (`/api/v1/rivers/forecast`) — hook ตัวเดียวใน App.tsx, ใช้เฉพาะการ์ด north (ไม่ใช่ `forecast` ของ TMD) */
+  riverForecast: RiverForecastState;
   /** E16 B-1 — ชิปอายุแหล่งน้ำท่วมจากดาวเทียม (แผ่นเลื่อนมือถือ) — null = ชั้นน้ำท่วมปิดทั้งคู่ */
   floodAge: FloodSourceAgeInput | null;
 }
