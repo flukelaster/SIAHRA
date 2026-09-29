@@ -5,6 +5,9 @@ import { Root } from './Root.tsx'
 import { LanguageProvider } from './i18n/LanguageProvider.tsx'
 import { DEFAULT_LANG, hasCatalog, loadCatalog, type Lang } from './i18n'
 import { readInitialLang } from './i18n/initialLang'
+import { installPageZoomLock } from './lib/pageZoomLock'
+
+installPageZoomLock()
 
 function render(lang: Lang) {
   createRoot(document.getElementById('root')!).render(

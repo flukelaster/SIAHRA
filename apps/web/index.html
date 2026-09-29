@@ -6,7 +6,17 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <meta name="theme-color" content="#0b1220" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      The page itself must never zoom: pinch / double-tap zoom on the chrome (bars,
+      drawers, popups) shifts the CSS2D map labels (CSS2DRenderer supports 100 %
+      page zoom only) and only the map is meant to zoom, through OrbitControls.
+      iOS Safari (browser tab) ignores user-scalable=no — src/lib/pageZoomLock.ts
+      covers it with the gesture* events and touch-action.
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
     <title>SIAHRA — Spatial Intelligence Atlas for Hazard &amp; Resilience Analytics</title>
     <meta
       name="description"
