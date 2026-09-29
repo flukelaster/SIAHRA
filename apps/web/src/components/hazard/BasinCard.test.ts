@@ -208,7 +208,32 @@ describe("BasinCard", () => {
     const html = render(ok(response({ fetchedAt: null, basins: [], outsideThailand: { stations: [], dams: [] }, unassigned: { stations: [], dams: [] } })));
     expect(html).toContain("API ยังไม่เคยดึงระดับน้ำจาก ThaiWater สำเร็จ");
     expect(html).toContain("ยังไม่เคยได้รับข้อมูล");
+    expect(html).toContain("ThaiWater ดึงล่าสุด");
     expect(html).not.toContain("เลือกลุ่มน้ำ");
+  });
+
+  it("ไม่มีแถวแต่ API ถือข้อมูลอยู่ (buildError มีเหตุ): ไม่พูดว่า 'ยังไม่เคยดึง' — บอกเหตุที่สร้างไม่ได้ และเวลาดึงยังเป็น null ไม่ใช่ตอนนี้", () => {
+    const cold = response({ fetchedAt: null, basins: [], outsideThailand: { stations: [], dams: [] }, unassigned: { stations: [], dams: [] }, buildError: "basins row 1200000 bytes exceeds 1000000 — previous row kept" });
+    for (const lang of ["th", "en"] as const) {
+      const html = render(ok(cold), { lang });
+      const t = translator(lang);
+      expect(html).not.toContain(t("basin.neverFetched"));
+      expect(html).toContain(t("basin.notBuilt", { error: "basins row 1200000 bytes exceeds 1000000 — previous row kept" }).replace(/&/g, "&amp;"));
+      expect(html).not.toContain(t("basin.buildError", { error: "x" }).split(":")[0]!);
+      // fetchedAt เป็น null เพราะไม่มีแถว ไม่ใช่เพราะไม่เคยดึง — ทั้งแถว basin.fetchedAt และชิปอายุห้ามพิมพ์ "ยังไม่เคยได้รับข้อมูล" และห้ามเป็นเวลาใด ๆ
+      expect(html).not.toContain(t("time.neverReceived"));
+      expect(html).not.toContain(t("basin.fetchedAt", { time: "" }).split(":")[0]!);
+      // ไม่มีตัวเลือกลุ่มน้ำให้เลือก
+      expect(html).not.toContain(t("basin.picker.title"));
+    }
+  });
+
+  it("แถวที่สร้างจากตารางเก่า (ต้นทางล่มมาหลายชั่วโมง): แสดงเวลาที่ดึงจริง + หรี่ + บอกว่าค้าง — ไม่ใช่ 'ตอนนี้' และไม่ใช่ 'ยังไม่เคยดึง'", () => {
+    const at = iso(NOW - 9 * 60 * MIN);
+    const html = render(ok(response({ fetchedAt: at, layer: { ...response().layer, fetchedAt: at } })));
+    expect(html).not.toContain("API ยังไม่เคยดึงระดับน้ำ");
+    expect(html).toContain("opacity-60");
+    expect(html).toContain("เก่ากว่า 540 นาที");
   });
 
   it("ถาม API ไม่ได้และยังไม่มีข้อมูล: ข้อความของตัวเอง (ไม่ใช่ 'ยังไม่เคยดึง')", () => {

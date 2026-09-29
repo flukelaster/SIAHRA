@@ -2082,7 +2082,8 @@ and not covered by `contrast.test.ts`, which checks tokens only.
 - Risk: the live basin labels could have been mostly null or inconsistent (probed 2026-09-29: 1,442
   stations, 0 null basin, 22 basins, 3 outside Thailand, 13 dams in 8 basins — so `unassigned` is empty
   today but still counted); a persistent rebuild failure after a first good row is visible only as an
-  ageing `fetchedAt` (meta `basinsError` is not exposed)
+  ageing `fetchedAt` (meta `basinsError` is not exposed); separately, the ThaiWater ingestion itself was
+  failing at deploy time (see the 2026-09-29 follow-up below) — not fixed by E19.1
 - Issue: _(not yet filed)_
 
 1. Contract and API: `GET /api/v1/basins` returns `BasinsResponse` from **one** primary-key read of
@@ -2109,6 +2110,18 @@ and not covered by `contrast.test.ts`, which checks tokens only.
 5. Tests: api grouping / cold state / size cap / route (400, `no-store`, 503); web `basinView`,
    `BasinCard`, poll schedule, topic and shell-prefs key order; `npx tsc -b`, `npx oxlint src worker`,
    root `npm test` green.
+
+Follow-up 2026-09-29 (branch `fix/basin-cold-start`, cold-start fix): PR #129 deployed while ThaiWater was
+answering 429 to our Worker (health `waterlevelFetchedAt` 10:05Z, 1,442 stations held, 806 consecutive
+failures), so no refresh tick ever succeeded, `basins_latest` never got a row and the panel falsely said
+"never fetched". Fix: `getBasins()` lazily calls the existing `rebuildBasins()` when the row is absent,
+`waterlevelFetchedAt` is set and no refresh is in flight, at most once per `BASINS_LAZY_INTERVAL_MS` 10 min per
+DO instance (in-memory timer, reset on eviction — accepted; ~1.5k rows scanned per attempt; no new SQL or
+`ALLOWED_SCANS` key); the no-row answer carries `buildError` whenever the tables hold data, and the web
+shows `basin.neverFetched` only for `fetchedAt === null` with no `buildError`, else the new `basin.notBuilt`
+note (no header age chip, no `basin.fetchedAt` row). Known limit: the ThaiWater 429 outage itself (the
+ingestion failing for the Worker while data from 10:05Z is still held) is a separate problem and is **not**
+fixed here; the basin view will show the held data, dimmed as stale, until ingestion recovers.
 
 Follow-up (not in this task): a curated, cited per-basin reach order (Mun, Chi, Tapi, Mae Klong, …) built
 by an `apps/etl` script in the `build:north-route` pattern — a strings-only cited source file plus ThaiWater

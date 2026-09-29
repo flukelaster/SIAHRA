@@ -404,7 +404,11 @@ export function BasinCard({
 
   // ── สถานะความสด: ยังไม่เคยดึง / ถามไม่ได้ / ค้าง — แยกกัน ──
   const fetchedAt = data?.fetchedAt ?? null;
-  const neverFetched = data !== null && fetchedAt === null;
+  // ไม่มีเวลาดึง = ไม่มีแถวให้แสดง (ไม่แสดงตัวเลือก) — แต่สาเหตุมีสองอย่างที่ห้ามปนกัน: API ไม่เคยได้ระดับน้ำจาก ThaiWater เลย
+  // (`buildError` ว่าง) กับ API ถือข้อมูลอยู่แล้วแต่สร้างมุมมองรายลุ่มน้ำไม่ได้ (`buildError` มีเหตุ) — อย่างหลังห้ามพูดว่า "ยังไม่เคยดึง"
+  const noRow = data !== null && fetchedAt === null;
+  const notBuilt = noRow && Boolean(data?.buildError);
+  const neverFetched = noRow && !notBuilt;
   // เกณฑ์ค้าง = staleAfterSeconds + แคชขอบ + รอบถามของเว็บ (`basinStaleLimitMs`) — ท่อที่ดีให้อายุบนจอได้ถึงราว 30 นาที
   const ageMs = basinAgeMs(fetchedAt, nowMs);
   const stale = data !== null && isBasinsStale(fetchedAt, data.layer.staleAfterSeconds ?? 900, nowMs);
@@ -422,8 +426,9 @@ export function BasinCard({
       title={t("basin.title")}
       icon={<Waypoints size={16} className="text-[var(--color-accent)]" aria-hidden="true" />}
       headerAction={
-        <span className="text-[10px] text-[var(--color-fg-muted)]" title={data ? t("basin.fetchedAt", { time: formatFetchedAt(lang, fetchedAt) }) : undefined}>
-          {data ? formatAge(lang, fetchedAt, nowMs) : state.loading && live ? t("common.loading") : ""}
+        <span className="text-[10px] text-[var(--color-fg-muted)]" title={data && !notBuilt ? t("basin.fetchedAt", { time: formatFetchedAt(lang, fetchedAt) }) : undefined}>
+          {/* notBuilt: fetchedAt เป็น null เพราะ "ไม่มีแถว" ไม่ใช่ "ไม่เคยดึง" — ห้ามพิมพ์ "ยังไม่เคยได้รับข้อมูล" ทั้งที่ API ถือข้อมูลอยู่ (โน้ตด้านล่างบอกเหตุแทน) */}
+          {data && !notBuilt ? formatAge(lang, fetchedAt, nowMs) : state.loading && live ? t("common.loading") : ""}
         </span>
       }
     >
@@ -436,7 +441,7 @@ export function BasinCard({
             {t(badge.labelKey)}
           </span>
           {/* ยังไม่มีคำตอบจาก API (กำลังโหลด / คำขอพลาด / ไม่ได้ถาม) = ไม่มีอะไรจะบอก — null ที่นี่คือ "ไม่ได้ถาม/ถามไม่ได้" ไม่ใช่ "ไม่เคยได้ข้อมูล" */}
-          {data !== null ? (
+          {data !== null && !notBuilt ? (
             <span className="text-[10px] text-[var(--color-fg-muted)]">{t("basin.fetchedAt", { time: formatFetchedAt(lang, fetchedAt) })}</span>
           ) : null}
         </div>
@@ -455,7 +460,8 @@ export function BasinCard({
             {data === null && requestFailed ? <Note tone="bad">{t("basin.error.noData", { error: errorText })}</Note> : null}
             {data === null && !requestFailed ? <div className="h-32 animate-pulse rounded-xl bg-white/5" role="status" aria-label={t("basin.loading")} /> : null}
             {neverFetched ? <Note tone="warn">{t("basin.neverFetched")}</Note> : null}
-            {data?.buildError ? <Note tone="warn">{t("basin.buildError", { error: data.buildError })}</Note> : null}
+            {notBuilt && data?.buildError ? <Note tone="warn">{t("basin.notBuilt", { error: data.buildError })}</Note> : null}
+            {!noRow && data?.buildError ? <Note tone="warn">{t("basin.buildError", { error: data.buildError })}</Note> : null}
             {data !== null && requestFailed ? (
               <Note tone="bad">
                 {t("basin.error.refresh", {
@@ -475,7 +481,7 @@ export function BasinCard({
               </Note>
             ) : null}
 
-            {data && !neverFetched && picker ? (
+            {data && !noRow && picker ? (
               <div className={`flex flex-col gap-2.5 ${dim ? "opacity-60" : ""}`}>
                 <Picker
                   rows={picker.basins}

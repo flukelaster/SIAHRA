@@ -139,11 +139,18 @@ const EXPOSURE_RUN_LAG_MS = 30 * 60 * 1000;
 /**
  * มุมมองตามลุ่มน้ำ (`GET /api/v1/basins`): แถวเดียว `basins_latest(id='all')` ที่ **ถูกเขียนใหม่ทุกรอบ refresh ที่ดึงระดับน้ำ
  * สำเร็จ** (ไม่มี hash-skip — `fetchedAt` ในแถวต้องเป็นเวลาของรอบนั้นจริง) ไม่มีตารางต่อลุ่มน้ำ ไม่มี DELETE
- * ทางอ่าน (`getBasins`) อ่านแถวนี้ด้วย PK อย่างเดียว — ไม่สแกนตารางสถานี ไม่ parse payload ทีละสถานี
+ * ทางอ่าน (`getBasins`) อ่านแถวนี้ด้วย PK — ไม่สแกนตารางสถานี ไม่ parse payload ทีละสถานี; ข้อยกเว้นเดียวคือทางสร้างครั้งแรกแบบ lazy
+ * (ไม่มีแถวแต่ `waterlevelFetchedAt` มีค่า) ที่ถูกจำกัดให้ไม่เกินหนึ่งครั้งต่อ 10 นาทีต่อ instance ด้วยตัวจับเวลาในหน่วยความจำ
  */
 const BASINS_ID = "all";
 /** เพดานขนาดแถว (ไบต์ UTF-8) — แถวของ DO จำกัด 2 MB; เกินเพดาน = ไม่เขียน เก็บแถวเดิมไว้ แล้วบอกใน meta */
 const BASINS_MAX_BYTES = 1_000_000;
+/**
+ * ทางสร้าง "ครั้งแรก" ของ `getBasins()` เมื่อไม่มีแถวแต่ตารางถือข้อมูลที่ดึงสำเร็จแล้ว (deploy ตอนต้นทางล่ม → ไม่มีรอบ refresh
+ * ที่สำเร็จมาสร้างแถวให้): ลองได้ไม่เกินหนึ่งครั้งต่อ 10 นาทีต่อ DO instance ไม่ว่าสำเร็จหรือพลาด — ตัวจับเวลาอยู่ในหน่วยความจำ
+ * (ไม่มีการเขียนเพิ่ม) จึงไม่มีทางสแกนต่อคำขอ
+ */
+const BASINS_LAZY_INTERVAL_MS = 10 * 60 * 1000;
 
 /**
  * Durable Object SQLite caps bound parameters per statement (100), and each
@@ -748,8 +755,8 @@ export class ObservationCacheDO extends DurableObject<Env> {
 
   /**
    * สร้างแถว `basins_latest` หนึ่งแถวจาก **ตาราง** (ไม่ใช่อาเรย์ฟีดของรอบนี้ — `replaceWaterLevel` เก็บสถานีที่หายไปจาก
-   * ฟีดหนึ่งรอบไว้ ตารางจึงเป็นความจริงของสิ่งที่เรามี) — เรียกครั้งเดียวต่อรอบ refresh เท่านั้น (สแกนสองตาราง
-   * ที่ `ALLOWED_SCANS` ระบุเหตุผลไว้แล้ว) การเขียนคือ **หนึ่งคำสั่ง** ต่อรอบ ไม่ว่ากี่สถานี
+   * ฟีดหนึ่งรอบไว้ ตารางจึงเป็นความจริงของสิ่งที่เรามี) — เรียกครั้งเดียวต่อรอบ refresh หรือจากทางสร้าง lazy ของ
+   * `getBasins()` (≤ 1 ครั้ง/10 นาที/instance) เท่านั้น (สแกนสองตารางที่ `ALLOWED_SCANS` ระบุเหตุผลไว้แล้ว) การเขียนคือ **หนึ่งคำสั่ง** ต่อรอบ ไม่ว่ากี่สถานี
    *
    * **ไม่มีวัน reject** — ความล้มเหลวทุกแบบ (SQL, parse, ขนาดเกินเพดาน) ถูกเก็บใน meta `basinsError` แล้วแถวเดิมอยู่
    * ครบ เพราะมันวิ่งบนเส้นทางเดียวกับ refresh: ถ้าโยนออกไป armAlarm() ของผู้เรียกจะถูกข้ามได้
@@ -806,17 +813,47 @@ export class ObservationCacheDO extends DurableObject<Env> {
     }
   }
 
+  /** เวลา (ms) ของความพยายามสร้างแถวแบบ lazy ครั้งล่าสุดใน instance นี้ — null = ยังไม่เคย; ไม่ถูกเก็บลง storage */
+  private basinsLazyAttemptMs: number | null = null;
+
   /**
    * Backs GET /api/v1/basins — **อ่านแถวเดียวด้วย PK แล้วคืนสตริงตามที่เก็บ** (route ส่งต่อทั้งก้อน ไม่ parse/stringify
-   * ต่อคำขอ) ไม่สแกนตารางสถานีหรือเขื่อน ไม่เรียก `ensureFresh`/`refreshOnce`/`getDams` ไม่ยิงต้นทาง
-   * `body: null` = ยังไม่มีรอบ refresh ที่ดึงระดับน้ำสำเร็จหลังสร้างตารางนี้ (route ตอบ `fetchedAt: null` แบบ no-store)
+   * ต่อคำขอ) ไม่เรียก `ensureFresh`/`refreshOnce`/`getDams` ไม่ยิงต้นทาง
+   * `body: null` = ไม่มีแถว; `lastError` บอกเหตุ (route ใส่ใน `buildError` ของคำตอบ "ยังไม่มีแถว"):
+   * - meta `waterlevelFetchedAt` เป็น null = ตารางไม่เคยได้ระดับน้ำจริง → `lastError` null (= "ยังไม่เคยดึง" ตามจริง)
+   * - `waterlevelFetchedAt` มีค่าแต่ไม่มีแถว = ตารางถือข้อมูลอยู่ แต่ยังสร้างมุมมองไม่ได้ → `lastError` ไม่เป็น null เสมอ
+   *   (ห้ามให้อ่านเป็น "ไม่เคยดึง")
    * แถวที่มี = ถูกเขียนหลัง `waterlevelFetchedAt` ของรอบนั้นเสมอ จึงมี `fetchedAt` ที่ไม่ใช่ null โดยโครงสร้าง
+   *
+   * ทางสร้างแบบ lazy (เพียงทางเดียวที่ทางอ่านนี้สแกนได้): ไม่มีแถว + `waterlevelFetchedAt` ไม่ใช่ null + ไม่มีรอบ refresh
+   * ค้างอยู่ + ผ่านมา ≥ `BASINS_LAZY_INTERVAL_MS` นับจากความพยายามล่าสุดของ instance นี้ → เรียก `rebuildBasins()` เดิม
+   * (SQL ชุดเดิมที่ `ALLOWED_SCANS` ระบุไว้) เมธอดนี้ sync ตลอดช่วงสร้าง คำขอที่มาพร้อมกันจึงเห็นตัวจับเวลาที่ตั้งไว้แล้วและ
+   * ไม่สร้างซ้ำ — ทั้งสำเร็จและพลาดนับเป็นหนึ่งความพยายาม
+   * ตัวจับเวลาอยู่ในหน่วยความจำ จึงรีเซ็ตเมื่อ DO instance ถูกถอดออก (evicted) — ยอมรับได้: สแกนราว 1.5k แถวต่อความพยายาม
+   * และรอบสร้างที่ขับด้วย alarm ครอบคลุมกรณีปกติ
    */
   async getBasins(): Promise<{ body: string | null; lastError: string | null }> {
-    const row = this.ctx.storage.sql
-      .exec<{ body: string }>("SELECT body FROM basins_latest WHERE id = ?", BASINS_ID)
-      .toArray()[0];
-    return { body: row?.body ?? null, lastError: row ? null : this.readMeta("basinsError") };
+    const readRow = () =>
+      this.ctx.storage.sql
+        .exec<{ body: string }>("SELECT body FROM basins_latest WHERE id = ?", BASINS_ID)
+        .toArray()[0];
+    const row = readRow();
+    if (row) return { body: row.body, lastError: null };
+    const holdsData = this.readMeta("waterlevelFetchedAt") !== null;
+    if (holdsData && this.inflight === null) {
+      const nowMs = Date.now();
+      if (this.basinsLazyAttemptMs === null || nowMs - this.basinsLazyAttemptMs >= BASINS_LAZY_INTERVAL_MS) {
+        this.basinsLazyAttemptMs = nowMs;
+        this.rebuildBasins();
+        const built = readRow();
+        if (built) return { body: built.body, lastError: null };
+      }
+    }
+    const error = this.readMeta("basinsError");
+    return {
+      body: null,
+      lastError: error ?? (holdsData ? "basins view not built yet from the stored water levels" : null),
+    };
   }
 
   /**

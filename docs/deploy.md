@@ -480,10 +480,16 @@ table `basins_latest` in `ObservationCacheDO` whose single row (~300 KB, capped 
 refresh tick that fetched water levels, reading the whole `waterlevel` and `dams` tables (the two existing `ALLOWED_SCANS`
 literals; `publishExposure()` scans `waterlevel` too, so that table is read twice per tick, ≈ 100M rows/month = 0.4 % of the
 25B included) — ≈ 8.6k–17k `basins_latest` row writes/month (0.03 % of the 50M included); no history table, no retention,
-no R2/D1, no `console.*` in a loop, no new log line. The per-request path is a single-row PK read on an edge-cache miss,
+no R2/D1, no `console.*` in a loop, no new log line. One exception on the read path: when no row exists yet but water levels
+were fetched earlier, `getBasins()` runs the same rebuild itself — the two table scans again, at most once per DO instance
+per 10 min (`BASINS_LAZY_INTERVAL_MS`, in-memory timer that resets when the DO is evicted; ~1.5k rows read and 1–2 rows
+written per attempt, no new SQL literal — ≈ 4.3k attempts/month realistic, ≈ 259k in the pathological every-eviction case,
+both inside the included allowances). It only happens while no row has ever been written, so it ends with the first success,
+and the still-empty answer carries `buildError` instead of "never fetched".
+The per-request path is otherwise a single-row PK read on an edge-cache miss,
 under a 5-min `caches.default` entry keyed on origin + pathname only (a query string is a 400 before the cache; the no-row-yet
 answer is `no-store`), and the web asks only while the basin panel is open (10 min, 120 s retry) —
-devops verify 2026-09-29 (pre-gate and post-diff agree): **≈ +$0.02/month expected, ≈ +$0.15 high**; one-off cost $0;
+devops verify 2026-09-29 (pre-gate, post-diff and the cold-start fix agree): **≈ +$0.02/month expected, ≈ +$0.15 high**; one-off cost $0;
 projected account total ≈ **$5.5/month expected** (Durable Objects + Workers pricing pages, fetched 2026-09-29)
 
 E14.F1 (`/api/v1/provinces/{NN}/flood-extent?at=`) เพิ่มเส้นทางย้อนหลังโดยไม่เพิ่ม DO write ต่อคำขอ: ตาราง `flood_scenes`
