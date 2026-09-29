@@ -116,3 +116,68 @@ export interface NorthRouteResponse {
   windowHours: number;
   stations: NorthRouteStationState[];
 }
+
+/**
+ * พยากรณ์ปริมาณน้ำท่า/ระดับน้ำจากไฟล์ผลลัพธ์แบบจำลอง FEWS ของ สสน. (HII) — `GET /api/v1/rivers/forecast`
+ *
+ * เป็นค่า **เชิงกำหนด** ของแบบจำลองบุคคลที่สาม (`forecast`) ที่ผู้เผยแพร่ไม่ได้ระบุชื่อแบบจำลอง —
+ * ไม่มีความน่าจะเป็น ไม่มีเวลาน้ำมาถึง และไม่มีตัวเลขที่เราคำนวณเอง (เกณฑ์เตือนส่งต่อตามที่เผยแพร่)
+ *
+ * **ข้อควรระวังสำคัญ**: `series` เริ่มก่อน `publishedAt` ราว 7 วัน (ไฟล์ต้นทางเป็นหน้าต่างเลื่อน
+ * ราว now−7d ถึง now+7d) จุดก่อน `publishedAt` คือค่าที่แบบจำลองให้ไว้สำหรับชั่วโมงที่ผ่านไปแล้ว
+ * **ไม่ใช่การพยากรณ์** และผู้ใช้ห้ามนำเสนอเป็นการพยากรณ์ เวลาในไฟล์ต้นทางเป็นเวลาไทย (+07:00)
+ * และถูกแปลงเป็น epoch ms (UTC) แล้ว ค่าที่ไม่มีคือ null ไม่ใช่ 0 (ชุดข้อมูลไม่มีจุดค่าว่างเลย —
+ * แถวที่อ่านไม่ออกถูกข้ามและบอกไว้ใน `lastError`)
+ */
+export type RiverForecastKind = "discharge" | "waterlevel";
+
+/** เกณฑ์ตามที่ HII เผยแพร่ (metadata CSV) — ช่องว่าง/ไม่ใช่ตัวเลข = null ไม่ใช่ 0 */
+export interface RiverForecastThresholds {
+  alarm: number | null;
+  warning: number | null;
+  critical: number | null;
+}
+
+export interface RiverForecastStation {
+  /** รหัสสถานีบนเส้นทางน้ำเหนือ (มีจุด เช่น "C.2") — สถานีระดับน้ำนนทบุรีไม่มีรหัสเส้นทาง จึงใช้รหัส HII */
+  code: string;
+  /** รหัสของ HII (ไม่มีจุด เช่น "C2", "CPY014") */
+  hiiCode: string;
+  kind: RiverForecastKind;
+  /** ลบ.ม./วินาที สำหรับ discharge, เมตร สำหรับ waterlevel (เกณฑ์ใช้หน่วยเดียวกัน) */
+  unit: "m3/s" | "m";
+  /** ชื่อสถานีตามที่เผยแพร่ — null = ยังไม่เคยได้ metadata */
+  nameTh: string | null;
+  /** จังหวัดตามข้อความที่เผยแพร่ (เช่น "จ.นครสวรรค์") — null = ยังไม่เคยได้ metadata */
+  province: string | null;
+  /** null = ไม่มีแถวของสถานีนี้ใน metadata (ยังไม่เคยได้/ไม่พบ) */
+  thresholds: RiverForecastThresholds | null;
+  /** `[epoch ms UTC, ค่า]` รายชั่วโมงตามต้นทาง ไม่ลดจำนวนจุด — รวมชั่วโมงก่อน `publishedAt` (ดูด้านบน) */
+  series: [number, number][];
+  /** `Last-Modified` ของไฟล์สถานีนี้ — null = ต้นทางไม่ส่ง (ห้ามแทนด้วย fetchedAt) */
+  publishedAt: string | null;
+  /** เวลาที่เรายืนยันไฟล์นี้กับต้นทางสำเร็จล่าสุด (รวม 304) — null = ยังไม่เคย */
+  fetchedAt: string | null;
+  /** เหตุที่รอบล่าสุดของไฟล์นี้ไม่สมบูรณ์ — ชุดค่าเดิมยังอยู่พร้อม fetchedAt เก่าของมัน */
+  lastError: string | null;
+}
+
+export interface RiverForecastResponse {
+  /**
+   * `forecast`, sourceIds `["hii-fews"]` — `fetchedAt` = รอบล่าสุดที่มีไฟล์สำเร็จอย่างน้อยหนึ่งไฟล์
+   * (ความสดรายไฟล์อยู่ที่ `stations[].fetchedAt`), `publishedAt` = `Last-Modified` ที่เก่าที่สุดของไฟล์ที่ถืออยู่,
+   * `forecast.issuedAt` เป็น null เสมอ (ต้นทางไม่บอกรอบรัน), `horizonHours` = จุดสุดท้ายลบ `publishedAt`
+   */
+  layer: HazardLayerDescriptor;
+  stations: RiverForecastStation[];
+  /** สถานะรอบดึงของต้นทางเดียวนี้ — `lastSuccessAt` null = ยังไม่เคยสำเร็จเลย */
+  source: {
+    id: "hii-fews";
+    lastSuccessAt: string | null;
+    lastAttemptAt: string | null;
+    lastError: string | null;
+  };
+  /** metadata (เกณฑ์/ชื่อ) ดึงวันละครั้ง — ล้มเหลวไม่ทำให้รอบพยากรณ์ล้ม จึงรายงานแยกตรงนี้ */
+  thresholdsFetchedAt: string | null;
+  thresholdsLastError: string | null;
+}

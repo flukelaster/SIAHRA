@@ -128,7 +128,7 @@ well** — a failure that only exists in the log is a silent failure.
 
 ## 4. Alarm cadence
 
-Cron (`* * * * *`, `apps/api/wrangler.jsonc`) runs all seven refresh jobs every minute, each with its
+Cron (`* * * * *`, `apps/api/wrangler.jsonc`) runs all eight refresh jobs every minute, each with its
 own ~25 s budget, concurrently and in isolation. On top of that **every Durable Object schedules its
 own alarm**, so a missed cron tick does not freeze a source. Both paths share the same in-flight
 refresh, so they cannot double-fetch.
@@ -141,6 +141,7 @@ refresh, so they cannot double-fetch.
 | `EarthquakeFeedDO` | `earthquakes` | 1 min | next tick (1 min) | 300 (5 min) | `null` (quakes have no cadence) | events 30 days |
 | `ForecastNwpDO` | `tmd-nwp` | 1 h | 5 min | 10800 (3 h) | `null` (a forecast has no observation to be late about) | none — latest round only, one row per province, overwritten in place |
 | `StormTrackDO` | `jma-typhoon`, `gdacs-tc` | 30 min | 5 min only when both upstreams failed (one failing waits the normal 30 min); cron gated on `lastAttemptAt` like `ForecastNwpDO` | 10800 (3 h) | `null` (storms have no cadence) | none — one `latest` row, overwritten on every successful round; per-source meta |
+| `HiiForecastDO` | `hii-fews` | 1 h, **alarm-driven** (the cron's `ensureFresh()` only re-arms a lost alarm; it starts a round itself only when the last attempt is > 2 h old) | 5 min when no forecast file answered, doubling to 1 h; a file-level failure keeps the previous series | 10800 (3 h) | `null` (a forecast has no observation to be late about) | none — one `latest` row overwritten on every successful round, plus meta rows |
 | `ObservationCacheDO` (exposure) | `exposure-illustrative` | on every ThaiWater refresh (~5 min) | with that refresh | 3600 (1 h) | 1800 (30 min) | runs kept indefinitely (see §6) |
 
 Side cadences inside `ObservationCacheDO`: dams every 30 min (5 min pause after a failure so a broken
@@ -288,6 +289,12 @@ else in the code path prunes these objects.
   `observedLagSeconds` are `null` by design: a forecast measures nothing, and its valid times are in
   the future. Putting a future time in `latestObservedAt` would claim we observed the future. Judge
   this source by `fetchedAt` and `lastError` only.
+- **`hii-fews` stays `ok` while HII's files are frozen** → known blind spot. The DO asks with ETag /
+  If-Modified-Since and counts a `304` (or a byte-identical `200`) as a successful round, because it
+  really did confirm the file with the upstream. If HII stops regenerating the files while still
+  answering, `/health` keeps saying `ok` and the freeze shows only as an ageing `detail.oldestPublishedAt`
+  (and `layer.publishedAt` in `/api/v1/rivers/forecast`); nothing judges that age automatically. Like
+  `tmd-nwp`, the row has no `latestObservedAt` and can never be `delayed`.
 - **TMD NWP quota is generous and worth watching anyway** → 100,000 datapoints per hour (rolling from
   the first request, counted as `locations × duration × fields`) and 60 requests per minute. One round
   costs 77×48×3 + 77×7×2 = **12,166 datapoints (≈ 12%)** over **13 requests** (6 regions × hourly and
@@ -453,7 +460,7 @@ anything an order of magnitude above that is a regression. **DO requests are the
 is no longer comfortable**: E12.2 made `/api/v1/health` fan out to 7 DO calls instead of 6 (six
 distinct instances — `ObservationCacheDO` is asked twice), so DO requests rise ~17% and the worst
 case lands around 1.2M against the 1M included, i.e. ~$0.03–0.10/month; the storm layer v1 made it 8
-calls (seven instances, `StormTrackDO`), ~1.37M worst case. The lever if it matters is
+calls (seven instances, `StormTrackDO`), ~1.37M worst case; `HiiForecastDO` made it 9 calls (eight instances), ~1.5M worst case. The lever if it matters is
 the `/health` cache (`public, max-age=15`), not removing a source from the endpoint.
 
 **`ForecastNwpDO` (E12.2) is the worked example of designing for this from the start**: one table,

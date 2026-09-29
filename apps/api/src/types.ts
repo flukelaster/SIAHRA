@@ -4,6 +4,7 @@ import type { EarthquakeFeedDO } from "./durable-objects/earthquake-feed.js";
 import type { FloodExtentDO } from "./durable-objects/flood-extent.js";
 import type { ForecastNwpDO } from "./durable-objects/forecast-nwp.js";
 import type { ForecastPointerDO } from "./durable-objects/forecast-pointer.js";
+import type { HiiForecastDO } from "./durable-objects/hii-forecast.js";
 import type { ObservationCacheDO } from "./durable-objects/observation-cache.js";
 import type { RadarDO } from "./durable-objects/radar.js";
 import type { StormTrackDO } from "./durable-objects/storm-track.js";
@@ -27,6 +28,7 @@ export interface AppEnv
     | "ALERT_ENGINE"
     | "STORM_TRACK"
     | "COMMUNITY_REPORT"
+    | "HII_FORECAST"
   > {
   RADAR: DurableObjectNamespace<RadarDO>;
   EARTHQUAKE_FEED: DurableObjectNamespace<EarthquakeFeedDO>;
@@ -37,4 +39,5 @@ export interface AppEnv
   ALERT_ENGINE: DurableObjectNamespace<AlertEngineDO>;
   STORM_TRACK: DurableObjectNamespace<StormTrackDO>;
   COMMUNITY_REPORT: DurableObjectNamespace<CommunityReportDO>;
+  HII_FORECAST: DurableObjectNamespace<HiiForecastDO>;
 }

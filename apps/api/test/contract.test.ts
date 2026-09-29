@@ -58,6 +58,9 @@ const DATA_ROUTES: { path: string; mayFail503?: boolean }[] = [
   // เส้นทางพายุ: DO เย็นตอบ 200 พร้อม storms ว่างและ fetchedAt null ทั้งสามชั้น
   // (ไม่ใช่ "ไม่มีพายุ" — sources.*.lastSuccessAt null บอกว่ายังไม่เคยดึง)
   { path: "/api/v1/storms" },
+  // พยากรณ์ปริมาณน้ำท่า/ระดับน้ำ HII FEWS: DO เย็นตอบ 200 พร้อมหกสถานีที่ชุดค่าว่างและ fetchedAt null
+  // (ไม่ใช่ "ไม่มีพยากรณ์" — source.lastSuccessAt null บอกว่ายังไม่เคยดึง)
+  { path: "/api/v1/rivers/forecast" },
   { path: "/api/v1/stations/1/history?hours=24", mayFail503: true },
   { path: "/api/v1/earthquakes/recent?limit=5" },
 ];
