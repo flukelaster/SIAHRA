@@ -19,7 +19,7 @@
     "test": "npm run test -w apps/api && npm run test -w apps/web && npm run test -w apps/etl"
   },
   "devDependencies": {
-    "concurrently": "^10.0.5"
+    "concurrently": "^10.0.6"
   },
   "overrides": {
     "sharp": "0.35.4"
