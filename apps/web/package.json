@@ -16,24 +16,24 @@
   },
   "dependencies": {
     "@siahra/shared-types": "*",
-    "hls.js": "^1.7.3",
-    "lucide-react": "^1.60.0",
+    "hls.js": "^1.7.4",
+    "lucide-react": "^1.70.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "three": "^0.186.1"
+    "three": "^0.187.0"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.3.3",
-    "@types/node": "^26.6.5",
+    "@tailwindcss/vite": "^4.3.4",
+    "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@types/three": "^0.186.0",
-    "@vitejs/plugin-react": "^6.1.2",
-    "oxlint": "^1.89.0",
+    "@types/three": "^0.187.0",
+    "@vitejs/plugin-react": "^6.2.1",
+    "oxlint": "^1.92.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~7.0.2",
-    "vite": "^8.3.4",
+    "vite": "^8.3.6",
     "vitest": "^4.1.12",
-    "wrangler": "^4.151.3"
+    "wrangler": "^4.158.0"
   }
 }
